@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --dot-color: #d9d7d2;
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  background-color: #fafaf8;
+  color: #2c2a26;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
