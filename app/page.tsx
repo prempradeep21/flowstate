@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Canvas } from "@/components/Canvas";
+import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { useCanvasStore } from "@/lib/store";
 
 const INITIAL_CARD_WIDTH = 420;
@@ -31,6 +32,7 @@ export default function Page() {
   return (
     <main className="fixed inset-0">
       <Canvas />
+      <ArtifactPanel />
     </main>
   );
 }

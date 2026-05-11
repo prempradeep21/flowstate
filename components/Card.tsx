@@ -22,8 +22,14 @@ export function Card({ card }: CardProps) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
+  const openArtifact = useCanvasStore((s) => s.openArtifact);
+  // Only vertical follow-ups (same-thread children) suppress the follow-up
+  // input. Side branches spawn new threads and shouldn't strip this card of
+  // its own ability to continue inquiring further down its thread.
   const hasChildren = useCanvasStore((s) =>
-    s.connections.some((c) => c.from === card.id),
+    s.connections.some(
+      (c) => c.from === card.id && c.fromSide === "bottom",
+    ),
   );
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -98,10 +104,11 @@ export function Card({ card }: CardProps) {
           answer: next,
           thinkingLabel: undefined,
         }),
-      onDone: () =>
+      onDone: ({ artifactId }) =>
         updateCard(card.id, {
           status: "done",
           thinkingLabel: undefined,
+          artifactId: artifactId ?? undefined,
         }),
     });
   }, [card.status, card.question, card.id, updateCard]);
@@ -208,14 +215,21 @@ export function Card({ card }: CardProps) {
           style={{ background: accent }}
         />
       )}
-      <BranchHandle
-        side="left"
-        onClick={() => createBranch(card.id, "left")}
-      />
-      <BranchHandle
-        side="right"
-        onClick={() => createBranch(card.id, "right")}
-      />
+      {card.status === "done" && (
+        <>
+          <BranchHandle
+            side="left"
+            onClick={() => createBranch(card.id, "left")}
+          />
+          <BranchHandle
+            side="right"
+            onClick={() => createBranch(card.id, "right")}
+          />
+          {card.artifactId && (
+            <ArtifactBadge onClick={() => openArtifact(card.id)} />
+          )}
+        </>
+      )}
       <div className="px-5 pt-4 pb-3">
         {card.status === "empty" ? (
           <div className="flex items-end gap-2">
@@ -226,7 +240,7 @@ export function Card({ card }: CardProps) {
               onKeyDown={handleQuestionKeyDown}
               placeholder={emptyPlaceholder}
               rows={1}
-              className="block min-h-[22px] flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-snug text-canvas-ink outline-none placeholder:text-canvas-muted/70"
+              className="block min-h-[26px] flex-1 resize-none border-0 bg-transparent p-0 text-[18px] font-bold leading-snug text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
             />
             <button
               type="button"
@@ -242,7 +256,7 @@ export function Card({ card }: CardProps) {
           </div>
         )}
         {card.status !== "empty" && (
-          <div className="whitespace-pre-wrap text-[15px] leading-snug text-canvas-ink">
+          <div className="whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink">
             {card.question}
           </div>
         )}
@@ -328,5 +342,52 @@ function BranchHandle({
     >
       <span className="text-[14px] leading-none">+</span>
     </button>
+  );
+}
+
+// Floating document badge that sits 16px outside the card's right edge. Per
+// the V1 spec it stays visible (not hover-revealed) because its purpose is
+// to signal that this card has an attachment.
+//
+// The badge is the only piece of card UI that resists the canvas zoom: it's
+// anchored at the card's top-right corner and counter-scaled by
+// `1 / viewport.scale` so the icon (and the 16px gap to the card) stay the
+// same on-screen size at every zoom level. Scale is subscribed to inside the
+// badge itself so cards without an artifact don't pay the re-render cost.
+function ArtifactBadge({ onClick }: { onClick: () => void }) {
+  const scale = useCanvasStore((s) => s.viewport.scale);
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-full z-10"
+      style={{
+        transform: `scale(${1 / scale})`,
+        transformOrigin: "top left",
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Open attached document"
+        onClick={onClick}
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{ marginLeft: 16 }}
+        className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:border-canvas-ink/40 hover:text-canvas-ink"
+      >
+        <svg
+          aria-hidden
+          viewBox="0 0 16 16"
+          className="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3.5 1.75h6L13 5.25v8.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V2.25a.5.5 0 0 1 .5-.5Z" />
+          <path d="M9.25 1.75v3.5H13" />
+          <path d="M5.5 8.25h5" />
+          <path d="M5.5 10.75h5" />
+        </svg>
+      </button>
+    </div>
   );
 }

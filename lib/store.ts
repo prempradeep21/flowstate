@@ -19,6 +19,10 @@ export interface Card {
   position: { x: number; y: number };
   parentCardId: string | null;
   size?: CardSize;
+  // Identifies which markdown variant doubles as this card's attached
+  // artifact. Presence of this field is also what makes the floating
+  // document badge visible on the card.
+  artifactId?: string;
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";
@@ -49,6 +53,7 @@ interface CanvasState {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  openArtifactCardId: string | null;
 
   setViewport: (next: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
@@ -65,6 +70,9 @@ interface CanvasState {
   createRootCard: (position: { x: number; y: number }) => string;
   createFollowUp: (parentId: string, question: string) => string | null;
   createBranch: (sourceId: string, side: "left" | "right") => string | null;
+
+  openArtifact: (cardId: string) => void;
+  closeArtifact: () => void;
 }
 
 const MIN_SCALE = 0.25;
@@ -72,7 +80,10 @@ const MAX_SCALE = 3;
 const FOLLOW_UP_GAP = 80;
 const FALLBACK_CARD_HEIGHT = 240;
 const BRANCH_CARD_WIDTH = 420;
-const BRANCH_HORIZONTAL_GAP = 40;
+// Visual gap between a source and its first branch, and between sibling
+// branches on the same side. Equal to one card width so parallel branches
+// breathe at roughly the same scale as the cards themselves.
+const BRANCH_HORIZONTAL_GAP = BRANCH_CARD_WIDTH;
 
 // Placeholder palette for thread accents until OQ-01 is resolved.
 // Cycles after 8 threads.
@@ -95,6 +106,30 @@ const newId = (prefix: string) =>
 export const newCardId = () => newId("card");
 const newThreadId = () => newId("thread");
 
+// All children of a given source (follow-ups + branches) share a single
+// horizontal y-band: the y of the first child created. If none yet, fall back
+// to `source.y + source.h + gap`, computed once at first-child time and
+// reused by every subsequent sibling regardless of when the source's height
+// later changes.
+function childBandY(
+  state: CanvasState,
+  sourceId: string,
+  source: Card,
+): number {
+  let earliest: number | null = null;
+  for (const conn of state.connections) {
+    if (conn.from !== sourceId) continue;
+    const child = state.cards[conn.to];
+    if (!child) continue;
+    if (earliest === null || child.position.y < earliest) {
+      earliest = child.position.y;
+    }
+  }
+  if (earliest !== null) return earliest;
+  const sourceH = source.size?.h ?? FALLBACK_CARD_HEIGHT;
+  return source.position.y + sourceH + FOLLOW_UP_GAP;
+}
+
 export const useCanvasStore = create<CanvasState>((set) => ({
   viewport: { x: 0, y: 0, scale: 1 },
   cards: {},
@@ -102,6 +137,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   connections: [],
   threads: {},
   threadOrder: [],
+  openArtifactCardId: null,
 
   setViewport: (next) =>
     set((state) => ({ viewport: { ...state.viewport, ...next } })),
@@ -208,9 +244,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((state) => {
       const parent = state.cards[parentId];
       if (!parent) return state;
-      const parentH = parent.size?.h ?? FALLBACK_CARD_HEIGHT;
       const id = newCardId();
       childId = id;
+      const childY = childBandY(state, parentId, parent);
       const child: Card = {
         id,
         threadId: parent.threadId,
@@ -219,7 +255,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         status: "thinking",
         position: {
           x: parent.position.x,
-          y: parent.position.y + parentH + FOLLOW_UP_GAP,
+          y: childY,
         },
         parentCardId: parentId,
       };
@@ -245,7 +281,6 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       const source = state.cards[sourceId];
       if (!source) return state;
 
-      const sourceH = source.size?.h ?? FALLBACK_CARD_HEIGHT;
       const existingOnSide = state.connections.filter(
         (c) => c.from === sourceId && c.fromSide === side,
       ).length;
@@ -263,7 +298,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
             BRANCH_CARD_WIDTH -
             BRANCH_HORIZONTAL_GAP -
             lateralStep * slot;
-      const y = source.position.y + sourceH + FOLLOW_UP_GAP;
+      const y = childBandY(state, sourceId, source);
 
       const newThreadIdStr = newThreadId();
       const accent =
@@ -303,6 +338,14 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     });
     return branchId;
   },
+
+  openArtifact: (cardId) =>
+    set((state) => {
+      if (!state.cards[cardId]) return state;
+      return { openArtifactCardId: cardId };
+    }),
+
+  closeArtifact: () => set({ openArtifactCardId: null }),
 }));
 
 // Selector helpers.

@@ -1,3 +1,10 @@
+import { pickArtifactId } from "@/lib/artifacts";
+
+// Roughly one in three responses surfaces an attached "document" the user
+// can open from the floating badge. Tuned by feel — high enough that you
+// regularly see one, low enough that they still feel like an event.
+const ARTIFACT_CHANCE = 0.35;
+
 const SENTENCE_POOL: string[] = [
   "The shape of this question depends on the scale you choose to examine it at.",
   "A useful starting point is to separate the mechanism from the outcome it tends to produce.",
@@ -163,10 +170,14 @@ export function generateDummyAnswer(): string {
   return makeParagraph();
 }
 
+export interface AskDoneMeta {
+  artifactId: string | null;
+}
+
 export interface AskCallbacks {
   onThinking: (label: string) => void;
   onToken: (nextAnswer: string) => void;
-  onDone: () => void;
+  onDone: (meta: AskDoneMeta) => void;
 }
 
 export interface AskHandle {
@@ -175,6 +186,10 @@ export interface AskHandle {
 
 export function askDummy(_question: string, cb: AskCallbacks): AskHandle {
   const script = buildScript();
+  // Roll the artifact assignment up-front so the result is stable for the
+  // lifetime of this ask, even if `Math.random` is called again later.
+  const artifactId =
+    Math.random() < ARTIFACT_CHANCE ? pickArtifactId() : null;
 
   let cancelled = false;
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -184,7 +199,7 @@ export function askDummy(_question: string, cb: AskCallbacks): AskHandle {
   const runSegment = (idx: number) => {
     if (cancelled) return;
     if (idx >= script.length) {
-      cb.onDone();
+      cb.onDone({ artifactId });
       return;
     }
     const seg = script[idx];
