@@ -19,3 +19,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
 }
+
+@keyframes summary-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes summary-pulse-stroke {
+  0%,
+  100% {
+    border-color: rgb(230 228 223 / 0.55);
+    box-shadow: 0 0 0 0 rgb(138 134 126 / 0);
+  }
+  50% {
+    border-color: rgb(138 134 126 / 0.45);
+    box-shadow: 0 0 0 1px rgb(138 134 126 / 0.12);
+  }
+}

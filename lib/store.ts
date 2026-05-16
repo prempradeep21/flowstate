@@ -1,5 +1,6 @@
 "use client";
 
+import { computeAutoLayout } from "@/lib/autoLayout";
 import { create } from "zustand";
 
 export type ClaudeModel =
@@ -55,6 +56,8 @@ export interface Viewport {
   scale: number;
 }
 
+export type ConnectorStyle = "curvy" | "orthogonal";
+
 interface CanvasState {
   selectedModel: ClaudeModel;
   setModel: (model: ClaudeModel) => void;
@@ -66,6 +69,7 @@ interface CanvasState {
   threads: Record<string, Thread>;
   threadOrder: string[];
   openArtifactCardId: string | null;
+  connectorStyle: ConnectorStyle;
 
   setViewport: (next: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
@@ -85,6 +89,8 @@ interface CanvasState {
 
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
+  setConnectorStyle: (style: ConnectorStyle) => void;
+  autoLayoutCanvas: () => void;
 }
 
 const MIN_SCALE = 0.25;
@@ -153,6 +159,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   threads: {},
   threadOrder: [],
   openArtifactCardId: null,
+  connectorStyle: "curvy",
+
+  setConnectorStyle: (style) => set({ connectorStyle: style }),
 
   setViewport: (next) =>
     set((state) => ({ viewport: { ...state.viewport, ...next } })),
@@ -361,6 +370,25 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     }),
 
   closeArtifact: () => set({ openArtifactCardId: null }),
+
+  autoLayoutCanvas: () =>
+    set((state) => {
+      if (state.cardOrder.length === 0) return state;
+      const positions = computeAutoLayout({
+        cards: state.cards,
+        cardOrder: state.cardOrder,
+        connections: state.connections,
+      });
+      if (positions.size === 0) return state;
+
+      const nextCards = { ...state.cards };
+      for (const [id, pos] of positions) {
+        const existing = nextCards[id];
+        if (!existing) continue;
+        nextCards[id] = { ...existing, position: pos };
+      }
+      return { cards: nextCards };
+    }),
 }));
 
 // Selector helpers.
