@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic();
-
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
   description:
@@ -67,6 +65,13 @@ async function fetchWikimedia(
 }
 
 export async function POST(req: Request) {
+  const apiKey =
+    req.headers.get("x-api-key") ?? process.env.ANTHROPIC_API_KEY ?? "";
+  if (!apiKey) {
+    return Response.json({ error: "No API key provided" }, { status: 401 });
+  }
+  const anthropic = new Anthropic({ apiKey });
+
   const { question, model, history } = await req.json();
 
   const messages: Anthropic.MessageParam[] = [
@@ -85,6 +90,8 @@ export async function POST(req: Request) {
     async start(controller) {
       const emit = (data: object) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+
+      const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       try {
         // First pass — Claude may call search_images or answer directly.
@@ -105,6 +112,8 @@ export async function POST(req: Request) {
         }
 
         const msg1 = await stream1.finalMessage();
+        totalUsage.inputTokens += msg1.usage.input_tokens;
+        totalUsage.outputTokens += msg1.usage.output_tokens;
 
         if (msg1.stop_reason === "tool_use") {
           const toolBlock = msg1.content.find(
@@ -147,6 +156,9 @@ export async function POST(req: Request) {
                 emit({ text: event.delta.text });
               }
             }
+            const msg2 = await stream2.finalMessage();
+            totalUsage.inputTokens += msg2.usage.input_tokens;
+            totalUsage.outputTokens += msg2.usage.output_tokens;
           }
         }
       } catch (err) {
@@ -157,6 +169,9 @@ export async function POST(req: Request) {
         } catch { /* not JSON */ }
         emit({ error: msg });
       } finally {
+        if (totalUsage.inputTokens || totalUsage.outputTokens) {
+          emit({ usage: totalUsage });
+        }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       }

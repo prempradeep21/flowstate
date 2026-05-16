@@ -2,6 +2,7 @@
 
 import { ClaudeModel, CardImage, useCanvasStore } from "./store";
 import { AskCallbacks, AskHandle } from "./dummyLLM";
+import { getStoredApiKey } from "./useApiKey";
 
 function getAncestorHistory(
   cardId: string,
@@ -26,6 +27,7 @@ export function askClaude(
   cb: AskCallbacks,
 ): AskHandle {
   const history = getAncestorHistory(cardId);
+  const apiKey = getStoredApiKey() ?? "";
   let cancelled = false;
   const controller = new AbortController();
 
@@ -34,7 +36,10 @@ export function askClaude(
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+        },
         body: JSON.stringify({ question, model, history }),
         signal: controller.signal,
       });
@@ -67,6 +72,10 @@ export function askClaude(
               cb.onImages?.(parsed.images as CardImage[]);
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
+            } else if (parsed.usage) {
+              useCanvasStore
+                .getState()
+                .addUsage(parsed.usage.inputTokens, parsed.usage.outputTokens);
             } else if (parsed.error) {
               acc = acc ? `${acc}\n\n⚠️ ${parsed.error}` : `⚠️ ${parsed.error}`;
               cb.onToken(acc);

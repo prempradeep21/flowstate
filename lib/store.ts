@@ -62,6 +62,9 @@ interface CanvasState {
   selectedModel: ClaudeModel;
   setModel: (model: ClaudeModel) => void;
 
+  sessionUsage: { inputTokens: number; outputTokens: number };
+  addUsage: (input: number, output: number) => void;
+
   viewport: Viewport;
   cards: Record<string, Card>;
   cardOrder: string[];
@@ -150,6 +153,14 @@ function childBandY(
 
 export const useCanvasStore = create<CanvasState>((set) => ({
   selectedModel: "claude-sonnet-4-6",
+  sessionUsage: { inputTokens: 0, outputTokens: 0 },
+  addUsage: (input, output) =>
+    set((s) => ({
+      sessionUsage: {
+        inputTokens: s.sessionUsage.inputTokens + input,
+        outputTokens: s.sessionUsage.outputTokens + output,
+      },
+    })),
   setModel: (model) => set({ selectedModel: model }),
 
   viewport: { x: 0, y: 0, scale: 1 },
