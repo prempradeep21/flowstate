@@ -226,6 +226,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 | Curve stroke colour resolves from the SOURCE card's thread accent (not the target's). So a branch curve emerges from the source's colour and arrives at a card whose own accent is a different colour | The connection visually represents "this thought came from over there"; reading the source colour at the source end keeps the lineage legible | AI |
 | Do not preemptively add a CORS workaround header (`anthropic-dangerous-direct-browser-access: true`) for the browser → Anthropic validation call; add only if a deployed call actually fails | Avoid speculative code complexity; address only on real failure | Prem |
 | Maintain a "Decided By" column on every decision table in this spec, tagging each entry as AI or Prem | Clear provenance of every decision as the spec evolves and more decisions get layered in | Prem |
+| Opt-in auto-layout via right-click context menu ("Auto layout canvas") | Philosophical default remains no auto-layout; user explicitly requests column rearrangement when overlap becomes unwieldy. Depth-first columns: independent roots sorted by Y, follow-ups stack vertically, lateral branches occupy the next column(s) to the right | Prem |
 
 ---
 

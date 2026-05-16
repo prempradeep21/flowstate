@@ -8,12 +8,21 @@ import {
   useState,
 } from "react";
 import { useCanvasStore } from "@/lib/store";
+import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
+import {
+  CanvasContextMenu,
+  ContextMenuState,
+} from "@/components/CanvasContextMenu";
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 
 const CARD_WIDTH = 420;
+const INITIAL_CARD_HEIGHT_GUESS = 180;
 const Q_DROP_Y_OFFSET = 30;
+
+/** Avoid re-panning on resize once the initial viewport has been applied. */
+let initialViewportApplied = false;
 
 interface PlacementState {
   x: number;
@@ -27,6 +36,7 @@ export function Canvas() {
   const zoomAt = useCanvasStore((s) => s.zoomAt);
   const viewport = useCanvasStore((s) => s.viewport);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
+  const setViewport = useCanvasStore((s) => s.setViewport);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
@@ -40,6 +50,7 @@ export function Canvas() {
   // Esc -> cancel. Holding both state (for re-render) and a ref (for stable
   // handler closures).
   const [placement, setPlacement] = useState<PlacementState | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
@@ -54,6 +65,56 @@ export function Canvas() {
       y: (clientY - rect.top - vy) / scale,
     };
   };
+
+  // Seed the first question card and pan so it sits at the canvas center.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const bootstrap = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const state = useCanvasStore.getState();
+
+      // Always seed when the canvas is empty (handles HMR / stale bootstrap flags).
+      if (state.cardOrder.length === 0) {
+        initialViewportApplied = false;
+        createRootCard({
+          x: -CARD_WIDTH / 2,
+          y: -INITIAL_CARD_HEIGHT_GUESS / 2,
+        });
+        setViewport(
+          viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
+        );
+        initialViewportApplied = true;
+        return;
+      }
+
+      if (initialViewportApplied) return;
+
+      const first = state.cards[state.cardOrder[0]];
+      if (!first) return;
+
+      const w = first.size?.w ?? CARD_WIDTH;
+      const h = first.size?.h ?? INITIAL_CARD_HEIGHT_GUESS;
+      setViewport(
+        viewportCenteredOnWorldPoint(
+          first.position.x + w / 2,
+          first.position.y + h / 2,
+          rect.width,
+          rect.height,
+          1,
+        ),
+      );
+      initialViewportApplied = true;
+    };
+
+    bootstrap();
+    const ro = new ResizeObserver(bootstrap);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [createRootCard, setViewport]);
 
   // Prevent native page zoom (pinch / Ctrl+wheel) while interacting with the canvas.
   useEffect(() => {
@@ -83,7 +144,8 @@ export function Canvas() {
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
-  // Q (enter placement) / Esc (cancel placement).
+  // Q (enter placement) / Esc (cancel placement). Capture phase so Q works as a
+  // canvas tool shortcut even when an empty question field is focused.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -91,40 +153,43 @@ export function Canvas() {
           e.preventDefault();
           setPlacement(null);
         }
+        setContextMenu(null);
         return;
       }
 
-      if (e.key !== "q" && e.key !== "Q") return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
+        return;
 
-      // Ignore Q when the user is typing into something.
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          target.isContentEditable
-        )
+        if (tag === "INPUT" || tag === "TEXTAREA") {
+          const field = target as HTMLInputElement | HTMLTextAreaElement;
+          if (field.value.trim().length > 0) return;
+        } else if (target.isContentEditable) {
           return;
+        }
       }
-      // Ignore Q while a placement is already active.
+
       if (placementRef.current) return;
 
-      const cursor = cursorRef.current;
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
+      const cursor = cursorRef.current;
       const clientX = cursor?.x ?? rect.left + rect.width / 2;
       const clientY = cursor?.y ?? rect.top + rect.height / 2;
       const world = computeWorldFromClient(clientX, clientY);
       if (!world) return;
 
       e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      target?.blur();
       setPlacement(world);
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, []);
 
   // Window-level click handler that finalises placement and consumes the event
@@ -133,6 +198,7 @@ export function Canvas() {
     const onPointerDown = (e: PointerEvent) => {
       const p = placementRef.current;
       if (!p) return;
+      if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       createRootCard({
@@ -148,9 +214,17 @@ export function Canvas() {
       window.removeEventListener("pointerdown", onPointerDown, true);
   }, [createRootCard]);
 
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (placementRef.current) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
+    setContextMenu({ screenX: e.clientX, screenY: e.clientY });
+  };
+
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (placementRef.current) return;
     if (e.target !== e.currentTarget) return;
+    setContextMenu(null);
     if (e.button !== 0) return;
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     panState.current = {
@@ -201,12 +275,13 @@ export function Canvas() {
   return (
     <div
       ref={containerRef}
+      data-canvas-container
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={handleContextMenu}
       className={`relative h-full w-full overflow-hidden bg-canvas-bg select-none touch-none ${
         placement
           ? "cursor-crosshair"
@@ -228,6 +303,12 @@ export function Canvas() {
         })}
         {placement && <GhostCard world={placement} />}
       </CanvasViewport>
+      {contextMenu && (
+        <CanvasContextMenu
+          menu={contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

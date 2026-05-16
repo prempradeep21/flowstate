@@ -7,15 +7,53 @@ import {
   useRef,
   useState,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Components } from "react-markdown";
 import { askClaude } from "@/lib/claudeClient";
 import { Card as CardType, useCanvasStore } from "@/lib/store";
+import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
+import { ZoomResistantChrome } from "@/components/ZoomResistantChrome";
+import {
+  compactThinkingWord,
+  compensatedStrokeWidth,
+  counterScaleFactor,
+  isGodViewMode,
+  isSummaryOnlyMode,
+  summaryLineClamp,
+} from "@/lib/zoomDisplay";
 
 interface CardProps {
   card: CardType;
 }
 
 const CARD_WIDTH = 420;
+
+const MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children }) => (
+    <h1 className="mb-2 mt-3 text-[17px] font-bold first:mt-0">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1 mt-2 text-[14px] font-semibold first:mt-0">{children}</h3>
+  ),
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  ul: ({ children }) => (
+    <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>
+  ),
+  li: ({ children }) => <li className="mb-0.5">{children}</li>,
+  hr: () => <hr className="my-3 border-t border-canvas-border" />,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  code: ({ children }) => (
+    <code className="rounded bg-canvas-border/50 px-1 py-0.5 font-mono text-[13px]">
+      {children}
+    </code>
+  ),
+};
 
 export function Card({ card }: CardProps) {
   const updateCard = useCanvasStore((s) => s.updateCard);
@@ -25,20 +63,20 @@ export function Card({ card }: CardProps) {
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
   const openArtifact = useCanvasStore((s) => s.openArtifact);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
-  // Only vertical follow-ups (same-thread children) suppress the follow-up
-  // input. Side branches spawn new threads and shouldn't strip this card of
-  // its own ability to continue inquiring further down its thread.
   const hasChildren = useCanvasStore((s) =>
     s.connections.some(
       (c) => c.from === card.id && c.fromSide === "bottom",
     ),
   );
+  const scale = useCanvasStore((s) => s.viewport.scale);
+  const summaryOnly = isSummaryOnlyMode(scale);
+  const godView = isGodViewMode(scale);
+  const lineClamp = summaryLineClamp(scale);
+  const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
+
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
   );
-  // A "branch root" is a root card (parentCardId === null) that has an
-  // incoming connection from somewhere — i.e. it was pulled as a new thread
-  // off another card. Used to customise its empty-state placeholder.
   const isBranchRoot = useCanvasStore(
     (s) =>
       card.parentCardId === null &&
@@ -56,24 +94,21 @@ export function Card({ card }: CardProps) {
     lastY: number;
   } | null>(null);
 
-  // Tracks which question we've already dispatched an ask for, keyed by ref so
-  // it survives React 18 strict-mode double-invoke without double-starting the
-  // dummy stream. We deliberately don't cancel on unmount — askDummy callbacks
-  // update Zustand state, which safely no-ops if the card has been removed.
   const startedFor = useRef<string | null>(null);
 
-  const questionTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const followUpTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const questionTextarea = useAutoResizeTextarea(draft);
+  const followUpTextarea = useAutoResizeTextarea(followUp);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // Initial focus on the question textarea when the card is brand-new.
+  const TEXT_SELECTABLE =
+    'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
+
   useEffect(() => {
     if (card.status === "empty") {
-      questionTextareaRef.current?.focus();
+      questionTextarea.ref.current?.focus();
     }
-  }, [card.status]);
+  }, [card.status, questionTextarea.ref]);
 
-  // Measure card size for connection routing.
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -86,10 +121,6 @@ export function Card({ card }: CardProps) {
     return () => ro.disconnect();
   }, [card.id, setCardSize]);
 
-  // Kick off the dummy LLM whenever a card enters `thinking` for a question we
-  // haven't asked yet. Handles both the initial-card submit and follow-up children
-  // that mount already in `thinking`. No cleanup: cancelling here would kill the
-  // ask during React 18 strict-mode's mount-cleanup-mount cycle.
   useEffect(() => {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
@@ -106,8 +137,7 @@ export function Card({ card }: CardProps) {
           answer: next,
           thinkingLabel: undefined,
         }),
-      onImages: (images) =>
-        updateCard(card.id, { images }),
+      onImages: (images) => updateCard(card.id, { images }),
       onDone: ({ artifactId }) =>
         updateCard(card.id, {
           status: "done",
@@ -154,16 +184,8 @@ export function Card({ card }: CardProps) {
   const handleDragPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!isDraggable) return;
     if (e.button !== 0) return;
-    // Skip when the pointer is on an interactive descendant — let textareas,
-    // buttons, etc. handle their own clicks.
     const target = e.target as HTMLElement;
-    if (
-      target.closest(
-        'textarea, button, input, select, [contenteditable="true"]',
-      )
-    ) {
-      return;
-    }
+    if (target.closest(TEXT_SELECTABLE)) return;
     e.preventDefault();
     e.stopPropagation();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
@@ -181,8 +203,8 @@ export function Card({ card }: CardProps) {
     const screenDy = e.clientY - ds.lastY;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const scale = useCanvasStore.getState().viewport.scale;
-    moveSubtree(card.id, screenDx / scale, screenDy / scale);
+    const vpScale = useCanvasStore.getState().viewport.scale;
+    moveSubtree(card.id, screenDx / vpScale, screenDy / vpScale);
   };
 
   const handleDragPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -199,11 +221,12 @@ export function Card({ card }: CardProps) {
   return (
     <div
       ref={cardRef}
+      data-canvas-card
       onPointerDown={handleDragPointerDown}
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
       onPointerCancel={handleDragPointerUp}
-      className={`group absolute rounded-2xl border border-canvas-border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
+      className={`group absolute overflow-visible select-text ${
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       style={{
@@ -212,218 +235,261 @@ export function Card({ card }: CardProps) {
         width: CARD_WIDTH,
       }}
     >
-      {accent && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-          style={{ background: accent }}
-        />
-      )}
       {card.status === "done" && (
         <>
           <BranchHandle
             side="left"
+            alwaysVisible={godView}
             onClick={() => createBranch(card.id, "left")}
           />
           <BranchHandle
             side="right"
+            alwaysVisible={godView}
             onClick={() => createBranch(card.id, "right")}
           />
-          {card.artifactId && (
-            <ArtifactBadge onClick={() => openArtifact(card.id)} />
-          )}
         </>
       )}
-      <div className="px-5 pt-4 pb-3">
-        {card.status === "empty" ? (
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={questionTextareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleQuestionKeyDown}
-              placeholder={emptyPlaceholder}
-              rows={1}
-              className="block min-h-[26px] flex-1 resize-none border-0 bg-transparent p-0 text-[18px] font-bold leading-snug text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
-            />
-            <button
-              type="button"
-              onClick={submitQuestion}
-              className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
-            >
-              Send
-            </button>
-          </div>
-        ) : (
-          <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-            Question
-          </div>
+      <div
+        className="relative overflow-hidden rounded-2xl border border-canvas-border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover"
+        style={{ borderWidth: cardBorderWidth }}
+      >
+        {accent && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-2 bottom-2 rounded-r-full"
+            style={{
+              background: accent,
+              width: compensatedStrokeWidth(3, scale, 3),
+            }}
+          />
         )}
+        <div className="min-w-0 px-5 pt-4 pb-3">
+          {card.status === "empty" ? (
+            <ZoomResistantChrome transformOrigin="top left">
+              <div className="flex min-w-0 items-end gap-2">
+                <textarea
+                  ref={questionTextarea.ref}
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    questionTextarea.resize();
+                  }}
+                  onKeyDown={handleQuestionKeyDown}
+                  placeholder={emptyPlaceholder}
+                  rows={1}
+                  className="block min-h-[26px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent p-0 text-[18px] font-bold leading-snug text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
+                />
+                <button
+                  type="button"
+                  onClick={submitQuestion}
+                  className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
+                >
+                  Send
+                </button>
+              </div>
+            </ZoomResistantChrome>
+          ) : (
+            !summaryOnly && (
+              <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                Question
+              </div>
+            )
+          )}
+          {card.status !== "empty" && (
+            <div
+              data-selectable-text
+              className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
+            >
+              {card.question}
+            </div>
+          )}
+        </div>
+
         {card.status !== "empty" && (
-          <div className="whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink">
-            {card.question}
-          </div>
+          <>
+            {!summaryOnly && <div className="mx-5 h-px bg-canvas-border" />}
+            <div
+              className={
+                summaryOnly ? "min-w-0 px-4 pb-3 pt-1" : "min-w-0 px-5 py-4"
+              }
+            >
+              {!summaryOnly && (
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                  Answer
+                </div>
+              )}
+              {card.status === "thinking" ? (
+                <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
+              ) : (
+                <>
+                  {!summaryOnly && card.images && card.images.length > 0 && (
+                    <div
+                      className={`mb-3 grid gap-1 overflow-hidden rounded-xl ${
+                        card.images.length === 1
+                          ? "grid-cols-1"
+                          : card.images.length <= 4
+                            ? "grid-cols-2"
+                            : "grid-cols-3"
+                      }`}
+                    >
+                      {card.images.slice(0, 6).map((img, i) => (
+                        <a
+                          key={i}
+                          href={img.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block overflow-hidden"
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <img
+                            src={img.thumb}
+                            alt={img.alt}
+                            className="h-32 w-full object-cover transition-transform duration-200 hover:scale-105"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {card.answer ? (
+                    summaryOnly ? (
+                      <AnswerSummary
+                        answer={card.answer}
+                        lineClamp={lineClamp}
+                        isStreaming={card.status === "streaming"}
+                      />
+                    ) : (
+                      <div
+                        data-selectable-text
+                        className="min-w-0 cursor-text text-[15px] leading-relaxed text-canvas-ink"
+                      >
+                        <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+                          {card.answer}
+                        </ReactMarkdown>
+                        {card.status === "streaming" && (
+                          <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
+                        )}
+                      </div>
+                    )
+                  ) : null}
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {card.status === "done" && !hasChildren && !summaryOnly && (
+          <ZoomResistantChrome transformOrigin="bottom left">
+            <div className="flex min-w-0 items-end gap-2 border-t border-canvas-border px-5 py-2.5">
+              <textarea
+                ref={followUpTextarea.ref}
+                value={followUp}
+                onChange={(e) => {
+                  setFollowUp(e.target.value);
+                  followUpTextarea.resize();
+                }}
+                onKeyDown={handleFollowUpKeyDown}
+                placeholder="Ask a follow-up..."
+                rows={1}
+                className="block min-h-[22px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent p-0 text-[14px] leading-snug text-canvas-ink outline-none placeholder:text-canvas-muted/70"
+              />
+              <button
+                type="button"
+                onClick={submitFollowUp}
+                className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
+              >
+                Send
+              </button>
+            </div>
+          </ZoomResistantChrome>
         )}
       </div>
-
-      {card.status !== "empty" && (
-        <>
-          <div className="mx-5 h-px bg-canvas-border" />
-          <div className="px-5 py-4">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-              Answer
-            </div>
-            {card.images && card.images.length > 0 && (
-              <div
-                className={`mb-3 grid gap-1 overflow-hidden rounded-xl ${
-                  card.images.length === 1
-                    ? "grid-cols-1"
-                    : card.images.length <= 4
-                      ? "grid-cols-2"
-                      : "grid-cols-3"
-                }`}
-              >
-                {card.images.slice(0, 6).map((img, i) => (
-                  <a
-                    key={i}
-                    href={img.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block overflow-hidden"
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <img
-                      src={img.thumb}
-                      alt={img.alt}
-                      className="h-32 w-full object-cover transition-transform duration-200 hover:scale-105"
-                    />
-                  </a>
-                ))}
-              </div>
-            )}
-            {card.answer && (
-              <div className="text-[15px] leading-relaxed text-canvas-ink">
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => (
-                      <h1 className="mb-2 mt-3 text-[17px] font-bold first:mt-0">{children}</h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">{children}</h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="mb-1 mt-2 text-[14px] font-semibold first:mt-0">{children}</h3>
-                    ),
-                    p: ({ children }) => (
-                      <p className="mb-2 last:mb-0">{children}</p>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>
-                    ),
-                    li: ({ children }) => (
-                      <li className="mb-0.5">{children}</li>
-                    ),
-                    hr: () => (
-                      <hr className="my-3 border-t border-canvas-border" />
-                    ),
-                    strong: ({ children }) => (
-                      <strong className="font-semibold">{children}</strong>
-                    ),
-                    em: ({ children }) => (
-                      <em className="italic">{children}</em>
-                    ),
-                    code: ({ children }) => (
-                      <code className="rounded bg-canvas-border/50 px-1 py-0.5 font-mono text-[13px]">{children}</code>
-                    ),
-                  }}
-                >
-                  {card.answer}
-                </ReactMarkdown>
-                {card.status === "streaming" && (
-                  <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
-                )}
-              </div>
-            )}
-            {card.status === "thinking" && (
-              <div className={card.answer ? "mt-2" : ""}>
-                <LoadingLine label={card.thinkingLabel ?? "Thinking"} />
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {card.status === "done" && !hasChildren && (
-        <div className="flex items-end gap-2 border-t border-canvas-border px-5 py-2.5">
-          <textarea
-            ref={followUpTextareaRef}
-            value={followUp}
-            onChange={(e) => setFollowUp(e.target.value)}
-            onKeyDown={handleFollowUpKeyDown}
-            placeholder="Ask a follow-up..."
-            rows={1}
-            className="block min-h-[22px] flex-1 resize-none border-0 bg-transparent p-0 text-[14px] leading-snug text-canvas-ink outline-none placeholder:text-canvas-muted/70"
-          />
-          <button
-            type="button"
-            onClick={submitFollowUp}
-            className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
-          >
-            Send
-          </button>
-        </div>
+      {card.status === "done" && card.artifactId && (
+        <ArtifactBadge onClick={() => openArtifact(card.id)} />
       )}
     </div>
   );
 }
 
-function LoadingLine({ label }: { label: string }) {
+function SummaryLoading({ label }: { label: string }) {
+  const word = compactThinkingWord(label);
   return (
-    <div className="flex items-center gap-2 text-[14px] text-canvas-muted">
-      <span className="relative inline-flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-muted/60" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-canvas-muted" />
+    <div
+      className="relative overflow-hidden rounded-lg border border-canvas-border bg-canvas-bg/80 px-3 py-2.5"
+      style={{ animation: "summary-pulse-stroke 2s ease-in-out infinite" }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div
+          className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+          style={{ animation: "summary-shimmer 1.8s ease-in-out infinite" }}
+        />
+      </div>
+      <span className="relative text-sm font-medium capitalize text-canvas-muted">
+        {word}
       </span>
-      <span className="animate-pulse">{label}...</span>
+    </div>
+  );
+}
+
+function AnswerSummary({
+  answer,
+  lineClamp,
+  isStreaming,
+}: {
+  answer: string;
+  lineClamp: 2 | 4;
+  isStreaming: boolean;
+}) {
+  const clampClass = lineClamp === 2 ? "line-clamp-2" : "line-clamp-4";
+  return (
+    <div
+      data-selectable-text
+      className={`min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink ${clampClass}`}
+    >
+      {answer}
+      {isStreaming && (
+        <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
+      )}
     </div>
   );
 }
 
 function BranchHandle({
   side,
+  alwaysVisible,
   onClick,
 }: {
   side: "left" | "right";
+  alwaysVisible: boolean;
   onClick: () => void;
 }) {
+  const scale = useCanvasStore((s) => s.viewport.scale);
   const isLeft = side === "left";
   return (
-    <button
-      type="button"
-      aria-label={`Pull a new thread to the ${side}`}
-      onClick={onClick}
-      onPointerDown={(e) => e.stopPropagation()}
-      className={`absolute top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-muted opacity-0 shadow-card transition-opacity duration-150 group-hover:opacity-100 hover:border-canvas-ink/40 hover:text-canvas-ink ${
-        isLeft ? "-left-3" : "-right-3"
-      }`}
+    <div
+      className={`pointer-events-none absolute top-1/2 z-20 ${isLeft ? "left-0" : "right-0"}`}
+      style={{
+        transform: `translate(${isLeft ? "-50%" : "50%"}, -50%) scale(${counterScaleFactor(scale)})`,
+        transformOrigin: "center",
+      }}
     >
-      <span className="text-[14px] leading-none">+</span>
-    </button>
+      <button
+        type="button"
+        aria-label={`Pull a new thread to the ${side}`}
+        onClick={onClick}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas-border bg-canvas-card text-canvas-ink shadow-card transition-opacity hover:border-canvas-ink/50 ${
+          alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        <span className="text-[15px] font-medium leading-none">+</span>
+      </button>
+    </div>
   );
 }
 
-// Floating document badge that sits 16px outside the card's right edge. Per
-// the V1 spec it stays visible (not hover-revealed) because its purpose is
-// to signal that this card has an attachment.
-//
-// The badge is the only piece of card UI that resists the canvas zoom: it's
-// anchored at the card's top-right corner and counter-scaled by
-// `1 / viewport.scale` so the icon (and the 16px gap to the card) stay the
-// same on-screen size at every zoom level. Scale is subscribed to inside the
-// badge itself so cards without an artifact don't pay the re-render cost.
 function ArtifactBadge({ onClick }: { onClick: () => void }) {
   const scale = useCanvasStore((s) => s.viewport.scale);
   return (
