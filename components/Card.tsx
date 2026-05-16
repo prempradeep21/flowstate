@@ -7,7 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { askDummy } from "@/lib/dummyLLM";
+import ReactMarkdown from "react-markdown";
+import { askClaude } from "@/lib/claudeClient";
 import { Card as CardType, useCanvasStore } from "@/lib/store";
 
 interface CardProps {
@@ -23,6 +24,7 @@ export function Card({ card }: CardProps) {
   const createBranch = useCanvasStore((s) => s.createBranch);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
   const openArtifact = useCanvasStore((s) => s.openArtifact);
+  const selectedModel = useCanvasStore((s) => s.selectedModel);
   // Only vertical follow-ups (same-thread children) suppress the follow-up
   // input. Side branches spawn new threads and shouldn't strip this card of
   // its own ability to continue inquiring further down its thread.
@@ -92,7 +94,7 @@ export function Card({ card }: CardProps) {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
     startedFor.current = card.question;
-    askDummy(card.question, {
+    askClaude(card.id, card.question, selectedModel, {
       onThinking: (label) =>
         updateCard(card.id, {
           status: "thinking",
@@ -104,6 +106,8 @@ export function Card({ card }: CardProps) {
           answer: next,
           thinkingLabel: undefined,
         }),
+      onImages: (images) =>
+        updateCard(card.id, { images }),
       onDone: ({ artifactId }) =>
         updateCard(card.id, {
           status: "done",
@@ -111,7 +115,7 @@ export function Card({ card }: CardProps) {
           artifactId: artifactId ?? undefined,
         }),
     });
-  }, [card.status, card.question, card.id, updateCard]);
+  }, [card.status, card.question, card.id, updateCard, selectedModel]);
 
   const isPending =
     card.status === "thinking" || card.status === "streaming";
@@ -269,9 +273,75 @@ export function Card({ card }: CardProps) {
             <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
               Answer
             </div>
+            {card.images && card.images.length > 0 && (
+              <div
+                className={`mb-3 grid gap-1 overflow-hidden rounded-xl ${
+                  card.images.length === 1
+                    ? "grid-cols-1"
+                    : card.images.length <= 4
+                      ? "grid-cols-2"
+                      : "grid-cols-3"
+                }`}
+              >
+                {card.images.slice(0, 6).map((img, i) => (
+                  <a
+                    key={i}
+                    href={img.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block overflow-hidden"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <img
+                      src={img.thumb}
+                      alt={img.alt}
+                      className="h-32 w-full object-cover transition-transform duration-200 hover:scale-105"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
             {card.answer && (
-              <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink">
-                {card.answer}
+              <div className="text-[15px] leading-relaxed text-canvas-ink">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="mb-2 mt-3 text-[17px] font-bold first:mt-0">{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="mb-1 mt-2 text-[14px] font-semibold first:mt-0">{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="mb-2 last:mb-0">{children}</p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="mb-0.5">{children}</li>
+                    ),
+                    hr: () => (
+                      <hr className="my-3 border-t border-canvas-border" />
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="font-semibold">{children}</strong>
+                    ),
+                    em: ({ children }) => (
+                      <em className="italic">{children}</em>
+                    ),
+                    code: ({ children }) => (
+                      <code className="rounded bg-canvas-border/50 px-1 py-0.5 font-mono text-[13px]">{children}</code>
+                    ),
+                  }}
+                >
+                  {card.answer}
+                </ReactMarkdown>
                 {card.status === "streaming" && (
                   <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
                 )}

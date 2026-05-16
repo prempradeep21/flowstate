@@ -2,7 +2,18 @@
 
 import { create } from "zustand";
 
+export type ClaudeModel =
+  | "claude-opus-4-7"
+  | "claude-sonnet-4-6"
+  | "claude-haiku-4-5-20251001";
+
 export type CardStatus = "empty" | "thinking" | "streaming" | "done";
+
+export interface CardImage {
+  url: string;
+  thumb: string;
+  alt: string;
+}
 
 export interface CardSize {
   w: number;
@@ -19,10 +30,8 @@ export interface Card {
   position: { x: number; y: number };
   parentCardId: string | null;
   size?: CardSize;
-  // Identifies which markdown variant doubles as this card's attached
-  // artifact. Presence of this field is also what makes the floating
-  // document badge visible on the card.
   artifactId?: string;
+  images?: CardImage[];
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";
@@ -47,6 +56,9 @@ export interface Viewport {
 }
 
 interface CanvasState {
+  selectedModel: ClaudeModel;
+  setModel: (model: ClaudeModel) => void;
+
   viewport: Viewport;
   cards: Record<string, Card>;
   cardOrder: string[];
@@ -131,6 +143,9 @@ function childBandY(
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
+  selectedModel: "claude-sonnet-4-6",
+  setModel: (model) => set({ selectedModel: model }),
+
   viewport: { x: 0, y: 0, scale: 1 },
   cards: {},
   cardOrder: [],

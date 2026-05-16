@@ -177,6 +177,7 @@ export interface AskDoneMeta {
 export interface AskCallbacks {
   onThinking: (label: string) => void;
   onToken: (nextAnswer: string) => void;
+  onImages?: (images: { url: string; thumb: string; alt: string }[]) => void;
   onDone: (meta: AskDoneMeta) => void;
 }
 
