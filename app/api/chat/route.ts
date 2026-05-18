@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { conversationStore } from "@/lib/conversationStore";
 
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
@@ -25,8 +26,8 @@ async function fetchWikimedia(
   url.searchParams.set("action", "query");
   url.searchParams.set("generator", "search");
   url.searchParams.set("gsrsearch", query);
-  url.searchParams.set("gsrnamespace", "6"); // File namespace only
-  url.searchParams.set("gsrlimit", String(Math.min(count * 2, 12))); // fetch extra, filter below
+  url.searchParams.set("gsrnamespace", "6");
+  url.searchParams.set("gsrlimit", String(Math.min(count * 2, 12)));
   url.searchParams.set("prop", "imageinfo");
   url.searchParams.set("iiprop", "url|extmetadata");
   url.searchParams.set("iiurlwidth", "800");
@@ -47,7 +48,6 @@ async function fetchWikimedia(
     .filter((p) => {
       const info = (p.imageinfo as Record<string, unknown>[])?.[0];
       if (!info) return false;
-      // Only real photos — skip SVG, PDF, OGG, etc.
       return /\.(jpe?g|png|webp)/i.test((info.url as string) ?? "");
     })
     .slice(0, count)
@@ -56,10 +56,7 @@ async function fetchWikimedia(
       return {
         url: info.url as string,
         thumb: (info.thumburl as string) || (info.url as string),
-        alt:
-          ((p.title as string) ?? query)
-            .replace("File:", "")
-            .replace(/_/g, " "),
+        alt: ((p.title as string) ?? query).replace("File:", "").replace(/_/g, " "),
       };
     });
 }
@@ -72,15 +69,16 @@ export async function POST(req: Request) {
   }
   const anthropic = new Anthropic({ apiKey });
 
-  const { question, model, history } = await req.json();
+  const { conversationId, question, model } = await req.json();
+
+  // Fetch full ancestor context from the backend store.
+  const { history, systemContext } = conversationStore.getContextChain(conversationId);
 
   const messages: Anthropic.MessageParam[] = [
-    ...history.flatMap(
-      ({ question: q, answer: a }: { question: string; answer: string }) => [
-        { role: "user" as const, content: q },
-        { role: "assistant" as const, content: a },
-      ],
-    ),
+    ...history.flatMap(({ question: q, answer: a }) => [
+      { role: "user" as const, content: q },
+      { role: "assistant" as const, content: a },
+    ]),
     { role: "user" as const, content: question },
   ];
 
@@ -92,12 +90,13 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
+      let answerAcc = "";
 
       try {
-        // First pass — Claude may call search_images or answer directly.
         const stream1 = anthropic.messages.stream({
           model,
           max_tokens: 2048,
+          ...(systemContext ? { system: systemContext } : {}),
           messages,
           tools: [SEARCH_IMAGES_TOOL],
         });
@@ -107,6 +106,7 @@ export async function POST(req: Request) {
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
           ) {
+            answerAcc += event.delta.text;
             emit({ text: event.delta.text });
           }
         }
@@ -127,10 +127,10 @@ export async function POST(req: Request) {
             const images = await fetchWikimedia(input.query, input.count ?? 4);
             if (images.length) emit({ images });
 
-            // Second pass: give Claude the tool result so it writes a caption.
             const stream2 = anthropic.messages.stream({
               model,
               max_tokens: 1024,
+              ...(systemContext ? { system: systemContext } : {}),
               messages: [
                 ...messages,
                 { role: "assistant" as const, content: msg1.content },
@@ -153,6 +153,7 @@ export async function POST(req: Request) {
                 event.type === "content_block_delta" &&
                 event.delta.type === "text_delta"
               ) {
+                answerAcc += event.delta.text;
                 emit({ text: event.delta.text });
               }
             }
@@ -169,6 +170,10 @@ export async function POST(req: Request) {
         } catch { /* not JSON */ }
         emit({ error: msg });
       } finally {
+        // Store the completed Q&A in the backend conversation store.
+        if (answerAcc) {
+          conversationStore.addMessage(conversationId, question, answerAcc);
+        }
         if (totalUsage.inputTokens || totalUsage.outputTokens) {
           emit({ usage: totalUsage });
         }

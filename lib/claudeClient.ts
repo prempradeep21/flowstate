@@ -4,29 +4,28 @@ import { ClaudeModel, CardImage, useCanvasStore } from "./store";
 import { AskCallbacks, AskHandle } from "./dummyLLM";
 import { getStoredApiKey } from "./useApiKey";
 
-function getAncestorHistory(
-  cardId: string,
-): Array<{ question: string; answer: string }> {
-  const state = useCanvasStore.getState();
-  const history: Array<{ question: string; answer: string }> = [];
-  let current = state.cards[cardId];
-  while (current?.parentCardId) {
-    const parent = state.cards[current.parentCardId];
-    if (parent?.answer) {
-      history.unshift({ question: parent.question, answer: parent.answer });
-    }
-    current = parent!;
-  }
-  return history;
+async function registerConversation(
+  conversationId: string,
+  parentConversationId: string | null,
+  apiKey: string,
+): Promise<void> {
+  await fetch("/api/conversations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+    },
+    body: JSON.stringify({ conversationId, parentConversationId }),
+  });
 }
 
 export function askClaude(
   cardId: string,
+  parentConversationId: string | null,
   question: string,
   model: ClaudeModel,
   cb: AskCallbacks,
 ): AskHandle {
-  const history = getAncestorHistory(cardId);
   const apiKey = getStoredApiKey() ?? "";
   let cancelled = false;
   const controller = new AbortController();
@@ -34,13 +33,16 @@ export function askClaude(
   const run = async () => {
     cb.onThinking("Thinking");
     try {
+      // Register this conversation with the backend before asking.
+      await registerConversation(cardId, parentConversationId, apiKey);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
         },
-        body: JSON.stringify({ question, model, history }),
+        body: JSON.stringify({ conversationId: cardId, question, model }),
         signal: controller.signal,
       });
 

@@ -30,6 +30,7 @@ export interface Card {
   thinkingLabel?: string;
   position: { x: number; y: number };
   parentCardId: string | null;
+  parentConversationId: string | null;
   size?: CardSize;
   artifactId?: string;
   images?: CardImage[];
@@ -263,6 +264,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         status: "empty",
         position,
         parentCardId: null,
+        parentConversationId: null,
       };
       return {
         threads: { ...state.threads, [threadId]: thread },
@@ -293,6 +295,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
           y: childY,
         },
         parentCardId: parentId,
+        parentConversationId: parentId,
       };
       const conn: Connection = {
         id: `conn_${parentId}_${id}`,
@@ -353,6 +356,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         status: "empty",
         position: { x, y },
         parentCardId: null,
+        parentConversationId: sourceId,
       };
 
       const conn: Connection = {
