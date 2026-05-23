@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  ContextMenuItem,
+  LayoutGridIcon,
+  UndoIcon,
+} from "@/components/MenuIcons";
 import { useCanvasStore } from "@/lib/store";
 
 export interface ContextMenuState {
@@ -15,6 +20,8 @@ interface CanvasContextMenuProps {
 
 export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const autoLayoutCanvas = useCanvasStore((s) => s.autoLayoutCanvas);
+  const undo = useCanvasStore((s) => s.undo);
+  const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -35,11 +42,6 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     return () => window.removeEventListener("pointerdown", onPointerDown, true);
   }, [onClose]);
 
-  const handleAutoLayout = () => {
-    autoLayoutCanvas();
-    onClose();
-  };
-
   return (
     <div
       ref={menuRef}
@@ -47,14 +49,23 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
       className="fixed z-50 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
       style={{ left: menu.screenX, top: menu.screenY }}
     >
-      <button
-        type="button"
-        role="menuitem"
-        onClick={handleAutoLayout}
-        className="flex w-full px-3 py-2 text-left text-[13px] text-canvas-ink transition-colors hover:bg-canvas-bg"
-      >
-        Auto layout canvas
-      </button>
+      <ContextMenuItem
+        icon={<LayoutGridIcon />}
+        label="Auto layout"
+        onClick={() => {
+          autoLayoutCanvas();
+          onClose();
+        }}
+      />
+      <ContextMenuItem
+        icon={<UndoIcon />}
+        label="Undo"
+        disabled={!canUndo}
+        onClick={() => {
+          undo();
+          onClose();
+        }}
+      />
     </div>
   );
 }

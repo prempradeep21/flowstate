@@ -1,24 +1,35 @@
 "use client";
 
 import {
+  CSSProperties,
   KeyboardEvent,
   PointerEvent as ReactPointerEvent,
+  WheelEvent,
   useEffect,
   useRef,
   useState,
 } from "react";
-import ReactMarkdown, { Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
+import { CardQaMenu } from "@/components/CardQaMenu";
 import { askClaude } from "@/lib/claudeClient";
+import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
+import { isCardInSelectedFamilies } from "@/lib/chatThreads";
 import { Card as CardType, useCanvasStore } from "@/lib/store";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
-import { ZoomResistantChrome } from "@/components/ZoomResistantChrome";
 import {
+  CARD_QA_MAX_HEIGHT,
   compactThinkingWord,
   compensatedStrokeWidth,
   counterScaleFactor,
+  isExpandedCardContent,
   isGodViewMode,
-  isSummaryOnlyMode,
-  summaryLineClamp,
+  lineClampStyle,
+  shouldHideDivider,
+  shouldHideFollowUp,
+  shouldHideImages,
+  shouldHideLabels,
+  zoomLineClamp,
+  zoomSectionInsets,
 } from "@/lib/zoomDisplay";
 
 interface CardProps {
@@ -27,52 +38,39 @@ interface CardProps {
 
 const CARD_WIDTH = 420;
 
-const MARKDOWN_COMPONENTS: Components = {
-  h1: ({ children }) => (
-    <h1 className="mb-2 mt-3 text-[17px] font-bold first:mt-0">{children}</h1>
-  ),
-  h2: ({ children }) => (
-    <h2 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">{children}</h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="mb-1 mt-2 text-[14px] font-semibold first:mt-0">{children}</h3>
-  ),
-  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-  ul: ({ children }) => (
-    <ul className="mb-2 list-disc pl-5 last:mb-0">{children}</ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="mb-2 list-decimal pl-5 last:mb-0">{children}</ol>
-  ),
-  li: ({ children }) => <li className="mb-0.5">{children}</li>,
-  hr: () => <hr className="my-3 border-t border-canvas-border" />,
-  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-  em: ({ children }) => <em className="italic">{children}</em>,
-  code: ({ children }) => (
-    <code className="rounded bg-canvas-border/50 px-1 py-0.5 font-mono text-[13px]">
-      {children}
-    </code>
-  ),
-};
+function handleAnswerWheel(e: WheelEvent) {
+  e.stopPropagation();
+  if (e.deltaX !== 0) e.preventDefault();
+}
 
 export function Card({ card }: CardProps) {
   const updateCard = useCanvasStore((s) => s.updateCard);
+  const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCardSize = useCanvasStore((s) => s.setCardSize);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
   const openArtifact = useCanvasStore((s) => s.openArtifact);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
+  const isSelected = useCanvasStore((s) =>
+    isCardInSelectedFamilies(s, card.id, s.selectedFamilyRootIds),
+  );
   const hasChildren = useCanvasStore((s) =>
     s.connections.some(
       (c) => c.from === card.id && c.fromSide === "bottom",
     ),
   );
   const scale = useCanvasStore((s) => s.viewport.scale);
-  const summaryOnly = isSummaryOnlyMode(scale);
   const godView = isGodViewMode(scale);
-  const lineClamp = summaryLineClamp(scale);
+  const lineClamp = zoomLineClamp(scale);
+  const expandedContent = isExpandedCardContent(scale);
+  const insets = zoomSectionInsets(scale);
+  const hideLabels = shouldHideLabels(scale);
+  const hideDivider = shouldHideDivider(scale);
+  const hideFollowUp = shouldHideFollowUp(scale);
+  const hideImages = shouldHideImages(scale);
   const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
+  const clampStyle = lineClampStyle(lineClamp);
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -92,7 +90,9 @@ export function Card({ card }: CardProps) {
     pointerId: number;
     lastX: number;
     lastY: number;
+    didMove: boolean;
   } | null>(null);
+  const DRAG_THRESHOLD_PX = 5;
 
   const startedFor = useRef<string | null>(null);
 
@@ -119,7 +119,7 @@ export function Card({ card }: CardProps) {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [card.id, setCardSize]);
+  }, [card.id, setCardSize, scale]);
 
   useEffect(() => {
     if (card.status !== "thinking") return;
@@ -153,6 +153,7 @@ export function Card({ card }: CardProps) {
   const submitQuestion = () => {
     const q = draft.trim();
     if (!q || isPending) return;
+    recordUndo();
     updateCard(card.id, {
       question: q,
       answer: "",
@@ -181,26 +182,34 @@ export function Card({ card }: CardProps) {
     }
   };
 
-  const handleDragPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!isDraggable) return;
+  const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest(TEXT_SELECTABLE)) return;
-    e.preventDefault();
+
     e.stopPropagation();
+    if (!isDraggable) return;
+
+    e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragStateRef.current = {
       pointerId: e.pointerId,
       lastX: e.clientX,
       lastY: e.clientY,
+      didMove: false,
     };
   };
 
   const handleDragPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
+
     const screenDx = e.clientX - ds.lastX;
     const screenDy = e.clientY - ds.lastY;
+    const dist = Math.hypot(screenDx, screenDy);
+    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
+
+    ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
     const vpScale = useCanvasStore.getState().viewport.scale;
@@ -222,7 +231,7 @@ export function Card({ card }: CardProps) {
     <div
       ref={cardRef}
       data-canvas-card
-      onPointerDown={handleDragPointerDown}
+      onPointerDown={handleCardPointerDown}
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
       onPointerCancel={handleDragPointerUp}
@@ -250,23 +259,54 @@ export function Card({ card }: CardProps) {
         </>
       )}
       <div
-        className="relative overflow-hidden rounded-2xl border border-canvas-border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover"
-        style={{ borderWidth: cardBorderWidth }}
+        className={`relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
+          isSelected
+            ? "border-canvas-ink ring-2 ring-canvas-ink/25"
+            : "border-canvas-border"
+        }`}
+        style={{
+          borderWidth: cardBorderWidth,
+          ...(isSelected && accent
+            ? { boxShadow: `0 0 0 2px ${accent}40` }
+            : {}),
+        }}
       >
         {accent && (
           <span
             aria-hidden
-            className="pointer-events-none absolute left-0 top-2 bottom-2 rounded-r-full"
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 rounded-l-2xl"
             style={{
               background: accent,
               width: compensatedStrokeWidth(3, scale, 3),
             }}
           />
         )}
-        <div className="min-w-0 px-5 pt-4 pb-3">
+        {card.status !== "empty" && (
+          <CardQaMenu cardId={card.id} viewportScale={scale} />
+        )}
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+            expandedContent ? "max-h-[var(--card-qa-max-height)]" : ""
+          }`}
+          style={
+            expandedContent
+              ? ({
+                  "--card-qa-max-height": `${CARD_QA_MAX_HEIGHT}px`,
+                } as CSSProperties)
+              : undefined
+          }
+        >
+        <div
+          className="min-w-0 shrink-0"
+          style={{
+            paddingTop: insets.question.paddingTop,
+            paddingBottom: insets.question.paddingBottom,
+            paddingLeft: insets.question.paddingLeft,
+            paddingRight: insets.question.paddingRight,
+          }}
+        >
           {card.status === "empty" ? (
-            <ZoomResistantChrome transformOrigin="top left">
-              <div className="flex min-w-0 items-end gap-2">
+            <div className="flex min-w-0 items-end gap-2">
                 <textarea
                   ref={questionTextarea.ref}
                   value={draft}
@@ -277,43 +317,53 @@ export function Card({ card }: CardProps) {
                   onKeyDown={handleQuestionKeyDown}
                   placeholder={emptyPlaceholder}
                   rows={1}
-                  className="block min-h-[26px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent p-0 text-[18px] font-bold leading-snug text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
+                  className="block min-h-[40px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent px-0 py-2 text-[15px] font-semibold leading-normal text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
                 />
                 <button
                   type="button"
                   onClick={submitQuestion}
-                  className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
+                  className="mb-0.5 shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
                 >
                   Send
                 </button>
               </div>
-            </ZoomResistantChrome>
           ) : (
-            !summaryOnly && (
-              <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-                Question
+            <>
+              {!hideLabels && (
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                  Question
+                </div>
+              )}
+              <div
+                data-selectable-text
+                className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
+                style={clampStyle}
+              >
+                {card.question}
               </div>
-            )
-          )}
-          {card.status !== "empty" && (
-            <div
-              data-selectable-text
-              className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
-            >
-              {card.question}
-            </div>
+            </>
           )}
         </div>
 
         {card.status !== "empty" && (
           <>
-            {!summaryOnly && <div className="mx-5 h-px bg-canvas-border" />}
+            {!hideDivider && <div className="mx-5 shrink-0 h-px bg-canvas-border" />}
             <div
-              className={
-                summaryOnly ? "min-w-0 px-4 pb-3 pt-1" : "min-w-0 px-5 py-4"
-              }
+              data-card-answer
+              onWheel={handleAnswerWheel}
+              className={`min-h-0 min-w-0 ${
+                expandedContent
+                  ? "flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+                  : "overflow-hidden"
+              }`}
+              style={{
+                paddingTop: insets.answer.paddingTop,
+                paddingBottom: insets.answer.paddingBottom,
+                paddingLeft: insets.answer.paddingLeft,
+                paddingRight: insets.answer.paddingRight,
+              }}
             >
-              {!summaryOnly && (
+              {!hideLabels && (
                 <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
                   Answer
                 </div>
@@ -322,7 +372,7 @@ export function Card({ card }: CardProps) {
                 <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
               ) : (
                 <>
-                  {!summaryOnly && card.images && card.images.length > 0 && (
+                  {!hideImages && card.images && card.images.length > 0 && (
                     <div
                       className={`mb-3 grid gap-1 overflow-hidden rounded-xl ${
                         card.images.length === 1
@@ -351,10 +401,10 @@ export function Card({ card }: CardProps) {
                     </div>
                   )}
                   {card.answer ? (
-                    summaryOnly ? (
-                      <AnswerSummary
+                    lineClamp !== null ? (
+                      <ClampedAnswer
                         answer={card.answer}
-                        lineClamp={lineClamp}
+                        clampStyle={clampStyle}
                         isStreaming={card.status === "streaming"}
                       />
                     ) : (
@@ -377,9 +427,11 @@ export function Card({ card }: CardProps) {
           </>
         )}
 
-        {card.status === "done" && !hasChildren && !summaryOnly && (
-          <ZoomResistantChrome transformOrigin="bottom left">
-            <div className="flex min-w-0 items-end gap-2 border-t border-canvas-border px-5 py-2.5">
+        </div>
+
+        {card.status === "done" && !hasChildren && !hideFollowUp && (
+          <div className="relative z-20 shrink-0 rounded-b-2xl border-t border-canvas-border bg-canvas-card px-4 py-2.5">
+            <div className="flex min-w-0 items-end gap-2">
               <textarea
                 ref={followUpTextarea.ref}
                 value={followUp}
@@ -390,17 +442,17 @@ export function Card({ card }: CardProps) {
                 onKeyDown={handleFollowUpKeyDown}
                 placeholder="Ask a follow-up..."
                 rows={1}
-                className="block min-h-[22px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent p-0 text-[14px] leading-snug text-canvas-ink outline-none placeholder:text-canvas-muted/70"
+                className="block min-h-[36px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent px-0 py-1.5 text-[14px] leading-normal text-canvas-ink outline-none placeholder:text-canvas-muted/70"
               />
               <button
                 type="button"
                 onClick={submitFollowUp}
-                className="shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
+                className="mb-0.5 shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
               >
                 Send
               </button>
             </div>
-          </ZoomResistantChrome>
+          </div>
         )}
       </div>
       {card.status === "done" && card.artifactId && (
@@ -433,20 +485,20 @@ function SummaryLoading({ label }: { label: string }) {
   );
 }
 
-function AnswerSummary({
+function ClampedAnswer({
   answer,
-  lineClamp,
+  clampStyle,
   isStreaming,
 }: {
   answer: string;
-  lineClamp: 2 | 4;
+  clampStyle?: ReturnType<typeof lineClampStyle>;
   isStreaming: boolean;
 }) {
-  const clampClass = lineClamp === 2 ? "line-clamp-2" : "line-clamp-4";
   return (
     <div
       data-selectable-text
-      className={`min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink ${clampClass}`}
+      className="min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink"
+      style={clampStyle}
     >
       {answer}
       {isStreaming && (

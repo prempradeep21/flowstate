@@ -1,0 +1,139 @@
+"use client";
+
+import type { ReactNode } from "react";
+
+export function LayoutGridIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="2.5"
+        y="2.5"
+        width="4.5"
+        height="4.5"
+        rx="0.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="9"
+        y="2.5"
+        width="4.5"
+        height="4.5"
+        rx="0.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="2.5"
+        y="9"
+        width="4.5"
+        height="4.5"
+        rx="0.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="9"
+        y="9"
+        width="4.5"
+        height="4.5"
+        rx="0.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+    </svg>
+  );
+}
+
+export function UndoIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M3.5 7.5H10a3.5 3.5 0 1 1 0 7H8.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 4.5 3.5 7.5 6 10.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function BranchForkIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M8 3v4M8 7c-2.2 0-3.5 1.2-3.5 3.5V13"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 7c2.2 0 3.5 1.2 3.5 3.5V13"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <circle cx="8" cy="3" r="1.25" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function TrashIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M3.5 5h9M6 5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4.5 5l.6 7.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8L11.5 5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const menuItemClass =
+  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+
+interface ContextMenuItemProps {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export function ContextMenuItem({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: ContextMenuItemProps) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={onClick}
+      className={menuItemClass}
+    >
+      <span className="text-canvas-muted">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+export { menuItemClass };

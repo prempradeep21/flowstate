@@ -29,6 +29,15 @@ body {
   }
 }
 
+.canvas-selection-marquee {
+  border: 2px dashed rgb(44 42 38 / 0.35);
+  background: rgb(44 42 38 / 0.04);
+}
+
+.canvas-group-bounds {
+  border: 2px dashed var(--dot-color, #d9d7d2);
+}
+
 @keyframes summary-pulse-stroke {
   0%,
   100% {

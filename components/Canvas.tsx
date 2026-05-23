@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { collectFamiliesInWorldRect } from "@/lib/canvasSelection";
 import { useCanvasStore } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import {
@@ -16,10 +17,15 @@ import {
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
+import { GroupBounds } from "@/components/GroupBounds";
+import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
+import { SelectionOverlay } from "@/components/SelectionOverlay";
+import { SelectionToolbar } from "@/components/SelectionToolbar";
 
 const CARD_WIDTH = 420;
 const INITIAL_CARD_HEIGHT_GUESS = 180;
 const Q_DROP_Y_OFFSET = 30;
+const MARQUEE_MIN_DRAG_PX = 6;
 
 /** Avoid re-panning on resize once the initial viewport has been applied. */
 let initialViewportApplied = false;
@@ -37,11 +43,30 @@ export function Canvas() {
   const viewport = useCanvasStore((s) => s.viewport);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
+  const clearSelection = useCanvasStore((s) => s.clearSelection);
+  const setSelectedFamilyRootIds = useCanvasStore(
+    (s) => s.setSelectedFamilyRootIds,
+  );
+  const groups = useCanvasStore((s) => s.groups);
+  const groupList = Object.values(groups);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
   );
+  const marqueeState = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const spaceHeldRef = useRef(false);
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const [marqueeRect, setMarqueeRect] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
   // Latest cursor position in screen space, kept in a ref so a window keydown
   // listener can read it without re-binding on every mousemove.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -55,6 +80,39 @@ export function Canvas() {
   useEffect(() => {
     placementRef.current = placement;
   }, [placement]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+          return;
+        }
+      }
+      e.preventDefault();
+      spaceHeldRef.current = true;
+      setSpaceHeld(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      spaceHeldRef.current = false;
+      setSpaceHeld(false);
+    };
+    const onBlur = () => {
+      spaceHeldRef.current = false;
+      setSpaceHeld(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
 
   const computeWorldFromClient = (clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -154,6 +212,7 @@ export function Canvas() {
           setPlacement(null);
         }
         setContextMenu(null);
+        useCanvasStore.getState().clearSelection();
         return;
       }
 
@@ -221,20 +280,74 @@ export function Canvas() {
     setContextMenu({ screenX: e.clientX, screenY: e.clientY });
   };
 
+  const applyMarqueeAt = (clientX: number, clientY: number) => {
+    const ms = marqueeState.current;
+    if (!ms) return;
+
+    const x1 = Math.min(ms.startX, clientX);
+    const y1 = Math.min(ms.startY, clientY);
+    const x2 = Math.max(ms.startX, clientX);
+    const y2 = Math.max(ms.startY, clientY);
+
+    const w1 = computeWorldFromClient(x1, y1);
+    const w2 = computeWorldFromClient(x2, y2);
+    if (!w1 || !w2) return;
+
+    const roots = collectFamiliesInWorldRect(useCanvasStore.getState(), {
+      x1: Math.min(w1.x, w2.x),
+      y1: Math.min(w1.y, w2.y),
+      x2: Math.max(w1.x, w2.x),
+      y2: Math.max(w1.y, w2.y),
+    });
+    setSelectedFamilyRootIds(roots);
+  };
+
+  const isCanvasBackgroundTarget = (target: HTMLElement) =>
+    !target.closest("[data-canvas-card]") &&
+    !target.closest("[data-group-summary-icon]");
+
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (placementRef.current) return;
-    if (e.target !== e.currentTarget) return;
+    const target = e.target as HTMLElement;
+    if (!isCanvasBackgroundTarget(target)) return;
     setContextMenu(null);
     if (e.button !== 0) return;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    panState.current = {
+
+    const el = e.currentTarget as HTMLDivElement;
+    el.setPointerCapture(e.pointerId);
+
+    if (spaceHeldRef.current) {
+      panState.current = {
+        pointerId: e.pointerId,
+        lastX: e.clientX,
+        lastY: e.clientY,
+      };
+      return;
+    }
+
+    marqueeState.current = {
       pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
+      startX: e.clientX,
+      startY: e.clientY,
     };
+    setMarqueeRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
+    clearSelection();
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ms = marqueeState.current;
+    if (ms && ms.pointerId === e.pointerId) {
+      const x = Math.min(ms.startX, e.clientX);
+      const y = Math.min(ms.startY, e.clientY);
+      const w = Math.abs(e.clientX - ms.startX);
+      const h = Math.abs(e.clientY - ms.startY);
+      setMarqueeRect({ x, y, w, h });
+      if (w >= MARQUEE_MIN_DRAG_PX || h >= MARQUEE_MIN_DRAG_PX) {
+        applyMarqueeAt(e.clientX, e.clientY);
+      }
+      return;
+    }
+
     const ps = panState.current;
     if (!ps || ps.pointerId !== e.pointerId) return;
     const dx = e.clientX - ps.lastX;
@@ -245,6 +358,25 @@ export function Canvas() {
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ms = marqueeState.current;
+    if (ms && ms.pointerId === e.pointerId) {
+      const w = Math.abs(e.clientX - ms.startX);
+      const h = Math.abs(e.clientY - ms.startY);
+      if (w >= MARQUEE_MIN_DRAG_PX || h >= MARQUEE_MIN_DRAG_PX) {
+        applyMarqueeAt(e.clientX, e.clientY);
+      } else {
+        clearSelection();
+      }
+      marqueeState.current = null;
+      setMarqueeRect(null);
+      try {
+        (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     const ps = panState.current;
     if (!ps || ps.pointerId !== e.pointerId) return;
     try {
@@ -256,6 +388,9 @@ export function Canvas() {
   };
 
   const handleWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
+    // Let answer panels scroll vertically; never zoom while the pointer is over one.
+    if ((e.target as HTMLElement).closest("[data-card-answer]")) return;
+
     // Ctrl/Meta + wheel = zoom (also trackpad pinch comes through as ctrl+wheel).
     // Plain wheel = also zoom on the canvas to keep the interaction simple in V1.
     const rect = containerRef.current?.getBoundingClientRect();
@@ -285,7 +420,9 @@ export function Canvas() {
       className={`relative h-full w-full overflow-hidden bg-canvas-bg select-none touch-none ${
         placement
           ? "cursor-crosshair"
-          : "cursor-grab active:cursor-grabbing"
+          : spaceHeld
+            ? "cursor-grab active:cursor-grabbing"
+            : "cursor-crosshair"
       }`}
       style={{
         backgroundImage:
@@ -296,13 +433,23 @@ export function Canvas() {
     >
       <CanvasViewport>
         <Connections />
+        {groupList.map((group) => (
+          <GroupBounds key={group.id} group={group} />
+        ))}
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
           return <Card key={id} card={card} />;
         })}
+        {groupList.map((group) =>
+          group.summaryMarkdown ? (
+            <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
+          ) : null,
+        )}
         {placement && <GhostCard world={placement} />}
       </CanvasViewport>
+      <SelectionOverlay rect={marqueeRect} />
+      <SelectionToolbar />
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}

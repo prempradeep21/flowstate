@@ -1,12 +1,19 @@
 "use client";
 
 import { computeAutoLayout } from "@/lib/autoLayout";
+import { pickDefaultThreadId } from "@/lib/chatThreads";
+import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
+import {
+  captureGraphSnapshot,
+  GraphSnapshot,
+  MAX_UNDO_STACK,
+} from "@/lib/undo";
 import { create } from "zustand";
 
 export type ClaudeModel =
   | "claude-opus-4-7"
   | "claude-sonnet-4-6"
-  | "claude-haiku-4-5-20251001";
+  | "claude-haiku-4-5";
 
 export type CardStatus = "empty" | "thinking" | "streaming" | "done";
 
@@ -57,10 +64,25 @@ export interface Viewport {
 }
 
 export type ConnectorStyle = "curvy" | "orthogonal";
+export type AppViewMode = "canvas" | "chat";
+
+export interface BranchGroup {
+  id: string;
+  label: string;
+  familyRootThreadIds: string[];
+  summaryMarkdown: string | null;
+  summaryGeneratedAt?: number;
+  summaryContentFingerprint?: string;
+}
 
 interface CanvasState {
   selectedModel: ClaudeModel;
   setModel: (model: ClaudeModel) => void;
+
+  viewMode: AppViewMode;
+  activeThreadId: string | null;
+  setViewMode: (mode: AppViewMode) => void;
+  setActiveThreadId: (threadId: string) => void;
 
   viewport: Viewport;
   cards: Record<string, Card>;
@@ -69,7 +91,25 @@ interface CanvasState {
   threads: Record<string, Thread>;
   threadOrder: string[];
   openArtifactCardId: string | null;
+  openGroupArtifactId: string | null;
   connectorStyle: ConnectorStyle;
+  undoPast: GraphSnapshot[];
+
+  selectedFamilyRootIds: string[];
+  groups: Record<string, BranchGroup>;
+  activeGroupId: string | null;
+
+  setSelectedFamilyRootIds: (rootThreadIds: string[]) => void;
+  clearSelection: () => void;
+  createGroupFromSelection: (label?: string) => string | null;
+  setGroupSummary: (groupId: string, markdown: string) => void;
+  openGroupArtifact: (groupId: string) => void;
+  closeGroupArtifact: () => void;
+  removeGroup: (groupId: string) => void;
+  setActiveGroupId: (groupId: string | null) => void;
+
+  recordUndo: () => void;
+  undo: () => void;
 
   setViewport: (next: Partial<Viewport>) => void;
   panBy: (dx: number, dy: number) => void;
@@ -86,6 +126,7 @@ interface CanvasState {
   createRootCard: (position: { x: number; y: number }) => string;
   createFollowUp: (parentId: string, question: string) => string | null;
   createBranch: (sourceId: string, side: "left" | "right") => string | null;
+  deleteFromCard: (cardId: string) => void;
 
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
@@ -121,8 +162,55 @@ const newId = (prefix: string) =>
     .toString(36)
     .slice(2, 7)}`;
 
+function collectSubtreeIds(
+  connections: Connection[],
+  rootId: string,
+): Set<string> {
+  const subtree = new Set<string>();
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const cid = queue.shift()!;
+    if (subtree.has(cid)) continue;
+    subtree.add(cid);
+    for (const conn of connections) {
+      if (conn.from === cid) queue.push(conn.to);
+    }
+  }
+  return subtree;
+}
+
+/** When a card's height changes, shift follow-up chains to keep vertical gap. */
+function shiftBottomAttachedSubtrees(
+  state: CanvasState,
+  parentId: string,
+  dy: number,
+): Record<string, Card> {
+  if (dy === 0) return state.cards;
+
+  const cards = { ...state.cards };
+  const bottomChildren = state.connections
+    .filter(
+      (c) =>
+        c.from === parentId && (c.fromSide === "bottom" || c.fromSide == null),
+    )
+    .map((c) => c.to);
+
+  for (const childId of bottomChildren) {
+    for (const id of collectSubtreeIds(state.connections, childId)) {
+      const c = cards[id];
+      if (!c) continue;
+      cards[id] = {
+        ...c,
+        position: { ...c.position, y: c.position.y + dy },
+      };
+    }
+  }
+  return cards;
+}
+
 export const newCardId = () => newId("card");
 const newThreadId = () => newId("thread");
+const newGroupId = () => newId("group");
 
 // All children of a given source (follow-ups + branches) share a single
 // horizontal y-band: the y of the first child created. If none yet, fall back
@@ -152,6 +240,17 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   selectedModel: "claude-sonnet-4-6",
   setModel: (model) => set({ selectedModel: model }),
 
+  viewMode: "canvas",
+  activeThreadId: null,
+  setViewMode: (mode) =>
+    set((state) => {
+      if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
+        return { viewMode: mode, activeThreadId: state.threadOrder[0] };
+      }
+      return { viewMode: mode };
+    }),
+  setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
+
   viewport: { x: 0, y: 0, scale: 1 },
   cards: {},
   cardOrder: [],
@@ -159,7 +258,120 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   threads: {},
   threadOrder: [],
   openArtifactCardId: null,
+  openGroupArtifactId: null,
   connectorStyle: "curvy",
+  undoPast: [],
+
+  selectedFamilyRootIds: [],
+  groups: {},
+  activeGroupId: null,
+
+  setSelectedFamilyRootIds: (rootThreadIds) =>
+    set({ selectedFamilyRootIds: rootThreadIds }),
+
+  clearSelection: () => set({ selectedFamilyRootIds: [] }),
+
+  createGroupFromSelection: (label) => {
+    const safeLabel =
+      typeof label === "string" && label.trim().length > 0
+        ? label.trim()
+        : undefined;
+    let groupId: string | null = null;
+    set((state) => {
+      if (state.selectedFamilyRootIds.length === 0) return state;
+      const id = newGroupId();
+      groupId = id;
+      const groupCount = Object.keys(state.groups).length;
+      const group: BranchGroup = {
+        id,
+        label: safeLabel ?? `Group ${groupCount + 1}`,
+        familyRootThreadIds: [...state.selectedFamilyRootIds],
+        summaryMarkdown: null,
+      };
+      return {
+        groups: { ...state.groups, [id]: group },
+        activeGroupId: id,
+        selectedFamilyRootIds: [],
+      };
+    });
+    return groupId;
+  },
+
+  setGroupSummary: (groupId, markdown) =>
+    set((state) => {
+      const group = state.groups[groupId];
+      if (!group) return state;
+      const nextGroup: BranchGroup = {
+        ...group,
+        summaryMarkdown: markdown,
+        summaryGeneratedAt: Date.now(),
+        summaryContentFingerprint: buildSummaryContentFingerprint(
+          state,
+          group,
+        ),
+      };
+      return {
+        groups: {
+          ...state.groups,
+          [groupId]: nextGroup,
+        },
+      };
+    }),
+
+  openGroupArtifact: (groupId) =>
+    set((state) => {
+      const group = state.groups[groupId];
+      if (!group?.summaryMarkdown) return state;
+      const fingerprint =
+        group.summaryContentFingerprint ??
+        buildSummaryContentFingerprint(state, group);
+      return {
+        openGroupArtifactId: groupId,
+        openArtifactCardId: null,
+        groups: {
+          ...state.groups,
+          [groupId]: { ...group, summaryContentFingerprint: fingerprint },
+        },
+      };
+    }),
+
+  closeGroupArtifact: () => set({ openGroupArtifactId: null }),
+
+  removeGroup: (groupId) =>
+    set((state) => {
+      if (!state.groups[groupId]) return state;
+      const next = { ...state.groups };
+      delete next[groupId];
+      return {
+        groups: next,
+        activeGroupId:
+          state.activeGroupId === groupId ? null : state.activeGroupId,
+        openGroupArtifactId:
+          state.openGroupArtifactId === groupId
+            ? null
+            : state.openGroupArtifactId,
+      };
+    }),
+
+  setActiveGroupId: (groupId) => set({ activeGroupId: groupId }),
+
+  recordUndo: () =>
+    set((state) => {
+      const snap = captureGraphSnapshot(state);
+      const next = [...state.undoPast, snap];
+      if (next.length > MAX_UNDO_STACK) next.shift();
+      return { undoPast: next };
+    }),
+
+  undo: () =>
+    set((state) => {
+      if (state.undoPast.length === 0) return state;
+      const snap = state.undoPast[state.undoPast.length - 1];
+      return {
+        ...snap,
+        undoPast: state.undoPast.slice(0, -1),
+      };
+    }),
 
   setConnectorStyle: (style) => set({ connectorStyle: style }),
 
@@ -204,9 +416,17 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       if (!existing) return state;
       const prev = existing.size;
       if (prev && prev.w === size.w && prev.h === size.h) return state;
-      return {
-        cards: { ...state.cards, [id]: { ...existing, size } },
+
+      const prevH = prev?.h ?? FALLBACK_CARD_HEIGHT;
+      const dy = size.h - prevH;
+      let cards: Record<string, Card> = {
+        ...state.cards,
+        [id]: { ...existing, size },
       };
+      if (dy !== 0) {
+        cards = shiftBottomAttachedSubtrees({ ...state, cards }, id, dy);
+      }
+      return { cards };
     }),
 
   moveSubtree: (rootId, dx, dy) =>
@@ -241,6 +461,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   createRootCard: (position) => {
     const cardId = newCardId();
     set((state) => {
+      const undoPast = pushUndoSnapshot(state);
       const threadId = newThreadId();
       const accent = PALETTE[state.threadOrder.length % PALETTE.length];
       const thread: Thread = { id: threadId, accentColour: accent };
@@ -254,6 +475,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         parentCardId: null,
       };
       return {
+        undoPast,
         threads: { ...state.threads, [threadId]: thread },
         threadOrder: [...state.threadOrder, threadId],
         cards: { ...state.cards, [cardId]: card },
@@ -268,6 +490,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((state) => {
       const parent = state.cards[parentId];
       if (!parent) return state;
+      const undoPast = pushUndoSnapshot(state);
       const id = newCardId();
       childId = id;
       const childY = childBandY(state, parentId, parent);
@@ -291,6 +514,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         toSide: "top",
       };
       return {
+        undoPast,
         cards: { ...state.cards, [id]: child },
         cardOrder: [...state.cardOrder, id],
         connections: [...state.connections, conn],
@@ -304,6 +528,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((state) => {
       const source = state.cards[sourceId];
       if (!source) return state;
+      const undoPast = pushUndoSnapshot(state);
 
       const existingOnSide = state.connections.filter(
         (c) => c.from === sourceId && c.fromSide === side,
@@ -353,6 +578,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       };
 
       return {
+        undoPast,
         threads: { ...state.threads, [newThreadIdStr]: thread },
         threadOrder: [...state.threadOrder, newThreadIdStr],
         cards: { ...state.cards, [id]: card },
@@ -363,17 +589,74 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     return branchId;
   },
 
+  deleteFromCard: (cardId) =>
+    set((state) => {
+      if (!state.cards[cardId]) return state;
+      const undoPast = pushUndoSnapshot(state);
+
+      const toDelete = collectSubtreeIds(state.connections, cardId);
+      const nextCards = { ...state.cards };
+      for (const id of toDelete) {
+        delete nextCards[id];
+      }
+
+      const nextConnections = state.connections.filter(
+        (c) => !toDelete.has(c.from) && !toDelete.has(c.to),
+      );
+      const nextCardOrder = state.cardOrder.filter((id) => !toDelete.has(id));
+
+      const remainingThreadIds = new Set(
+        Object.values(nextCards).map((c) => c.threadId),
+      );
+      const nextThreads = { ...state.threads };
+      for (const tid of Object.keys(nextThreads)) {
+        if (!remainingThreadIds.has(tid)) delete nextThreads[tid];
+      }
+      const nextThreadOrder = state.threadOrder.filter((tid) =>
+        remainingThreadIds.has(tid),
+      );
+
+      let activeThreadId = state.activeThreadId;
+      if (activeThreadId && !remainingThreadIds.has(activeThreadId)) {
+        activeThreadId = pickDefaultThreadId({
+          cards: nextCards,
+          connections: nextConnections,
+          cardOrder: nextCardOrder,
+          threads: nextThreads,
+          threadOrder: nextThreadOrder,
+        });
+      }
+
+      let openArtifactCardId = state.openArtifactCardId;
+      if (openArtifactCardId && toDelete.has(openArtifactCardId)) {
+        openArtifactCardId = null;
+      }
+
+      return {
+        undoPast,
+        cards: nextCards,
+        cardOrder: nextCardOrder,
+        connections: nextConnections,
+        threads: nextThreads,
+        threadOrder: nextThreadOrder,
+        activeThreadId,
+        openArtifactCardId,
+      };
+    }),
+
   openArtifact: (cardId) =>
     set((state) => {
       if (!state.cards[cardId]) return state;
-      return { openArtifactCardId: cardId };
+      return { openArtifactCardId: cardId, openGroupArtifactId: null };
     }),
 
-  closeArtifact: () => set({ openArtifactCardId: null }),
+  closeArtifact: () =>
+    set({ openArtifactCardId: null, openGroupArtifactId: null }),
 
   autoLayoutCanvas: () =>
     set((state) => {
       if (state.cardOrder.length === 0) return state;
+      const undoPast = pushUndoSnapshot(state);
       const positions = computeAutoLayout({
         cards: state.cards,
         cardOrder: state.cardOrder,
@@ -387,9 +670,16 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         if (!existing) continue;
         nextCards[id] = { ...existing, position: pos };
       }
-      return { cards: nextCards };
+      return { undoPast, cards: nextCards };
     }),
 }));
+
+function pushUndoSnapshot(state: CanvasState): GraphSnapshot[] {
+  const snap = captureGraphSnapshot(state);
+  const next = [...state.undoPast, snap];
+  if (next.length > MAX_UNDO_STACK) next.shift();
+  return next;
+}
 
 // Selector helpers.
 export const selectAccentForCard = (cardId: string) =>

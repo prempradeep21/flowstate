@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic();
-
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
   description:
@@ -67,6 +65,15 @@ async function fetchWikimedia(
 }
 
 export async function POST(req: Request) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: "ANTHROPIC_API_KEY is not set in .env.local" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const anthropic = new Anthropic({ apiKey });
   const { question, model, history } = await req.json();
 
   const messages: Anthropic.MessageParam[] = [

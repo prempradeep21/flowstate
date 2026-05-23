@@ -26,8 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={archivo.variable}>
-      <body className="h-full w-full overflow-hidden font-sans">{children}</body>
+    <html lang="en" className={`${archivo.variable} h-full`}>
+      <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
+        {children}
+      </body>
     </html>
   );
 }

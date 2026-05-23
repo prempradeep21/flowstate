@@ -5,7 +5,7 @@ import { ClaudeModel, useCanvasStore } from "@/lib/store";
 const MODELS: { value: ClaudeModel; label: string }[] = [
   { value: "claude-opus-4-7", label: "Opus" },
   { value: "claude-sonnet-4-6", label: "Sonnet" },
-  { value: "claude-haiku-4-5-20251001", label: "Haiku" },
+  { value: "claude-haiku-4-5", label: "Haiku" },
 ];
 
 export function ModelSelector() {

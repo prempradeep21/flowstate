@@ -1,25 +1,50 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useCanvasStore } from "@/lib/store";
+import { groupHasNewSummaryContent } from "@/lib/groupSummaryStaleness";
+import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
 import { getArtifactMarkdown } from "@/lib/artifacts";
+import {
+  downloadGroupMarkdown,
+  refreshGroupSummary,
+} from "@/lib/summarizeGroup";
+import { useCanvasStore } from "@/lib/store";
 
 const PANEL_WIDTH = 480;
 
 export function ArtifactPanel() {
   const openCardId = useCanvasStore((s) => s.openArtifactCardId);
+  const openGroupId = useCanvasStore((s) => s.openGroupArtifactId);
+  const selectedModel = useCanvasStore((s) => s.selectedModel);
   const card = useCanvasStore((s) =>
     openCardId ? s.cards[openCardId] : undefined,
   );
+  const group = useCanvasStore((s) =>
+    openGroupId ? s.groups[openGroupId] : undefined,
+  );
+  const canRefresh = useCanvasStore((s) => {
+    const g = openGroupId ? s.groups[openGroupId] : undefined;
+    return g ? groupHasNewSummaryContent(s, g) : false;
+  });
   const closeArtifact = useCanvasStore((s) => s.closeArtifact);
 
-  const markdown = getArtifactMarkdown(card?.artifactId);
-  const isOpen = Boolean(openCardId && markdown);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  // Close on Escape while the panel is open. Registered globally because the
-  // panel is focusless overlay UI — there's no element that naturally owns the
-  // keystroke.
+  const cardMarkdown = getArtifactMarkdown(card?.artifactId);
+  const groupMarkdown = group?.summaryMarkdown ?? null;
+  const markdown = groupMarkdown ?? cardMarkdown;
+  const isOpen = Boolean(markdown && (openGroupId || openCardId));
+  const title = group ? group.label : "Document";
+
+  useEffect(() => {
+    if (!openGroupId) {
+      setRefreshError(null);
+      setRefreshing(false);
+    }
+  }, [openGroupId]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -31,6 +56,15 @@ export function ArtifactPanel() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, closeArtifact]);
+
+  const handleRefresh = async () => {
+    if (!openGroupId || !canRefresh) return;
+    setRefreshError(null);
+    setRefreshing(true);
+    const result = await refreshGroupSummary(openGroupId, selectedModel);
+    setRefreshing(false);
+    if (!result.ok) setRefreshError(result.error);
+  };
 
   return (
     <>
@@ -52,94 +86,67 @@ export function ArtifactPanel() {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <header className="flex items-center justify-between border-b border-canvas-border px-5 py-3">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-            Document
+        <header className="flex flex-col gap-1 border-b border-canvas-border px-5 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                {group ? "Summary" : "Document"}
+              </div>
+              {group && (
+                <div className="truncate text-[13px] font-medium text-canvas-ink">
+                  {title}
+                </div>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {group && groupMarkdown && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => downloadGroupMarkdown(group)}
+                    className="rounded-md px-2 py-1 text-[12px] text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canRefresh || refreshing}
+                    onClick={handleRefresh}
+                    className="rounded-md px-2 py-1 text-[12px] text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {refreshing ? "Refreshing…" : "Refresh"}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                aria-label="Close document"
+                onClick={closeArtifact}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+              >
+                <svg
+                  aria-hidden
+                  viewBox="0 0 16 16"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3.5 3.5 12.5 12.5" />
+                  <path d="M12.5 3.5 3.5 12.5" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            aria-label="Close document"
-            onClick={closeArtifact}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
-          >
-            <svg
-              aria-hidden
-              viewBox="0 0 16 16"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3.5 3.5 12.5 12.5" />
-              <path d="M12.5 3.5 3.5 12.5" />
-            </svg>
-          </button>
+          {refreshError && (
+            <p className="text-[11px] text-red-600">{refreshError}</p>
+          )}
         </header>
-        <div className="flex-1 overflow-y-auto px-6 py-6 text-canvas-ink">
+        <div className="flex-1 overflow-y-auto px-6 py-6 text-[14px] leading-relaxed text-canvas-ink">
           {markdown && (
-            <ReactMarkdown
-              components={{
-                h1: ({ node: _node, ...props }) => (
-                  <h1
-                    className="mb-3 text-[24px] font-bold leading-tight text-canvas-ink"
-                    {...props}
-                  />
-                ),
-                h2: ({ node: _node, ...props }) => (
-                  <h2
-                    className="mt-6 mb-2 text-[16px] font-semibold leading-snug text-canvas-ink"
-                    {...props}
-                  />
-                ),
-                p: ({ node: _node, ...props }) => (
-                  <p
-                    className="mb-4 text-[14px] leading-relaxed text-canvas-ink"
-                    {...props}
-                  />
-                ),
-                ul: ({ node: _node, ...props }) => (
-                  <ul
-                    className="mb-4 list-disc space-y-1.5 pl-5 text-[14px] leading-relaxed text-canvas-ink marker:text-canvas-muted"
-                    {...props}
-                  />
-                ),
-                ol: ({ node: _node, ...props }) => (
-                  <ol
-                    className="mb-4 list-decimal space-y-1.5 pl-5 text-[14px] leading-relaxed text-canvas-ink marker:text-canvas-muted"
-                    {...props}
-                  />
-                ),
-                li: ({ node: _node, ...props }) => (
-                  <li className="pl-1" {...props} />
-                ),
-                blockquote: ({ node: _node, ...props }) => (
-                  <blockquote
-                    className="mt-6 border-l-2 border-canvas-border pl-4 text-[14px] italic leading-relaxed text-canvas-muted"
-                    {...props}
-                  />
-                ),
-                code: ({ node: _node, ...props }) => (
-                  <code
-                    className="rounded bg-canvas-bg px-1 py-0.5 font-mono text-[13px] text-canvas-ink"
-                    {...props}
-                  />
-                ),
-                a: ({ node: _node, ...props }) => (
-                  <a
-                    className="text-canvas-ink underline decoration-canvas-muted underline-offset-2 hover:decoration-canvas-ink"
-                    {...props}
-                  />
-                ),
-                strong: ({ node: _node, ...props }) => (
-                  <strong className="font-semibold" {...props} />
-                ),
-                em: ({ node: _node, ...props }) => (
-                  <em className="italic" {...props} />
-                ),
-              }}
-            >
+            <ReactMarkdown components={MARKDOWN_COMPONENTS}>
               {markdown}
             </ReactMarkdown>
           )}
