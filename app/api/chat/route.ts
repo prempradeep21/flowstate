@@ -1,23 +1,31 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { conversationStore } from "@/lib/conversationStore";
+import { loadMcpConfig } from "@/lib/mcpConfig";
+import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
+import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
 
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
   description:
-    "Search for and display photos from Wikimedia Commons when the user asks to see images, pictures, or photos of a place, landmark, person, or thing.",
+    "Search for and display EXISTING real-world photos from Wikimedia Commons. Use ONLY when the user wants to see real photographs of places, landmarks, people, or things — NOT for AI image generation or creative/artistic image requests. For generation requests, use a connected image-generation MCP tool instead.",
   input_schema: {
     type: "object" as const,
     properties: {
       query: { type: "string", description: "The image search query" },
       count: {
         type: "number",
-        description:
-          "Number of images to show. Use at least 4 when the user asks for pictures/photos (max 6).",
+        description: "Number of images to show (default 4, max 6)",
       },
     },
     required: ["query"],
   },
 };
+
+const BASE_SYSTEM =
+  `You are a helpful AI assistant with access to tools.\n\n` +
+  `Image tool guidance:\n` +
+  `- To GENERATE or CREATE an AI image (artistic, fictional, stylized), use the image generation MCP tool if one is connected. Do NOT use search_images for generation requests.\n` +
+  `- To SHOW real photos of existing places, people, or things, use search_images (Wikimedia).\n` +
+  `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).`;
 
 async function fetchWikimedia(
   query: string,
@@ -57,10 +65,21 @@ async function fetchWikimedia(
       return {
         url: info.url as string,
         thumb: (info.thumburl as string) || (info.url as string),
-        alt: ((p.title as string) ?? query).replace("File:", "").replace(/_/g, " "),
+        alt: ((p.title as string) ?? query)
+          .replace("File:", "")
+          .replace(/_/g, " "),
       };
     });
 }
+
+function mcpImages(imgs: McpImage[]) {
+  return imgs.map((img) => {
+    const dataUrl = `data:${img.mimeType};base64,${img.data}`;
+    return { url: dataUrl, thumb: dataUrl, alt: "Generated image", generated: true };
+  });
+}
+
+const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
 export async function POST(req: Request) {
   const apiKey =
@@ -70,40 +89,76 @@ export async function POST(req: Request) {
   }
   const anthropic = new Anthropic({ apiKey });
 
-  const {
-    conversationId,
-    parentConversationId,
-    question,
-    model,
-    history: clientHistory,
-  } = await req.json();
+  interface IncomingFile { name: string; type: string; data: string; }
+  interface HistoryMessage { question: string; answer: string; }
+  const { question, model, files, history: rawHistory } = await req.json() as {
+    conversationId: string;
+    question: string;
+    model: string;
+    files?: IncomingFile[];
+    history?: HistoryMessage[];
+  };
 
-  const clientList = Array.isArray(clientHistory) ? clientHistory : [];
-  conversationStore.register(
-    conversationId,
-    parentConversationId ?? null,
-  );
-  if (clientList.length > 0) {
-    conversationStore.seedHistory(
-      conversationId,
-      parentConversationId ?? null,
-      clientList,
-    );
+  const MAX_FULL_HISTORY = 8;
+  const allHistory: HistoryMessage[] = rawHistory ?? [];
+  let history: HistoryMessage[];
+  let systemContext: string | null = null;
+  if (allHistory.length > MAX_FULL_HISTORY) {
+    const older = allHistory.slice(0, allHistory.length - MAX_FULL_HISTORY);
+    history = allHistory.slice(-MAX_FULL_HISTORY);
+    systemContext =
+      `Earlier in this conversation, the following topics were discussed:\n` +
+      older.map((m, i) => `${i + 1}. "${m.question}"`).join("\n");
+  } else {
+    history = allHistory;
   }
 
-  const serverCtx = conversationStore.getContextChain(conversationId);
-  const history =
-    clientList.length >= serverCtx.history.length
-      ? clientList
-      : serverCtx.history;
-  const systemContext = serverCtx.systemContext;
+  // Load MCP tools with a 3 s timeout so a slow server never blocks the chat.
+  const mcpConfig = loadMcpConfig();
+  let mcp: McpToolsResult = EMPTY_MCP;
+  if (mcpConfig.servers.some((s) => s.enabled)) {
+    try {
+      mcp = await Promise.race([
+        getMcpTools(mcpConfig.servers),
+        new Promise<McpToolsResult>((resolve) =>
+          setTimeout(() => resolve(EMPTY_MCP), 3000),
+        ),
+      ]);
+    } catch {
+      // proceed without MCP tools
+    }
+  }
 
-  const messages: Anthropic.MessageParam[] = [
+  const allTools: Anthropic.Tool[] = [SEARCH_IMAGES_TOOL, ...mcp.anthropicTools];
+
+  // Build the content for the current user message.
+  // If files are attached, send them as image/document blocks before the text.
+  const userContent: Anthropic.ContentBlockParam[] = [];
+  for (const file of files ?? []) {
+    if (file.type.startsWith("image/")) {
+      const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      userContent.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data: file.data },
+      });
+    } else if (file.type === "application/pdf") {
+      userContent.push({
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: file.data },
+      } as unknown as Anthropic.ContentBlockParam);
+    }
+  }
+  userContent.push({ type: "text", text: question });
+
+  let messages: Anthropic.MessageParam[] = [
     ...history.flatMap(({ question: q, answer: a }) => [
       { role: "user" as const, content: q },
       { role: "assistant" as const, content: a },
     ]),
-    { role: "user" as const, content: question },
+    {
+      role: "user" as const,
+      content: userContent.length === 1 ? question : userContent,
+    },
   ];
 
   const encoder = new TextEncoder();
@@ -114,94 +169,97 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
-      let answerAcc = "";
 
       try {
-        const stream1 = anthropic.messages.stream({
-          model,
-          max_tokens: 2048,
-          ...(systemContext ? { system: systemContext } : {}),
-          messages,
-          tools: [SEARCH_IMAGES_TOOL],
-        });
+        // Tool-use loop: Claude may call tools multiple times before a final reply.
+        const MAX_TOOL_TURNS = 5;
+        for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+          const systemPrompt = systemContext
+            ? `${BASE_SYSTEM}\n\n${systemContext}`
+            : BASE_SYSTEM;
+          const stream = anthropic.messages.stream({
+            model,
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages,
+            tools: allTools,
+          });
 
-        for await (const event of stream1) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            answerAcc += event.delta.text;
-            emit({ text: event.delta.text });
+          for await (const event of stream) {
+            if (
+              event.type === "content_block_delta" &&
+              event.delta.type === "text_delta"
+            ) {
+              emit({ text: event.delta.text });
+            }
           }
-        }
 
-        const msg1 = await stream1.finalMessage();
-        totalUsage.inputTokens += msg1.usage.input_tokens;
-        totalUsage.outputTokens += msg1.usage.output_tokens;
+          const msg = await stream.finalMessage();
+          totalUsage.inputTokens += msg.usage.input_tokens;
+          totalUsage.outputTokens += msg.usage.output_tokens;
 
-        if (msg1.stop_reason === "tool_use") {
-          const toolBlock = msg1.content.find(
+          if (msg.stop_reason !== "tool_use") break;
+
+          const toolUseBlocks = msg.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
           );
 
-          if (toolBlock && toolBlock.name === "search_images") {
-            const input = toolBlock.input as { query: string; count?: number };
-            emit({ thinking: `Searching Wikimedia for "${input.query}"…` });
+          const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
-            const imageCount = Math.min(
-              Math.max(input.count ?? 4, 4),
-              6,
-            );
-            const images = await fetchWikimedia(input.query, imageCount);
-            if (images.length) emit({ images });
+          for (const block of toolUseBlocks) {
+            const input = block.input as Record<string, unknown>;
+            let resultContent = "";
 
-            const stream2 = anthropic.messages.stream({
-              model,
-              max_tokens: 1024,
-              ...(systemContext ? { system: systemContext } : {}),
-              messages: [
-                ...messages,
-                { role: "assistant" as const, content: msg1.content },
-                {
-                  role: "user" as const,
-                  content: [
-                    {
-                      type: "tool_result" as const,
-                      tool_use_id: toolBlock.id,
-                      content: `Fetched ${images.length} photos from Wikimedia Commons for "${input.query}".`,
-                    },
-                  ],
-                },
-              ],
-              tools: [SEARCH_IMAGES_TOOL],
-            });
-
-            for await (const event of stream2) {
-              if (
-                event.type === "content_block_delta" &&
-                event.delta.type === "text_delta"
-              ) {
-                answerAcc += event.delta.text;
-                emit({ text: event.delta.text });
+            try {
+              if (block.name === "search_images") {
+                const query = input.query as string;
+                const count =
+                  typeof input.count === "number" ? input.count : 4;
+                emit({ thinking: `Searching Wikimedia for "${query}"…` });
+                const images = await fetchWikimedia(query, count);
+                if (images.length) emit({ images });
+                resultContent = `Fetched ${images.length} photos from Wikimedia Commons for "${query}".`;
+              } else if (mcp.registry.has(block.name)) {
+                const server = mcp.registry.get(block.name)!;
+                emit({ thinking: `Calling ${server.name}: ${block.name}…` });
+                const mcpResult = await callMcpTool(server, block.name, input);
+                if (mcpResult.images.length > 0) {
+                  emit({ images: mcpImages(mcpResult.images) });
+                }
+                resultContent = mcpResult.text;
+              } else {
+                resultContent = `Unknown tool: ${block.name}`;
               }
+            } catch (err) {
+              resultContent = `Tool error: ${
+                err instanceof Error ? err.message : String(err)
+              }`;
             }
-            const msg2 = await stream2.finalMessage();
-            totalUsage.inputTokens += msg2.usage.input_tokens;
-            totalUsage.outputTokens += msg2.usage.output_tokens;
+
+            toolResults.push({
+              type: "tool_result" as const,
+              tool_use_id: block.id,
+              content: resultContent,
+            });
           }
+
+          // Append assistant turn + tool results before next loop iteration.
+          messages = [
+            ...messages,
+            { role: "assistant" as const, content: msg.content },
+            { role: "user" as const, content: toolResults },
+          ];
         }
       } catch (err) {
         let msg = err instanceof Error ? err.message : "Unknown error";
         try {
           const inner = JSON.parse(msg);
           if (inner?.error?.message) msg = inner.error.message;
-        } catch { /* not JSON */ }
+        } catch {
+          /* not JSON */
+        }
         emit({ error: msg });
       } finally {
-        // Store the completed Q&A in the backend conversation store.
-        if (answerAcc) {
-          conversationStore.addMessage(conversationId, question, answerAcc);
-        }
         if (totalUsage.inputTokens || totalUsage.outputTokens) {
           emit({ usage: totalUsage });
         }
