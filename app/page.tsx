@@ -2,9 +2,11 @@
 
 import { Canvas } from "@/components/Canvas";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
+import { ApiKeyGate } from "@/components/ApiKeyGate";
 import { ChatView } from "@/components/ChatView";
 import { ModelSelector } from "@/components/ModelSelector";
 import { UndoButton } from "@/components/UndoButton";
+import { UsageBadge } from "@/components/UsageBadge";
 import { ViewModeToggle } from "@/components/ViewModeToggle";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
@@ -16,15 +18,18 @@ export default function Page() {
 
   return (
     <main className="fixed inset-0">
-      {viewMode === "canvas" ? <Canvas /> : <ChatView />}
-      <ArtifactPanel />
-      <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          <UndoButton />
-          <ViewModeToggle />
+      <ApiKeyGate>
+        {viewMode === "canvas" ? <Canvas /> : <ChatView />}
+        <ArtifactPanel />
+        <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <UsageBadge />
+            <UndoButton />
+            <ViewModeToggle />
+          </div>
+          {!openGroupArtifactId && <ModelSelector />}
         </div>
-        {!openGroupArtifactId && <ModelSelector />}
-      </div>
+      </ApiKeyGate>
     </main>
   );
 }

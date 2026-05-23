@@ -37,6 +37,7 @@ export interface Card {
   thinkingLabel?: string;
   position: { x: number; y: number };
   parentCardId: string | null;
+  parentConversationId: string | null;
   size?: CardSize;
   artifactId?: string;
   images?: CardImage[];
@@ -83,6 +84,9 @@ interface CanvasState {
   activeThreadId: string | null;
   setViewMode: (mode: AppViewMode) => void;
   setActiveThreadId: (threadId: string) => void;
+
+  sessionUsage: { inputTokens: number; outputTokens: number };
+  addUsage: (input: number, output: number) => void;
 
   viewport: Viewport;
   cards: Record<string, Card>;
@@ -238,6 +242,14 @@ function childBandY(
 
 export const useCanvasStore = create<CanvasState>((set) => ({
   selectedModel: "claude-sonnet-4-6",
+  sessionUsage: { inputTokens: 0, outputTokens: 0 },
+  addUsage: (input, output) =>
+    set((s) => ({
+      sessionUsage: {
+        inputTokens: s.sessionUsage.inputTokens + input,
+        outputTokens: s.sessionUsage.outputTokens + output,
+      },
+    })),
   setModel: (model) => set({ selectedModel: model }),
 
   viewMode: "canvas",
@@ -473,6 +485,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         status: "empty",
         position,
         parentCardId: null,
+        parentConversationId: null,
       };
       return {
         undoPast,
@@ -505,6 +518,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
           y: childY,
         },
         parentCardId: parentId,
+        parentConversationId: parentId,
       };
       const conn: Connection = {
         id: `conn_${parentId}_${id}`,
@@ -567,6 +581,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         status: "empty",
         position: { x, y },
         parentCardId: null,
+        parentConversationId: sourceId,
       };
 
       const conn: Connection = {

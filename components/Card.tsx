@@ -125,7 +125,7 @@ export function Card({ card }: CardProps) {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
     startedFor.current = card.question;
-    askClaude(card.id, card.question, selectedModel, {
+    askClaude(card.id, card.parentConversationId ?? null, card.question, selectedModel, {
       onThinking: (label) =>
         updateCard(card.id, {
           status: "thinking",
