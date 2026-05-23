@@ -374,12 +374,12 @@ export function Card({ card }: CardProps) {
                 <>
                   {!hideImages && card.images && card.images.length > 0 && (
                     <div
-                      className={`mb-3 grid gap-1 overflow-hidden rounded-xl ${
+                      className={`mb-3 grid gap-2 ${
                         card.images.length === 1
                           ? "grid-cols-1"
-                          : card.images.length <= 4
+                          : card.images.length === 2
                             ? "grid-cols-2"
-                            : "grid-cols-3"
+                            : "grid-cols-2 sm:grid-cols-3"
                       }`}
                     >
                       {card.images.slice(0, 6).map((img, i) => (
@@ -388,13 +388,17 @@ export function Card({ card }: CardProps) {
                           href={img.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block overflow-hidden"
+                          className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
                           onPointerDown={(e) => e.stopPropagation()}
                         >
                           <img
                             src={img.thumb}
                             alt={img.alt}
-                            className="h-32 w-full object-cover transition-transform duration-200 hover:scale-105"
+                            className={
+                              card.images!.length === 1
+                                ? "max-h-80 w-full object-contain p-1"
+                                : "aspect-[4/3] w-full object-cover"
+                            }
                           />
                         </a>
                       ))}

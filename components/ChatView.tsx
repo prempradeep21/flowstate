@@ -130,12 +130,12 @@ function ChatMessages({ threadId }: { threadId: string }) {
                 <div className="flex flex-col gap-3">
                   {card.images && card.images.length > 0 && (
                     <div
-                      className={`grid max-w-xl gap-1 overflow-hidden rounded-xl ${
+                      className={`grid max-w-xl gap-2 ${
                         card.images.length === 1
                           ? "grid-cols-1"
-                          : card.images.length <= 4
+                          : card.images.length === 2
                             ? "grid-cols-2"
-                            : "grid-cols-3"
+                            : "grid-cols-2 sm:grid-cols-3"
                       }`}
                     >
                       {card.images.slice(0, 6).map((img, i) => (
@@ -144,12 +144,16 @@ function ChatMessages({ threadId }: { threadId: string }) {
                           href={img.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block overflow-hidden"
+                          className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
                         >
                           <img
                             src={img.thumb}
                             alt={img.alt}
-                            className="h-36 w-full object-cover"
+                            className={
+                              card.images!.length === 1
+                                ? "max-h-80 w-full object-contain p-1"
+                                : "aspect-[4/3] w-full object-cover"
+                            }
                           />
                         </a>
                       ))}

@@ -11,7 +11,8 @@ const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
       query: { type: "string", description: "The image search query" },
       count: {
         type: "number",
-        description: "Number of images to show (default 4, max 6)",
+        description:
+          "Number of images to show. Use at least 4 when the user asks for pictures/photos (max 6).",
       },
     },
     required: ["query"],
@@ -69,10 +70,33 @@ export async function POST(req: Request) {
   }
   const anthropic = new Anthropic({ apiKey });
 
-  const { conversationId, question, model } = await req.json();
+  const {
+    conversationId,
+    parentConversationId,
+    question,
+    model,
+    history: clientHistory,
+  } = await req.json();
 
-  const { history, systemContext } =
-    conversationStore.getContextChain(conversationId);
+  const clientList = Array.isArray(clientHistory) ? clientHistory : [];
+  conversationStore.register(
+    conversationId,
+    parentConversationId ?? null,
+  );
+  if (clientList.length > 0) {
+    conversationStore.seedHistory(
+      conversationId,
+      parentConversationId ?? null,
+      clientList,
+    );
+  }
+
+  const serverCtx = conversationStore.getContextChain(conversationId);
+  const history =
+    clientList.length >= serverCtx.history.length
+      ? clientList
+      : serverCtx.history;
+  const systemContext = serverCtx.systemContext;
 
   const messages: Anthropic.MessageParam[] = [
     ...history.flatMap(({ question: q, answer: a }) => [
@@ -124,7 +148,11 @@ export async function POST(req: Request) {
             const input = toolBlock.input as { query: string; count?: number };
             emit({ thinking: `Searching Wikimedia for "${input.query}"…` });
 
-            const images = await fetchWikimedia(input.query, input.count ?? 4);
+            const imageCount = Math.min(
+              Math.max(input.count ?? 4, 4),
+              6,
+            );
+            const images = await fetchWikimedia(input.query, imageCount);
             if (images.length) emit({ images });
 
             const stream2 = anthropic.messages.stream({

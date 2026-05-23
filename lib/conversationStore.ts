@@ -18,8 +18,24 @@ class ConversationStore {
   private convs = new Map<string, Conversation>();
 
   register(id: string, parentId: string | null): void {
-    if (!this.convs.has(id)) {
-      this.convs.set(id, { id, parentId, messages: [] });
+    const existing = this.convs.get(id);
+    if (existing) {
+      existing.parentId = parentId;
+      return;
+    }
+    this.convs.set(id, { id, parentId, messages: [] });
+  }
+
+  /** Hydrate from canvas when in-memory store was cleared (e.g. dev hot reload). */
+  seedHistory(
+    id: string,
+    parentId: string | null,
+    messages: StoredMessage[],
+  ): void {
+    this.register(id, parentId);
+    const conv = this.convs.get(id)!;
+    if (conv.messages.length === 0 && messages.length > 0) {
+      conv.messages = [...messages];
     }
   }
 

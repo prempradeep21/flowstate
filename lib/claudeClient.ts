@@ -1,5 +1,6 @@
 "use client";
 
+import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { ClaudeModel, CardImage, useCanvasStore } from "./store";
 import { AskCallbacks, AskHandle } from "./dummyLLM";
 import { getStoredApiKey } from "./useApiKey";
@@ -33,7 +34,15 @@ export function askClaude(
   const run = async () => {
     cb.onThinking("Thinking");
     try {
-      // Register this conversation with the backend before asking.
+      const state = useCanvasStore.getState();
+      const history = buildAncestorHistory(
+        {
+          cards: state.cards,
+          connections: state.connections,
+        },
+        cardId,
+      );
+
       await registerConversation(cardId, parentConversationId, apiKey);
 
       const res = await fetch("/api/chat", {
@@ -42,7 +51,13 @@ export function askClaude(
           "Content-Type": "application/json",
           "x-api-key": apiKey,
         },
-        body: JSON.stringify({ conversationId: cardId, question, model }),
+        body: JSON.stringify({
+          conversationId: cardId,
+          parentConversationId,
+          question,
+          model,
+          history,
+        }),
         signal: controller.signal,
       });
 
