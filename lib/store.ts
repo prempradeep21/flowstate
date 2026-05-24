@@ -1,9 +1,20 @@
 "use client";
 
 import type { ArtifactPayload, ResponseType } from "@/lib/artifactTypes";
+import type {
+  CanvasSnapshot,
+  CanvasSnapshotSource,
+} from "@/lib/canvasSnapshot";
 import { computeAutoLayout } from "@/lib/autoLayout";
 import { pickDefaultThreadId } from "@/lib/chatThreads";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
+import {
+  appendArtifactVersion,
+  createSessionArtifactFromPayload,
+  resolveThreadArtifactId,
+  type AttachedArtifactRef,
+  type SessionArtifact,
+} from "@/lib/sessionArtifacts";
 import {
   captureGraphSnapshot,
   GraphSnapshot,
@@ -30,6 +41,21 @@ export interface CardSize {
 }
 
 export type { ArtifactPayload, ResponseType };
+export type { AttachedArtifactRef, SessionArtifact } from "@/lib/sessionArtifacts";
+
+export interface PendingFileAttachment {
+  name: string;
+  mimeType: string;
+  base64: string;
+}
+
+export interface UploadedAttachment {
+  id: string;
+  name: string;
+  type: string;
+  data: string;
+  addedAt: number;
+}
 
 export interface Card {
   id: string;
@@ -46,6 +72,17 @@ export interface Card {
   images?: CardImage[];
   responseType?: ResponseType;
   artifactPayload?: ArtifactPayload;
+  outputArtifactId?: string;
+  outputArtifactVersionId?: string;
+  attachedArtifacts?: AttachedArtifactRef[];
+  inheritedArtifactId?: string;
+  pendingFiles?: PendingFileAttachment[];
+}
+
+export interface FollowUpOptions {
+  attachedArtifacts?: AttachedArtifactRef[];
+  pendingImages?: CardImage[];
+  pendingFiles?: PendingFileAttachment[];
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";
@@ -85,6 +122,14 @@ interface CanvasState {
   selectedModel: ClaudeModel;
   setModel: (model: ClaudeModel) => void;
 
+  leftPanelCollapsed: boolean;
+  setLeftPanelCollapsed: (collapsed: boolean) => void;
+  toggleLeftPanel: () => void;
+
+  uploadedAttachments: UploadedAttachment[];
+  addUploadedAttachment: (attachment: UploadedAttachment) => void;
+  removeUploadedAttachment: (id: string) => void;
+
   viewMode: AppViewMode;
   activeThreadId: string | null;
   setViewMode: (mode: AppViewMode) => void;
@@ -101,6 +146,9 @@ interface CanvasState {
   threadOrder: string[];
   openArtifactCardId: string | null;
   openGroupArtifactId: string | null;
+  sessionArtifacts: Record<string, SessionArtifact>;
+  openSessionArtifactId: string | null;
+  openSessionArtifactVersionId: string | null;
   connectorStyle: ConnectorStyle;
   undoPast: GraphSnapshot[];
 
@@ -133,14 +181,30 @@ interface CanvasState {
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
-  createFollowUp: (parentId: string, question: string) => string | null;
+  createFollowUp: (
+    parentId: string,
+    question: string,
+    options?: FollowUpOptions,
+  ) => string | null;
   createBranch: (sourceId: string, side: "left" | "right") => string | null;
   deleteFromCard: (cardId: string) => void;
+
+  createArtifactVersion: (
+    artifactId: string | null,
+    payload: ArtifactPayload,
+    cardId: string,
+  ) => { artifactId: string; versionId: string };
+  openSessionArtifact: (artifactId: string, versionId?: string) => void;
+  setArtifactPanelVersion: (versionId: string) => void;
+  listSessionArtifacts: () => SessionArtifact[];
 
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
   autoLayoutCanvas: () => void;
+
+  getCanvasSnapshotSource: () => CanvasSnapshotSource;
+  hydrateFromSnapshot: (snapshot: CanvasSnapshot) => void;
 }
 
 const MIN_SCALE = 0.25;
@@ -245,7 +309,7 @@ function childBandY(
   return source.position.y + sourceH + FOLLOW_UP_GAP;
 }
 
-export const useCanvasStore = create<CanvasState>((set) => ({
+export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedModel: "claude-sonnet-4-6",
   sessionUsage: { inputTokens: 0, outputTokens: 0 },
   addUsage: (input, output) =>
@@ -256,6 +320,21 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       },
     })),
   setModel: (model) => set({ selectedModel: model }),
+
+  leftPanelCollapsed: false,
+  setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
+  toggleLeftPanel: () =>
+    set((s) => ({ leftPanelCollapsed: !s.leftPanelCollapsed })),
+
+  uploadedAttachments: [],
+  addUploadedAttachment: (attachment) =>
+    set((s) => ({
+      uploadedAttachments: [...s.uploadedAttachments, attachment],
+    })),
+  removeUploadedAttachment: (id) =>
+    set((s) => ({
+      uploadedAttachments: s.uploadedAttachments.filter((a) => a.id !== id),
+    })),
 
   viewMode: "canvas",
   activeThreadId: null,
@@ -276,6 +355,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   threadOrder: [],
   openArtifactCardId: null,
   openGroupArtifactId: null,
+  sessionArtifacts: {},
+  openSessionArtifactId: null,
+  openSessionArtifactVersionId: null,
   connectorStyle: "curvy",
   undoPast: [],
 
@@ -345,6 +427,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       return {
         openGroupArtifactId: groupId,
         openArtifactCardId: null,
+        openSessionArtifactId: null,
+        openSessionArtifactVersionId: null,
         groups: {
           ...state.groups,
           [groupId]: { ...group, summaryContentFingerprint: fingerprint },
@@ -503,7 +587,67 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     return cardId;
   },
 
-  createFollowUp: (parentId, question) => {
+  createArtifactVersion: (artifactId, payload, cardId) => {
+    let result = { artifactId: "", versionId: "" };
+    set((state) => {
+      if (artifactId && state.sessionArtifacts[artifactId]) {
+        const existing = state.sessionArtifacts[artifactId];
+        const { artifact, versionId } = appendArtifactVersion(
+          existing,
+          payload,
+          cardId,
+        );
+        result = { artifactId: artifact.id, versionId };
+        return {
+          sessionArtifacts: {
+            ...state.sessionArtifacts,
+            [artifact.id]: artifact,
+          },
+        };
+      }
+      const created = createSessionArtifactFromPayload(payload, cardId);
+      result = {
+        artifactId: created.id,
+        versionId: created.latestVersionId,
+      };
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [created.id]: created,
+        },
+      };
+    });
+    return result;
+  },
+
+  openSessionArtifact: (artifactId, versionId) =>
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art) return state;
+      const vid = versionId ?? art.latestVersionId;
+      return {
+        openSessionArtifactId: artifactId,
+        openSessionArtifactVersionId: vid,
+        openArtifactCardId: null,
+        openGroupArtifactId: null,
+      };
+    }),
+
+  setArtifactPanelVersion: (versionId) =>
+    set({ openSessionArtifactVersionId: versionId }),
+
+  listSessionArtifacts: (): SessionArtifact[] => {
+    const state = get();
+    return Object.values(state.sessionArtifacts).sort((a, b) => {
+      const av =
+        a.versions.find((v) => v.id === a.latestVersionId)?.createdAt ?? 0;
+      const bv =
+        b.versions.find((v) => v.id === b.latestVersionId)?.createdAt ?? 0;
+      return bv - av;
+    });
+  },
+
+  createFollowUp: (parentId, question, options) => {
     let childId: string | null = null;
     set((state) => {
       const parent = state.cards[parentId];
@@ -512,6 +656,15 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       const id = newCardId();
       childId = id;
       const childY = childBandY(state, parentId, parent);
+      const inheritedArtifactId =
+        options?.attachedArtifacts?.[0]?.artifactId ??
+        resolveThreadArtifactId(
+          state.cards,
+          state.connections,
+          state.cardOrder,
+          parent.threadId,
+        ) ??
+        undefined;
       const child: Card = {
         id,
         threadId: parent.threadId,
@@ -524,6 +677,10 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         },
         parentCardId: parentId,
         parentConversationId: parentId,
+        attachedArtifacts: options?.attachedArtifacts,
+        inheritedArtifactId,
+        images: options?.pendingImages,
+        pendingFiles: options?.pendingFiles,
       };
       const conn: Connection = {
         id: `conn_${parentId}_${id}`,
@@ -671,7 +828,12 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     }),
 
   closeArtifact: () =>
-    set({ openArtifactCardId: null, openGroupArtifactId: null }),
+    set({
+      openArtifactCardId: null,
+      openGroupArtifactId: null,
+      openSessionArtifactId: null,
+      openSessionArtifactVersionId: null,
+    }),
 
   autoLayoutCanvas: () =>
     set((state) => {
@@ -691,6 +853,48 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         nextCards[id] = { ...existing, position: pos };
       }
       return { undoPast, cards: nextCards };
+    }),
+
+  getCanvasSnapshotSource: (): CanvasSnapshotSource => {
+    const state = get();
+    return {
+      viewport: state.viewport,
+      cards: state.cards,
+      cardOrder: state.cardOrder,
+      connections: state.connections,
+      threads: state.threads,
+      threadOrder: state.threadOrder,
+      groups: state.groups,
+      connectorStyle: state.connectorStyle,
+      selectedModel: state.selectedModel,
+      viewMode: state.viewMode,
+      sessionArtifacts: state.sessionArtifacts,
+    };
+  },
+
+  hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
+    set({
+      viewport: { ...snapshot.viewport },
+      cards: { ...snapshot.cards },
+      cardOrder: [...snapshot.cardOrder],
+      connections: snapshot.connections.map((c) => ({ ...c })),
+      threads: { ...snapshot.threads },
+      threadOrder: [...snapshot.threadOrder],
+      groups: { ...snapshot.groups },
+      connectorStyle: snapshot.connectorStyle,
+      selectedModel: snapshot.selectedModel,
+      viewMode: snapshot.viewMode,
+      sessionArtifacts: JSON.parse(
+        JSON.stringify(snapshot.sessionArtifacts),
+      ),
+      activeThreadId: snapshot.threadOrder[0] ?? null,
+      openArtifactCardId: null,
+      openGroupArtifactId: null,
+      openSessionArtifactId: null,
+      openSessionArtifactVersionId: null,
+      selectedFamilyRootIds: [],
+      activeGroupId: null,
+      undoPast: [],
     }),
 }));
 

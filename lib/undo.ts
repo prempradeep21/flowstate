@@ -1,4 +1,5 @@
 import type { Card, Connection, Thread } from "@/lib/store";
+import type { SessionArtifact } from "@/lib/sessionArtifacts";
 
 export const MAX_UNDO_STACK = 50;
 
@@ -10,6 +11,9 @@ export interface GraphSnapshot {
   threadOrder: string[];
   activeThreadId: string | null;
   openArtifactCardId: string | null;
+  sessionArtifacts: Record<string, SessionArtifact>;
+  openSessionArtifactId: string | null;
+  openSessionArtifactVersionId: string | null;
 }
 
 export function captureGraphSnapshot(state: {
@@ -20,6 +24,9 @@ export function captureGraphSnapshot(state: {
   threadOrder: string[];
   activeThreadId: string | null;
   openArtifactCardId: string | null;
+  sessionArtifacts: Record<string, SessionArtifact>;
+  openSessionArtifactId: string | null;
+  openSessionArtifactVersionId: string | null;
 }): GraphSnapshot {
   return JSON.parse(JSON.stringify(state)) as GraphSnapshot;
 }

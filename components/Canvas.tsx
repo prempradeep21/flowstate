@@ -8,6 +8,12 @@ import {
   useState,
 } from "react";
 import { collectFamiliesInWorldRect } from "@/lib/canvasSelection";
+import { getLatestVersion } from "@/lib/sessionArtifacts";
+import {
+  allowSidebarDrop,
+  parseSidebarDragPayload,
+  uploadedToPending,
+} from "@/lib/sidebarDnD";
 import { useCanvasStore } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import {
@@ -21,6 +27,7 @@ import { GroupBounds } from "@/components/GroupBounds";
 import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
+import { usePersistenceReady } from "@/components/AuthProvider";
 
 const CARD_WIDTH = 420;
 const INITIAL_CARD_HEIGHT_GUESS = 180;
@@ -36,13 +43,17 @@ interface PlacementState {
 }
 
 export function Canvas() {
+  const persistenceReady = usePersistenceReady();
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const panBy = useCanvasStore((s) => s.panBy);
   const zoomAt = useCanvasStore((s) => s.zoomAt);
   const viewport = useCanvasStore((s) => s.viewport);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
+  const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
+  const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
+  const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const setSelectedFamilyRootIds = useCanvasStore(
     (s) => s.setSelectedFamilyRootIds,
@@ -126,6 +137,8 @@ export function Canvas() {
 
   // Seed the first question card and pan so it sits at the canvas center.
   useEffect(() => {
+    if (!persistenceReady) return;
+
     const el = containerRef.current;
     if (!el) return;
 
@@ -172,7 +185,7 @@ export function Canvas() {
     const ro = new ResizeObserver(bootstrap);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [createRootCard, setViewport]);
+  }, [createRootCard, persistenceReady, setViewport]);
 
   // Prevent native page zoom (pinch / Ctrl+wheel) while interacting with the canvas.
   useEffect(() => {
@@ -272,6 +285,55 @@ export function Canvas() {
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
   }, [createRootCard]);
+
+  const handleSidebarDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const payload = parseSidebarDragPayload(e.dataTransfer);
+    if (!payload) return;
+
+    if (payload.kind === "artifact") {
+      const art = sessionArtifacts[payload.artifactId];
+      if (!art) return;
+      const ver =
+        art.versions.find((v) => v.id === payload.versionId) ??
+        getLatestVersion(art);
+      const sourceCardId = ver.sourceCardId;
+      const card = useCanvasStore.getState().cards[sourceCardId];
+      if (card) {
+        const w = card.size?.w ?? CARD_WIDTH;
+        const h = card.size?.h ?? INITIAL_CARD_HEIGHT_GUESS;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          setViewport(
+            viewportCenteredOnWorldPoint(
+              card.position.x + w / 2,
+              card.position.y + h / 2,
+              rect.width,
+              rect.height,
+              useCanvasStore.getState().viewport.scale,
+            ),
+          );
+        }
+      }
+      useCanvasStore
+        .getState()
+        .openSessionArtifact(payload.artifactId, payload.versionId);
+      return;
+    }
+
+    const world = computeWorldFromClient(e.clientX, e.clientY);
+    if (!world) return;
+    const att = uploadedAttachments.find((a) => a.id === payload.attachmentId);
+    if (!att) return;
+    const cardId = createRootCard({
+      x: world.x - CARD_WIDTH / 2,
+      y: world.y - Q_DROP_Y_OFFSET,
+    });
+    updateCard(cardId, {
+      pendingFiles: [uploadedToPending(att)],
+    });
+  };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -417,6 +479,8 @@ export function Canvas() {
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
       onContextMenu={handleContextMenu}
+      onDragOver={allowSidebarDrop}
+      onDrop={handleSidebarDrop}
       className={`relative h-full w-full overflow-hidden bg-canvas-bg select-none touch-none ${
         placement
           ? "cursor-crosshair"

@@ -1,12 +1,7 @@
 "use client";
 
-import { CodeCardBody } from "@/components/cards/CodeCardBody";
-import { CustomCardBody } from "@/components/cards/CustomCardBody";
-import { ImageCardBody } from "@/components/cards/ImageCardBody";
-import { TableCardBody } from "@/components/cards/TableCardBody";
+import { CardArtifactPreview } from "@/components/artifacts/CardArtifactPreview";
 import { TextCardBody } from "@/components/cards/TextCardBody";
-import { ThreeDCardBody } from "@/components/cards/ThreeDCardBody";
-import { VideoCardBody } from "@/components/cards/VideoCardBody";
 import type { Card } from "@/lib/store";
 
 interface CardAnswerBodyProps {
@@ -17,42 +12,43 @@ interface CardAnswerBodyProps {
   hideImages?: boolean;
 }
 
+const STRUCTURED_TYPES = new Set([
+  "table",
+  "code",
+  "video",
+  "custom",
+  "3d",
+  "images",
+  "image",
+]);
+
 export function CardAnswerBody({
   card,
   isStreaming,
   clampStyle,
   plainClamp,
-  hideImages,
 }: CardAnswerBodyProps) {
   const type = card.responseType ?? "text";
+  const hasStructured =
+    card.artifactPayload ||
+    card.outputArtifactId ||
+    (type !== "text" && STRUCTURED_TYPES.has(type));
 
-  switch (type) {
-    case "image":
-      return (
-        <ImageCardBody
-          card={card}
-          isStreaming={isStreaming}
-          hideImages={hideImages}
-        />
-      );
-    case "table":
-      return <TableCardBody card={card} isStreaming={isStreaming} />;
-    case "video":
-      return <VideoCardBody card={card} isStreaming={isStreaming} />;
-    case "code":
-      return <CodeCardBody card={card} isStreaming={isStreaming} />;
-    case "custom":
-      return <CustomCardBody card={card} isStreaming={isStreaming} />;
-    case "3d":
-      return <ThreeDCardBody card={card} isStreaming={isStreaming} />;
-    default:
-      return (
+  const showPreview =
+    hasStructured ||
+    (card.images && card.images.length > 0 && type === "image");
+
+  return (
+    <div className="flex flex-col gap-3">
+      {card.answer.trim() && (
         <TextCardBody
           card={card}
           isStreaming={isStreaming}
           clampStyle={clampStyle}
           plainClamp={plainClamp}
         />
-      );
-  }
+      )}
+      {showPreview && <CardArtifactPreview card={card} />}
+    </div>
+  );
 }

@@ -1,5 +1,7 @@
 import type { ArtifactPayload } from "@/lib/artifactTypes";
+import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
+import type { SessionArtifact } from "@/lib/sessionArtifacts";
 
 export interface HistoryMessage {
   question: string;
@@ -30,19 +32,48 @@ function artifactContextNote(payload: ArtifactPayload): string {
       return `[Card showed custom UI: "${payload.title}"]`;
     case "3d":
       return `[Card showed 3D model: "${payload.title}"]`;
+    case "images": {
+      const n = payload.data.items?.length ?? 0;
+      return `[Card showed images: "${payload.title}" with ${n} item(s)]`;
+    }
   }
 }
 
+function payloadForCard(
+  card: Card,
+  sessionArtifacts: Record<string, SessionArtifact>,
+): ArtifactPayload | null {
+  if (card.outputArtifactId) {
+    const art = sessionArtifacts[card.outputArtifactId];
+    if (!art) return card.artifactPayload ?? null;
+    const ver =
+      (card.outputArtifactVersionId &&
+        getVersionById(art, card.outputArtifactVersionId)) ||
+      getLatestVersion(art);
+    return ver.payload;
+  }
+  return card.artifactPayload ?? null;
+}
+
+function artifactPayloadContext(payload: ArtifactPayload): string {
+  return `[Structured artifact JSON for editing]\n${JSON.stringify(payload, null, 2)}`;
+}
+
 /** Text sent to the model, including notes for images and structured artifacts. */
-export function formatAnswerForContext(card: Card): string {
+export function formatAnswerForContext(
+  card: Card,
+  sessionArtifacts: Record<string, SessionArtifact> = {},
+): string {
   const parts: string[] = [];
 
   if (card.answer.trim()) {
     parts.push(card.answer.trim());
   }
 
-  if (card.artifactPayload) {
-    parts.push(artifactContextNote(card.artifactPayload));
+  const payload = payloadForCard(card, sessionArtifacts);
+  if (payload) {
+    parts.push(artifactContextNote(payload));
+    parts.push(artifactPayloadContext(payload));
   } else if (card.responseType === "image" && card.images?.length) {
     const alts = card.images.map((i) => i.alt).filter(Boolean);
     const imgNote =
@@ -79,9 +110,10 @@ function lateralSourceId(
  * branch source (parentConversationId / side connection).
  */
 export function buildAncestorHistory(
-  graph: HistoryGraph,
+  graph: HistoryGraph & { sessionArtifacts?: Record<string, SessionArtifact> },
   cardId: string,
 ): HistoryMessage[] {
+  const sessionArtifacts = graph.sessionArtifacts ?? {};
   const history: HistoryMessage[] = [];
   const visited = new Set<string>();
 
@@ -99,11 +131,12 @@ export function buildAncestorHistory(
     const parent = graph.cards[parentId];
     if (!parent) break;
 
-    const answer = formatAnswerForContext(parent);
+    const answer = formatAnswerForContext(parent, sessionArtifacts);
     const hasContent =
       answer ||
       (parent.images && parent.images.length > 0) ||
-      parent.artifactPayload;
+      parent.artifactPayload ||
+      parent.outputArtifactId;
 
     if (parent.question.trim() && hasContent) {
       history.unshift({ question: parent.question.trim(), answer });

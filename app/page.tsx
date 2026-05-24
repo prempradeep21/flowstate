@@ -1,31 +1,32 @@
 "use client";
 
+import { AppLeftPanel } from "@/components/AppLeftPanel";
+import { AuthButton } from "@/components/AuthButton";
 import { Canvas } from "@/components/Canvas";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
-import { ModelSelector } from "@/components/ModelSelector";
+import { SaveStatusBadge } from "@/components/SaveStatusBadge";
 import { UndoButton } from "@/components/UndoButton";
 import { UsageBadge } from "@/components/UsageBadge";
-import { ViewModeToggle } from "@/components/ViewModeToggle";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
 
 export default function Page() {
   const viewMode = useCanvasStore((s) => s.viewMode);
-  const openGroupArtifactId = useCanvasStore((s) => s.openGroupArtifactId);
   useUndoKeyboard();
 
   return (
-    <main className="fixed inset-0">
-      {viewMode === "canvas" ? <Canvas /> : <ChatView />}
-      <ArtifactPanel />
-      <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
+    <main className="flex h-full w-full overflow-hidden">
+      <AppLeftPanel />
+      <div className="relative min-w-0 flex-1">
+        {viewMode === "canvas" ? <Canvas /> : <ChatView />}
+        <ArtifactPanel />
+        <div className="pointer-events-none absolute top-4 right-4 z-50 flex items-center gap-2">
+          <SaveStatusBadge />
+          <AuthButton />
           <UsageBadge />
           <UndoButton />
-          <ViewModeToggle />
         </div>
-        {!openGroupArtifactId && <ModelSelector />}
       </div>
     </main>
   );

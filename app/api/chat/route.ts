@@ -127,12 +127,13 @@ export async function POST(req: Request) {
 
   interface IncomingFile { name: string; type: string; data: string; }
   interface HistoryMessage { question: string; answer: string; }
-  const { question, model, files, history: rawHistory } = await req.json() as {
+  const { question, model, files, history: rawHistory, editingArtifact } = await req.json() as {
     conversationId: string;
     question: string;
     model: string;
     files?: IncomingFile[];
     history?: HistoryMessage[];
+    editingArtifact?: { artifactId: string; payload: unknown };
   };
 
   const MAX_FULL_HISTORY = 8;
@@ -190,6 +191,10 @@ export async function POST(req: Request) {
   }
   userContent.push({ type: "text", text: question });
 
+  const editingNote = editingArtifact
+    ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}`
+    : "";
+
   let messages: Anthropic.MessageParam[] = [
     ...history.flatMap(({ question: q, answer: a }) => [
       { role: "user" as const, content: q },
@@ -214,9 +219,13 @@ export async function POST(req: Request) {
         // Tool-use loop: Claude may call tools multiple times before a final reply.
         const MAX_TOOL_TURNS = 5;
         for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-          const systemPrompt = systemContext
-            ? `${BASE_SYSTEM}\n\n${systemContext}`
-            : BASE_SYSTEM;
+          const systemPrompt = [
+            BASE_SYSTEM,
+            systemContext,
+            editingNote || null,
+          ]
+            .filter(Boolean)
+            .join("\n\n");
           const stream = anthropic.messages.stream({
             model,
             max_tokens: 4096,

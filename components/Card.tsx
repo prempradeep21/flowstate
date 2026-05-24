@@ -10,10 +10,22 @@ import {
   useState,
 } from "react";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
+import { ChatComposer } from "@/components/ChatComposer";
+import { HoverAnchorDots } from "@/components/artifacts/HoverAnchorDots";
 import { CardQaMenu } from "@/components/CardQaMenu";
-import { applyEmittedArtifact, askClaude } from "@/lib/claudeClient";
+import { askClaude } from "@/lib/claudeClient";
+import {
+  handleArtifactOnDone,
+  handleStreamArtifact,
+} from "@/lib/artifactGeneration";
 import { isCardInSelectedFamilies } from "@/lib/chatThreads";
-import { Card as CardType, useCanvasStore } from "@/lib/store";
+import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
+import {
+  AttachedArtifactRef,
+  Card as CardType,
+  PendingFileAttachment,
+  useCanvasStore,
+} from "@/lib/store";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
 import {
   CARD_QA_MAX_HEIGHT,
@@ -49,7 +61,6 @@ export function Card({ card }: CardProps) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
-  const openArtifact = useCanvasStore((s) => s.openArtifact);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const isSelected = useCanvasStore((s) =>
     isCardInSelectedFamilies(s, card.id, s.selectedFamilyRootIds),
@@ -84,7 +95,12 @@ export function Card({ card }: CardProps) {
   const isDraggable = card.parentCardId === null;
 
   const [draft, setDraft] = useState(card.question);
-  const [followUp, setFollowUp] = useState("");
+  const [pendingAttached, setPendingAttached] = useState<AttachedArtifactRef[]>(
+    [],
+  );
+  const [pendingUploads, setPendingUploads] = useState<PendingFileAttachment[]>(
+    [],
+  );
   const dragStateRef = useRef<{
     pointerId: number;
     lastX: number;
@@ -96,7 +112,6 @@ export function Card({ card }: CardProps) {
   const startedFor = useRef<string | null>(null);
 
   const questionTextarea = useAutoResizeTextarea(draft);
-  const followUpTextarea = useAutoResizeTextarea(followUp);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   const TEXT_SELECTABLE =
@@ -143,25 +158,31 @@ export function Card({ card }: CardProps) {
         }),
       onResponseType: (responseType) =>
         updateCard(card.id, { responseType }),
-      onArtifact: (artifact) => {
-        const applied = applyEmittedArtifact(artifact);
-        updateCard(card.id, {
-          responseType: applied.responseType,
-          artifactPayload: applied.artifactPayload,
-        });
-      },
-      onDone: ({ artifactId, responseType }) =>
+      onArtifact: (artifact) => handleStreamArtifact(card.id, artifact),
+      onDone: ({ responseType }) => {
         updateCard(card.id, {
           status: "done",
           thinkingLabel: undefined,
-          artifactId: artifactId ?? undefined,
-          responseType: responseType ?? "text",
-        }),
+          responseType: responseType ?? card.responseType ?? "text",
+          pendingFiles: undefined,
+        });
+        handleArtifactOnDone(card.id);
+      },
     });
   }, [card.status, card.question, card.id, updateCard, selectedModel]);
 
   const isPending =
     card.status === "thinking" || card.status === "streaming";
+
+  const { onDragOver: onSidebarDragOver, onDrop: onSidebarDrop } =
+    useSidebarDropTarget({
+      onArtifact: (ref) => {
+        setPendingAttached([ref]);
+      },
+      onUpload: (file) => {
+        setPendingUploads((prev) => [...prev, file]);
+      },
+    });
 
   const submitQuestion = () => {
     const q = draft.trim();
@@ -174,14 +195,19 @@ export function Card({ card }: CardProps) {
       responseType: "text",
       artifactPayload: undefined,
       images: undefined,
+      outputArtifactId: undefined,
+      outputArtifactVersionId: undefined,
+      attachedArtifacts:
+        pendingAttached.length > 0 ? pendingAttached : undefined,
+      pendingFiles:
+        pendingUploads.length > 0 ? pendingUploads : undefined,
     });
+    setPendingAttached([]);
+    setPendingUploads([]);
   };
 
-  const submitFollowUp = () => {
-    const q = followUp.trim();
-    if (!q) return;
-    createFollowUp(card.id, q);
-    setFollowUp("");
+  const submitFollowUp = (question: string, options?: import("@/lib/store").FollowUpOptions) => {
+    createFollowUp(card.id, question, options);
   };
 
   const handleQuestionKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -191,12 +217,6 @@ export function Card({ card }: CardProps) {
     }
   };
 
-  const handleFollowUpKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitFollowUp();
-    }
-  };
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -275,7 +295,7 @@ export function Card({ card }: CardProps) {
         </>
       )}
       <div
-        className={`relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"
@@ -322,7 +342,50 @@ export function Card({ card }: CardProps) {
           }}
         >
           {card.status === "empty" ? (
-            <div className="flex min-w-0 items-end gap-2">
+            <div
+              className="flex min-w-0 flex-col gap-2"
+              onDragOver={onSidebarDragOver}
+              onDrop={onSidebarDrop}
+            >
+              {(pendingAttached.length > 0 || pendingUploads.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {pendingAttached.map((ref) => (
+                    <span
+                      key={ref.artifactId}
+                      className="rounded-md border border-canvas-border px-2 py-0.5 text-[11px] text-canvas-muted"
+                    >
+                      Artifact attached
+                      <button
+                        type="button"
+                        className="ml-1"
+                        onClick={() => setPendingAttached([])}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {pendingUploads.map((f, i) => (
+                    <span
+                      key={i}
+                      className="rounded-md border border-canvas-border px-2 py-0.5 text-[11px] text-canvas-muted"
+                    >
+                      {f.name}
+                      <button
+                        type="button"
+                        className="ml-1"
+                        onClick={() =>
+                          setPendingUploads((p) =>
+                            p.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex min-w-0 items-end gap-2">
                 <textarea
                   ref={questionTextarea.ref}
                   value={draft}
@@ -343,6 +406,7 @@ export function Card({ card }: CardProps) {
                   Send
                 </button>
               </div>
+            </div>
           ) : (
             <>
               {!hideLabels && (
@@ -416,34 +480,16 @@ export function Card({ card }: CardProps) {
         </div>
 
         {card.status === "done" && !hasChildren && !hideFollowUp && (
-          <div className="relative z-20 shrink-0 rounded-b-2xl border-t border-canvas-border bg-canvas-card px-4 py-2.5">
-            <div className="flex min-w-0 items-end gap-2">
-              <textarea
-                ref={followUpTextarea.ref}
-                value={followUp}
-                onChange={(e) => {
-                  setFollowUp(e.target.value);
-                  followUpTextarea.resize();
-                }}
-                onKeyDown={handleFollowUpKeyDown}
-                placeholder="Ask a follow-up..."
-                rows={1}
-                className="block min-h-[36px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent px-0 py-1.5 text-[14px] leading-normal text-canvas-ink outline-none placeholder:text-canvas-muted/70"
-              />
-              <button
-                type="button"
-                onClick={submitFollowUp}
-                className="mb-0.5 shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
-              >
-                Send
-              </button>
-            </div>
+          <div className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5">
+            <ChatComposer
+              variant="canvas"
+              placeholder="Follow up"
+              onSubmit={submitFollowUp}
+            />
           </div>
         )}
+        <HoverAnchorDots />
       </div>
-      {card.status === "done" && card.artifactId && (
-        <ArtifactBadge onClick={() => openArtifact(card.id)} />
-      )}
     </div>
   );
 }
@@ -541,44 +587,6 @@ function BranchHandle({
         }`}
       >
         <span className="text-[15px] font-medium leading-none">+</span>
-      </button>
-    </div>
-  );
-}
-
-function ArtifactBadge({ onClick }: { onClick: () => void }) {
-  const scale = useCanvasStore((s) => s.viewport.scale);
-  return (
-    <div
-      className="pointer-events-none absolute top-0 left-full z-10"
-      style={{
-        transform: `scale(${1 / scale})`,
-        transformOrigin: "top left",
-      }}
-    >
-      <button
-        type="button"
-        aria-label="Open attached document"
-        onClick={onClick}
-        onPointerDown={(e) => e.stopPropagation()}
-        style={{ marginLeft: 16 }}
-        className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:border-canvas-ink/40 hover:text-canvas-ink"
-      >
-        <svg
-          aria-hidden
-          viewBox="0 0 16 16"
-          className="h-6 w-6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="0.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3.5 1.75h6L13 5.25v8.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V2.25a.5.5 0 0 1 .5-.5Z" />
-          <path d="M9.25 1.75v3.5H13" />
-          <path d="M5.5 8.25h5" />
-          <path d="M5.5 10.75h5" />
-        </svg>
       </button>
     </div>
   );

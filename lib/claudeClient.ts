@@ -7,7 +7,8 @@ import {
 } from "@/lib/dummyLLM";
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
-import { ClaudeModel, CardImage, useCanvasStore } from "./store";
+import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
+import { ClaudeModel, CardImage, PendingFileAttachment, useCanvasStore } from "./store";
 
 async function registerConversation(
   conversationId: string,
@@ -37,13 +38,33 @@ export function askClaude(
     cb.onThinking("Thinking");
     try {
       const state = useCanvasStore.getState();
+      const card = state.cards[cardId];
       const history = buildAncestorHistory(
         {
           cards: state.cards,
           connections: state.connections,
+          sessionArtifacts: state.sessionArtifacts,
         },
         cardId,
       );
+
+      const editingArtifact = resolveEditingPayloadForApi(cardId);
+
+      const files: PendingFileAttachment[] = [...(card?.pendingFiles ?? [])];
+      if (card?.images?.length) {
+        for (const img of card.images) {
+          if (img.url.startsWith("data:")) {
+            const m = img.url.match(/^data:([^;]+);base64,(.+)$/);
+            if (m) {
+              files.push({
+                name: "image.png",
+                mimeType: m[1],
+                base64: m[2],
+              });
+            }
+          }
+        }
+      }
 
       await registerConversation(cardId, parentConversationId);
 
@@ -58,6 +79,8 @@ export function askClaude(
           question,
           model,
           history,
+          files: files.length > 0 ? files.map((f) => ({ name: f.name, type: f.mimeType, data: f.base64 })) : undefined,
+          editingArtifact,
         }),
         signal: controller.signal,
       });

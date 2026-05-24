@@ -1,14 +1,16 @@
 "use client";
 
-import {
-  KeyboardEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
+import { HoverAnchorDots } from "@/components/artifacts/HoverAnchorDots";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
+import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import {
+  artifactDisplayTitle,
+  getLatestVersion,
+  getVersionById,
+} from "@/lib/sessionArtifacts";
 import {
   buildSidebarTree,
   getThreadCardChain,
@@ -16,8 +18,7 @@ import {
   pickDefaultThreadId,
   SidebarNode,
 } from "@/lib/chatThreads";
-import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
-import { useCanvasStore } from "@/lib/store";
+import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 
 function SidebarItem({
   node,
@@ -72,6 +73,60 @@ function SidebarItem({
   );
 }
 
+function QnaTurnBlock({ cardId }: { cardId: string }) {
+  const card = useCanvasStore((s) => s.cards[cardId]);
+  const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+
+  if (!card || card.status === "empty") return null;
+
+  return (
+    <div className="relative border-t border-canvas-border/80 px-5 py-4 first:border-t-0">
+      <div className="absolute right-3 top-3">
+        <CardQaMenu cardId={cardId} />
+      </div>
+
+      {card.attachedArtifacts?.map((ref) => {
+        const art = sessionArtifacts[ref.artifactId];
+        if (!art) return null;
+        const ver =
+          getVersionById(art, ref.versionId) ?? getLatestVersion(art);
+        return (
+          <div key={ref.artifactId} className="mb-3">
+            <ArtifactAttachmentPill
+              kind={art.kind}
+              title={artifactDisplayTitle(art, ver)}
+              versionNumber={ver.number}
+            />
+          </div>
+        );
+      })}
+
+      <p className="pr-8 text-[15px] font-medium leading-snug text-canvas-question">
+        {card.question}
+      </p>
+
+      {(card.status === "thinking" ||
+        card.answer ||
+        card.artifactPayload ||
+        card.outputArtifactId ||
+        (card.images && card.images.length > 0)) && (
+        <div className="mt-3">
+          {card.status === "thinking" ? (
+            <div className="text-[14px] text-canvas-muted animate-pulse">
+              {card.thinkingLabel ?? "Thinking"}…
+            </div>
+          ) : (
+            <CardAnswerBody
+              card={card}
+              isStreaming={card.status === "streaming"}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ChatMessages({ threadId }: { threadId: string }) {
   const cards = useCanvasStore((s) => s.cards);
   const connections = useCanvasStore((s) => s.connections);
@@ -87,13 +142,17 @@ function ChatMessages({ threadId }: { threadId: string }) {
     [cards, connections, cardOrder, threadId],
   );
 
+  const visibleChain = chain.filter(
+    (id) => cards[id] && cards[id].status !== "empty",
+  );
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [chain, cards]);
+  }, [visibleChain, cards]);
 
-  if (chain.length === 0) {
+  if (visibleChain.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center text-[14px] text-canvas-muted">
         No messages in this chat yet.
@@ -106,55 +165,23 @@ function ChatMessages({ threadId }: { threadId: string }) {
       ref={scrollRef}
       className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-8">
-        {chain.map((cardId) => {
-          const card = cards[cardId];
-          if (!card || card.status === "empty") return null;
-
-          return (
-            <div
-              key={cardId}
-              className="relative flex flex-col gap-3 rounded-xl border border-transparent"
-            >
-              <CardQaMenu cardId={cardId} />
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-canvas-ink px-4 py-3 text-[15px] leading-relaxed text-canvas-card">
-                  {card.question}
-                </div>
-              </div>
-
-              {(card.status === "thinking" ||
-                card.answer ||
-                card.artifactPayload ||
-                (card.images && card.images.length > 0)) && (
-                <div className="flex flex-col gap-3">
-                  {card.status === "thinking" ? (
-                    <div className="text-[14px] text-canvas-muted animate-pulse">
-                      {card.thinkingLabel ?? "Thinking"}…
-                    </div>
-                  ) : (
-                    <CardAnswerBody
-                      card={card}
-                      isStreaming={card.status === "streaming"}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="group relative mx-auto max-w-3xl">
+        <HoverAnchorDots />
+        <div className="overflow-hidden rounded-2xl border border-canvas-border bg-canvas-card shadow-card">
+          {visibleChain.map((cardId) => (
+            <QnaTurnBlock key={cardId} cardId={cardId} />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function ChatComposer({ threadId }: { threadId: string }) {
+function ThreadChatComposer({ threadId }: { threadId: string }) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const cards = useCanvasStore((s) => s.cards);
   const connections = useCanvasStore((s) => s.connections);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
-  const [draft, setDraft] = useState("");
-  const textarea = useAutoResizeTextarea(draft);
 
   const tailId = useMemo(
     () =>
@@ -166,54 +193,20 @@ function ChatComposer({ threadId }: { threadId: string }) {
   );
 
   const tail = tailId ? cards[tailId] : null;
-  const canSend =
-    Boolean(tailId) &&
-    tail?.status === "done" &&
-    draft.trim().length > 0;
+  const disabled = tail?.status !== "done";
 
-  const submit = () => {
-    const q = draft.trim();
-    if (!tailId || !q || !canSend) return;
-    createFollowUp(tailId, q);
-    setDraft("");
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
+  const onSubmit = (question: string, options?: FollowUpOptions) => {
+    if (!tailId) return;
+    createFollowUp(tailId, question, options);
   };
 
   return (
-    <div className="shrink-0 border-t border-canvas-border bg-canvas-card px-4 py-4 md:px-8">
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
-        <textarea
-          ref={textarea.ref}
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            textarea.resize();
-          }}
-          onKeyDown={onKeyDown}
-          placeholder={
-            tail?.status === "done"
-              ? "Ask a follow-up…"
-              : "Waiting for the current reply…"
-          }
-          disabled={tail?.status !== "done"}
-          rows={1}
-          className="block min-h-[44px] min-w-0 flex-1 resize-none overflow-hidden rounded-xl border border-canvas-border bg-canvas-bg px-4 py-2.5 text-[15px] leading-normal text-canvas-ink outline-none placeholder:text-canvas-muted/70 focus:border-canvas-ink/30 disabled:opacity-50"
-        />
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSend}
-          className="mb-0.5 shrink-0 rounded-xl bg-canvas-ink px-4 py-2.5 text-[13px] font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-40"
-        >
-          Send
-        </button>
-      </div>
+    <div className="shrink-0 border-t border-canvas-border bg-canvas-bg px-4 py-4 md:px-8">
+      <ChatComposer
+        placeholder={disabled ? "Waiting for the current reply…" : "Follow up"}
+        disabled={disabled}
+        onSubmit={onSubmit}
+      />
     </div>
   );
 }
@@ -292,7 +285,7 @@ export function ChatView() {
         {activeThreadId ? (
           <>
             <ChatMessages threadId={activeThreadId} />
-            <ChatComposer threadId={activeThreadId} />
+            <ThreadChatComposer threadId={activeThreadId} />
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-[14px] text-canvas-muted">

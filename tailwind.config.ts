@@ -16,7 +16,15 @@ const config: Config = {
           border: "#E6E4DF",
           ink: "#2C2A26",
           muted: "#8A867E",
+          question: "#6B4EFF",
+          accent: "#6B4EFF",
+          artifactIconBg: "#EDE9FE",
+          artifactStage: "#F3F2EF",
         },
+      },
+      borderRadius: {
+        "artifact-card": "24px",
+        "artifact-stage": "16px",
       },
       fontFamily: {
         sans: [

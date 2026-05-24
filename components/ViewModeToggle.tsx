@@ -7,21 +7,21 @@ export function ViewModeToggle() {
   const setViewMode = useCanvasStore((s) => s.setViewMode);
 
   const modes: { id: AppViewMode; label: string }[] = [
-    { id: "canvas", label: "Canvas" },
+    { id: "canvas", label: "Branch view" },
     { id: "chat", label: "Chat view" },
   ];
 
   return (
-    <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-canvas-border bg-canvas-card px-1 py-1 shadow-card">
+    <div className="flex w-full flex-col gap-1">
       {modes.map((m) => (
         <button
           key={m.id}
           type="button"
           onClick={() => setViewMode(m.id)}
-          className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+          className={`w-full rounded-lg px-3 py-2 text-left text-[12px] font-medium transition-colors ${
             viewMode === m.id
               ? "bg-canvas-ink text-canvas-card"
-              : "text-canvas-muted hover:text-canvas-ink"
+              : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
           }`}
         >
           {m.label}
