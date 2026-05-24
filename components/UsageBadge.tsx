@@ -1,11 +1,9 @@
 "use client";
 
 import { useCanvasStore } from "@/lib/store";
-import { useApiKey } from "@/lib/useApiKey";
 
 export function UsageBadge() {
   const { inputTokens, outputTokens } = useCanvasStore((s) => s.sessionUsage);
-  const { clearApiKey } = useApiKey();
   const total = inputTokens + outputTokens;
 
   if (total === 0) return null;
@@ -18,14 +16,6 @@ export function UsageBadge() {
       <span className="text-[11px] text-canvas-muted">
         ↑ {fmt(inputTokens)} &nbsp;↓ {fmt(outputTokens)} tokens
       </span>
-      <button
-        type="button"
-        onClick={clearApiKey}
-        title="Clear API key and sign out"
-        className="text-[11px] text-canvas-muted/60 hover:text-canvas-ink transition-colors"
-      >
-        ✕
-      </button>
     </div>
   );
 }

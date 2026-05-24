@@ -1,5 +1,6 @@
 "use client";
 
+import type { ArtifactPayload, ResponseType } from "@/lib/artifactTypes";
 import { computeAutoLayout } from "@/lib/autoLayout";
 import { pickDefaultThreadId } from "@/lib/chatThreads";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
@@ -28,6 +29,8 @@ export interface CardSize {
   h: number;
 }
 
+export type { ArtifactPayload, ResponseType };
+
 export interface Card {
   id: string;
   threadId: string;
@@ -41,6 +44,8 @@ export interface Card {
   size?: CardSize;
   artifactId?: string;
   images?: CardImage[];
+  responseType?: ResponseType;
+  artifactPayload?: ArtifactPayload;
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";

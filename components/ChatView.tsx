@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import {
   buildSidebarTree,
@@ -16,7 +16,6 @@ import {
   pickDefaultThreadId,
   SidebarNode,
 } from "@/lib/chatThreads";
-import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
 import { useCanvasStore } from "@/lib/store";
 
@@ -126,55 +125,18 @@ function ChatMessages({ threadId }: { threadId: string }) {
 
               {(card.status === "thinking" ||
                 card.answer ||
+                card.artifactPayload ||
                 (card.images && card.images.length > 0)) && (
                 <div className="flex flex-col gap-3">
-                  {card.images && card.images.length > 0 && (
-                    <div
-                      className={`grid max-w-xl gap-2 ${
-                        card.images.length === 1
-                          ? "grid-cols-1"
-                          : card.images.length === 2
-                            ? "grid-cols-2"
-                            : "grid-cols-2 sm:grid-cols-3"
-                      }`}
-                    >
-                      {card.images.slice(0, 6).map((img, i) => (
-                        <a
-                          key={i}
-                          href={img.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
-                        >
-                          <img
-                            src={img.thumb}
-                            alt={img.alt}
-                            className={
-                              card.images!.length === 1
-                                ? "max-h-80 w-full object-contain p-1"
-                                : "aspect-[4/3] w-full object-cover"
-                            }
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {card.status === "thinking" && (
+                  {card.status === "thinking" ? (
                     <div className="text-[14px] text-canvas-muted animate-pulse">
                       {card.thinkingLabel ?? "Thinking"}…
                     </div>
-                  )}
-
-                  {card.answer && (
-                    <div className="max-w-none text-[15px] leading-relaxed text-canvas-ink">
-                      <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                        {card.answer}
-                      </ReactMarkdown>
-                      {card.status === "streaming" && (
-                        <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
-                      )}
-                    </div>
+                  ) : (
+                    <CardAnswerBody
+                      card={card}
+                      isStreaming={card.status === "streaming"}
+                    />
                   )}
                 </div>
               )}

@@ -1,4 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { ARTIFACT_PROMPT } from "@/lib/artifactPrompt";
+import {
+  CUSTOM_ARTIFACT_MAX_BYTES,
+  customArtifactByteSize,
+  normalizeCustomArtifactData,
+} from "@/lib/customArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
@@ -25,7 +31,35 @@ const BASE_SYSTEM =
   `Image tool guidance:\n` +
   `- To GENERATE or CREATE an AI image (artistic, fictional, stylized), use the image generation MCP tool if one is connected. Do NOT use search_images for generation requests.\n` +
   `- To SHOW real photos of existing places, people, or things, use search_images (Wikimedia).\n` +
-  `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).`;
+  `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
+  ARTIFACT_PROMPT;
+
+const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
+  name: "emit_artifact",
+  description:
+    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, or 3D models. Put brief context in your text reply; put structured content here.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      type: {
+        type: "string",
+        enum: ["table", "code", "video", "custom", "3d"],
+        description: "Artifact type to render on the card",
+      },
+      title: { type: "string", description: "Card artifact title" },
+      description: {
+        type: "string",
+        description: "Optional short subtitle",
+      },
+      data: {
+        type: "object",
+        description:
+          "Type-specific payload. For custom: { html: string, css?: string, js?: string }. For table: { columns, rows }. For 3d: { modelUrl, format? }.",
+      },
+    },
+    required: ["type", "title", "data"],
+  },
+};
 
 async function fetchWikimedia(
   query: string,
@@ -82,10 +116,12 @@ function mcpImages(imgs: McpImage[]) {
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
 export async function POST(req: Request) {
-  const apiKey =
-    req.headers.get("x-api-key") ?? process.env.ANTHROPIC_API_KEY ?? "";
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: "No API key provided" }, { status: 401 });
+    return Response.json(
+      { error: "ANTHROPIC_API_KEY is not configured" },
+      { status: 500 },
+    );
   }
   const anthropic = new Anthropic({ apiKey });
 
@@ -129,7 +165,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const allTools: Anthropic.Tool[] = [SEARCH_IMAGES_TOOL, ...mcp.anthropicTools];
+  const allTools: Anthropic.Tool[] = [
+    SEARCH_IMAGES_TOOL,
+    EMIT_ARTIFACT_TOOL,
+    ...mcp.anthropicTools,
+  ];
 
   // Build the content for the current user message.
   // If files are attached, send them as image/document blocks before the text.
@@ -217,14 +257,57 @@ export async function POST(req: Request) {
                   typeof input.count === "number" ? input.count : 4;
                 emit({ thinking: `Searching Wikimedia for "${query}"…` });
                 const images = await fetchWikimedia(query, count);
-                if (images.length) emit({ images });
+                if (images.length) {
+                  emit({ images });
+                  emit({
+                    responseType: "image",
+                    artifactTitle: query,
+                  });
+                }
                 resultContent = `Fetched ${images.length} photos from Wikimedia Commons for "${query}".`;
+              } else if (block.name === "emit_artifact") {
+                const type = input.type as string;
+                const title = (input.title as string) ?? "Artifact";
+                const description = input.description as string | undefined;
+                let data: Record<string, unknown> =
+                  (input.data as Record<string, unknown>) ?? {};
+
+                if (type === "custom") {
+                  const normalized = normalizeCustomArtifactData(data);
+                  if (!normalized?.html) {
+                    resultContent =
+                      "emit_artifact custom requires non-empty data.html with the UI markup.";
+                    toolResults.push({
+                      type: "tool_result" as const,
+                      tool_use_id: block.id,
+                      content: resultContent,
+                    });
+                    continue;
+                  }
+                  if (customArtifactByteSize(normalized) > CUSTOM_ARTIFACT_MAX_BYTES) {
+                    resultContent = `Custom UI exceeds ${CUSTOM_ARTIFACT_MAX_BYTES} byte limit.`;
+                    toolResults.push({
+                      type: "tool_result" as const,
+                      tool_use_id: block.id,
+                      content: resultContent,
+                    });
+                    continue;
+                  }
+                  data = normalized as unknown as Record<string, unknown>;
+                }
+
+                emit({ thinking: `Building ${type}…` });
+                emit({
+                  artifact: { type, title, description, data },
+                });
+                resultContent = `Emitted ${type} artifact "${title}" for the canvas card.`;
               } else if (mcp.registry.has(block.name)) {
                 const server = mcp.registry.get(block.name)!;
                 emit({ thinking: `Calling ${server.name}: ${block.name}…` });
                 const mcpResult = await callMcpTool(server, block.name, input);
                 if (mcpResult.images.length > 0) {
                   emit({ images: mcpImages(mcpResult.images) });
+                  emit({ responseType: "image" });
                 }
                 resultContent = mcpResult.text;
               } else {

@@ -1,3 +1,5 @@
+import type { ArtifactPayload, EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
+import { emittedToPayload } from "@/lib/artifactTypes";
 import { pickArtifactId } from "@/lib/artifacts";
 
 // Roughly one in three responses surfaces an attached "document" the user
@@ -172,13 +174,26 @@ export function generateDummyAnswer(): string {
 
 export interface AskDoneMeta {
   artifactId: string | null;
+  responseType?: ResponseType;
 }
 
 export interface AskCallbacks {
   onThinking: (label: string) => void;
   onToken: (nextAnswer: string) => void;
   onImages?: (images: { url: string; thumb: string; alt: string }[]) => void;
+  onArtifact?: (artifact: EmittedArtifact) => void;
+  onResponseType?: (type: ResponseType) => void;
   onDone: (meta: AskDoneMeta) => void;
+}
+
+export function applyEmittedArtifact(artifact: EmittedArtifact): {
+  responseType: ResponseType;
+  artifactPayload: ArtifactPayload;
+} {
+  return {
+    responseType: artifact.type,
+    artifactPayload: emittedToPayload(artifact),
+  };
 }
 
 export interface AskHandle {

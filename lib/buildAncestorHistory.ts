@@ -1,3 +1,4 @@
+import type { ArtifactPayload } from "@/lib/artifactTypes";
 import type { Card, Connection } from "@/lib/store";
 
 export interface HistoryMessage {
@@ -10,18 +11,55 @@ interface HistoryGraph {
   connections: Connection[];
 }
 
-/** Text sent to the model, including a note when images were shown on the card. */
+function artifactContextNote(payload: ArtifactPayload): string {
+  switch (payload.type) {
+    case "table": {
+      const rows = payload.data.rows?.length ?? 0;
+      const cols = payload.data.columns?.length ?? 0;
+      return `[Card showed a table: "${payload.title}" with ${rows} rows and ${cols} columns]`;
+    }
+    case "code": {
+      const n = payload.data.files?.length ?? 0;
+      return `[Card showed code: "${payload.title}" with ${n} file(s)]`;
+    }
+    case "video": {
+      const n = payload.data.items?.length ?? 0;
+      return `[Card showed videos: "${payload.title}" with ${n} item(s)]`;
+    }
+    case "custom":
+      return `[Card showed custom UI: "${payload.title}"]`;
+    case "3d":
+      return `[Card showed 3D model: "${payload.title}"]`;
+  }
+}
+
+/** Text sent to the model, including notes for images and structured artifacts. */
 export function formatAnswerForContext(card: Card): string {
-  const text = card.answer.trim();
-  if (card.images?.length) {
+  const parts: string[] = [];
+
+  if (card.answer.trim()) {
+    parts.push(card.answer.trim());
+  }
+
+  if (card.artifactPayload) {
+    parts.push(artifactContextNote(card.artifactPayload));
+  } else if (card.responseType === "image" && card.images?.length) {
     const alts = card.images.map((i) => i.alt).filter(Boolean);
     const imgNote =
       alts.length > 0
         ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
         : `[Shown ${card.images.length} image(s) for this answer]`;
-    return text ? `${text}\n\n${imgNote}` : imgNote;
+    parts.push(imgNote);
+  } else if (card.images?.length) {
+    const alts = card.images.map((i) => i.alt).filter(Boolean);
+    parts.push(
+      alts.length > 0
+        ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
+        : `[Shown ${card.images.length} image(s)]`,
+    );
   }
-  return text;
+
+  return parts.join("\n\n");
 }
 
 function lateralSourceId(
@@ -62,10 +100,12 @@ export function buildAncestorHistory(
     if (!parent) break;
 
     const answer = formatAnswerForContext(parent);
-    if (
-      parent.question.trim() &&
-      (answer || (parent.images && parent.images.length > 0))
-    ) {
+    const hasContent =
+      answer ||
+      (parent.images && parent.images.length > 0) ||
+      parent.artifactPayload;
+
+    if (parent.question.trim() && hasContent) {
       history.unshift({ question: parent.question.trim(), answer });
     }
 

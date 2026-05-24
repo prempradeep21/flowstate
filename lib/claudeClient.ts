@@ -1,20 +1,22 @@
 "use client";
 
+import {
+  applyEmittedArtifact,
+  AskCallbacks,
+  AskHandle,
+} from "@/lib/dummyLLM";
+import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { ClaudeModel, CardImage, useCanvasStore } from "./store";
-import { AskCallbacks, AskHandle } from "./dummyLLM";
-import { getStoredApiKey } from "./useApiKey";
 
 async function registerConversation(
   conversationId: string,
   parentConversationId: string | null,
-  apiKey: string,
 ): Promise<void> {
   await fetch("/api/conversations", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
     },
     body: JSON.stringify({ conversationId, parentConversationId }),
   });
@@ -27,9 +29,9 @@ export function askClaude(
   model: ClaudeModel,
   cb: AskCallbacks,
 ): AskHandle {
-  const apiKey = getStoredApiKey() ?? "";
   let cancelled = false;
   const controller = new AbortController();
+  let responseType: ResponseType = "text";
 
   const run = async () => {
     cb.onThinking("Thinking");
@@ -43,13 +45,12 @@ export function askClaude(
         cardId,
       );
 
-      await registerConversation(cardId, parentConversationId, apiKey);
+      await registerConversation(cardId, parentConversationId);
 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
         },
         body: JSON.stringify({
           conversationId: cardId,
@@ -63,7 +64,7 @@ export function askClaude(
 
       if (!res.ok) {
         cb.onToken(`Error: HTTP ${res.status}`);
-        cb.onDone({ artifactId: null });
+        cb.onDone({ artifactId: null, responseType: "text" });
         return;
       }
 
@@ -86,7 +87,41 @@ export function askClaude(
           try {
             const parsed = JSON.parse(raw);
             if (parsed.images) {
+              responseType = "image";
+              cb.onResponseType?.("image");
               cb.onImages?.(parsed.images as CardImage[]);
+            } else if (parsed.artifact) {
+              const raw = parsed.artifact as {
+                type?: string;
+                title?: string;
+                description?: string;
+                data?: Record<string, unknown>;
+              };
+              const validTypes = [
+                "table",
+                "code",
+                "video",
+                "custom",
+                "3d",
+              ] as const;
+              if (
+                !raw.type ||
+                !validTypes.includes(raw.type as (typeof validTypes)[number])
+              ) {
+                continue;
+              }
+              const artifact: EmittedArtifact = {
+                type: raw.type as EmittedArtifact["type"],
+                title: raw.title ?? "Artifact",
+                description: raw.description,
+                data: raw.data ?? {},
+              };
+              responseType = artifact.type;
+              cb.onResponseType?.(artifact.type);
+              cb.onArtifact?.(artifact);
+            } else if (parsed.responseType === "image") {
+              responseType = "image";
+              cb.onResponseType?.("image");
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {
@@ -111,7 +146,9 @@ export function askClaude(
         cb.onToken(`⚠️ ${msg}`);
       }
     } finally {
-      if (!cancelled) cb.onDone({ artifactId: null });
+      if (!cancelled) {
+        cb.onDone({ artifactId: null, responseType });
+      }
     }
   };
 
@@ -124,3 +161,5 @@ export function askClaude(
     },
   };
 }
+
+export { applyEmittedArtifact };

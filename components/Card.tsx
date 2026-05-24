@@ -9,10 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQaMenu } from "@/components/CardQaMenu";
-import { askClaude } from "@/lib/claudeClient";
-import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
+import { applyEmittedArtifact, askClaude } from "@/lib/claudeClient";
 import { isCardInSelectedFamilies } from "@/lib/chatThreads";
 import { Card as CardType, useCanvasStore } from "@/lib/store";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
@@ -137,12 +136,26 @@ export function Card({ card }: CardProps) {
           answer: next,
           thinkingLabel: undefined,
         }),
-      onImages: (images) => updateCard(card.id, { images }),
-      onDone: ({ artifactId }) =>
+      onImages: (images) =>
+        updateCard(card.id, {
+          images,
+          responseType: "image",
+        }),
+      onResponseType: (responseType) =>
+        updateCard(card.id, { responseType }),
+      onArtifact: (artifact) => {
+        const applied = applyEmittedArtifact(artifact);
+        updateCard(card.id, {
+          responseType: applied.responseType,
+          artifactPayload: applied.artifactPayload,
+        });
+      },
+      onDone: ({ artifactId, responseType }) =>
         updateCard(card.id, {
           status: "done",
           thinkingLabel: undefined,
           artifactId: artifactId ?? undefined,
+          responseType: responseType ?? "text",
         }),
     });
   }, [card.status, card.question, card.id, updateCard, selectedModel]);
@@ -158,6 +171,9 @@ export function Card({ card }: CardProps) {
       question: q,
       answer: "",
       status: "thinking",
+      responseType: "text",
+      artifactPayload: undefined,
+      images: undefined,
     });
   };
 
@@ -372,59 +388,25 @@ export function Card({ card }: CardProps) {
                 <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
               ) : (
                 <>
-                  {!hideImages && card.images && card.images.length > 0 && (
-                    <div
-                      className={`mb-3 grid gap-2 ${
-                        card.images.length === 1
-                          ? "grid-cols-1"
-                          : card.images.length === 2
-                            ? "grid-cols-2"
-                            : "grid-cols-2 sm:grid-cols-3"
-                      }`}
-                    >
-                      {card.images.slice(0, 6).map((img, i) => (
-                        <a
-                          key={i}
-                          href={img.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
-                          onPointerDown={(e) => e.stopPropagation()}
-                        >
-                          <img
-                            src={img.thumb}
-                            alt={img.alt}
-                            className={
-                              card.images!.length === 1
-                                ? "max-h-80 w-full object-contain p-1"
-                                : "aspect-[4/3] w-full object-cover"
-                            }
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  {card.answer ? (
+                  {(card.answer ||
+                    card.images?.length ||
+                    card.artifactPayload ||
+                    card.responseType !== "text") && (
                     lineClamp !== null ? (
                       <ClampedAnswer
-                        answer={card.answer}
+                        card={card}
                         clampStyle={clampStyle}
                         isStreaming={card.status === "streaming"}
+                        hideImages={hideImages}
                       />
                     ) : (
-                      <div
-                        data-selectable-text
-                        className="min-w-0 cursor-text text-[15px] leading-relaxed text-canvas-ink"
-                      >
-                        <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-                          {card.answer}
-                        </ReactMarkdown>
-                        {card.status === "streaming" && (
-                          <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
-                        )}
-                      </div>
+                      <CardAnswerBody
+                        card={card}
+                        isStreaming={card.status === "streaming"}
+                        hideImages={hideImages}
+                      />
                     )
-                  ) : null}
+                  )}
                 </>
               )}
             </div>
@@ -490,24 +472,42 @@ function SummaryLoading({ label }: { label: string }) {
 }
 
 function ClampedAnswer({
-  answer,
+  card,
   clampStyle,
   isStreaming,
+  hideImages,
 }: {
-  answer: string;
+  card: CardType;
   clampStyle?: ReturnType<typeof lineClampStyle>;
   isStreaming: boolean;
+  hideImages?: boolean;
 }) {
+  if (
+    (card.responseType ?? "text") === "text" &&
+    !card.artifactPayload
+  ) {
+    return (
+      <CardAnswerBody
+        card={card}
+        isStreaming={isStreaming}
+        clampStyle={clampStyle}
+        plainClamp
+        hideImages={hideImages}
+      />
+    );
+  }
+
   return (
     <div
       data-selectable-text
-      className="min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink"
+      className="min-w-0 cursor-text select-text"
       style={clampStyle}
     >
-      {answer}
-      {isStreaming && (
-        <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-canvas-ink/70 align-middle" />
-      )}
+      <CardAnswerBody
+        card={card}
+        isStreaming={isStreaming}
+        hideImages={hideImages}
+      />
     </div>
   );
 }
