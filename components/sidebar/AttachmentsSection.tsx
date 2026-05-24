@@ -26,7 +26,7 @@ function DraggableUploadRow({
             attachmentId: id,
           });
         }}
-        className="flex min-w-0 flex-1 cursor-grab items-center px-1 py-1 text-[12px] text-canvas-ink active:cursor-grabbing"
+        className="flex min-w-0 flex-1 cursor-grab items-center px-1 py-1 text-[18px] text-canvas-ink active:cursor-grabbing"
       >
         <span className="truncate">{name}</span>
       </div>
@@ -36,7 +36,7 @@ function DraggableUploadRow({
         onClick={() => {
           useCanvasStore.getState().removeUploadedAttachment(id);
         }}
-        className="shrink-0 px-1 text-[11px] text-canvas-muted hover:text-canvas-ink"
+        className="shrink-0 px-1 text-[16.5px] text-canvas-muted hover:text-canvas-ink"
       >
         ×
       </button>
@@ -62,13 +62,13 @@ export function AttachmentsSection() {
   return (
     <section className="px-3 py-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+        <h3 className="text-[16.5px] font-medium uppercase tracking-wider text-canvas-muted">
           Uploaded attachments
         </h3>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border border-canvas-border px-2 py-0.5 text-[11px] font-medium text-canvas-ink hover:bg-canvas-bg"
+          className="rounded-md border border-canvas-border px-2 py-0.5 text-[16.5px] font-medium text-canvas-ink hover:bg-canvas-bg"
         >
           Upload
         </button>
@@ -88,7 +88,7 @@ export function AttachmentsSection() {
           }
         }}
       >
-        <p className="text-[11px] text-canvas-muted">
+        <p className="text-[16.5px] text-canvas-muted">
           Drop images or PDFs here
         </p>
       </div>
@@ -96,11 +96,11 @@ export function AttachmentsSection() {
       <div className="space-y-3">
         {groups.map((group) => (
           <div key={group.category}>
-            <div className="mb-1 text-[11px] font-medium text-canvas-muted/90">
+            <div className="mb-1 text-[16.5px] font-medium text-canvas-muted/90">
               {group.label}
             </div>
             {group.items.length === 0 ? (
-              <p className="px-2 py-1 text-[11px] text-canvas-muted/80">
+              <p className="px-2 py-1 text-[16.5px] text-canvas-muted/80">
                 None yet
               </p>
             ) : (

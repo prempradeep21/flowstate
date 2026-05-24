@@ -1,3 +1,13 @@
+/**
+ * Canvas layout helpers.
+ *
+ * Policy: every card and artifact has a fixed absolute (x, y) in world space.
+ * The only exception is a single-chat vertical chain — when a card in a chain
+ * grows or shrinks vertically, its bottom-attached descendants (follow-ups in
+ * the same chat) shift by the same delta so the chain stays glued and the
+ * plug-to-plug connectors remain short and straight. Lateral branches and
+ * canvas artifact nodes are never moved by a sibling resize.
+ */
 import { CARD_WIDTH, type CardBoundsInput } from "@/lib/canvasNodeBounds";
 import { getLayoutCardBounds } from "@/lib/canvasMeasure";
 
@@ -45,6 +55,60 @@ function collectSubtreeIds(
 
 function isBottomConnection(conn: LayoutConnection): boolean {
   return conn.fromSide === "bottom" || conn.fromSide == null;
+}
+
+/**
+ * Collect every descendant reachable from `rootId` through bottom-side
+ * connections only. Lateral branches (left/right) are NOT followed — they
+ * belong to a different chat and stay absolute.
+ */
+function collectBottomSubtreeIds(
+  connections: LayoutConnection[],
+  rootId: string,
+): Set<string> {
+  const subtree = new Set<string>();
+  const queue = [rootId];
+  while (queue.length > 0) {
+    const cid = queue.shift()!;
+    if (subtree.has(cid)) continue;
+    subtree.add(cid);
+    for (const conn of connections) {
+      if (conn.from === cid && isBottomConnection(conn)) {
+        queue.push(conn.to);
+      }
+    }
+  }
+  return subtree;
+}
+
+/**
+ * When a card's height changes, shift its bottom-attached subtree by `dy` so
+ * the same-chat follow-up chain stays glued to the parent's bottom plug.
+ *
+ * Only follows bottom connections, so lateral branches and any subtree under
+ * them stay where the user placed them. The card identified by `parentId`
+ * itself is not shifted — only its bottom descendants.
+ */
+export function shiftBottomAttachedSubtrees<T extends LayoutCard>(
+  cards: Record<string, T>,
+  connections: LayoutConnection[],
+  parentId: string,
+  dy: number,
+): Record<string, T> {
+  if (dy === 0) return cards;
+  const subtree = collectBottomSubtreeIds(connections, parentId);
+  subtree.delete(parentId);
+  if (subtree.size === 0) return cards;
+  const next = { ...cards };
+  for (const id of subtree) {
+    const c = next[id];
+    if (!c) continue;
+    next[id] = {
+      ...c,
+      position: { ...c.position, y: c.position.y + dy },
+    };
+  }
+  return next;
 }
 
 /** Single follow-up child; lowest Y, then earliest in cardOrder. */

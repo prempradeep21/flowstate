@@ -3,7 +3,7 @@ import {
   transcriptHasContent,
 } from "@/lib/buildGroupTranscript";
 import {
-  buildDeltaGroupTranscript,
+  buildFlowstateGroupTranscript,
   groupHasNewSummaryContent,
 } from "@/lib/groupSummaryStaleness";
 import type { BranchGroup, ClaudeModel } from "@/lib/store";
@@ -65,7 +65,7 @@ export async function refreshGroupSummary(
     return { ok: false, error: "No new conversations to add to this summary." };
   }
 
-  const transcript = buildDeltaGroupTranscript(state, group);
+  const transcript = buildFlowstateGroupTranscript(state, group);
   if (!transcriptHasContent(transcript)) {
     return { ok: false, error: "No new conversations to add to this summary." };
   }
@@ -111,7 +111,7 @@ export function downloadGroupMarkdown(group: BranchGroup): void {
     .replace(/\s+/g, "-")
     .slice(0, 40) || "group";
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `branch-ai-${safeLabel}-${date}.md`;
+  const filename = `flowstate-${safeLabel}-${date}.md`;
 
   const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);

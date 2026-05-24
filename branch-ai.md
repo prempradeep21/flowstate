@@ -1,4 +1,4 @@
-# Delta — Product Specification
+# Flowstate Everywhere — Product Specification
 ### A Spatial Thinking Canvas for AI-Assisted Inquiry
 
 ---
@@ -27,7 +27,7 @@ Every AI chat product today organises conversations as a list. A vertical scroll
 
 Thinking branches. It backtracks. It holds parallel threads simultaneously. A person learning about economics doesn't ask one question and follow it in a straight line. They drill down, get sidetracked, form competing hypotheses, step back to reframe, and eventually find two threads connecting in unexpected ways.
 
-**Delta** is a spatial canvas for AI-assisted thinking. Instead of a list of chats, you get an infinite canvas where every question and answer lives as a card in space. Threads branch like rivers, like neurons, like tree roots — organically, freeform, never auto-arranged.
+**Flowstate Everywhere** is a spatial canvas for AI-assisted thinking from **Flowstate**. Instead of a list of chats, you get an infinite canvas where every question and answer lives as a card in space. Threads branch like rivers, like neurons, like tree roots — organically, freeform, never auto-arranged.
 
 The name references river deltas — where a single flow splits into many tributaries, each finding its own path, some rejoining, some reaching the sea alone. That is the shape of a thinking session.
 
@@ -587,7 +587,7 @@ These are decisions not yet made. They are logged here so they are not forgotten
 | OQ-04 | Does a branch card created via drag inherit the parent's thread colour, or does the user assign it a new colour to start a new thread? | **Resolved (V1):** each branch starts a NEW thread with the next palette colour. The branch root is independently draggable; dragging the source still pulls connected branches along via the connections graph. See the V1 Build & Implementation section. | Resolved |
 | OQ-05 | What placeholder text should the dummy LLM return? | Specified as "meaningful-sounding English gibberish" but the actual sentence pool needs to be written. | Low — easy to address at build time |
 | OQ-06 | Should the canvas state persist across browser sessions in V1? | Currently specced as yes via localStorage. But if the canvas grows large, localStorage may hit size limits. Worth validating the approach. | Medium |
-| OQ-07 | What is the product name? | "Delta" was proposed as a working name based on the river delta metaphor. Not confirmed by the product owner. | Low — can be deferred until pre-launch |
+| OQ-07 | What is the product name? | **Flowstate Everywhere** (tool) by **Flowstate** (company). | Resolved |
 
 ---
 

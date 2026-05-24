@@ -85,7 +85,7 @@ function parseFingerprintKeys(fingerprint: string | undefined): Set<string> {
   );
 }
 
-export function buildDeltaGroupTranscript(
+export function buildFlowstateGroupTranscript(
   state: ChatThreadState,
   group: BranchGroup,
 ): GroupTranscript {

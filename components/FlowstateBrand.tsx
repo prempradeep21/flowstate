@@ -5,14 +5,11 @@ export function FlowstateBrand({ compact = false }: { compact?: boolean }) {
     <div
       className={`flex items-center gap-2.5 ${compact ? "justify-center" : ""}`}
     >
-      <FlowstateLogo className={compact ? "h-7 w-7" : "h-8 w-8"} />
+      <FlowstateLogo className={compact ? "h-[42px] w-[42px]" : "h-12 w-12"} />
       {!compact && (
         <div className="min-w-0">
-          <div className="text-[10px] font-medium uppercase tracking-widest text-canvas-muted">
-            Flowstate
-          </div>
-          <div className="text-[15px] font-semibold leading-tight text-canvas-ink">
-            Branch AI
+          <div className="text-[22.5px] font-semibold leading-tight text-canvas-ink">
+            <span className="font-display">Flowstate</span> Everywhere
           </div>
         </div>
       )}

@@ -14,13 +14,13 @@ export function AppLeftPanel() {
 
   if (collapsed) {
     return (
-      <aside className="flex w-[52px] shrink-0 flex-col items-center border-r border-canvas-border bg-canvas-card py-3">
+      <aside className="left-panel flex w-[78px] shrink-0 flex-col items-center border-r border-canvas-border bg-canvas-card py-3">
         <FlowstateBrand compact />
         <button
           type="button"
           onClick={toggleLeftPanel}
           aria-label="Expand sidebar"
-          className="mt-4 flex h-8 w-8 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="mt-4 flex h-12 w-12 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
         >
           <ChevronIcon direction="right" />
         </button>
@@ -29,14 +29,14 @@ export function AppLeftPanel() {
   }
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
+    <aside className="left-panel flex w-[420px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
       <div className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3">
         <FlowstateBrand />
         <button
           type="button"
           onClick={toggleLeftPanel}
           aria-label="Collapse sidebar"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
         >
           <ChevronIcon direction="left" />
         </button>
@@ -52,8 +52,8 @@ export function AppLeftPanel() {
       </div>
 
       <div className="space-y-2 border-t border-canvas-border p-3">
-        <SaveStatusBadge />
-        <AuthButton />
+        <SaveStatusBadge size="panel" />
+        <AuthButton size="panel" />
       </div>
     </aside>
   );
@@ -63,7 +63,7 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
   return (
     <svg
       viewBox="0 0 16 16"
-      className="h-4 w-4"
+      className="h-6 w-6"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"

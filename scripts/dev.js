@@ -18,8 +18,15 @@ async function findFreePort(start = 3000, end = 3010) {
 }
 
 (async () => {
-  const port = await findFreePort();
-  console.log(`Starting Next.js dev server on http://localhost:${port}`);
+  const preferred = 3000;
+  const port = await findFreePort(preferred, 3010);
+  if (port !== preferred) {
+    console.warn(
+      `\n⚠ Port ${preferred} is in use — using http://localhost:${port} instead.`,
+      `\n  Close other dev servers or hard-refresh the tab on the URL below.\n`
+    );
+  }
+  console.log(`\n→ Open: http://localhost:${port}\n`);
   const child = spawn('npx', ['next', 'dev', '-p', port], {
     stdio: 'inherit',
     shell: true,

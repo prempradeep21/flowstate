@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
-export function AuthButton() {
+type AuthButtonSize = "default" | "panel";
+
+export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
+  const textSize = size === "panel" ? "text-[18px]" : "text-xs";
+  const avatarSize = size === "panel" ? "h-[42px] w-[42px]" : "h-7 w-7";
   const {
     user,
     authLoading,
@@ -16,7 +20,7 @@ export function AuthButton() {
   if (!supabaseConfigured) {
     return (
       <div
-        className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90"
+        className={`pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 ${textSize} text-amber-200/90`}
         title="Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local"
       >
         Sign-in needs Supabase keys in .env.local
@@ -26,7 +30,9 @@ export function AuthButton() {
 
   if (authLoading) {
     return (
-      <div className="pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 text-xs text-canvas-muted">
+      <div
+        className={`pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-muted`}
+      >
         Loading…
       </div>
     );
@@ -48,14 +54,16 @@ export function AuthButton() {
             <img
               src={avatar}
               alt=""
-              className="h-7 w-7 rounded-full object-cover"
+              className={`${avatarSize} rounded-full object-cover`}
             />
           ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-canvas-accent/20 text-xs font-medium text-canvas-accent">
+            <div
+              className={`flex ${avatarSize} items-center justify-center rounded-full bg-canvas-accent/20 ${textSize} font-medium text-canvas-accent`}
+            >
               {name.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="max-w-[120px] truncate text-xs text-canvas-ink">
+          <span className={`max-w-[180px] truncate ${textSize} text-canvas-ink`}>
             {name}
           </span>
         </div>
@@ -70,7 +78,7 @@ export function AuthButton() {
               setBusy(false);
             }
           }}
-          className="rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 text-xs text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50"
+          className={`rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50`}
         >
           Sign out
         </button>
@@ -90,7 +98,7 @@ export function AuthButton() {
           setBusy(false);
         }
       }}
-      className="pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 text-xs text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50"
+      className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
     >
       <GoogleIcon />
       Sign in with Google

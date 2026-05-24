@@ -64,7 +64,6 @@ interface PlacementState {
 
 export function Canvas() {
   const persistenceReady = usePersistenceReady();
-  const repairAllVerticalChains = useCanvasStore((s) => s.repairAllVerticalChains);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const panBy = useCanvasStore((s) => s.panBy);
@@ -157,14 +156,14 @@ export function Canvas() {
     const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
     const world = computeWorldFromClient(clientX, clientY);
     if (!world) return;
-    const clamped = clampPlacementWorld(world);
+    const pos = placementWorld(world);
     setContextMenu(null);
     if (tool === "question") {
       setTextPlacement(null);
-      setPlacement(clamped);
+      setPlacement(pos);
     } else {
       setPlacement(null);
-      setTextPlacement(clamped);
+      setTextPlacement(pos);
     }
   };
 
@@ -224,20 +223,8 @@ export function Canvas() {
     };
   };
 
-  const clampPlacementWorld = (world: PlacementState): PlacementState => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return world;
-    const { x: vx, y: vy, scale } = useCanvasStore.getState().viewport;
-    const margin = 40;
-    const minX = (-vx + margin) / scale;
-    const minY = (-vy + margin) / scale;
-    const maxX = (rect.width - vx - margin) / scale;
-    const maxY = (rect.height - vy - margin) / scale;
-    return {
-      x: Math.min(maxX, Math.max(minX, world.x)),
-      y: Math.min(maxY, Math.max(minY, world.y)),
-    };
-  };
+  /** World coordinates are unbounded — cards stay where you place them on the canvas. */
+  const placementWorld = (world: PlacementState): PlacementState => world;
 
   // Seed the home card as soon as the container has size (do not wait on cloud load).
   useEffect(() => {
@@ -316,15 +303,6 @@ export function Canvas() {
     return () => ro.disconnect();
   }, [persistenceReady, setViewport]);
 
-  // After hydrate + DOM measure, snap follow-up chains to live card heights.
-  useEffect(() => {
-    if (!persistenceReady) return;
-    const run = () => repairAllVerticalChains();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(run);
-    });
-  }, [persistenceReady, repairAllVerticalChains]);
-
   // Keep the landing stack in view when resuming an empty canvas (e.g. saved pan).
   useEffect(() => {
     if (!showLanding) {
@@ -374,11 +352,11 @@ export function Canvas() {
       cursorRef.current = { x: e.clientX, y: e.clientY };
       if (placementRef.current) {
         const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) setPlacement(clampPlacementWorld(world));
+        if (world) setPlacement(placementWorld(world));
       }
       if (textPlacementRef.current) {
         const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) setTextPlacement(clampPlacementWorld(world));
+        if (world) setTextPlacement(placementWorld(world));
       }
     };
     window.addEventListener("mousemove", onMove);
@@ -456,7 +434,7 @@ export function Canvas() {
       setContextMenu(null);
       setTextPlacement(null);
       target?.blur();
-      setPlacement(clampPlacementWorld(world));
+      setPlacement(placementWorld(world));
     };
 
     window.addEventListener("keydown", onKeyDown, true);
@@ -513,13 +491,14 @@ export function Canvas() {
         return;
       }
 
-      const p = placementRef.current;
-      if (!p) return;
+      if (!placementRef.current) return;
       e.preventDefault();
       e.stopPropagation();
+      const world =
+        computeWorldFromClient(e.clientX, e.clientY) ?? placementRef.current;
       const cardId = createRootCard({
-        x: p.x - CARD_WIDTH / 2,
-        y: p.y - EMPTY_CARD_HEIGHT / 2,
+        x: world.x - CARD_WIDTH / 2,
+        y: world.y - EMPTY_CARD_HEIGHT / 2,
       });
       requestCanvasFocus(() => focusCanvasCard(cardId));
       setPlacement(null);

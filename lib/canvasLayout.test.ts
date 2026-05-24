@@ -6,7 +6,19 @@ import {
   layoutVerticalChain,
   relayoutChildrenOf,
   repairCanvasLayout,
+  shiftBottomAttachedSubtrees,
 } from "@/lib/canvasLayout";
+
+/** Simulates setCardSize: update size only, no relayout (absolute canvas policy). */
+function applySizeOnly<T extends { id: string; size?: { w: number; h: number } }>(
+  cards: Record<string, T>,
+  id: string,
+  size: { w: number; h: number },
+): Record<string, T> {
+  const existing = cards[id];
+  if (!existing) return cards;
+  return { ...cards, [id]: { ...existing, size } };
+}
 import type { Card, Connection } from "@/lib/store";
 
 function card(
@@ -72,7 +84,7 @@ describe("layoutVerticalChain", () => {
     expect(followUpInvariantHolds({ ...state, cards: next }, "p", "c")).toBe(true);
   });
 
-  it("relayouts a three-card chain when middle card grows", () => {
+  it("does not move siblings when a card only grows in size (absolute positions)", () => {
     const a = card("a", {
       position: { x: 0, y: 0 },
       size: { w: 420, h: 200 },
@@ -86,22 +98,96 @@ describe("layoutVerticalChain", () => {
       position: { x: 0, y: 800 },
       parentCardId: "b",
     });
-    const connections = [conn("a", "b"), conn("b", "c")];
-    const state = {
-      cards: { a, b, c },
-      connections,
-      cardOrder: ["a", "b", "c"],
-    };
+    const cards = { a, b, c };
+    const next = applySizeOnly(cards, "b", { w: 420, h: 400 });
+    expect(next.b.position).toEqual(b.position);
+    expect(next.c.position).toEqual(c.position);
+  });
+});
 
-    const grownB = { ...b, size: { w: 420, h: 400 } };
-    const withSize = { ...state, cards: { a, b: grownB, c } };
-    const next = relayoutChildrenOf(withSize, "b");
+describe("shiftBottomAttachedSubtrees", () => {
+  it("shifts a follow-up child by dy when the parent grows", () => {
+    const parent = card("p", {
+      position: { x: 0, y: 0 },
+      size: { w: 420, h: 200 },
+    });
+    const child = card("c", {
+      position: { x: 0, y: 240 },
+      size: { w: 420, h: 150 },
+      parentCardId: "p",
+    });
+    const cards = { p: parent, c: child };
+    const next = shiftBottomAttachedSubtrees(cards, [conn("p", "c")], "p", 100);
+    expect(next.p.position).toEqual(parent.position);
+    expect(next.c.position).toEqual({ x: 0, y: 340 });
+  });
 
-    expect(followUpInvariantHolds({ ...state, cards: next }, "a", "b")).toBe(true);
-    expect(followUpInvariantHolds({ ...state, cards: next }, "b", "c")).toBe(true);
-    expect(next.c.position.y).toBe(
-      next.b.position.y + 400 + FOLLOW_UP_GAP,
+  it("does not shift lateral branches when the parent grows", () => {
+    const parent = card("p", {
+      position: { x: 0, y: 0 },
+      size: { w: 420, h: 200 },
+    });
+    const right = card("r", {
+      position: { x: 900, y: 240 },
+      threadId: "t2",
+    });
+    const cards = { p: parent, r: right };
+    const next = shiftBottomAttachedSubtrees(
+      cards,
+      [conn("p", "r", "right")],
+      "p",
+      120,
     );
+    expect(next.r.position).toEqual(right.position);
+  });
+
+  it("propagates the shift through deeper bottom chains", () => {
+    const parent = card("p", { position: { x: 0, y: 0 } });
+    const childA = card("a", {
+      position: { x: 0, y: 250 },
+      parentCardId: "p",
+    });
+    const childB = card("b", {
+      position: { x: 0, y: 500 },
+      parentCardId: "a",
+    });
+    const cards = { p: parent, a: childA, b: childB };
+    const next = shiftBottomAttachedSubtrees(
+      cards,
+      [conn("p", "a"), conn("a", "b")],
+      "p",
+      60,
+    );
+    expect(next.a.position).toEqual({ x: 0, y: 310 });
+    expect(next.b.position).toEqual({ x: 0, y: 560 });
+  });
+
+  it("shifts bottom descendants but skips lateral branches below them", () => {
+    const parent = card("p", { position: { x: 0, y: 0 } });
+    const follow = card("f", {
+      position: { x: 0, y: 250 },
+      parentCardId: "p",
+    });
+    const lateralOfFollow = card("l", {
+      position: { x: 900, y: 250 },
+      threadId: "t2",
+    });
+    const cards = { p: parent, f: follow, l: lateralOfFollow };
+    const next = shiftBottomAttachedSubtrees(
+      cards,
+      [conn("p", "f"), conn("f", "l", "right")],
+      "p",
+      40,
+    );
+    expect(next.f.position).toEqual({ x: 0, y: 290 });
+    expect(next.l.position).toEqual(lateralOfFollow.position);
+  });
+
+  it("returns the same cards reference when dy is 0", () => {
+    const parent = card("p", { position: { x: 0, y: 0 } });
+    const cards = { p: parent };
+    const next = shiftBottomAttachedSubtrees(cards, [], "p", 0);
+    expect(next).toBe(cards);
   });
 });
 

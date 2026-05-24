@@ -44,11 +44,11 @@ function DraggableArtifactRow({
       onClick={() => {
         focusCanvasArtifact(artifactId);
       }}
-      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-canvas-ink transition-colors hover:bg-canvas-bg"
+      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[18px] text-canvas-ink transition-colors hover:bg-canvas-bg"
     >
       <ArtifactTypeIcon
         kind={categoryToKind(category)}
-        className="h-3.5 w-3.5 shrink-0 text-canvas-muted"
+        className="h-[21px] w-[21px] shrink-0 text-canvas-muted"
       />
       <span className="min-w-0 flex-1 truncate">{title}</span>
     </button>
@@ -64,17 +64,17 @@ export function ArtifactsSection() {
 
   return (
     <section className="border-b border-canvas-border px-3 py-3">
-      <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+      <h3 className="mb-2 text-[16.5px] font-medium uppercase tracking-wider text-canvas-muted">
         Artifacts
       </h3>
       <div className="space-y-3">
         {groups.map((group) => (
           <div key={group.category}>
-            <div className="mb-1 text-[11px] font-medium text-canvas-muted/90">
+            <div className="mb-1 text-[16.5px] font-medium text-canvas-muted/90">
               {group.label}
             </div>
             {group.items.length === 0 ? (
-              <p className="px-2 py-1 text-[11px] text-canvas-muted/80">
+              <p className="px-2 py-1 text-[16.5px] text-canvas-muted/80">
                 None yet
               </p>
             ) : (

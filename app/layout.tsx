@@ -11,7 +11,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Delta",
+  title: "Flowstate Everywhere",
   description: "A spatial thinking canvas for AI-assisted inquiry.",
 };
 

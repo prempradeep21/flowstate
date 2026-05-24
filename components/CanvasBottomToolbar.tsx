@@ -72,7 +72,7 @@ export function CanvasBottomToolbar() {
               ? "bg-canvas-ink text-canvas-card shadow-card"
               : "text-canvas-muted hover:text-canvas-ink"
           }`}
-          aria-label="Branch view"
+          aria-label="Canvas view"
           aria-pressed={viewMode === "canvas"}
           onClick={() => setViewMode("canvas")}
         >

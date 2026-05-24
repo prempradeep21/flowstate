@@ -12,8 +12,7 @@ import {
   BRANCH_HORIZONTAL_GAP,
   childBandY,
   computeFollowUpPosition,
-  relayoutChildrenOf,
-  repairCanvasLayout,
+  shiftBottomAttachedSubtrees,
 } from "@/lib/canvasLayout";
 import {
   CANVAS_ARTIFACT_WIDTH,
@@ -265,7 +264,6 @@ interface CanvasState {
   setCanvasArtifactSize: (nodeId: string, size: CardSize) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
   syncFollowUpChildPosition: (parentId: string, childId: string) => void;
-  repairAllVerticalChains: () => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
   createFollowUp: (
@@ -630,68 +628,71 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { viewport: { x: nx, y: ny, scale: nextScale } };
     }),
 
-  updateCard: (id, patch) => {
+  updateCard: (id, patch) =>
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
       return {
         cards: { ...state.cards, [id]: { ...existing, ...patch } },
       };
-    });
-    if (patch.status === "done" && typeof requestAnimationFrame !== "undefined") {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          get().repairAllVerticalChains();
-        });
-      });
-    }
-  },
+    }),
 
-  setCardSize: (id, size) => {
+  /**
+   * Updates the measured size of a card. If the height changes, the
+   * bottom-attached follow-up chain (single chat) is shifted by the delta so
+   * the connectors stay glued plug-to-plug. Lateral branches and canvas
+   * artifact nodes are never moved by this — only the same-chat descendants.
+   *
+   * The first measurement (when there's no prior `size.h`) does not trigger a
+   * shift, because there is no baseline to diff against and the child was
+   * placed with the same canonical assumption.
+   */
+  setCardSize: (id, size) =>
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
       const prev = existing.size;
       if (prev && prev.w === size.w && prev.h === size.h) return state;
 
-      const cardsWithSize: Record<string, Card> = {
+      let cards = {
         ...state.cards,
         [id]: { ...existing, size },
       };
-      const cards = relayoutChildrenOf(
-        { ...layoutStateFrom(state), cards: cardsWithSize },
-        id,
-      );
-      return { cards };
-    });
-    if (typeof requestAnimationFrame === "undefined") return;
-    requestAnimationFrame(() => {
-      set((state) => {
-        if (!state.cards[id]) return state;
-        return {
-          cards: relayoutChildrenOf(layoutStateFrom(state), id),
-        };
-      });
-    });
-  },
 
-  syncFollowUpChildPosition: (parentId, childId) =>
-    set((state) => {
-      if (!state.cards[parentId] || !state.cards[childId]) return state;
-      return {
-        cards: relayoutChildrenOf(layoutStateFrom(state), parentId),
-      };
+      if (prev?.h != null && prev.h !== size.h) {
+        cards = shiftBottomAttachedSubtrees(
+          cards,
+          state.connections,
+          id,
+          size.h - prev.h,
+        );
+      }
+
+      return { cards };
     }),
 
-  repairAllVerticalChains: () =>
+  /** Snap one new follow-up under its parent (placement only, not a chain relayout). */
+  syncFollowUpChildPosition: (parentId, childId) =>
     set((state) => {
-      if (state.cardOrder.length === 0) return state;
+      const parent = state.cards[parentId];
+      const child = state.cards[childId];
+      if (!parent || !child) return state;
+      const pos = computeFollowUpPosition(
+        layoutStateFrom(state),
+        parentId,
+        parent,
+      );
+      if (
+        child.position.x === pos.x &&
+        child.position.y === pos.y
+      ) {
+        return state;
+      }
       return {
-        cards: repairCanvasLayout(
-          state.cards,
-          state.connections,
-          state.cardOrder,
-        ),
+        cards: {
+          ...state.cards,
+          [childId]: { ...child, position: pos },
+        },
       };
     }),
 
@@ -1072,11 +1073,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (childId) {
       const pid = parentId;
       const cid = childId;
-      const repair = () => get().syncFollowUpChildPosition(pid, cid);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          repair();
-          requestAnimationFrame(repair);
+          get().syncFollowUpChildPosition(pid, cid);
         });
       });
     }
@@ -1383,7 +1382,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const cardOrder = Array.isArray(snapshot.cardOrder)
         ? [...snapshot.cardOrder]
         : Object.keys(normalized);
-      const cards = repairCanvasLayout(normalized, connections, cardOrder);
+      const cards = normalized;
       const canvasArtifactNodes = snapshot.canvasArtifactNodes
         ? normalizeLoadedArtifactNodes(
             { ...snapshot.canvasArtifactNodes },
