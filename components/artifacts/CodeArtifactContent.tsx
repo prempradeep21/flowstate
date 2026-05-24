@@ -53,7 +53,10 @@ export function CodeArtifactContent({
           ))}
         </div>
       )}
-      <pre className="max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-[13px] leading-[1.55] text-canvas-ink">
+      <pre
+        data-canvas-scroll
+        className="max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-[13px] leading-[1.55] text-canvas-ink"
+      >
         <code dangerouslySetInnerHTML={{ __html: html }} />
       </pre>
     </ArtifactContentStage>

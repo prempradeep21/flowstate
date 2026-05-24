@@ -9,6 +9,8 @@ export interface PlugAnchor {
 
 export interface PlugPathGeometry {
   d: string;
+  midX?: number;
+  midY?: number;
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -50,7 +52,7 @@ function buildCurvyPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
   const cp2y = b.py + b.ty * pull;
 
   const d = `M ${a.px} ${a.py} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${b.px} ${b.py}`;
-  return { d };
+  return { d, midX: (a.px + b.px) / 2, midY: (a.py + b.py) / 2 };
 }
 
 function routeOrthogonalPoints(
@@ -142,8 +144,14 @@ function buildOrthogonalPath(
   toSide: CardSide,
 ): PlugPathGeometry {
   const points = routeOrthogonalPoints(a, b, fromSide, toSide);
-  const d = roundedPolylinePath(points, 10);
-  return { d };
+  const isShortVertical =
+    isVerticalSide(fromSide) &&
+    isVerticalSide(toSide) &&
+    Math.abs(a.px - b.px) < 1;
+  const radius = isShortVertical ? 0 : 10;
+  const d = roundedPolylinePath(points, radius);
+  const mid = points[Math.floor(points.length / 2)];
+  return { d, midX: mid.x, midY: mid.y };
 }
 
 export function buildPlugConnectorPath(

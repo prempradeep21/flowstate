@@ -11,12 +11,15 @@ import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import {
+  QaQuestionSection,
+  QaTranslucentSurface,
+} from "@/components/QaQuestionSection";
 import { askClaude } from "@/lib/claudeClient";
 import {
   handleArtifactOnDone,
   handleStreamArtifact,
 } from "@/lib/artifactGeneration";
-import { focusCanvasCard } from "@/lib/canvasFocus";
 import {
   getLandingCardId,
   shouldShowCanvasLanding,
@@ -145,6 +148,27 @@ export function Card({ card }: CardProps) {
   const startedFor = useRef<string | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const layoutKeyRef = useRef("");
+  const lastScaleRef = useRef(1);
+
+  const displayBucket = godView
+    ? "god"
+    : hideFollowUp
+      ? "compact"
+      : expandedContent
+        ? "expanded"
+        : "summary";
+  const layoutKey = [
+    card.status,
+    card.question,
+    card.answer.length,
+    card.outputArtifactId ?? "",
+    hasChildren ? "1" : "0",
+    card.images?.length ?? 0,
+    card.responseType ?? "text",
+    displayBucket,
+    lineClamp ?? "full",
+  ].join("|");
 
   const TEXT_SELECTABLE =
     'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
@@ -153,13 +177,22 @@ export function Card({ card }: CardProps) {
     const el = cardRef.current;
     if (!el) return;
     const update = () => {
-      setCardSize(card.id, { w: el.offsetWidth, h: el.offsetHeight });
+      const currentScale = useCanvasStore.getState().viewport.scale;
+      const layoutChanged = layoutKey !== layoutKeyRef.current;
+      const scaleChanged = currentScale !== lastScaleRef.current;
+      if (scaleChanged && !layoutChanged) return;
+      layoutKeyRef.current = layoutKey;
+      lastScaleRef.current = currentScale;
+      const next = { w: el.offsetWidth, h: el.offsetHeight };
+      setCardSize(card.id, next);
     };
     update();
-    const ro = new ResizeObserver(update);
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(update);
+    });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [card.id, setCardSize, scale]);
+  }, [card.id, setCardSize, layoutKey]);
 
   useEffect(() => {
     if (card.status !== "thinking") return;
@@ -219,8 +252,7 @@ export function Card({ card }: CardProps) {
   };
 
   const submitFollowUp = (question: string, options?: FollowUpOptions) => {
-    const childId = createFollowUp(card.id, question, options);
-    if (childId) focusCanvasCard(childId);
+    createFollowUp(card.id, question, options);
   };
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -273,7 +305,7 @@ export function Card({ card }: CardProps) {
   return (
     <div
       ref={cardRef}
-      data-canvas-card
+      data-canvas-card={card.id}
       onPointerDown={handleCardPointerDown}
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
@@ -311,7 +343,7 @@ export function Card({ card }: CardProps) {
         </>
       )}
       <div
-        className={`group/inner relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`group/inner relative flex flex-col overflow-hidden rounded-2xl border bg-transparent shadow-card transition-shadow hover:shadow-cardHover ${
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"
@@ -323,16 +355,6 @@ export function Card({ card }: CardProps) {
             : {}),
         }}
       >
-        {accent && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 rounded-l-2xl"
-            style={{
-              background: accent,
-              width: compensatedStrokeWidth(3, scale, 3),
-            }}
-          />
-        )}
         {card.status !== "empty" && (
           <CardQaMenu cardId={card.id} viewportScale={scale} />
         )}
@@ -363,9 +385,10 @@ export function Card({ card }: CardProps) {
               />
             </div>
           ) : card.status !== "empty" ? (
-            <div className="group/body relative min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden">
-              <div
-                className="min-w-0 shrink-0"
+            <QaTranslucentSurface className="group/body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <QaQuestionSection
+                accentColour={accent}
+                accentWidth={compensatedStrokeWidth(3, scale, 3)}
                 style={{
                   paddingTop: insets.question.paddingTop,
                   paddingBottom: insets.question.paddingBottom,
@@ -385,7 +408,7 @@ export function Card({ card }: CardProps) {
                 >
                   {card.question}
                 </div>
-              </div>
+              </QaQuestionSection>
 
               {!hideDivider && (
                 <div className="mx-5 shrink-0 h-px bg-canvas-border" />
@@ -435,7 +458,7 @@ export function Card({ card }: CardProps) {
                   </>
                 )}
               </div>
-            </div>
+            </QaTranslucentSurface>
           ) : null}
 
           {card.status === "done" && !hasChildren && !hideFollowUp && (

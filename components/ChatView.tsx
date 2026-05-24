@@ -6,6 +6,10 @@ import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import {
+  QaQuestionSection,
+  QaTranslucentSurface,
+} from "@/components/QaQuestionSection";
+import {
   artifactDisplayTitle,
   getLatestVersion,
   getVersionById,
@@ -75,53 +79,63 @@ function SidebarItem({
 function QnaTurnBlock({ cardId }: { cardId: string }) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const accent = useCanvasStore(
+    (s) => s.threads[card?.threadId ?? ""]?.accentColour,
+  );
 
   if (!card || card.status === "empty") return null;
 
+  const showAnswer =
+    card.status === "thinking" ||
+    card.answer ||
+    card.artifactPayload ||
+    card.outputArtifactId ||
+    (card.images && card.images.length > 0);
+
   return (
-    <div className="relative border-t border-canvas-border/80 px-5 py-4 first:border-t-0">
-      <div className="absolute right-3 top-3">
+    <div className="relative border-t border-canvas-border/80 first:border-t-0">
+      <div className="absolute right-3 top-3 z-20">
         <CardQaMenu cardId={cardId} />
       </div>
 
-      {card.attachedArtifacts?.map((ref) => {
-        const art = sessionArtifacts[ref.artifactId];
-        if (!art) return null;
-        const ver =
-          getVersionById(art, ref.versionId) ?? getLatestVersion(art);
-        return (
-          <div key={ref.artifactId} className="mb-3">
-            <ArtifactAttachmentPill
-              kind={art.kind}
-              title={artifactDisplayTitle(art, ver)}
-              versionNumber={ver.number}
-            />
+      <QaTranslucentSurface>
+        <QaQuestionSection accentColour={accent} className="px-5 py-4">
+          {card.attachedArtifacts?.map((ref) => {
+            const art = sessionArtifacts[ref.artifactId];
+            if (!art) return null;
+            const ver =
+              getVersionById(art, ref.versionId) ?? getLatestVersion(art);
+            return (
+              <div key={ref.artifactId} className="mb-3">
+                <ArtifactAttachmentPill
+                  kind={art.kind}
+                  title={artifactDisplayTitle(art, ver)}
+                  versionNumber={ver.number}
+                />
+              </div>
+            );
+          })}
+
+          <p className="pr-8 text-[15px] font-medium leading-snug text-canvas-question">
+            {card.question}
+          </p>
+        </QaQuestionSection>
+
+        {showAnswer && (
+          <div className="px-5 pb-4">
+            {card.status === "thinking" ? (
+              <div className="text-[14px] text-canvas-muted animate-pulse">
+                {card.thinkingLabel ?? "Thinking"}…
+              </div>
+            ) : (
+              <CardAnswerBody
+                card={card}
+                isStreaming={card.status === "streaming"}
+              />
+            )}
           </div>
-        );
-      })}
-
-      <p className="pr-8 text-[15px] font-medium leading-snug text-canvas-question">
-        {card.question}
-      </p>
-
-      {(card.status === "thinking" ||
-        card.answer ||
-        card.artifactPayload ||
-        card.outputArtifactId ||
-        (card.images && card.images.length > 0)) && (
-        <div className="mt-3">
-          {card.status === "thinking" ? (
-            <div className="text-[14px] text-canvas-muted animate-pulse">
-              {card.thinkingLabel ?? "Thinking"}…
-            </div>
-          ) : (
-            <CardAnswerBody
-              card={card}
-              isStreaming={card.status === "streaming"}
-            />
-          )}
-        </div>
-      )}
+        )}
+      </QaTranslucentSurface>
     </div>
   );
 }
@@ -165,7 +179,7 @@ function ChatMessages({ threadId }: { threadId: string }) {
       className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
     >
       <div className="relative mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-2xl border border-canvas-border bg-canvas-card shadow-card">
+        <div className="overflow-hidden rounded-2xl border border-canvas-border bg-transparent shadow-card">
           {visibleChain.map((cardId) => (
             <QnaTurnBlock key={cardId} cardId={cardId} />
           ))}

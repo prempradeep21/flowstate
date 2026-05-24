@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   ContextMenuItem,
   LayoutGridIcon,
+  TypeIcon,
   UndoIcon,
 } from "@/components/MenuIcons";
 import { useCanvasStore } from "@/lib/store";
@@ -16,9 +17,14 @@ export interface ContextMenuState {
 interface CanvasContextMenuProps {
   menu: ContextMenuState;
   onClose: () => void;
+  onAddText: () => void;
 }
 
-export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  menu,
+  onClose,
+  onAddText,
+}: CanvasContextMenuProps) {
   const autoLayoutCanvas = useCanvasStore((s) => s.autoLayoutCanvas);
   const undo = useCanvasStore((s) => s.undo);
   const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
@@ -49,6 +55,14 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
       className="fixed z-50 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
       style={{ left: menu.screenX, top: menu.screenY }}
     >
+      <ContextMenuItem
+        icon={<TypeIcon />}
+        label="Add text"
+        onClick={() => {
+          onAddText();
+          onClose();
+        }}
+      />
       <ContextMenuItem
         icon={<LayoutGridIcon />}
         label="Auto layout"

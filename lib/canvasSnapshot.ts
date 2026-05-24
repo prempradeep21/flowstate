@@ -3,6 +3,7 @@ import type {
   AppViewMode,
   BranchGroup,
   CanvasArtifactNode,
+  CanvasTextLabel,
   Card,
   CardStatus,
   ClaudeModel,
@@ -29,6 +30,8 @@ export interface CanvasSnapshot {
   sessionArtifacts: Record<string, SessionArtifact>;
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder?: string[];
+  canvasTextLabels?: Record<string, CanvasTextLabel>;
+  canvasTextLabelOrder?: string[];
 }
 
 export interface CanvasSnapshotSource {
@@ -45,6 +48,8 @@ export interface CanvasSnapshotSource {
   sessionArtifacts: Record<string, SessionArtifact>;
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
+  canvasTextLabels: Record<string, CanvasTextLabel>;
+  canvasTextLabelOrder: string[];
 }
 
 function normalizeCardStatus(status: CardStatus): CardStatus {
@@ -86,6 +91,10 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasArtifactNodes),
     ) as Record<string, CanvasArtifactNode>,
     canvasArtifactOrder: [...source.canvasArtifactOrder],
+    canvasTextLabels: JSON.parse(
+      JSON.stringify(source.canvasTextLabels),
+    ) as Record<string, CanvasTextLabel>,
+    canvasTextLabelOrder: [...source.canvasTextLabelOrder],
   };
 }
 

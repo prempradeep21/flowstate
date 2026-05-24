@@ -25,7 +25,10 @@ export function ArtifactTable({
   const colWidth = `${100 / Math.max(columns.length, 1)}%`;
 
   return (
-    <div className={`overflow-y-auto overflow-x-hidden ${maxHeightClassName}`}>
+    <div
+      data-canvas-scroll
+      className={`overflow-y-auto overflow-x-hidden ${maxHeightClassName}`}
+    >
       <table className="w-full table-fixed border-collapse text-left text-[13px]">
         <thead>
           <tr className="sticky top-0 z-10 border-b border-canvas-border bg-canvas-bg/95 backdrop-blur-sm">

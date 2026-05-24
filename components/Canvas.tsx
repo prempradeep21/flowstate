@@ -14,7 +14,12 @@ import {
   parseSidebarDragPayload,
   uploadedToPending,
 } from "@/lib/sidebarDnD";
-import { CANVAS_ARTIFACT_WIDTH, CANVAS_TABLE_ARTIFACT_WIDTH, useCanvasStore } from "@/lib/store";
+import {
+  CANVAS_ARTIFACT_WIDTH,
+  CANVAS_TABLE_ARTIFACT_WIDTH,
+  CANVAS_TEXT_LABEL_FONT_SIZE,
+  useCanvasStore,
+} from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import {
   CanvasContextMenu,
@@ -23,12 +28,19 @@ import {
 import { CanvasLanding } from "@/components/CanvasLanding";
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
+import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { focusCanvasCard } from "@/lib/canvasFocus";
+import { CARD_WIDTH, EMPTY_CARD_HEIGHT } from "@/lib/canvasNodeBounds";
+import { shouldCanvasWheelZoom } from "@/lib/canvasWheel";
+import {
+  markUserViewportInteraction,
+  requestCanvasFocus,
+} from "@/lib/canvasViewportGuard";
 import {
   getLandingCardId,
   shouldShowCanvasLanding,
@@ -40,8 +52,6 @@ import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
 import { usePersistenceReady } from "@/components/AuthProvider";
 
-const CARD_WIDTH = 420;
-const INITIAL_CARD_HEIGHT_GUESS = 180;
 const MARQUEE_MIN_DRAG_PX = 6;
 
 /** Avoid re-panning on resize once the initial viewport has been applied. */
@@ -54,6 +64,7 @@ interface PlacementState {
 
 export function Canvas() {
   const persistenceReady = usePersistenceReady();
+  const repairAllVerticalChains = useCanvasStore((s) => s.repairAllVerticalChains);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const panBy = useCanvasStore((s) => s.panBy);
@@ -66,6 +77,14 @@ export function Canvas() {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
+  const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
+  const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
+  const selectedCanvasTextLabelId = useCanvasStore(
+    (s) => s.selectedCanvasTextLabelId,
+  );
+  const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
+  const removeCanvasTextLabel = useCanvasStore((s) => s.removeCanvasTextLabel);
+  const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
   const setSelectedFamilyRootIds = useCanvasStore(
@@ -105,16 +124,62 @@ export function Canvas() {
   // Latest cursor position in screen space, kept in a ref so a window keydown
   // listener can read it without re-binding on every mousemove.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
+  const canvasPointerRef = useRef<{ x: number; y: number } | null>(null);
 
   // Two-step Q placement: press Q -> ghost follows cursor; click -> anchor;
   // Esc -> cancel. Holding both state (for re-render) and a ref (for stable
   // handler closures).
   const [placement, setPlacement] = useState<PlacementState | null>(null);
+  const [textPlacement, setTextPlacement] = useState<PlacementState | null>(
+    null,
+  );
+  const [autoEditLabelId, setAutoEditLabelId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
+  const textPlacementRef = useRef<PlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
   }, [placement]);
+  useEffect(() => {
+    textPlacementRef.current = textPlacement;
+  }, [textPlacement]);
+
+  const canvasPlacementRequest = useCanvasStore((s) => s.canvasPlacementRequest);
+
+  const beginPlacementAtCursor = (tool: "question" | "text") => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const clamped = clampPlacementWorld(world);
+    setContextMenu(null);
+    if (tool === "question") {
+      setTextPlacement(null);
+      setPlacement(clamped);
+    } else {
+      setPlacement(null);
+      setTextPlacement(clamped);
+    }
+  };
+
+  useEffect(() => {
+    if (!canvasPlacementRequest) return;
+    beginPlacementAtCursor(canvasPlacementRequest);
+    useCanvasStore.setState({ canvasPlacementRequest: null });
+  }, [canvasPlacementRequest]);
+
+  useEffect(() => {
+    const mode = placement ? "question" : textPlacement ? "text" : null;
+    if (useCanvasStore.getState().activeCanvasPlacement !== mode) {
+      useCanvasStore.setState({ activeCanvasPlacement: mode });
+    }
+  }, [placement, textPlacement]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -159,6 +224,21 @@ export function Canvas() {
     };
   };
 
+  const clampPlacementWorld = (world: PlacementState): PlacementState => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return world;
+    const { x: vx, y: vy, scale } = useCanvasStore.getState().viewport;
+    const margin = 40;
+    const minX = (-vx + margin) / scale;
+    const minY = (-vy + margin) / scale;
+    const maxX = (rect.width - vx - margin) / scale;
+    const maxY = (rect.height - vy - margin) / scale;
+    return {
+      x: Math.min(maxX, Math.max(minX, world.x)),
+      y: Math.min(maxY, Math.max(minY, world.y)),
+    };
+  };
+
   // Seed the home card as soon as the container has size (do not wait on cloud load).
   useEffect(() => {
     const el = containerRef.current;
@@ -175,7 +255,7 @@ export function Canvas() {
       initialViewportApplied = false;
       createRootCard({
         x: -CARD_WIDTH / 2,
-        y: -INITIAL_CARD_HEIGHT_GUESS / 2,
+        y: -EMPTY_CARD_HEIGHT / 2,
       });
       setViewport(
         viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
@@ -217,7 +297,7 @@ export function Canvas() {
       if (!first) return;
 
       const w = first.size?.w ?? CARD_WIDTH;
-      const h = first.size?.h ?? INITIAL_CARD_HEIGHT_GUESS;
+      const h = first.size?.h ?? EMPTY_CARD_HEIGHT;
       setViewport(
         viewportCenteredOnWorldPoint(
           first.position.x + w / 2,
@@ -235,6 +315,15 @@ export function Canvas() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [persistenceReady, setViewport]);
+
+  // After hydrate + DOM measure, snap follow-up chains to live card heights.
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const run = () => repairAllVerticalChains();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(run);
+    });
+  }, [persistenceReady, repairAllVerticalChains]);
 
   // Keep the landing stack in view when resuming an empty canvas (e.g. saved pan).
   useEffect(() => {
@@ -285,7 +374,11 @@ export function Canvas() {
       cursorRef.current = { x: e.clientX, y: e.clientY };
       if (placementRef.current) {
         const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) setPlacement(world);
+        if (world) setPlacement(clampPlacementWorld(world));
+      }
+      if (textPlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) setTextPlacement(clampPlacementWorld(world));
       }
     };
     window.addEventListener("mousemove", onMove);
@@ -301,8 +394,33 @@ export function Canvas() {
           e.preventDefault();
           setPlacement(null);
         }
+        if (textPlacementRef.current) {
+          e.preventDefault();
+          setTextPlacement(null);
+        }
         setContextMenu(null);
         useCanvasStore.getState().clearSelection();
+        useCanvasStore.getState().selectCanvasTextLabel(null);
+        return;
+      }
+
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedCanvasTextLabelId
+      ) {
+        const target = e.target as HTMLElement | null;
+        if (target) {
+          const tag = target.tagName;
+          if (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            target.isContentEditable
+          ) {
+            return;
+          }
+        }
+        e.preventDefault();
+        removeCanvasTextLabel(selectedCanvasTextLabelId);
         return;
       }
 
@@ -320,21 +438,56 @@ export function Canvas() {
         }
       }
 
-      if (placementRef.current) return;
+      if (placementRef.current || textPlacementRef.current) return;
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
+      const canvasPtr = canvasPointerRef.current;
       const cursor = cursorRef.current;
-      const clientX = cursor?.x ?? rect.left + rect.width / 2;
-      const clientY = cursor?.y ?? rect.top + rect.height / 2;
+      const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+      const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+      const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+      const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
       const world = computeWorldFromClient(clientX, clientY);
       if (!world) return;
 
       e.preventDefault();
       e.stopPropagation();
       setContextMenu(null);
+      setTextPlacement(null);
       target?.blur();
-      setPlacement(world);
+      setPlacement(clampPlacementWorld(world));
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [removeCanvasTextLabel, selectedCanvasTextLabelId]);
+
+  // T (enter text placement) — same rules as Q for focused inputs.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "KeyT" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
+        return;
+
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") {
+          const field = target as HTMLInputElement | HTMLTextAreaElement;
+          if (field.value.trim().length > 0) return;
+        } else if (target.isContentEditable) {
+          return;
+        }
+      }
+
+      if (placementRef.current || textPlacementRef.current) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setPlacement(null);
+      target?.blur();
+      beginPlacementAtCursor("text");
     };
 
     window.addEventListener("keydown", onKeyDown, true);
@@ -345,16 +498,30 @@ export function Canvas() {
   // so it doesn't focus inputs or trigger pan on the underlying surface.
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+
+      const textPos = textPlacementRef.current;
+      if (textPos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = spawnCanvasTextLabel({
+          x: textPos.x,
+          y: textPos.y - CANVAS_TEXT_LABEL_FONT_SIZE / 2,
+        });
+        setAutoEditLabelId(id);
+        setTextPlacement(null);
+        return;
+      }
+
       const p = placementRef.current;
       if (!p) return;
-      if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       const cardId = createRootCard({
         x: p.x - CARD_WIDTH / 2,
-        y: p.y - INITIAL_CARD_HEIGHT_GUESS / 2,
+        y: p.y - EMPTY_CARD_HEIGHT / 2,
       });
-      focusCanvasCard(cardId);
+      requestCanvasFocus(() => focusCanvasCard(cardId));
       setPlacement(null);
     };
     // Capture phase so we run before any element's own listeners (including
@@ -362,7 +529,7 @@ export function Canvas() {
     window.addEventListener("pointerdown", onPointerDown, true);
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
-  }, [createRootCard]);
+  }, [createRootCard, spawnCanvasTextLabel]);
 
   const handleSidebarDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -386,7 +553,7 @@ export function Canvas() {
           y: world.y - artHeight / 2,
         },
       );
-      focusCanvasArtifact(payload.artifactId);
+      requestCanvasFocus(() => focusCanvasArtifact(payload.artifactId));
       return;
     }
 
@@ -396,20 +563,35 @@ export function Canvas() {
     if (!att) return;
     const cardId = createRootCard({
       x: world.x - CARD_WIDTH / 2,
-      y: world.y - INITIAL_CARD_HEIGHT_GUESS / 2,
+      y: world.y - EMPTY_CARD_HEIGHT / 2,
     });
     updateCard(cardId, {
       pendingFiles: [uploadedToPending(att)],
     });
-    focusCanvasCard(cardId);
+    requestCanvasFocus(() => focusCanvasCard(cardId));
   };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (placementRef.current) return;
+    if (placementRef.current || textPlacementRef.current) return;
     if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-artifact]")) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-text-label]")) return;
     setContextMenu({ screenX: e.clientX, screenY: e.clientY });
+  };
+
+  const handleAddTextAtContextMenu = () => {
+    if (!contextMenu) return;
+    const world = computeWorldFromClient(
+      contextMenu.screenX,
+      contextMenu.screenY,
+    );
+    if (!world) return;
+    const id = spawnCanvasTextLabel({
+      x: world.x,
+      y: world.y - CANVAS_TEXT_LABEL_FONT_SIZE / 2,
+    });
+    setAutoEditLabelId(id);
   };
 
   const applyMarqueeAt = (clientX: number, clientY: number) => {
@@ -437,11 +619,12 @@ export function Canvas() {
   const isCanvasBackgroundTarget = (target: HTMLElement) =>
     !target.closest("[data-canvas-card]") &&
     !target.closest("[data-canvas-artifact]") &&
+    !target.closest("[data-canvas-text-label]") &&
     !target.closest("[data-canvas-landing]") &&
     !target.closest("[data-group-summary-icon]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (placementRef.current) return;
+    if (placementRef.current || textPlacementRef.current) return;
     if (useCanvasStore.getState().plugDrag) return;
     const target = e.target as HTMLElement;
     if (!isCanvasBackgroundTarget(target)) return;
@@ -468,9 +651,12 @@ export function Canvas() {
     setMarqueeRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
     clearSelection();
     selectCanvasArtifact(null);
+    selectCanvasTextLabel(null);
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    canvasPointerRef.current = { x: e.clientX, y: e.clientY };
+
     const ms = marqueeState.current;
     if (ms && ms.pointerId === e.pointerId) {
       const x = Math.min(ms.startX, e.clientX);
@@ -490,6 +676,7 @@ export function Canvas() {
     const dy = e.clientY - ps.lastY;
     ps.lastX = e.clientX;
     ps.lastY = e.clientY;
+    markUserViewportInteraction();
     panBy(dx, dy);
   };
 
@@ -524,8 +711,7 @@ export function Canvas() {
   };
 
   const handleWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
-    // Let answer panels scroll vertically; never zoom while the pointer is over one.
-    if ((e.target as HTMLElement).closest("[data-card-answer]")) return;
+    if (!shouldCanvasWheelZoom(e.target)) return;
 
     // Ctrl/Meta + wheel = zoom (also trackpad pinch comes through as ctrl+wheel).
     // Plain wheel = also zoom on the canvas to keep the interaction simple in V1.
@@ -535,6 +721,7 @@ export function Canvas() {
     const pivotY = e.clientY - rect.top;
     const intensity = e.ctrlKey || e.metaKey ? 0.0125 : 0.0015;
     const factor = Math.exp(-e.deltaY * intensity);
+    markUserViewportInteraction();
     zoomAt(factor, pivotX, pivotY);
   };
 
@@ -556,7 +743,7 @@ export function Canvas() {
       onDragOver={allowSidebarDrop}
       onDrop={handleSidebarDrop}
       className={`relative h-full w-full overflow-hidden bg-canvas-bg select-none touch-none ${
-        placement
+        placement || textPlacement
           ? "cursor-crosshair"
           : spaceHeld
             ? "cursor-grab active:cursor-grabbing"
@@ -570,7 +757,6 @@ export function Canvas() {
       }}
     >
       <CanvasViewport>
-        <Connections />
         <PlugConnectorLayer />
         {groupList.map((group) => (
           <GroupBounds key={group.id} group={group} />
@@ -585,12 +771,25 @@ export function Canvas() {
           if (!node) return null;
           return <CanvasArtifactNode key={id} node={node} />;
         })}
+        {canvasTextLabelOrder.map((id) => {
+          const label = canvasTextLabels[id];
+          if (!label) return null;
+          return (
+            <CanvasTextLabelNode
+              key={id}
+              label={label}
+              startEditing={autoEditLabelId === id}
+            />
+          );
+        })}
         {groupList.map((group) =>
           group.summaryMarkdown ? (
             <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
           ) : null,
         )}
+        <Connections />
         {placement && <GhostCard world={placement} />}
+        {textPlacement && <GhostTextLabel world={textPlacement} />}
       </CanvasViewport>
       {showLanding && !placement && landingCardId && (
         <div
@@ -608,8 +807,25 @@ export function Canvas() {
         <CanvasContextMenu
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
+          onAddText={handleAddTextAtContextMenu}
         />
       )}
+    </div>
+  );
+}
+
+function GhostTextLabel({ world }: { world: PlacementState }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute font-medium leading-tight text-canvas-ink/50"
+      style={{
+        left: world.x,
+        top: world.y - CANVAS_TEXT_LABEL_FONT_SIZE / 2,
+        fontSize: CANVAS_TEXT_LABEL_FONT_SIZE,
+      }}
+    >
+      Text
     </div>
   );
 }
@@ -621,7 +837,7 @@ function GhostCard({ world }: { world: PlacementState }) {
       className="pointer-events-none absolute rounded-2xl border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
       style={{
         left: world.x - CARD_WIDTH / 2,
-        top: world.y - INITIAL_CARD_HEIGHT_GUESS / 2,
+        top: world.y - EMPTY_CARD_HEIGHT / 2,
         width: CARD_WIDTH,
       }}
     >

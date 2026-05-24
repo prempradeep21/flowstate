@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { focusCanvasCard } from "@/lib/canvasFocus";
+import { requestCanvasFocus } from "@/lib/canvasViewportGuard";
 import {
   COMPOSER_PROXIMITY_PX,
   findNearestComposerTarget,
@@ -116,7 +117,7 @@ export function usePlugDragSession(
               versionId: drag.versionId,
             },
           );
-          if (cardId) focusCanvasCard(cardId);
+          if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
         }
       }
 

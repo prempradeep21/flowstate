@@ -8,12 +8,24 @@ import type {
 } from "@/lib/canvasSnapshot";
 import { computeAutoLayout } from "@/lib/autoLayout";
 import {
+  BRANCH_CARD_WIDTH,
+  BRANCH_HORIZONTAL_GAP,
+  childBandY,
+  computeFollowUpPosition,
+  relayoutChildrenOf,
+  repairCanvasLayout,
+} from "@/lib/canvasLayout";
+import {
+  CANVAS_ARTIFACT_WIDTH,
+  CANVAS_TABLE_ARTIFACT_WIDTH,
   DEFAULT_ARTIFACT_HEIGHT,
   TABLE_ARTIFACT_HEIGHT,
   emptyCardSize,
   getArtifactBounds,
   getCardBounds,
 } from "@/lib/canvasNodeBounds";
+
+export { CANVAS_ARTIFACT_WIDTH, CANVAS_TABLE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
 import { pickDefaultThreadId } from "@/lib/chatThreads";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
 import {
@@ -26,6 +38,7 @@ import {
   getLatestVersion,
   getVersionById,
   normalizePayloadForRegistry,
+  resolveThreadArtifactId,
   type AttachedArtifactRef,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
@@ -162,8 +175,17 @@ export interface CanvasArtifactNode {
   size?: CardSize;
 }
 
-export const CANVAS_ARTIFACT_WIDTH = 520;
-export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
+export const CANVAS_TEXT_LABEL_FONT_SIZE = 40;
+
+export type CanvasPlacementTool = "question" | "text";
+
+export interface CanvasTextLabel {
+  id: string;
+  text: string;
+  position: { x: number; y: number };
+  fontSize: number;
+}
+
 /** Horizontal gap between a source card's right edge and a spawned artifact. */
 export const ARTIFACT_SPAWN_GAP_X = 24;
 
@@ -184,6 +206,10 @@ interface CanvasState {
   setViewMode: (mode: AppViewMode) => void;
   setActiveThreadId: (threadId: string) => void;
 
+  canvasPlacementRequest: CanvasPlacementTool | null;
+  activeCanvasPlacement: CanvasPlacementTool | null;
+  requestCanvasPlacement: (tool: CanvasPlacementTool) => void;
+
   sessionUsage: { inputTokens: number; outputTokens: number };
   addUsage: (input: number, output: number) => void;
 
@@ -201,6 +227,9 @@ interface CanvasState {
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
   selectedCanvasArtifactId: string | null;
+  canvasTextLabels: Record<string, CanvasTextLabel>;
+  canvasTextLabelOrder: string[];
+  selectedCanvasTextLabelId: string | null;
   connectorStyle: ConnectorStyle;
   undoPast: GraphSnapshot[];
 
@@ -235,6 +264,8 @@ interface CanvasState {
   setCardSize: (id: string, size: CardSize) => void;
   setCanvasArtifactSize: (nodeId: string, size: CardSize) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
+  syncFollowUpChildPosition: (parentId: string, childId: string) => void;
+  repairAllVerticalChains: () => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
   createFollowUp: (
@@ -290,6 +321,15 @@ interface CanvasState {
   setCanvasArtifactVersion: (nodeId: string, versionId: string) => void;
   removeCanvasArtifact: (nodeId: string) => void;
 
+  spawnCanvasTextLabel: (
+    position: { x: number; y: number },
+    text?: string,
+  ) => string;
+  moveCanvasTextLabel: (nodeId: string, dx: number, dy: number) => void;
+  updateCanvasTextLabel: (nodeId: string, text: string) => void;
+  removeCanvasTextLabel: (nodeId: string) => void;
+  selectCanvasTextLabel: (nodeId: string | null) => void;
+
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
@@ -301,12 +341,6 @@ interface CanvasState {
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 3;
-const FOLLOW_UP_GAP = 80;
-const BRANCH_CARD_WIDTH = 420;
-// Visual gap between a source and its first branch, and between sibling
-// branches on the same side. Equal to one card width so parallel branches
-// breathe at roughly the same scale as the cards themselves.
-const BRANCH_HORIZONTAL_GAP = BRANCH_CARD_WIDTH;
 
 // Placeholder palette for thread accents until OQ-01 is resolved.
 // Cycles after 8 threads.
@@ -330,6 +364,10 @@ function newCanvasArtifactNodeId() {
   return newId("cano");
 }
 
+function newCanvasTextLabelId() {
+  return newId("ctxt");
+}
+
 function collectSubtreeIds(
   connections: Connection[],
   rootId: string,
@@ -347,97 +385,20 @@ function collectSubtreeIds(
   return subtree;
 }
 
-/** When a card's height changes, shift all child subtrees to keep the shared y-band. */
-function shiftChildSubtrees(
-  state: CanvasState,
-  parentId: string,
-  dy: number,
-): Record<string, Card> {
-  if (dy === 0) return state.cards;
-
-  const cards = { ...state.cards };
-  const childIds = state.connections
-    .filter((c) => c.from === parentId)
-    .map((c) => c.to);
-
-  for (const childId of childIds) {
-    for (const id of collectSubtreeIds(state.connections, childId)) {
-      const c = cards[id];
-      if (!c) continue;
-      cards[id] = {
-        ...c,
-        position: { ...c.position, y: c.position.y + dy },
-      };
-    }
-  }
-  return cards;
-}
-
 export const newCardId = () => newId("card");
 const newThreadId = () => newId("thread");
 const newGroupId = () => newId("group");
 
-// All children of a given source (follow-ups + branches) share a single
-// horizontal y-band: the y of the first child created. If none yet, fall back
-// to `source.y + source.h + gap`, computed once at first-child time and
-// reused by every subsequent sibling regardless of when the source's height
-// later changes.
-function childBandY(
-  state: CanvasState,
-  sourceId: string,
-  source: Card,
-): number {
-  let earliest: number | null = null;
-  for (const conn of state.connections) {
-    if (conn.from !== sourceId) continue;
-    const child = state.cards[conn.to];
-    if (!child) continue;
-    if (earliest === null || child.position.y < earliest) {
-      earliest = child.position.y;
-    }
-  }
-  if (earliest !== null) return earliest;
-  const { h: sourceH } = getCardBounds(source);
-  return source.position.y + sourceH + FOLLOW_UP_GAP;
-}
-
-/** Re-align lateral branches to the y-band below their parent after load. */
-function repairLateralBranchBands(
-  cards: Record<string, Card>,
-  connections: Connection[],
-): Record<string, Card> {
-  const next = { ...cards };
-  const parentIds = new Set(connections.map((c) => c.from));
-
-  for (const parentId of parentIds) {
-    const parent = next[parentId];
-    if (!parent) continue;
-
-    const { h: parentH } = getCardBounds(parent);
-    const bandY = parent.position.y + parentH + FOLLOW_UP_GAP;
-
-    for (const conn of connections) {
-      if (conn.from !== parentId) continue;
-      if (conn.fromSide !== "left" && conn.fromSide !== "right") continue;
-
-      const child = next[conn.to];
-      if (!child) continue;
-
-      const dy = bandY - child.position.y;
-      if (dy === 0) continue;
-
-      for (const id of collectSubtreeIds(connections, conn.to)) {
-        const c = next[id];
-        if (!c) continue;
-        next[id] = {
-          ...c,
-          position: { ...c.position, y: c.position.y + dy },
-        };
-      }
-    }
-  }
-
-  return next;
+function layoutStateFrom(state: CanvasState): {
+  cards: Record<string, Card>;
+  connections: Connection[];
+  cardOrder: string[];
+} {
+  return {
+    cards: state.cards,
+    connections: state.connections,
+    cardOrder: state.cardOrder,
+  };
 }
 
 function normalizeLoadedCards(cards: Record<string, Card>): Record<string, Card> {
@@ -492,6 +453,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   viewMode: "canvas",
   activeThreadId: null,
+  canvasPlacementRequest: null,
+  activeCanvasPlacement: null,
+  requestCanvasPlacement: (tool) =>
+    set({ canvasPlacementRequest: tool, viewMode: "canvas" }),
   setViewMode: (mode) =>
     set((state) => {
       if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
@@ -515,7 +480,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasArtifactNodes: {},
   canvasArtifactOrder: [],
   selectedCanvasArtifactId: null,
-  connectorStyle: "curvy",
+  canvasTextLabels: {},
+  canvasTextLabelOrder: [],
+  selectedCanvasTextLabelId: null,
+  connectorStyle: "orthogonal",
   undoPast: [],
 
   plugDrag: null,
@@ -662,32 +630,69 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { viewport: { x: nx, y: ny, scale: nextScale } };
     }),
 
-  updateCard: (id, patch) =>
+  updateCard: (id, patch) => {
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
       return {
         cards: { ...state.cards, [id]: { ...existing, ...patch } },
       };
-    }),
+    });
+    if (patch.status === "done" && typeof requestAnimationFrame !== "undefined") {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          get().repairAllVerticalChains();
+        });
+      });
+    }
+  },
 
-  setCardSize: (id, size) =>
+  setCardSize: (id, size) => {
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
       const prev = existing.size;
       if (prev && prev.w === size.w && prev.h === size.h) return state;
 
-      const { h: prevH } = getCardBounds(existing);
-      const dy = size.h - prevH;
-      let cards: Record<string, Card> = {
+      const cardsWithSize: Record<string, Card> = {
         ...state.cards,
         [id]: { ...existing, size },
       };
-      if (dy !== 0) {
-        cards = shiftChildSubtrees({ ...state, cards }, id, dy);
-      }
+      const cards = relayoutChildrenOf(
+        { ...layoutStateFrom(state), cards: cardsWithSize },
+        id,
+      );
       return { cards };
+    });
+    if (typeof requestAnimationFrame === "undefined") return;
+    requestAnimationFrame(() => {
+      set((state) => {
+        if (!state.cards[id]) return state;
+        return {
+          cards: relayoutChildrenOf(layoutStateFrom(state), id),
+        };
+      });
+    });
+  },
+
+  syncFollowUpChildPosition: (parentId, childId) =>
+    set((state) => {
+      if (!state.cards[parentId] || !state.cards[childId]) return state;
+      return {
+        cards: relayoutChildrenOf(layoutStateFrom(state), parentId),
+      };
+    }),
+
+  repairAllVerticalChains: () =>
+    set((state) => {
+      if (state.cardOrder.length === 0) return state;
+      return {
+        cards: repairCanvasLayout(
+          state.cards,
+          state.connections,
+          state.cardOrder,
+        ),
+      };
     }),
 
   setCanvasArtifactSize: (nodeId, size) =>
@@ -900,7 +905,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   selectCanvasArtifact: (nodeId) =>
-    set({ selectedCanvasArtifactId: nodeId }),
+    set({
+      selectedCanvasArtifactId: nodeId,
+      selectedCanvasTextLabelId: null,
+    }),
 
   setCanvasArtifactVersion: (nodeId, versionId) =>
     set((state) => {
@@ -931,6 +939,78 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
+  spawnCanvasTextLabel: (position, text = "Text") => {
+    const id = newCanvasTextLabelId();
+    const label: CanvasTextLabel = {
+      id,
+      text,
+      position: { ...position },
+      fontSize: CANVAS_TEXT_LABEL_FONT_SIZE,
+    };
+    set((state) => ({
+      canvasTextLabels: { ...state.canvasTextLabels, [id]: label },
+      canvasTextLabelOrder: [...state.canvasTextLabelOrder, id],
+      selectedCanvasTextLabelId: id,
+      selectedCanvasArtifactId: null,
+      selectedFamilyRootIds: [],
+    }));
+    return id;
+  },
+
+  moveCanvasTextLabel: (nodeId, dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const label = state.canvasTextLabels[nodeId];
+      if (!label) return state;
+      return {
+        canvasTextLabels: {
+          ...state.canvasTextLabels,
+          [nodeId]: {
+            ...label,
+            position: {
+              x: label.position.x + dx,
+              y: label.position.y + dy,
+            },
+          },
+        },
+      };
+    }),
+
+  updateCanvasTextLabel: (nodeId, text) =>
+    set((state) => {
+      const label = state.canvasTextLabels[nodeId];
+      if (!label) return state;
+      return {
+        canvasTextLabels: {
+          ...state.canvasTextLabels,
+          [nodeId]: { ...label, text },
+        },
+      };
+    }),
+
+  removeCanvasTextLabel: (nodeId) =>
+    set((state) => {
+      if (!state.canvasTextLabels[nodeId]) return state;
+      const next = { ...state.canvasTextLabels };
+      delete next[nodeId];
+      return {
+        canvasTextLabels: next,
+        canvasTextLabelOrder: state.canvasTextLabelOrder.filter(
+          (id) => id !== nodeId,
+        ),
+        selectedCanvasTextLabelId:
+          state.selectedCanvasTextLabelId === nodeId
+            ? null
+            : state.selectedCanvasTextLabelId,
+      };
+    }),
+
+  selectCanvasTextLabel: (nodeId) =>
+    set({
+      selectedCanvasTextLabelId: nodeId,
+      selectedCanvasArtifactId: null,
+    }),
+
   listSessionArtifacts: (): SessionArtifact[] => {
     const state = get();
     return Object.values(state.sessionArtifacts).sort((a, b) => {
@@ -950,18 +1030,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const undoPast = pushUndoSnapshot(state);
       const id = newCardId();
       childId = id;
-      const childY = childBandY(state, parentId, parent);
-      const inheritedArtifactId = options?.attachedArtifacts?.[0]?.artifactId;
+      const pos = computeFollowUpPosition(layoutStateFrom(state), parentId, parent);
+      const inheritedArtifactId =
+        options?.attachedArtifacts?.[0]?.artifactId ??
+        parent.outputArtifactId ??
+        resolveThreadArtifactId(
+          state.cards,
+          state.connections,
+          state.cardOrder,
+          parent.threadId,
+        ) ??
+        undefined;
       const child: Card = {
         id,
         threadId: parent.threadId,
         question,
         answer: "",
         status: "thinking",
-        position: {
-          x: parent.position.x,
-          y: childY,
-        },
+        position: pos,
         parentCardId: parentId,
         parentConversationId: parentId,
         attachedArtifacts: options?.attachedArtifacts,
@@ -983,6 +1069,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         connections: [...state.connections, conn],
       };
     });
+    if (childId) {
+      const pid = parentId;
+      const cid = childId;
+      const repair = () => get().syncFollowUpChildPosition(pid, cid);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          repair();
+          requestAnimationFrame(repair);
+        });
+      });
+    }
     return childId;
   },
 
@@ -1060,7 +1157,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const id = newCardId();
       branchId = id;
-      const y = childBandY(state, sourceId, source);
+      const y = childBandY(layoutStateFrom(state), sourceId, source);
       const card: Card = {
         id,
         threadId: newThreadIdStr,
@@ -1120,7 +1217,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             BRANCH_CARD_WIDTH -
             BRANCH_HORIZONTAL_GAP -
             lateralStep * slot;
-      const y = childBandY(state, sourceId, source);
+      const y = childBandY(layoutStateFrom(state), sourceId, source);
 
       const newThreadIdStr = newThreadId();
       const accent =
@@ -1269,6 +1366,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sessionArtifacts: state.sessionArtifacts,
       canvasArtifactNodes: state.canvasArtifactNodes,
       canvasArtifactOrder: state.canvasArtifactOrder,
+      canvasTextLabels: state.canvasTextLabels,
+      canvasTextLabelOrder: state.canvasTextLabelOrder,
     };
   },
 
@@ -1277,10 +1376,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const sessionArtifacts = JSON.parse(
         JSON.stringify(snapshot.sessionArtifacts),
       ) as Record<string, SessionArtifact>;
-      const cards = repairLateralBranchBands(
-        normalizeLoadedCards({ ...snapshot.cards }),
-        snapshot.connections.map((c) => ({ ...c })),
-      );
+      const normalized = normalizeLoadedCards({ ...snapshot.cards });
+      const connections = Array.isArray(snapshot.connections)
+        ? snapshot.connections.map((c) => ({ ...c }))
+        : [];
+      const cardOrder = Array.isArray(snapshot.cardOrder)
+        ? [...snapshot.cardOrder]
+        : Object.keys(normalized);
+      const cards = repairCanvasLayout(normalized, connections, cardOrder);
       const canvasArtifactNodes = snapshot.canvasArtifactNodes
         ? normalizeLoadedArtifactNodes(
             { ...snapshot.canvasArtifactNodes },
@@ -1290,8 +1393,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         viewport: { ...snapshot.viewport },
         cards,
-        cardOrder: [...snapshot.cardOrder],
-        connections: snapshot.connections.map((c) => ({ ...c })),
+        cardOrder,
+        connections,
         threads: { ...snapshot.threads },
         threadOrder: [...snapshot.threadOrder],
         groups: { ...snapshot.groups },
@@ -1309,6 +1412,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         openSessionArtifactId: null,
         openSessionArtifactVersionId: null,
         selectedCanvasArtifactId: null,
+        canvasTextLabels: snapshot.canvasTextLabels
+          ? { ...snapshot.canvasTextLabels }
+          : {},
+        canvasTextLabelOrder: snapshot.canvasTextLabelOrder
+          ? [...snapshot.canvasTextLabelOrder]
+          : [],
+        selectedCanvasTextLabelId: null,
         selectedFamilyRootIds: [],
         activeGroupId: null,
         undoPast: [],

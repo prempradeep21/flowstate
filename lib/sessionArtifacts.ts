@@ -176,13 +176,27 @@ export function resolveEditingArtifactId(
   connections: Connection[],
   cardOrder: string[],
 ): string | null {
-  if (card.attachedArtifacts?.[0]) {
+  if (card.attachedArtifacts?.[0]?.artifactId) {
     return card.attachedArtifacts[0].artifactId;
   }
   if (card.inheritedArtifactId) {
     return card.inheritedArtifactId;
   }
-  return null;
+
+  let pid = card.parentCardId;
+  while (pid) {
+    const parent = cards[pid];
+    if (!parent) break;
+    if (parent.outputArtifactId) return parent.outputArtifactId;
+    pid = parent.parentCardId ?? null;
+  }
+
+  return resolveThreadArtifactId(
+    cards,
+    connections,
+    cardOrder,
+    card.threadId,
+  );
 }
 
 /** True when a new payload should append to an existing artifact (same kind). */

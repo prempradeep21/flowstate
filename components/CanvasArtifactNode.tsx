@@ -6,6 +6,8 @@ import {
 
   PointerEvent as ReactPointerEvent,
 
+  WheelEvent as ReactWheelEvent,
+
   useEffect,
 
   useRef,
@@ -304,6 +306,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
 
 
+  const handleWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+  };
+
   if (!art) return null;
 
   return (
@@ -321,6 +327,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       onPointerUp={handlePointerUp}
 
       onPointerCancel={handlePointerUp}
+
+      onWheel={handleWheel}
 
       className={`group/artifact absolute cursor-grab overflow-visible active:cursor-grabbing ${
 

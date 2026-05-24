@@ -6,6 +6,7 @@ import { Canvas } from "@/components/Canvas";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
+import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { UndoButton } from "@/components/UndoButton";
 import { UsageBadge } from "@/components/UsageBadge";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
@@ -26,6 +27,9 @@ export default function Page() {
           <AuthButton />
           <UsageBadge />
           <UndoButton />
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
+          <CanvasBottomToolbar />
         </div>
       </div>
     </main>

@@ -4,11 +4,15 @@ import {
   FALLBACK_CARD_HEIGHT,
   getCardBounds,
 } from "@/lib/canvasNodeBounds";
+import {
+  COLUMN_STEP,
+  FOLLOW_UP_GAP,
+  BRANCH_HORIZONTAL_GAP,
+  getFollowUpChild,
+} from "@/lib/canvasLayout";
 
 export { CARD_WIDTH, FALLBACK_CARD_HEIGHT };
-export const FOLLOW_UP_GAP = 80;
-export const BRANCH_HORIZONTAL_GAP = CARD_WIDTH;
-export const COLUMN_STEP = CARD_WIDTH + BRANCH_HORIZONTAL_GAP;
+export { FOLLOW_UP_GAP, BRANCH_HORIZONTAL_GAP, COLUMN_STEP };
 
 export interface AutoLayoutInput {
   cards: Record<string, Card>;
@@ -32,29 +36,6 @@ function isIndependentRoot(
   connections: Connection[],
 ): boolean {
   return !connections.some((c) => c.to === id);
-}
-
-/** Single follow-up child; lowest Y, then earliest in cardOrder. */
-function getFollowUpChild(
-  cardId: string,
-  input: AutoLayoutInput,
-): string | null {
-  const { connections, cards, cardOrder } = input;
-  const children = connections
-    .filter((c) => c.from === cardId && c.fromSide === "bottom")
-    .map((c) => c.to)
-    .filter((id) => cards[id]);
-
-  if (children.length === 0) return null;
-  if (children.length === 1) return children[0];
-
-  children.sort((a, b) => {
-    const ya = cards[a].position.y;
-    const yb = cards[b].position.y;
-    if (ya !== yb) return ya - yb;
-    return cardOrder.indexOf(a) - cardOrder.indexOf(b);
-  });
-  return children[0];
 }
 
 function getColumnChain(rootId: string, input: AutoLayoutInput): string[] {

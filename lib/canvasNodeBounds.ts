@@ -1,19 +1,26 @@
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
-import {
-  CANVAS_ARTIFACT_WIDTH,
-  CANVAS_TABLE_ARTIFACT_WIDTH,
-  type CanvasArtifactNode,
-  type Card,
-} from "@/lib/store";
 
 export const CARD_WIDTH = 420;
+export const CANVAS_ARTIFACT_WIDTH = 520;
+export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
 export const DEFAULT_ARTIFACT_HEIGHT = 280;
 export const TABLE_ARTIFACT_HEIGHT = 480;
 
-export function getCardBounds(card: Card): { w: number; h: number } {
+/** Minimal card fields used for layout bounds (avoids importing the store). */
+export interface CardBoundsInput {
+  size?: { w: number; h: number };
+  status: string;
+}
+
+/** Minimal artifact node fields for bounds (avoids importing the store). */
+export interface ArtifactBoundsNode {
+  size?: { w: number; h: number };
+}
+
+export function getCardBounds(card: CardBoundsInput): { w: number; h: number } {
   const w = card.size?.w ?? CARD_WIDTH;
   if (card.size?.h != null) {
     return { w, h: card.size.h };
@@ -25,7 +32,7 @@ export function getCardBounds(card: Card): { w: number; h: number } {
 }
 
 export function getArtifactBounds(
-  node: CanvasArtifactNode,
+  node: ArtifactBoundsNode,
   artifact?: SessionArtifact | null,
 ): { w: number; h: number } {
   const isTable = artifact?.kind === "table";

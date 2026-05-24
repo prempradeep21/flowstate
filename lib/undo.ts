@@ -1,5 +1,6 @@
 import type {
   CanvasArtifactNode,
+  CanvasTextLabel,
   Card,
   Connection,
   Thread,
@@ -22,6 +23,9 @@ export interface GraphSnapshot {
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
   selectedCanvasArtifactId: string | null;
+  canvasTextLabels: Record<string, CanvasTextLabel>;
+  canvasTextLabelOrder: string[];
+  selectedCanvasTextLabelId: string | null;
 }
 
 export function captureGraphSnapshot(state: {
@@ -38,6 +42,9 @@ export function captureGraphSnapshot(state: {
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
   selectedCanvasArtifactId: string | null;
+  canvasTextLabels: Record<string, CanvasTextLabel>;
+  canvasTextLabelOrder: string[];
+  selectedCanvasTextLabelId: string | null;
 }): GraphSnapshot {
   return JSON.parse(JSON.stringify(state)) as GraphSnapshot;
 }

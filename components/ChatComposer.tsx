@@ -78,9 +78,19 @@ export function ChatComposer({
     if (autoFocus) textarea.ref.current?.focus();
   }, [autoFocus, textarea.ref]);
 
+  const addAttachment = (ref: AttachedArtifactRef) => {
+    setAttached((prev) => {
+      const idx = prev.findIndex((r) => r.artifactId === ref.artifactId);
+      if (idx === -1) return [...prev, ref];
+      const next = [...prev];
+      next[idx] = ref;
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (plugAttachment) {
-      setAttached([plugAttachment]);
+      addAttachment(plugAttachment);
     }
   }, [plugAttachment]);
 
@@ -197,7 +207,7 @@ export function ChatComposer({
   };
 
   const attachArtifact = (artifactId: string, versionId: string) => {
-    setAttached([{ artifactId, versionId }]);
+    addAttachment({ artifactId, versionId });
     setArtifactMenuOpen(false);
     setMenuOpen(false);
   };
@@ -208,7 +218,7 @@ export function ChatComposer({
 
   const { onDragOver, onDrop } = useSidebarDropTarget({
     onArtifact: (ref) => {
-      setAttached([ref]);
+      addAttachment(ref);
     },
     onUpload: (file) => {
       setPendingFiles((prev) => [...prev, file]);
@@ -244,20 +254,28 @@ export function ChatComposer({
         {(attached.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
-          <div className="flex flex-wrap gap-2 border-b border-canvas-border px-3 py-2">
+          <div className="flex gap-2 overflow-x-auto border-b border-canvas-border px-3 py-2">
             {attached.map((ref) => {
               const art = sessionArtifacts[ref.artifactId];
               if (!art) return null;
               const ver =
                 getVersionById(art, ref.versionId) ?? getLatestVersion(art);
               return (
-                <ArtifactAttachmentPill
+                <div
                   key={ref.artifactId}
-                  kind={art.kind}
-                  title={artifactDisplayTitle(art, ver)}
-                  versionNumber={ver.number}
-                  onRemove={() => setAttached([])}
-                />
+                  className="min-w-[calc(50%-4px)] shrink-0"
+                >
+                  <ArtifactAttachmentPill
+                    kind={art.kind}
+                    title={artifactDisplayTitle(art, ver)}
+                    versionNumber={ver.number}
+                    onRemove={() =>
+                      setAttached((prev) =>
+                        prev.filter((r) => r.artifactId !== ref.artifactId),
+                      )
+                    }
+                  />
+                </div>
               );
             })}
             {pendingImages.map((img, i) => (
