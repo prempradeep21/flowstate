@@ -1,7 +1,9 @@
 import { imagesPayloadFromCardImages } from "@/lib/artifactTypes";
-import { buildImagesArtifactFromCard } from "@/lib/sessionArtifacts";
-import { resolveEditingArtifactId } from "@/lib/sessionArtifacts";
-import type { ArtifactPayload } from "@/lib/artifactTypes";
+import {
+  buildImagesArtifactFromCard,
+  canAppendArtifactVersion,
+  resolveEditingArtifactId,
+} from "@/lib/sessionArtifacts";import type { ArtifactPayload } from "@/lib/artifactTypes";
 import type { Card } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
 
@@ -31,12 +33,17 @@ export function commitCardArtifact(cardId: string): {
 
   if (!payload) return null;
 
-  const existingId = resolveEditingArtifactId(
+  const resolvedId = resolveEditingArtifactId(
     card,
     state.cards,
     state.connections,
     state.cardOrder,
   );
+  const existingId =
+    resolvedId &&
+    canAppendArtifactVersion(state.sessionArtifacts[resolvedId], payload)
+      ? resolvedId
+      : null;
 
   const { artifactId, versionId } = state.createArtifactVersion(
     existingId,
@@ -67,12 +74,17 @@ export function commitImagesArtifact(
     title ?? (card.question.slice(0, 48) || "Images"),
   );
 
-  const existingId = resolveEditingArtifactId(
+  const resolvedId = resolveEditingArtifactId(
     card,
     state.cards,
     state.connections,
     state.cardOrder,
   );
+  const existingId =
+    resolvedId &&
+    canAppendArtifactVersion(state.sessionArtifacts[resolvedId], payload)
+      ? resolvedId
+      : null;
 
   const { artifactId, versionId } = state.createArtifactVersion(
     existingId,

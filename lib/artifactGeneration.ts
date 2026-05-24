@@ -1,4 +1,5 @@
 import type { EmittedArtifact } from "@/lib/artifactTypes";
+import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { commitCardArtifact } from "@/lib/commitCardArtifact";
 import { applyEmittedArtifact } from "@/lib/dummyLLM";
 import { getLatestVersion, getVersionById, resolveEditingArtifactId } from "@/lib/sessionArtifacts";
@@ -15,7 +16,10 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
 export function handleArtifactOnDone(cardId: string): string | null {
   const result = commitCardArtifact(cardId);
   if (result) {
-    useCanvasStore.getState().openSessionArtifact(result.artifactId, result.versionId);
+    useCanvasStore
+      .getState()
+      .spawnCanvasArtifact(result.artifactId, result.versionId, { focus: true });
+    focusCanvasArtifact(result.artifactId);
     return result.artifactId;
   }
   return null;

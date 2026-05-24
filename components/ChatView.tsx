@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
-import { HoverAnchorDots } from "@/components/artifacts/HoverAnchorDots";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
@@ -165,8 +164,7 @@ function ChatMessages({ threadId }: { threadId: string }) {
       ref={scrollRef}
       className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
     >
-      <div className="group relative mx-auto max-w-3xl">
-        <HoverAnchorDots />
+      <div className="relative mx-auto max-w-3xl">
         <div className="overflow-hidden rounded-2xl border border-canvas-border bg-canvas-card shadow-card">
           {visibleChain.map((cardId) => (
             <QnaTurnBlock key={cardId} cardId={cardId} />

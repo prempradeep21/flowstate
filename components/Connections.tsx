@@ -6,46 +6,20 @@ import {
   ConnectorStyle,
   useCanvasStore,
 } from "@/lib/store";
+import { getCardBounds } from "@/lib/canvasNodeBounds";
+import { plugAnchorAt } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-const FALLBACK_W = 420;
-const FALLBACK_H = 240;
 const STROKE_FALLBACK = "#B8B5AE";
 const BASE_STROKE_SCREEN = 1.75;
 const HIT_STROKE_SCREEN = 14;
 /** Below this zoom, stroke width is compensated so lines stay visible on screen. */
 const ORTHOGONAL_CORNER_RADIUS = 10;
 
-interface Anchor {
-  px: number;
-  py: number;
-  tx: number;
-  ty: number;
-}
-
 interface PathGeometry {
   d: string;
   midX: number;
   midY: number;
-}
-
-function anchorAt(
-  cardX: number,
-  cardY: number,
-  cardW: number,
-  cardH: number,
-  side: CardSide,
-): Anchor {
-  switch (side) {
-    case "top":
-      return { px: cardX + cardW / 2, py: cardY, tx: 0, ty: -1 };
-    case "bottom":
-      return { px: cardX + cardW / 2, py: cardY + cardH, tx: 0, ty: 1 };
-    case "left":
-      return { px: cardX, py: cardY + cardH / 2, tx: -1, ty: 0 };
-    case "right":
-      return { px: cardX + cardW, py: cardY + cardH / 2, tx: 1, ty: 0 };
-  }
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -56,7 +30,7 @@ function isVerticalSide(side: CardSide) {
   return side === "top" || side === "bottom";
 }
 
-function buildCurvyPath(a: Anchor, b: Anchor): PathGeometry {
+function buildCurvyPath(a: ReturnType<typeof plugAnchorAt>, b: ReturnType<typeof plugAnchorAt>): PathGeometry {
   const dx = b.px - a.px;
   const dy = b.py - a.py;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -72,8 +46,8 @@ function buildCurvyPath(a: Anchor, b: Anchor): PathGeometry {
 }
 
 function routeOrthogonalPoints(
-  a: Anchor,
-  b: Anchor,
+  a: ReturnType<typeof plugAnchorAt>,
+  b: ReturnType<typeof plugAnchorAt>,
   fromSide: CardSide,
   toSide: CardSide,
 ): { x: number; y: number }[] {
@@ -154,8 +128,8 @@ function roundedPolylinePath(
 }
 
 function buildOrthogonalPath(
-  a: Anchor,
-  b: Anchor,
+  a: ReturnType<typeof plugAnchorAt>,
+  b: ReturnType<typeof plugAnchorAt>,
   fromSide: CardSide,
   toSide: CardSide,
 ): PathGeometry {
@@ -166,8 +140,8 @@ function buildOrthogonalPath(
 }
 
 function buildPath(
-  a: Anchor,
-  b: Anchor,
+  a: ReturnType<typeof plugAnchorAt>,
+  b: ReturnType<typeof plugAnchorAt>,
   fromSide: CardSide,
   toSide: CardSide,
   style: ConnectorStyle,
@@ -332,22 +306,20 @@ export function Connections() {
           const to = cards[conn.to];
           if (!from || !to) return null;
 
-          const fromW = from.size?.w ?? FALLBACK_W;
-          const fromH = from.size?.h ?? FALLBACK_H;
-          const toW = to.size?.w ?? FALLBACK_W;
-          const toH = to.size?.h ?? FALLBACK_H;
+          const { w: fromW, h: fromH } = getCardBounds(from);
+          const { w: toW, h: toH } = getCardBounds(to);
 
           const fromSide: CardSide = conn.fromSide ?? "bottom";
           const toSide: CardSide = conn.toSide ?? "top";
 
-          const a = anchorAt(
+          const a = plugAnchorAt(
             from.position.x,
             from.position.y,
             fromW,
             fromH,
             fromSide,
           );
-          const b = anchorAt(to.position.x, to.position.y, toW, toH, toSide);
+          const b = plugAnchorAt(to.position.x, to.position.y, toW, toH, toSide);
 
           const { d, midX, midY } = buildPath(
             a,

@@ -1,8 +1,8 @@
 "use client";
 
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import type { ArtifactKind } from "@/lib/artifactTypes";
-import { useCanvasStore } from "@/lib/store";
 
 export function ArtifactPreviewPill({
   kind,
@@ -21,13 +21,14 @@ export function ArtifactPreviewPill({
   generating?: boolean;
   compact?: boolean;
 }) {
-  const openSessionArtifact = useCanvasStore((s) => s.openSessionArtifact);
-
   return (
     <button
       type="button"
-      disabled={generating}
-      onClick={() => openSessionArtifact(artifactId, versionId)}
+      disabled={generating || !artifactId}
+      onClick={() => {
+        if (!artifactId) return;
+        focusCanvasArtifact(artifactId);
+      }}
       className={`flex w-full max-w-md items-center gap-2.5 rounded-xl border border-canvas-border bg-canvas-card text-left transition-colors hover:border-canvas-ink/25 ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
       } ${generating ? "cursor-wait opacity-80" : ""}`}

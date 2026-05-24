@@ -6,27 +6,30 @@ export function ViewModeToggle() {
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
 
-  const modes: { id: AppViewMode; label: string }[] = [
-    { id: "canvas", label: "Branch view" },
-    { id: "chat", label: "Chat view" },
-  ];
-
   return (
-    <div className="flex w-full flex-col gap-1">
-      {modes.map((m) => (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => setViewMode(m.id)}
-          className={`w-full rounded-lg px-3 py-2 text-left text-[12px] font-medium transition-colors ${
-            viewMode === m.id
-              ? "bg-canvas-ink text-canvas-card"
-              : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-          }`}
-        >
-          {m.label}
-        </button>
-      ))}
+    <div className="flex w-full rounded-lg bg-canvas-bg p-1">
+      <button
+        type="button"
+        onClick={() => setViewMode("canvas")}
+        className={`flex-1 rounded-md px-3 py-2 text-center text-[12px] font-medium transition-colors ${
+          viewMode === "canvas"
+            ? "bg-canvas-ink text-canvas-card shadow-card"
+            : "text-canvas-muted hover:text-canvas-ink"
+        }`}
+      >
+        Branch view
+      </button>
+      <button
+        type="button"
+        onClick={() => setViewMode("chat")}
+        className={`flex-1 rounded-md px-3 py-2 text-center text-[12px] font-medium transition-colors ${
+          viewMode === "chat"
+            ? "bg-canvas-ink text-canvas-card shadow-card"
+            : "text-canvas-muted hover:text-canvas-ink"
+        }`}
+      >
+        Chat view
+      </button>
     </div>
   );
 }

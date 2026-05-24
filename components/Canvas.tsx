@@ -14,24 +14,34 @@ import {
   parseSidebarDragPayload,
   uploadedToPending,
 } from "@/lib/sidebarDnD";
-import { useCanvasStore } from "@/lib/store";
+import { CANVAS_ARTIFACT_WIDTH, CANVAS_TABLE_ARTIFACT_WIDTH, useCanvasStore } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import {
   CanvasContextMenu,
   ContextMenuState,
 } from "@/components/CanvasContextMenu";
+import { CanvasLanding } from "@/components/CanvasLanding";
 import { CanvasViewport } from "@/components/CanvasViewport";
+import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
+import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
+import { usePlugDragSession } from "@/hooks/usePlugDragSession";
+import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
+import { focusCanvasCard } from "@/lib/canvasFocus";
+import {
+  getLandingCardId,
+  shouldShowCanvasLanding,
+} from "@/lib/canvasLandingState";
 import { GroupBounds } from "@/components/GroupBounds";
 import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
+import { SendIconPreview } from "@/components/SendIconButton";
 import { usePersistenceReady } from "@/components/AuthProvider";
 
 const CARD_WIDTH = 420;
 const INITIAL_CARD_HEIGHT_GUESS = 180;
-const Q_DROP_Y_OFFSET = 30;
 const MARQUEE_MIN_DRAG_PX = 6;
 
 /** Avoid re-panning on resize once the initial viewport has been applied. */
@@ -54,14 +64,28 @@ export function Canvas() {
   const setViewport = useCanvasStore((s) => s.setViewport);
   const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
+  const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
+  const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
   const setSelectedFamilyRootIds = useCanvasStore(
     (s) => s.setSelectedFamilyRootIds,
   );
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
 
+  const showLanding = shouldShowCanvasLanding(cards, cardOrder);
+  const landingCardId = getLandingCardId(cards, cardOrder);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const landingViewportCenteredRef = useRef(false);
+  const seedingRef = useRef(false);
+
+  useEffect(() => {
+    if (cardOrder.length === 0) seedingRef.current = false;
+  }, [cardOrder.length]);
+
+  usePlugDragSession(containerRef);
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
   );
@@ -135,7 +159,37 @@ export function Canvas() {
     };
   };
 
-  // Seed the first question card and pan so it sits at the canvas center.
+  // Seed the home card as soon as the container has size (do not wait on cloud load).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const seedIfEmpty = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const state = useCanvasStore.getState();
+      if (state.cardOrder.length > 0 || seedingRef.current) return;
+
+      seedingRef.current = true;
+      initialViewportApplied = false;
+      createRootCard({
+        x: -CARD_WIDTH / 2,
+        y: -INITIAL_CARD_HEIGHT_GUESS / 2,
+      });
+      setViewport(
+        viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
+      );
+      initialViewportApplied = true;
+    };
+
+    seedIfEmpty();
+    const ro = new ResizeObserver(seedIfEmpty);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [cardOrder.length, createRootCard, setViewport]);
+
+  // After persistence hydrates, center on the first card if we have not yet.
   useEffect(() => {
     if (!persistenceReady) return;
 
@@ -147,22 +201,17 @@ export function Canvas() {
       if (rect.width === 0 || rect.height === 0) return;
 
       const state = useCanvasStore.getState();
+      if (state.cardOrder.length === 0) return;
+      if (initialViewportApplied) return;
 
-      // Always seed when the canvas is empty (handles HMR / stale bootstrap flags).
-      if (state.cardOrder.length === 0) {
-        initialViewportApplied = false;
-        createRootCard({
-          x: -CARD_WIDTH / 2,
-          y: -INITIAL_CARD_HEIGHT_GUESS / 2,
-        });
+      const landingId = getLandingCardId(state.cards, state.cardOrder);
+      if (landingId) {
         setViewport(
           viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
         );
         initialViewportApplied = true;
         return;
       }
-
-      if (initialViewportApplied) return;
 
       const first = state.cards[state.cardOrder[0]];
       if (!first) return;
@@ -185,7 +234,35 @@ export function Canvas() {
     const ro = new ResizeObserver(bootstrap);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [createRootCard, persistenceReady, setViewport]);
+  }, [persistenceReady, setViewport]);
+
+  // Keep the landing stack in view when resuming an empty canvas (e.g. saved pan).
+  useEffect(() => {
+    if (!showLanding) {
+      landingViewportCenteredRef.current = false;
+      return;
+    }
+    if (landingViewportCenteredRef.current) return;
+
+    const el = containerRef.current;
+    if (!el) return;
+
+    const centerLanding = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const scale = useCanvasStore.getState().viewport.scale;
+      setViewport(
+        viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, scale),
+      );
+      landingViewportCenteredRef.current = true;
+    };
+
+    centerLanding();
+    const ro = new ResizeObserver(centerLanding);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showLanding, setViewport]);
 
   // Prevent native page zoom (pinch / Ctrl+wheel) while interacting with the canvas.
   useEffect(() => {
@@ -273,10 +350,11 @@ export function Canvas() {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
-      createRootCard({
+      const cardId = createRootCard({
         x: p.x - CARD_WIDTH / 2,
-        y: p.y - Q_DROP_Y_OFFSET,
+        y: p.y - INITIAL_CARD_HEIGHT_GUESS / 2,
       });
+      focusCanvasCard(cardId);
       setPlacement(null);
     };
     // Capture phase so we run before any element's own listeners (including
@@ -295,30 +373,20 @@ export function Canvas() {
     if (payload.kind === "artifact") {
       const art = sessionArtifacts[payload.artifactId];
       if (!art) return;
-      const ver =
-        art.versions.find((v) => v.id === payload.versionId) ??
-        getLatestVersion(art);
-      const sourceCardId = ver.sourceCardId;
-      const card = useCanvasStore.getState().cards[sourceCardId];
-      if (card) {
-        const w = card.size?.w ?? CARD_WIDTH;
-        const h = card.size?.h ?? INITIAL_CARD_HEIGHT_GUESS;
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (rect) {
-          setViewport(
-            viewportCenteredOnWorldPoint(
-              card.position.x + w / 2,
-              card.position.y + h / 2,
-              rect.width,
-              rect.height,
-              useCanvasStore.getState().viewport.scale,
-            ),
-          );
-        }
-      }
-      useCanvasStore
-        .getState()
-        .openSessionArtifact(payload.artifactId, payload.versionId);
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const artWidth =
+        art.kind === "table" ? CANVAS_TABLE_ARTIFACT_WIDTH : CANVAS_ARTIFACT_WIDTH;
+      const artHeight = art.kind === "table" ? 480 : 280;
+      useCanvasStore.getState().ensureCanvasArtifactAt(
+        payload.artifactId,
+        payload.versionId,
+        {
+          x: world.x - artWidth / 2,
+          y: world.y - artHeight / 2,
+        },
+      );
+      focusCanvasArtifact(payload.artifactId);
       return;
     }
 
@@ -328,17 +396,19 @@ export function Canvas() {
     if (!att) return;
     const cardId = createRootCard({
       x: world.x - CARD_WIDTH / 2,
-      y: world.y - Q_DROP_Y_OFFSET,
+      y: world.y - INITIAL_CARD_HEIGHT_GUESS / 2,
     });
     updateCard(cardId, {
       pendingFiles: [uploadedToPending(att)],
     });
+    focusCanvasCard(cardId);
   };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (placementRef.current) return;
     if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-artifact]")) return;
     setContextMenu({ screenX: e.clientX, screenY: e.clientY });
   };
 
@@ -366,10 +436,13 @@ export function Canvas() {
 
   const isCanvasBackgroundTarget = (target: HTMLElement) =>
     !target.closest("[data-canvas-card]") &&
+    !target.closest("[data-canvas-artifact]") &&
+    !target.closest("[data-canvas-landing]") &&
     !target.closest("[data-group-summary-icon]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (placementRef.current) return;
+    if (useCanvasStore.getState().plugDrag) return;
     const target = e.target as HTMLElement;
     if (!isCanvasBackgroundTarget(target)) return;
     setContextMenu(null);
@@ -394,6 +467,7 @@ export function Canvas() {
     };
     setMarqueeRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
     clearSelection();
+    selectCanvasArtifact(null);
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -497,6 +571,7 @@ export function Canvas() {
     >
       <CanvasViewport>
         <Connections />
+        <PlugConnectorLayer />
         {groupList.map((group) => (
           <GroupBounds key={group.id} group={group} />
         ))}
@@ -505,6 +580,11 @@ export function Canvas() {
           if (!card) return null;
           return <Card key={id} card={card} />;
         })}
+        {canvasArtifactOrder.map((id) => {
+          const node = canvasArtifactNodes[id];
+          if (!node) return null;
+          return <CanvasArtifactNode key={id} node={node} />;
+        })}
         {groupList.map((group) =>
           group.summaryMarkdown ? (
             <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
@@ -512,6 +592,16 @@ export function Canvas() {
         )}
         {placement && <GhostCard world={placement} />}
       </CanvasViewport>
+      {showLanding && !placement && landingCardId && (
+        <div
+          className="absolute left-0 top-0 z-40 origin-top-left will-change-transform"
+          style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+          }}
+        >
+          <CanvasLanding cardId={landingCardId} />
+        </div>
+      )}
       <SelectionOverlay rect={marqueeRect} />
       <SelectionToolbar />
       {contextMenu && (
@@ -531,25 +621,24 @@ function GhostCard({ world }: { world: PlacementState }) {
       className="pointer-events-none absolute rounded-2xl border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
       style={{
         left: world.x - CARD_WIDTH / 2,
-        top: world.y - Q_DROP_Y_OFFSET,
+        top: world.y - INITIAL_CARD_HEIGHT_GUESS / 2,
         width: CARD_WIDTH,
       }}
     >
-      <div className="px-5 pt-4 pb-3">
-        <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-          Question
+      <div className="px-3 py-2.5">
+        <div className="flex items-end gap-0 rounded-2xl border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
+          <span className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-[20px] font-light text-canvas-muted">
+            +
+          </span>
+          <span className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+          <span className="min-w-0 flex-1 py-2 text-[14px] text-canvas-muted/60">
+            Ask anything
+          </span>
+          <SendIconPreview className="opacity-80" />
         </div>
-        <div className="text-[15px] leading-snug text-canvas-muted/60">
-          Ask anything...
-        </div>
-      </div>
-      <div className="flex items-center justify-between border-t border-canvas-border px-5 py-2.5">
-        <span className="text-[11px] text-canvas-muted">
+        <p className="mt-2 text-center text-[11px] text-canvas-muted">
           Click to place, Esc to cancel
-        </span>
-        <span className="rounded-md bg-canvas-ink/70 px-3 py-1.5 text-[12px] font-medium text-canvas-card opacity-80">
-          Send
-        </span>
+        </p>
       </div>
     </div>
   );

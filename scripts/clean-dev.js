@@ -2,11 +2,12 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const nextDir = path.join(__dirname, "..", ".next");
-
-if (fs.existsSync(nextDir)) {
-  fs.rmSync(nextDir, { recursive: true, force: true });
-  console.log("Removed .next cache");
+for (const dir of [".next", ".next-showcase"]) {
+  const nextDir = path.join(__dirname, "..", dir);
+  if (fs.existsSync(nextDir)) {
+    fs.rmSync(nextDir, { recursive: true, force: true });
+    console.log(`Removed ${dir} cache`);
+  }
 }
 
 console.log("Starting fresh dev server…");

@@ -2,6 +2,7 @@ import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
   AppViewMode,
   BranchGroup,
+  CanvasArtifactNode,
   Card,
   CardStatus,
   ClaudeModel,
@@ -26,6 +27,8 @@ export interface CanvasSnapshot {
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>;
+  canvasArtifactOrder?: string[];
 }
 
 export interface CanvasSnapshotSource {
@@ -40,6 +43,8 @@ export interface CanvasSnapshotSource {
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
+  canvasArtifactNodes: Record<string, CanvasArtifactNode>;
+  canvasArtifactOrder: string[];
 }
 
 function normalizeCardStatus(status: CardStatus): CardStatus {
@@ -77,6 +82,10 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     sessionArtifacts: JSON.parse(
       JSON.stringify(source.sessionArtifacts),
     ) as Record<string, SessionArtifact>,
+    canvasArtifactNodes: JSON.parse(
+      JSON.stringify(source.canvasArtifactNodes),
+    ) as Record<string, CanvasArtifactNode>,
+    canvasArtifactOrder: [...source.canvasArtifactOrder],
   };
 }
 

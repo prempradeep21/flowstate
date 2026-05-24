@@ -37,6 +37,12 @@ const config: Config = {
           "Inter",
           "sans-serif",
         ],
+        display: [
+          "var(--font-denton)",
+          "Georgia",
+          "Times New Roman",
+          "serif",
+        ],
       },
       boxShadow: {
         card: "0 1px 2px rgba(20, 18, 14, 0.04), 0 4px 16px rgba(20, 18, 14, 0.06)",

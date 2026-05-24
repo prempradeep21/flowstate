@@ -2,36 +2,37 @@
 
 import {
   CSSProperties,
-  KeyboardEvent,
   PointerEvent as ReactPointerEvent,
   WheelEvent,
   useEffect,
   useRef,
-  useState,
 } from "react";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
-import { HoverAnchorDots } from "@/components/artifacts/HoverAnchorDots";
+import { Plug } from "@/components/plugs/Plug";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { askClaude } from "@/lib/claudeClient";
 import {
   handleArtifactOnDone,
   handleStreamArtifact,
 } from "@/lib/artifactGeneration";
-import { isCardInSelectedFamilies } from "@/lib/chatThreads";
-import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
+import { focusCanvasCard } from "@/lib/canvasFocus";
 import {
-  AttachedArtifactRef,
+  getLandingCardId,
+  shouldShowCanvasLanding,
+} from "@/lib/canvasLandingState";
+import { CARD_WIDTH, getCardBounds } from "@/lib/canvasNodeBounds";
+import { plugAnchorAt } from "@/lib/plugConnector";
+import { isCardInSelectedFamilies } from "@/lib/chatThreads";
+import {
   Card as CardType,
-  PendingFileAttachment,
+  FollowUpOptions,
   useCanvasStore,
 } from "@/lib/store";
-import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
 import {
   CARD_QA_MAX_HEIGHT,
   compactThinkingWord,
   compensatedStrokeWidth,
-  counterScaleFactor,
   isExpandedCardContent,
   isGodViewMode,
   lineClampStyle,
@@ -47,8 +48,6 @@ interface CardProps {
   card: CardType;
 }
 
-const CARD_WIDTH = 420;
-
 function handleAnswerWheel(e: WheelEvent) {
   e.stopPropagation();
   if (e.deltaX !== 0) e.preventDefault();
@@ -59,7 +58,8 @@ export function Card({ card }: CardProps) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCardSize = useCanvasStore((s) => s.setCardSize);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
-  const createBranch = useCanvasStore((s) => s.createBranch);
+  const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
+  const plugDrag = useCanvasStore((s) => s.plugDrag);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const isSelected = useCanvasStore((s) =>
@@ -90,17 +90,50 @@ export function Card({ card }: CardProps) {
       card.parentCardId === null &&
       s.connections.some((c) => c.to === card.id),
   );
-  const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "ask anything";
+  const isLanding = useCanvasStore(
+    (s) =>
+      shouldShowCanvasLanding(s.cards, s.cardOrder) &&
+      getLandingCardId(s.cards, s.cardOrder) === card.id,
+  );
+  const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
+  const hideForLanding = isLanding;
+  const plugAccent = accent ?? "#7C9EFF";
+  const showBranchPlugs = card.status === "done" && !godView;
+  const receivePlugsActive =
+    plugDrag?.kind === "artifact" &&
+    plugDrag.receiveTargetCardId === card.id;
+  const receiveHighlightSide =
+    receivePlugsActive && plugDrag.kind === "artifact"
+      ? plugDrag.hoveredReceiveSide
+      : null;
 
   const isDraggable = card.parentCardId === null;
 
-  const [draft, setDraft] = useState(card.question);
-  const [pendingAttached, setPendingAttached] = useState<AttachedArtifactRef[]>(
-    [],
-  );
-  const [pendingUploads, setPendingUploads] = useState<PendingFileAttachment[]>(
-    [],
-  );
+  const branchPlugWorld = (side: "left" | "right") => {
+    const { w, h } = getCardBounds(card);
+    const anchor = plugAnchorAt(
+      card.position.x,
+      card.position.y,
+      w,
+      h,
+      side,
+    );
+    return { x: anchor.px, y: anchor.py };
+  };
+
+  const handleBranchPlugPointerDown =
+    (side: "left" | "right") => (e: ReactPointerEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      e.preventDefault();
+      startPlugDrag({
+        kind: "branch",
+        sourceCardId: card.id,
+        fromSide: side,
+        pointerWorld: branchPlugWorld(side),
+        didDrag: false,
+      });
+    };
+
   const dragStateRef = useRef<{
     pointerId: number;
     lastX: number;
@@ -111,17 +144,10 @@ export function Card({ card }: CardProps) {
 
   const startedFor = useRef<string | null>(null);
 
-  const questionTextarea = useAutoResizeTextarea(draft);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   const TEXT_SELECTABLE =
     'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
-
-  useEffect(() => {
-    if (card.status === "empty") {
-      questionTextarea.ref.current?.focus();
-    }
-  }, [card.status, questionTextarea.ref]);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -174,18 +200,8 @@ export function Card({ card }: CardProps) {
   const isPending =
     card.status === "thinking" || card.status === "streaming";
 
-  const { onDragOver: onSidebarDragOver, onDrop: onSidebarDrop } =
-    useSidebarDropTarget({
-      onArtifact: (ref) => {
-        setPendingAttached([ref]);
-      },
-      onUpload: (file) => {
-        setPendingUploads((prev) => [...prev, file]);
-      },
-    });
-
-  const submitQuestion = () => {
-    const q = draft.trim();
+  const submitQuestion = (question: string, options?: FollowUpOptions) => {
+    const q = question.trim();
     if (!q || isPending) return;
     recordUndo();
     updateCard(card.id, {
@@ -194,34 +210,25 @@ export function Card({ card }: CardProps) {
       status: "thinking",
       responseType: "text",
       artifactPayload: undefined,
-      images: undefined,
+      images: options?.pendingImages,
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
-      attachedArtifacts:
-        pendingAttached.length > 0 ? pendingAttached : undefined,
-      pendingFiles:
-        pendingUploads.length > 0 ? pendingUploads : undefined,
+      attachedArtifacts: options?.attachedArtifacts,
+      pendingFiles: options?.pendingFiles,
     });
-    setPendingAttached([]);
-    setPendingUploads([]);
   };
 
-  const submitFollowUp = (question: string, options?: import("@/lib/store").FollowUpOptions) => {
-    createFollowUp(card.id, question, options);
+  const submitFollowUp = (question: string, options?: FollowUpOptions) => {
+    const childId = createFollowUp(card.id, question, options);
+    if (childId) focusCanvasCard(childId);
   };
-
-  const handleQuestionKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submitQuestion();
-    }
-  };
-
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    if (useCanvasStore.getState().plugDrag) return;
     const target = e.target as HTMLElement;
     if (target.closest(TEXT_SELECTABLE)) return;
+    if (target.closest("[data-plug]")) return;
 
     e.stopPropagation();
     if (!isDraggable) return;
@@ -271,31 +278,40 @@ export function Card({ card }: CardProps) {
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
       onPointerCancel={handleDragPointerUp}
-      className={`group absolute overflow-visible select-text ${
+      className={`group/card relative absolute overflow-visible select-text ${
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      } ${hideForLanding ? "pointer-events-none invisible" : ""}`}
       style={{
         left: card.position.x,
         top: card.position.y,
         width: CARD_WIDTH,
       }}
+      aria-hidden={hideForLanding || undefined}
     >
-      {card.status === "done" && (
+      {showBranchPlugs && (
         <>
-          <BranchHandle
-            side="left"
-            alwaysVisible={godView}
-            onClick={() => createBranch(card.id, "left")}
-          />
-          <BranchHandle
-            side="right"
-            alwaysVisible={godView}
-            onClick={() => createBranch(card.id, "right")}
-          />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-30 opacity-0 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto">
+            <Plug
+              side="left"
+              accentColour={plugAccent}
+              visible
+              ariaLabel="Pull a new thread to the left"
+              onPointerDown={handleBranchPlugPointerDown("left")}
+            />
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-30 opacity-0 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto">
+            <Plug
+              side="right"
+              accentColour={plugAccent}
+              visible
+              ariaLabel="Pull a new thread to the right"
+              onPointerDown={handleBranchPlugPointerDown("right")}
+            />
+          </div>
         </>
       )}
       <div
-        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`group/inner relative flex flex-col overflow-hidden rounded-2xl border bg-canvas-card shadow-card transition-shadow hover:shadow-cardHover ${
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"
@@ -332,163 +348,110 @@ export function Card({ card }: CardProps) {
               : undefined
           }
         >
-        <div
-          className="min-w-0 shrink-0"
-          style={{
-            paddingTop: insets.question.paddingTop,
-            paddingBottom: insets.question.paddingBottom,
-            paddingLeft: insets.question.paddingLeft,
-            paddingRight: insets.question.paddingRight,
-          }}
-        >
-          {card.status === "empty" ? (
-            <div
-              className="flex min-w-0 flex-col gap-2"
-              onDragOver={onSidebarDragOver}
-              onDrop={onSidebarDrop}
-            >
-              {(pendingAttached.length > 0 || pendingUploads.length > 0) && (
-                <div className="flex flex-wrap gap-1.5">
-                  {pendingAttached.map((ref) => (
-                    <span
-                      key={ref.artifactId}
-                      className="rounded-md border border-canvas-border px-2 py-0.5 text-[11px] text-canvas-muted"
-                    >
-                      Artifact attached
-                      <button
-                        type="button"
-                        className="ml-1"
-                        onClick={() => setPendingAttached([])}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {pendingUploads.map((f, i) => (
-                    <span
-                      key={i}
-                      className="rounded-md border border-canvas-border px-2 py-0.5 text-[11px] text-canvas-muted"
-                    >
-                      {f.name}
-                      <button
-                        type="button"
-                        className="ml-1"
-                        onClick={() =>
-                          setPendingUploads((p) =>
-                            p.filter((_, j) => j !== i),
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="flex min-w-0 items-end gap-2">
-                <textarea
-                  ref={questionTextarea.ref}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    questionTextarea.resize();
-                  }}
-                  onKeyDown={handleQuestionKeyDown}
-                  placeholder={emptyPlaceholder}
-                  rows={1}
-                  className="block min-h-[40px] min-w-0 flex-1 resize-none overflow-hidden break-words border-0 bg-transparent px-0 py-2 text-[15px] font-semibold leading-normal text-canvas-ink outline-none placeholder:font-normal placeholder:text-canvas-muted/70"
-                />
-                <button
-                  type="button"
-                  onClick={submitQuestion}
-                  className="mb-0.5 shrink-0 rounded-md bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card transition-opacity hover:opacity-90"
-                >
-                  Send
-                </button>
-              </div>
+          {card.status === "empty" && !isLanding ? (
+            <div className="px-3 py-2.5">
+              <ChatComposer
+                variant="canvas"
+                cardId={card.id}
+                accentColour={plugAccent}
+                receivePlugsActive={receivePlugsActive}
+                receiveHighlightSide={receiveHighlightSide}
+                placeholder={emptyPlaceholder}
+                autoFocus
+                disabled={isPending}
+                onSubmit={submitQuestion}
+              />
             </div>
-          ) : (
-            <>
-              {!hideLabels && (
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-                  Question
+          ) : card.status !== "empty" ? (
+            <div className="group/body relative min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden">
+              <div
+                className="min-w-0 shrink-0"
+                style={{
+                  paddingTop: insets.question.paddingTop,
+                  paddingBottom: insets.question.paddingBottom,
+                  paddingLeft: insets.question.paddingLeft,
+                  paddingRight: insets.question.paddingRight,
+                }}
+              >
+                {!hideLabels && (
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                    Question
+                  </div>
+                )}
+                <div
+                  data-selectable-text
+                  className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
+                  style={clampStyle}
+                >
+                  {card.question}
                 </div>
+              </div>
+
+              {!hideDivider && (
+                <div className="mx-5 shrink-0 h-px bg-canvas-border" />
               )}
               <div
-                data-selectable-text
-                className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
-                style={clampStyle}
+                data-card-answer
+                onWheel={handleAnswerWheel}
+                className={`min-h-0 min-w-0 ${
+                  expandedContent
+                    ? "flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+                    : "overflow-hidden"
+                }`}
+                style={{
+                  paddingTop: insets.answer.paddingTop,
+                  paddingBottom: insets.answer.paddingBottom,
+                  paddingLeft: insets.answer.paddingLeft,
+                  paddingRight: insets.answer.paddingRight,
+                }}
               >
-                {card.question}
+                {!hideLabels && (
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                    Answer
+                  </div>
+                )}
+                {card.status === "thinking" ? (
+                  <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
+                ) : (
+                  <>
+                    {(card.answer ||
+                      card.images?.length ||
+                      card.artifactPayload ||
+                      card.responseType !== "text") &&
+                      (lineClamp !== null ? (
+                        <ClampedAnswer
+                          card={card}
+                          clampStyle={clampStyle}
+                          isStreaming={card.status === "streaming"}
+                          hideImages={hideImages}
+                        />
+                      ) : (
+                        <CardAnswerBody
+                          card={card}
+                          isStreaming={card.status === "streaming"}
+                          hideImages={hideImages}
+                        />
+                      ))}
+                  </>
+                )}
               </div>
-            </>
+            </div>
+          ) : null}
+
+          {card.status === "done" && !hasChildren && !hideFollowUp && (
+            <div className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5">
+              <ChatComposer
+                variant="canvas"
+                cardId={card.id}
+                accentColour={plugAccent}
+                receivePlugsActive={receivePlugsActive}
+                receiveHighlightSide={receiveHighlightSide}
+                placeholder="Follow up"
+                onSubmit={submitFollowUp}
+              />
+            </div>
           )}
         </div>
-
-        {card.status !== "empty" && (
-          <>
-            {!hideDivider && <div className="mx-5 shrink-0 h-px bg-canvas-border" />}
-            <div
-              data-card-answer
-              onWheel={handleAnswerWheel}
-              className={`min-h-0 min-w-0 ${
-                expandedContent
-                  ? "flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
-                  : "overflow-hidden"
-              }`}
-              style={{
-                paddingTop: insets.answer.paddingTop,
-                paddingBottom: insets.answer.paddingBottom,
-                paddingLeft: insets.answer.paddingLeft,
-                paddingRight: insets.answer.paddingRight,
-              }}
-            >
-              {!hideLabels && (
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-                  Answer
-                </div>
-              )}
-              {card.status === "thinking" ? (
-                <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
-              ) : (
-                <>
-                  {(card.answer ||
-                    card.images?.length ||
-                    card.artifactPayload ||
-                    card.responseType !== "text") && (
-                    lineClamp !== null ? (
-                      <ClampedAnswer
-                        card={card}
-                        clampStyle={clampStyle}
-                        isStreaming={card.status === "streaming"}
-                        hideImages={hideImages}
-                      />
-                    ) : (
-                      <CardAnswerBody
-                        card={card}
-                        isStreaming={card.status === "streaming"}
-                        hideImages={hideImages}
-                      />
-                    )
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
-
-        </div>
-
-        {card.status === "done" && !hasChildren && !hideFollowUp && (
-          <div className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5">
-            <ChatComposer
-              variant="canvas"
-              placeholder="Follow up"
-              onSubmit={submitFollowUp}
-            />
-          </div>
-        )}
-        <HoverAnchorDots />
       </div>
     </div>
   );
@@ -558,36 +521,3 @@ function ClampedAnswer({
   );
 }
 
-function BranchHandle({
-  side,
-  alwaysVisible,
-  onClick,
-}: {
-  side: "left" | "right";
-  alwaysVisible: boolean;
-  onClick: () => void;
-}) {
-  const scale = useCanvasStore((s) => s.viewport.scale);
-  const isLeft = side === "left";
-  return (
-    <div
-      className={`pointer-events-none absolute top-1/2 z-20 ${isLeft ? "left-0" : "right-0"}`}
-      style={{
-        transform: `translate(${isLeft ? "-50%" : "50%"}, -50%) scale(${counterScaleFactor(scale)})`,
-        transformOrigin: "center",
-      }}
-    >
-      <button
-        type="button"
-        aria-label={`Pull a new thread to the ${side}`}
-        onClick={onClick}
-        onPointerDown={(e) => e.stopPropagation()}
-        className={`pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas-border bg-canvas-card text-canvas-ink shadow-card transition-opacity hover:border-canvas-ink/50 ${
-          alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        }`}
-      >
-        <span className="text-[15px] font-medium leading-none">+</span>
-      </button>
-    </div>
-  );
-}

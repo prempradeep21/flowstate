@@ -1,17 +1,31 @@
 "use client";
 
 import type { ArtifactPayload, ResponseType } from "@/lib/artifactTypes";
+import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import type {
   CanvasSnapshot,
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
 import { computeAutoLayout } from "@/lib/autoLayout";
+import {
+  DEFAULT_ARTIFACT_HEIGHT,
+  TABLE_ARTIFACT_HEIGHT,
+  emptyCardSize,
+  getArtifactBounds,
+  getCardBounds,
+} from "@/lib/canvasNodeBounds";
 import { pickDefaultThreadId } from "@/lib/chatThreads";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
 import {
+  computeDefaultSpawnPosition,
+  findCanvasNodeByArtifactId,
+} from "@/lib/canvasArtifacts";
+import {
   appendArtifactVersion,
   createSessionArtifactFromPayload,
-  resolveThreadArtifactId,
+  getLatestVersion,
+  getVersionById,
+  normalizePayloadForRegistry,
   type AttachedArtifactRef,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
@@ -86,6 +100,27 @@ export interface FollowUpOptions {
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";
+export type PlugSide = "left" | "right";
+
+export type PlugDragState =
+  | {
+      kind: "branch";
+      sourceCardId: string;
+      fromSide: PlugSide;
+      pointerWorld: { x: number; y: number };
+      didDrag: boolean;
+    }
+  | {
+      kind: "artifact";
+      artifactNodeId: string;
+      artifactId: string;
+      versionId: string;
+      fromSide: PlugSide;
+      pointerWorld: { x: number; y: number };
+      didDrag: boolean;
+      receiveTargetCardId: string | null;
+      hoveredReceiveSide: PlugSide | null;
+    };
 
 export interface Connection {
   id: string;
@@ -118,6 +153,20 @@ export interface BranchGroup {
   summaryContentFingerprint?: string;
 }
 
+export interface CanvasArtifactNode {
+  id: string;
+  artifactId: string;
+  versionId: string;
+  sourceCardId: string;
+  position: { x: number; y: number };
+  size?: CardSize;
+}
+
+export const CANVAS_ARTIFACT_WIDTH = 520;
+export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
+/** Horizontal gap between a source card's right edge and a spawned artifact. */
+export const ARTIFACT_SPAWN_GAP_X = 24;
+
 interface CanvasState {
   selectedModel: ClaudeModel;
   setModel: (model: ClaudeModel) => void;
@@ -149,8 +198,14 @@ interface CanvasState {
   sessionArtifacts: Record<string, SessionArtifact>;
   openSessionArtifactId: string | null;
   openSessionArtifactVersionId: string | null;
+  canvasArtifactNodes: Record<string, CanvasArtifactNode>;
+  canvasArtifactOrder: string[];
+  selectedCanvasArtifactId: string | null;
   connectorStyle: ConnectorStyle;
   undoPast: GraphSnapshot[];
+
+  plugDrag: PlugDragState | null;
+  plugComposerAttachments: Record<string, AttachedArtifactRef>;
 
   selectedFamilyRootIds: string[];
   groups: Record<string, BranchGroup>;
@@ -178,6 +233,7 @@ interface CanvasState {
 
   updateCard: (id: string, patch: Partial<Card>) => void;
   setCardSize: (id: string, size: CardSize) => void;
+  setCanvasArtifactSize: (nodeId: string, size: CardSize) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
@@ -187,6 +243,27 @@ interface CanvasState {
     options?: FollowUpOptions,
   ) => string | null;
   createBranch: (sourceId: string, side: "left" | "right") => string | null;
+  createBranchAt: (
+    sourceId: string,
+    side: "left" | "right",
+    position: { x: number; y: number },
+  ) => string | null;
+  createRootCardWithAttachment: (
+    position: { x: number; y: number },
+    ref: AttachedArtifactRef,
+  ) => string;
+  setCardComposerAttachment: (
+    cardId: string,
+    ref: AttachedArtifactRef,
+  ) => void;
+  startPlugDrag: (drag: PlugDragState) => void;
+  updatePlugDrag: (patch: Partial<Pick<PlugDragState, "pointerWorld">> & {
+    receiveTargetCardId?: string | null;
+    hoveredReceiveSide?: PlugSide | null;
+    didDrag?: boolean;
+  }) => void;
+  endPlugDrag: () => void;
+  cancelPlugDrag: () => void;
   deleteFromCard: (cardId: string) => void;
 
   createArtifactVersion: (
@@ -197,6 +274,21 @@ interface CanvasState {
   openSessionArtifact: (artifactId: string, versionId?: string) => void;
   setArtifactPanelVersion: (versionId: string) => void;
   listSessionArtifacts: () => SessionArtifact[];
+
+  spawnCanvasArtifact: (
+    artifactId: string,
+    versionId: string,
+    opts?: { position?: { x: number; y: number }; focus?: boolean },
+  ) => string | null;
+  ensureCanvasArtifactAt: (
+    artifactId: string,
+    versionId: string,
+    position: { x: number; y: number },
+  ) => string | null;
+  moveCanvasArtifact: (nodeId: string, dx: number, dy: number) => void;
+  selectCanvasArtifact: (nodeId: string | null) => void;
+  setCanvasArtifactVersion: (nodeId: string, versionId: string) => void;
+  removeCanvasArtifact: (nodeId: string) => void;
 
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
@@ -210,7 +302,6 @@ interface CanvasState {
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 3;
 const FOLLOW_UP_GAP = 80;
-const FALLBACK_CARD_HEIGHT = 240;
 const BRANCH_CARD_WIDTH = 420;
 // Visual gap between a source and its first branch, and between sibling
 // branches on the same side. Equal to one card width so parallel branches
@@ -235,6 +326,10 @@ const newId = (prefix: string) =>
     .toString(36)
     .slice(2, 7)}`;
 
+function newCanvasArtifactNodeId() {
+  return newId("cano");
+}
+
 function collectSubtreeIds(
   connections: Connection[],
   rootId: string,
@@ -252,8 +347,8 @@ function collectSubtreeIds(
   return subtree;
 }
 
-/** When a card's height changes, shift follow-up chains to keep vertical gap. */
-function shiftBottomAttachedSubtrees(
+/** When a card's height changes, shift all child subtrees to keep the shared y-band. */
+function shiftChildSubtrees(
   state: CanvasState,
   parentId: string,
   dy: number,
@@ -261,14 +356,11 @@ function shiftBottomAttachedSubtrees(
   if (dy === 0) return state.cards;
 
   const cards = { ...state.cards };
-  const bottomChildren = state.connections
-    .filter(
-      (c) =>
-        c.from === parentId && (c.fromSide === "bottom" || c.fromSide == null),
-    )
+  const childIds = state.connections
+    .filter((c) => c.from === parentId)
     .map((c) => c.to);
 
-  for (const childId of bottomChildren) {
+  for (const childId of childIds) {
     for (const id of collectSubtreeIds(state.connections, childId)) {
       const c = cards[id];
       if (!c) continue;
@@ -305,8 +397,70 @@ function childBandY(
     }
   }
   if (earliest !== null) return earliest;
-  const sourceH = source.size?.h ?? FALLBACK_CARD_HEIGHT;
+  const { h: sourceH } = getCardBounds(source);
   return source.position.y + sourceH + FOLLOW_UP_GAP;
+}
+
+/** Re-align lateral branches to the y-band below their parent after load. */
+function repairLateralBranchBands(
+  cards: Record<string, Card>,
+  connections: Connection[],
+): Record<string, Card> {
+  const next = { ...cards };
+  const parentIds = new Set(connections.map((c) => c.from));
+
+  for (const parentId of parentIds) {
+    const parent = next[parentId];
+    if (!parent) continue;
+
+    const { h: parentH } = getCardBounds(parent);
+    const bandY = parent.position.y + parentH + FOLLOW_UP_GAP;
+
+    for (const conn of connections) {
+      if (conn.from !== parentId) continue;
+      if (conn.fromSide !== "left" && conn.fromSide !== "right") continue;
+
+      const child = next[conn.to];
+      if (!child) continue;
+
+      const dy = bandY - child.position.y;
+      if (dy === 0) continue;
+
+      for (const id of collectSubtreeIds(connections, conn.to)) {
+        const c = next[id];
+        if (!c) continue;
+        next[id] = {
+          ...c,
+          position: { ...c.position, y: c.position.y + dy },
+        };
+      }
+    }
+  }
+
+  return next;
+}
+
+function normalizeLoadedCards(cards: Record<string, Card>): Record<string, Card> {
+  const next = { ...cards };
+  for (const [id, card] of Object.entries(next)) {
+    if (card.status === "empty" && !card.size) {
+      next[id] = { ...card, size: emptyCardSize() };
+    }
+  }
+  return next;
+}
+
+function normalizeLoadedArtifactNodes(
+  nodes: Record<string, CanvasArtifactNode>,
+  sessionArtifacts: Record<string, SessionArtifact>,
+): Record<string, CanvasArtifactNode> {
+  const next = { ...nodes };
+  for (const [id, node] of Object.entries(next)) {
+    const art = sessionArtifacts[node.artifactId];
+    const bounds = getArtifactBounds(node, art);
+    next[id] = { ...node, size: { w: bounds.w, h: bounds.h } };
+  }
+  return next;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -321,7 +475,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })),
   setModel: (model) => set({ selectedModel: model }),
 
-  leftPanelCollapsed: false,
+  leftPanelCollapsed: true,
   setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
   toggleLeftPanel: () =>
     set((s) => ({ leftPanelCollapsed: !s.leftPanelCollapsed })),
@@ -358,8 +512,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   sessionArtifacts: {},
   openSessionArtifactId: null,
   openSessionArtifactVersionId: null,
+  canvasArtifactNodes: {},
+  canvasArtifactOrder: [],
+  selectedCanvasArtifactId: null,
   connectorStyle: "curvy",
   undoPast: [],
+
+  plugDrag: null,
+  plugComposerAttachments: {},
 
   selectedFamilyRootIds: [],
   groups: {},
@@ -518,16 +678,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const prev = existing.size;
       if (prev && prev.w === size.w && prev.h === size.h) return state;
 
-      const prevH = prev?.h ?? FALLBACK_CARD_HEIGHT;
+      const { h: prevH } = getCardBounds(existing);
       const dy = size.h - prevH;
       let cards: Record<string, Card> = {
         ...state.cards,
         [id]: { ...existing, size },
       };
       if (dy !== 0) {
-        cards = shiftBottomAttachedSubtrees({ ...state, cards }, id, dy);
+        cards = shiftChildSubtrees({ ...state, cards }, id, dy);
       }
       return { cards };
+    }),
+
+  setCanvasArtifactSize: (nodeId, size) =>
+    set((state) => {
+      const node = state.canvasArtifactNodes[nodeId];
+      if (!node) return state;
+      const prev = node.size;
+      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      return {
+        canvasArtifactNodes: {
+          ...state.canvasArtifactNodes,
+          [nodeId]: { ...node, size },
+        },
+      };
     }),
 
   moveSubtree: (rootId, dx, dy) =>
@@ -573,6 +747,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "empty",
         position,
+        size: emptyCardSize(),
         parentCardId: null,
         parentConversationId: null,
       };
@@ -590,20 +765,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   createArtifactVersion: (artifactId, payload, cardId) => {
     let result = { artifactId: "", versionId: "" };
     set((state) => {
+      const normalized = normalizePayloadForRegistry(payload);
+      const newKind = payloadToArtifactKind(normalized);
       if (artifactId && state.sessionArtifacts[artifactId]) {
         const existing = state.sessionArtifacts[artifactId];
-        const { artifact, versionId } = appendArtifactVersion(
-          existing,
-          payload,
-          cardId,
-        );
-        result = { artifactId: artifact.id, versionId };
-        return {
-          sessionArtifacts: {
-            ...state.sessionArtifacts,
-            [artifact.id]: artifact,
-          },
-        };
+        if (existing.kind === newKind) {
+          const { artifact, versionId } = appendArtifactVersion(
+            existing,
+            payload,
+            cardId,
+          );
+          result = { artifactId: artifact.id, versionId };
+          return {
+            sessionArtifacts: {
+              ...state.sessionArtifacts,
+              [artifact.id]: artifact,
+            },
+          };
+        }
       }
       const created = createSessionArtifactFromPayload(payload, cardId);
       result = {
@@ -636,6 +815,122 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setArtifactPanelVersion: (versionId) =>
     set({ openSessionArtifactVersionId: versionId }),
 
+  spawnCanvasArtifact: (artifactId, versionId, opts) => {
+    let nodeId: string | null = null;
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art) return state;
+      const ver = getVersionById(art, versionId) ?? getLatestVersion(art);
+      if (!ver) return state;
+
+      const existing = findCanvasNodeByArtifactId(
+        state.canvasArtifactNodes,
+        artifactId,
+      );
+      if (existing) {
+        nodeId = existing.id;
+        const nextNode: CanvasArtifactNode = {
+          ...existing,
+          versionId: ver.id,
+          sourceCardId: ver.sourceCardId,
+          ...(opts?.position ? { position: opts.position } : {}),
+        };
+        return {
+          canvasArtifactNodes: {
+            ...state.canvasArtifactNodes,
+            [existing.id]: nextNode,
+          },
+          selectedCanvasArtifactId: opts?.focus
+            ? existing.id
+            : state.selectedCanvasArtifactId,
+        };
+      }
+
+      const id = newCanvasArtifactNodeId();
+      nodeId = id;
+      const position =
+        opts?.position ??
+        computeDefaultSpawnPosition(
+          ver.sourceCardId,
+          state.canvasArtifactNodes,
+          state.cards,
+        );
+      const artifactSize =
+        art.kind === "table"
+          ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
+          : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
+      const node: CanvasArtifactNode = {
+        id,
+        artifactId,
+        versionId: ver.id,
+        sourceCardId: ver.sourceCardId,
+        position,
+        size: artifactSize,
+      };
+      return {
+        canvasArtifactNodes: { ...state.canvasArtifactNodes, [id]: node },
+        canvasArtifactOrder: [...state.canvasArtifactOrder, id],
+        selectedCanvasArtifactId: opts?.focus ? id : state.selectedCanvasArtifactId,
+      };
+    });
+    return nodeId;
+  },
+
+  ensureCanvasArtifactAt: (artifactId, versionId, position) => {
+    return get().spawnCanvasArtifact(artifactId, versionId, { position });
+  },
+
+  moveCanvasArtifact: (nodeId, dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const node = state.canvasArtifactNodes[nodeId];
+      if (!node) return state;
+      return {
+        canvasArtifactNodes: {
+          ...state.canvasArtifactNodes,
+          [nodeId]: {
+            ...node,
+            position: {
+              x: node.position.x + dx,
+              y: node.position.y + dy,
+            },
+          },
+        },
+      };
+    }),
+
+  selectCanvasArtifact: (nodeId) =>
+    set({ selectedCanvasArtifactId: nodeId }),
+
+  setCanvasArtifactVersion: (nodeId, versionId) =>
+    set((state) => {
+      const node = state.canvasArtifactNodes[nodeId];
+      if (!node) return state;
+      return {
+        canvasArtifactNodes: {
+          ...state.canvasArtifactNodes,
+          [nodeId]: { ...node, versionId },
+        },
+      };
+    }),
+
+  removeCanvasArtifact: (nodeId) =>
+    set((state) => {
+      if (!state.canvasArtifactNodes[nodeId]) return state;
+      const next = { ...state.canvasArtifactNodes };
+      delete next[nodeId];
+      return {
+        canvasArtifactNodes: next,
+        canvasArtifactOrder: state.canvasArtifactOrder.filter(
+          (id) => id !== nodeId,
+        ),
+        selectedCanvasArtifactId:
+          state.selectedCanvasArtifactId === nodeId
+            ? null
+            : state.selectedCanvasArtifactId,
+      };
+    }),
+
   listSessionArtifacts: (): SessionArtifact[] => {
     const state = get();
     return Object.values(state.sessionArtifacts).sort((a, b) => {
@@ -656,15 +951,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const id = newCardId();
       childId = id;
       const childY = childBandY(state, parentId, parent);
-      const inheritedArtifactId =
-        options?.attachedArtifacts?.[0]?.artifactId ??
-        resolveThreadArtifactId(
-          state.cards,
-          state.connections,
-          state.cardOrder,
-          parent.threadId,
-        ) ??
-        undefined;
+      const inheritedArtifactId = options?.attachedArtifacts?.[0]?.artifactId;
       const child: Card = {
         id,
         threadId: parent.threadId,
@@ -697,6 +984,116 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     });
     return childId;
+  },
+
+  startPlugDrag: (drag) => set({ plugDrag: drag }),
+
+  updatePlugDrag: (patch) =>
+    set((state) => {
+      if (!state.plugDrag) return state;
+      const next = { ...state.plugDrag, ...patch } as PlugDragState;
+      return { plugDrag: next };
+    }),
+
+  endPlugDrag: () => set({ plugDrag: null }),
+
+  cancelPlugDrag: () => set({ plugDrag: null }),
+
+  setCardComposerAttachment: (cardId, ref) =>
+    set((state) => ({
+      plugComposerAttachments: {
+        ...state.plugComposerAttachments,
+        [cardId]: ref,
+      },
+    })),
+
+  createRootCardWithAttachment: (position, ref) => {
+    let cardId = "";
+    set((state) => {
+      const undoPast = pushUndoSnapshot(state);
+      const id = newCardId();
+      cardId = id;
+      const threadId = newThreadId();
+      const accent = PALETTE[state.threadOrder.length % PALETTE.length];
+      const thread: Thread = { id: threadId, accentColour: accent };
+      const card: Card = {
+        id,
+        threadId,
+        question: "",
+        answer: "",
+        status: "empty",
+        position,
+        size: emptyCardSize(),
+        parentCardId: null,
+        parentConversationId: null,
+        attachedArtifacts: [ref],
+      };
+      return {
+        undoPast,
+        threads: { ...state.threads, [threadId]: thread },
+        threadOrder: [...state.threadOrder, threadId],
+        cards: { ...state.cards, [id]: card },
+        cardOrder: [...state.cardOrder, id],
+        plugComposerAttachments: {
+          ...state.plugComposerAttachments,
+          [id]: ref,
+        },
+      };
+    });
+    return cardId;
+  },
+
+  createBranchAt: (sourceId, side, position) => {
+    let branchId: string | null = null;
+    set((state) => {
+      const source = state.cards[sourceId];
+      if (!source) return state;
+      const undoPast = pushUndoSnapshot(state);
+
+      const newThreadIdStr = newThreadId();
+      const accent =
+        PALETTE[state.threadOrder.length % PALETTE.length];
+      const thread: Thread = {
+        id: newThreadIdStr,
+        accentColour: accent,
+      };
+
+      const id = newCardId();
+      branchId = id;
+      const y = childBandY(state, sourceId, source);
+      const card: Card = {
+        id,
+        threadId: newThreadIdStr,
+        question: "",
+        answer: "",
+        status: "empty",
+        position: {
+          x: position.x - BRANCH_CARD_WIDTH / 2,
+          y,
+        },
+        size: emptyCardSize(),
+        parentCardId: null,
+        parentConversationId: sourceId,
+      };
+
+      const conn: Connection = {
+        id: `conn_${sourceId}_${id}`,
+        from: sourceId,
+        to: id,
+        fromSide: side,
+        toSide: side === "right" ? "left" : "right",
+      };
+
+      return {
+        undoPast,
+        threads: { ...state.threads, [newThreadIdStr]: thread },
+        threadOrder: [...state.threadOrder, newThreadIdStr],
+        cards: { ...state.cards, [id]: card },
+        cardOrder: [...state.cardOrder, id],
+        connections: [...state.connections, conn],
+      };
+    });
+    return branchId;
   },
 
   createBranch: (sourceId, side) => {
@@ -742,6 +1139,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "empty",
         position: { x, y },
+        size: emptyCardSize(),
         parentCardId: null,
         parentConversationId: sourceId,
       };
@@ -869,32 +1267,52 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
       sessionArtifacts: state.sessionArtifacts,
+      canvasArtifactNodes: state.canvasArtifactNodes,
+      canvasArtifactOrder: state.canvasArtifactOrder,
     };
   },
 
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
-    set({
-      viewport: { ...snapshot.viewport },
-      cards: { ...snapshot.cards },
-      cardOrder: [...snapshot.cardOrder],
-      connections: snapshot.connections.map((c) => ({ ...c })),
-      threads: { ...snapshot.threads },
-      threadOrder: [...snapshot.threadOrder],
-      groups: { ...snapshot.groups },
-      connectorStyle: snapshot.connectorStyle,
-      selectedModel: snapshot.selectedModel,
-      viewMode: snapshot.viewMode,
-      sessionArtifacts: JSON.parse(
+    set(() => {
+      const sessionArtifacts = JSON.parse(
         JSON.stringify(snapshot.sessionArtifacts),
-      ),
-      activeThreadId: snapshot.threadOrder[0] ?? null,
-      openArtifactCardId: null,
-      openGroupArtifactId: null,
-      openSessionArtifactId: null,
-      openSessionArtifactVersionId: null,
-      selectedFamilyRootIds: [],
-      activeGroupId: null,
-      undoPast: [],
+      ) as Record<string, SessionArtifact>;
+      const cards = repairLateralBranchBands(
+        normalizeLoadedCards({ ...snapshot.cards }),
+        snapshot.connections.map((c) => ({ ...c })),
+      );
+      const canvasArtifactNodes = snapshot.canvasArtifactNodes
+        ? normalizeLoadedArtifactNodes(
+            { ...snapshot.canvasArtifactNodes },
+            sessionArtifacts,
+          )
+        : {};
+      return {
+        viewport: { ...snapshot.viewport },
+        cards,
+        cardOrder: [...snapshot.cardOrder],
+        connections: snapshot.connections.map((c) => ({ ...c })),
+        threads: { ...snapshot.threads },
+        threadOrder: [...snapshot.threadOrder],
+        groups: { ...snapshot.groups },
+        connectorStyle: snapshot.connectorStyle,
+        selectedModel: snapshot.selectedModel,
+        viewMode: snapshot.viewMode,
+        sessionArtifacts,
+        canvasArtifactNodes,
+        canvasArtifactOrder: snapshot.canvasArtifactOrder
+          ? [...snapshot.canvasArtifactOrder]
+          : [],
+        activeThreadId: snapshot.threadOrder[0] ?? null,
+        openArtifactCardId: null,
+        openGroupArtifactId: null,
+        openSessionArtifactId: null,
+        openSessionArtifactVersionId: null,
+        selectedCanvasArtifactId: null,
+        selectedFamilyRootIds: [],
+        activeGroupId: null,
+        undoPast: [],
+      };
     }),
 }));
 

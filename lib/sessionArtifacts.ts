@@ -182,8 +182,17 @@ export function resolveEditingArtifactId(
   if (card.inheritedArtifactId) {
     return card.inheritedArtifactId;
   }
-  const threadId = card.threadId;
-  return resolveThreadArtifactId(cards, connections, cardOrder, threadId);
+  return null;
+}
+
+/** True when a new payload should append to an existing artifact (same kind). */
+export function canAppendArtifactVersion(
+  artifact: SessionArtifact | undefined,
+  payload: ArtifactPayload,
+): boolean {
+  if (!artifact) return false;
+  const normalized = normalizePayloadForRegistry(payload);
+  return artifact.kind === payloadToArtifactKind(normalized);
 }
 
 export function listSessionArtifacts(

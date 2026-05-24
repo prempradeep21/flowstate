@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { denton } from "@/lib/fonts/denton";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -27,7 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${archivo.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${archivo.variable} ${denton.variable} h-full`}
+    >
       <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
         <Providers>{children}</Providers>
       </body>

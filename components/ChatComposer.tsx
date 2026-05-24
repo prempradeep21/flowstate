@@ -2,10 +2,14 @@
 
 import {
   KeyboardEvent,
+  useEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
+import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
+import { SendIconButton } from "@/components/SendIconButton";
 import {
   artifactDisplayTitle,
   getLatestVersion,
@@ -24,18 +28,38 @@ import {
 export function ChatComposer({
   placeholder = "Ask anything",
   disabled = false,
+  autoFocus = false,
+  cardId,
+  accentColour = "#7C9EFF",
+  receivePlugsActive = false,
+  receiveHighlightSide = null,
+  draftValue,
+  onDraftChange,
   onSubmit,
   variant = "chat",
 }: {
   placeholder?: string;
   disabled?: boolean;
+  autoFocus?: boolean;
+  /** Canvas card id — enables plug attachment sync and receive targeting. */
+  cardId?: string;
+  accentColour?: string;
+  receivePlugsActive?: boolean;
+  receiveHighlightSide?: "left" | "right" | null;
+  draftValue?: string;
+  onDraftChange?: (value: string) => void;
   onSubmit: (question: string, options?: FollowUpOptions) => void;
-  variant?: "chat" | "canvas";
+  variant?: "chat" | "canvas" | "landing";
 }) {
   const listSessionArtifacts = useCanvasStore((s) => s.listSessionArtifacts);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const plugAttachment = useCanvasStore((s) =>
+    cardId ? s.plugComposerAttachments[cardId] : undefined,
+  );
 
-  const [draft, setDraft] = useState("");
+  const [internalDraft, setInternalDraft] = useState("");
+  const draft = draftValue ?? internalDraft;
+  const setDraft = onDraftChange ?? setInternalDraft;
   const [menuOpen, setMenuOpen] = useState(false);
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
@@ -45,6 +69,56 @@ export function ChatComposer({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textarea = useAutoResizeTextarea(draft);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuPortalRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (autoFocus) textarea.ref.current?.focus();
+  }, [autoFocus, textarea.ref]);
+
+  useEffect(() => {
+    if (plugAttachment) {
+      setAttached([plugAttachment]);
+    }
+  }, [plugAttachment]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuPos(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!menuRef.current) return;
+      const rect = menuRef.current.getBoundingClientRect();
+      setMenuPos({ left: rect.left, top: rect.top - 8 });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (menuPortalRef.current?.contains(target)) return;
+      setMenuOpen(false);
+      setArtifactMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
 
   const canSend =
     !disabled && draft.trim().length > 0;
@@ -130,6 +204,7 @@ export function ChatComposer({
 
   const artifacts = listSessionArtifacts();
   const isCanvas = variant === "canvas";
+  const isLanding = variant === "landing";
 
   const { onDragOver, onDrop } = useSidebarDropTarget({
     onArtifact: (ref) => {
@@ -143,18 +218,29 @@ export function ChatComposer({
   return (
     <div
       className={
-        isCanvas
-          ? "relative z-20 shrink-0"
-          : "mx-auto w-full max-w-3xl"
+        isLanding
+          ? "relative z-20 w-full shrink-0"
+          : isCanvas
+            ? "relative z-20 shrink-0"
+            : "mx-auto w-full max-w-3xl"
       }
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
       <div
-        className={`group/composer relative flex flex-col rounded-2xl border border-canvas-border bg-canvas-card shadow-card ${
-          isCanvas ? "" : ""
+        data-composer={cardId ? true : undefined}
+        data-card-id={cardId}
+        className={`group/composer relative flex flex-col rounded-2xl border border-canvas-border bg-canvas-card ${
+          isLanding ? "shadow-cardHover" : "shadow-card"
         }`}
       >
+        {isCanvas && cardId && (
+          <ReceivePlugs
+            accentColour={accentColour}
+            active={receivePlugsActive}
+            highlightSide={receiveHighlightSide}
+          />
+        )}
         {(attached.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
@@ -224,58 +310,69 @@ export function ChatComposer({
             >
               <span className="text-[20px] font-light leading-none">+</span>
             </button>
-            {menuOpen && (
-              <div className="absolute bottom-full left-0 z-50 mb-2 min-w-[160px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card">
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
-                  onClick={() => imageInputRef.current?.click()}
-                >
-                  Image
-                </button>
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  File
-                </button>
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
-                  onClick={() => {
-                    setArtifactMenuOpen((o) => !o);
+            {menuOpen &&
+              menuPos &&
+              createPortal(
+                <div
+                  ref={menuPortalRef}
+                  className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card"
+                  style={{
+                    left: menuPos.left,
+                    top: menuPos.top,
+                    transform: "translateY(-100%)",
                   }}
                 >
-                  Artifact…
-                </button>
-                {artifactMenuOpen && (
-                  <div className="max-h-40 overflow-y-auto border-t border-canvas-border">
-                    {artifacts.length === 0 ? (
-                      <p className="px-3 py-2 text-[12px] text-canvas-muted">
-                        No artifacts yet
-                      </p>
-                    ) : (
-                      artifacts.map((art) => {
-                        const ver = getLatestVersion(art);
-                        return (
-                          <button
-                            key={art.id}
-                            type="button"
-                            className="block w-full px-3 py-2 text-left text-[12px] hover:bg-canvas-bg"
-                            onClick={() =>
-                              attachArtifact(art.id, ver.id)
-                            }
-                          >
-                            {artifactDisplayTitle(art, ver)}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    Image
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    File
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    onClick={() => {
+                      setArtifactMenuOpen((o) => !o);
+                    }}
+                  >
+                    Artifact…
+                  </button>
+                  {artifactMenuOpen && (
+                    <div className="max-h-40 overflow-y-auto border-t border-canvas-border">
+                      {artifacts.length === 0 ? (
+                        <p className="px-3 py-2 text-[12px] text-canvas-muted">
+                          No artifacts yet
+                        </p>
+                      ) : (
+                        artifacts.map((art) => {
+                          const ver = getLatestVersion(art);
+                          return (
+                            <button
+                              key={art.id}
+                              type="button"
+                              className="block w-full px-3 py-2 text-left text-[12px] hover:bg-canvas-bg"
+                              onClick={() =>
+                                attachArtifact(art.id, ver.id)
+                              }
+                            >
+                              {artifactDisplayTitle(art, ver)}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>,
+                document.body,
+              )}
           </div>
 
           <div className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
@@ -292,21 +389,17 @@ export function ChatComposer({
             disabled={disabled}
             rows={1}
             className={`block min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
-              isCanvas ? "text-[14px]" : "text-[15px]"
+              isCanvas || isLanding ? "text-[14px]" : "text-[15px]"
             }`}
           />
 
-          <button
-            type="button"
-            onClick={submit}
+          <SendIconButton
             disabled={!canSend}
-            className="group/send mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center text-canvas-accent transition-opacity hover:opacity-90 disabled:opacity-30"
-            aria-label="Send"
-          >
-            <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden>
-              <path d="M2.5 10 17 3 14 10 17 17 2.5 10Z" />
-            </svg>
-          </button>
+            onClick={submit}
+            className={
+              isLanding ? "bg-canvas-question hover:opacity-90" : undefined
+            }
+          />
         </div>
       </div>
 

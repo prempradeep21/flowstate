@@ -2,16 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ArtifactContent } from "@/components/artifacts/ArtifactContent";
-import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
+import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { groupHasNewSummaryContent } from "@/lib/groupSummaryStaleness";
 import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
 import { getArtifactMarkdown } from "@/lib/artifacts";
-import {
-  artifactDisplayTitle,
-  getLatestVersion,
-  getVersionById,
-} from "@/lib/sessionArtifacts";
+import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
 import {
   downloadGroupMarkdown,
   refreshGroupSummary,
@@ -46,18 +41,12 @@ export function ArtifactPanel() {
     ? sessionArtifacts[openSessionArtifactId]
     : undefined;
 
-  const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
-
   const activeVersion = useMemo(() => {
     if (!sessionArtifact) return null;
     const vid =
       openSessionArtifactVersionId ?? sessionArtifact.latestVersionId;
     return getVersionById(sessionArtifact, vid) ?? getLatestVersion(sessionArtifact);
   }, [sessionArtifact, openSessionArtifactVersionId]);
-
-  useEffect(() => {
-    setCodeTitleOverride(null);
-  }, [openSessionArtifactId, openSessionArtifactVersionId]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -70,12 +59,7 @@ export function ArtifactPanel() {
   const legacyOpen = Boolean(legacyMarkdown && (openGroupId || openCardId));
   const isOpen = structuredOpen || legacyOpen;
 
-  const headerTitle = sessionArtifact && activeVersion
-    ? codeTitleOverride ??
-      artifactDisplayTitle(sessionArtifact, activeVersion, codeTitleOverride ?? undefined)
-    : group
-      ? group.label
-      : "Document";
+  const headerTitle = group ? group.label : "Document";
 
   useEffect(() => {
     if (!openGroupId) {
@@ -128,28 +112,12 @@ export function ArtifactPanel() {
         {structuredOpen && sessionArtifact && activeVersion ? (
           <div className="flex h-full flex-col overflow-hidden p-5">
             <div className="shrink-0 rounded-artifact-card border border-canvas-border bg-canvas-card p-5 shadow-card">
-              <ArtifactPanelHeader
-                kind={sessionArtifact.kind}
-                title={
-                  sessionArtifact.kind === "code"
-                    ? codeTitleOverride ??
-                      artifactDisplayTitle(sessionArtifact, activeVersion)
-                    : artifactDisplayTitle(sessionArtifact, activeVersion)
-                }
-                versions={sessionArtifact.versions}
-                activeVersionId={activeVersion.id}
+              <ArtifactShell
+                sessionArtifact={sessionArtifact}
+                versionId={activeVersion.id}
                 onVersionChange={setArtifactPanelVersion}
+                menuVariant="panel"
               />
-              <div className="mt-4">
-                <ArtifactContent
-                  payload={activeVersion.payload}
-                  onCodeActiveFileChange={
-                    sessionArtifact.kind === "code"
-                      ? setCodeTitleOverride
-                      : undefined
-                  }
-                />
-              </div>
             </div>
           </div>
         ) : (

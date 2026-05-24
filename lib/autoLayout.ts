@@ -1,8 +1,12 @@
 import type { Card, Connection } from "@/lib/store";
+import {
+  CARD_WIDTH,
+  FALLBACK_CARD_HEIGHT,
+  getCardBounds,
+} from "@/lib/canvasNodeBounds";
 
-export const CARD_WIDTH = 420;
+export { CARD_WIDTH, FALLBACK_CARD_HEIGHT };
 export const FOLLOW_UP_GAP = 80;
-export const FALLBACK_CARD_HEIGHT = 240;
 export const BRANCH_HORIZONTAL_GAP = CARD_WIDTH;
 export const COLUMN_STEP = CARD_WIDTH + BRANCH_HORIZONTAL_GAP;
 
@@ -18,7 +22,9 @@ export interface Position {
 }
 
 function cardHeight(cards: Record<string, Card>, id: string): number {
-  return cards[id]?.size?.h ?? FALLBACK_CARD_HEIGHT;
+  const card = cards[id];
+  if (!card) return FALLBACK_CARD_HEIGHT;
+  return getCardBounds(card).h;
 }
 
 function isIndependentRoot(
