@@ -1,6 +1,8 @@
 "use client";
 
+import { AuthButton } from "@/components/AuthButton";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
+import { SaveStatusBadge } from "@/components/SaveStatusBadge";
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
 import { ViewModeToggle } from "@/components/ViewModeToggle";
@@ -47,6 +49,11 @@ export function AppLeftPanel() {
       <div className="flex-1 overflow-y-auto">
         <ArtifactsSection />
         <AttachmentsSection />
+      </div>
+
+      <div className="space-y-2 border-t border-canvas-border p-3">
+        <SaveStatusBadge />
+        <AuthButton />
       </div>
     </aside>
   );

@@ -6,7 +6,11 @@ export function SaveStatusBadge() {
   const { user, supabaseConfigured, persistenceStatus, saveStatus } = useAuth();
 
   if (!supabaseConfigured) {
-    return null;
+    return (
+      <div className="pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 text-xs text-canvas-muted">
+        Cloud save off
+      </div>
+    );
   }
 
   if (persistenceStatus === "loading") {

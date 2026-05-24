@@ -14,7 +14,14 @@ export function AuthButton() {
   const [busy, setBusy] = useState(false);
 
   if (!supabaseConfigured) {
-    return null;
+    return (
+      <div
+        className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90"
+        title="Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local"
+      >
+        Sign-in needs Supabase keys in .env.local
+      </div>
+    );
   }
 
   if (authLoading) {
