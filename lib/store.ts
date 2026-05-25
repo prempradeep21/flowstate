@@ -12,7 +12,8 @@ import {
   BRANCH_HORIZONTAL_GAP,
   childBandY,
   computeFollowUpPosition,
-  shiftBottomAttachedSubtrees,
+  relayoutVerticalChainOf,
+  repairVerticalChainsOnly,
 } from "@/lib/canvasLayout";
 import {
   CANVAS_ARTIFACT_WIDTH,
@@ -638,14 +639,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   /**
-   * Updates the measured size of a card. If the height changes, the
-   * bottom-attached follow-up chain (single chat) is shifted by the delta so
-   * the connectors stay glued plug-to-plug. Lateral branches and canvas
-   * artifact nodes are never moved by this — only the same-chat descendants.
+   * Updates the measured size of a card and re-snaps its bottom-attached
+   * follow-up chain so descendants stay glued to the parent's plug at
+   * `parent.bottom + FOLLOW_UP_GAP`. Lateral branches and canvas artifact
+   * nodes are never moved by this — only the same-chat vertical chain.
    *
-   * The first measurement (when there's no prior `size.h`) does not trigger a
-   * shift, because there is no baseline to diff against and the child was
-   * placed with the same canonical assumption.
+   * Using a full chain relayout (rather than just a delta shift) is robust to
+   * stale positions from older snapshots and to any race where a previous
+   * measurement was missed: every new measurement reconciles the chain to the
+   * canonical gap.
    */
   setCardSize: (id, size) =>
     set((state) => {
@@ -654,19 +656,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const prev = existing.size;
       if (prev && prev.w === size.w && prev.h === size.h) return state;
 
-      let cards = {
+      const cardsWithSize = {
         ...state.cards,
         [id]: { ...existing, size },
       };
 
-      if (prev?.h != null && prev.h !== size.h) {
-        cards = shiftBottomAttachedSubtrees(
-          cards,
-          state.connections,
-          id,
-          size.h - prev.h,
-        );
-      }
+      const cards = relayoutVerticalChainOf(
+        { ...layoutStateFrom(state), cards: cardsWithSize },
+        id,
+      );
 
       return { cards };
     }),
@@ -1382,7 +1380,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const cardOrder = Array.isArray(snapshot.cardOrder)
         ? [...snapshot.cardOrder]
         : Object.keys(normalized);
-      const cards = normalized;
+      // Re-snap vertical chains so any stale gap from older snapshots
+      // collapses back to the canonical FOLLOW_UP_GAP. Lateral branches are
+      // not touched (absolute-positions policy).
+      const cards = repairVerticalChainsOnly(
+        normalized,
+        connections,
+        cardOrder,
+      );
       const canvasArtifactNodes = snapshot.canvasArtifactNodes
         ? normalizeLoadedArtifactNodes(
             { ...snapshot.canvasArtifactNodes },

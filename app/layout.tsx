@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Providers } from "@/components/Providers";
 import { denton } from "@/lib/fonts/denton";
 import "./globals.css";
@@ -33,6 +34,7 @@ export default function RootLayout({
       className={`${archivo.variable} ${denton.variable} h-full`}
     >
       <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
+        <GoogleAnalytics />
         <Providers>{children}</Providers>
       </body>
     </html>

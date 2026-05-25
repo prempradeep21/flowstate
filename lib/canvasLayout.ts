@@ -295,6 +295,64 @@ export function relayoutChildrenOf<T extends LayoutCard>(
   return next;
 }
 
+/**
+ * Re-snap a card's bottom-attached follow-up chain to the canonical
+ * `parent.bottom + FOLLOW_UP_GAP` invariant, using current (DOM-measured if
+ * mounted) heights. Lateral branches are NOT touched — only the same-chat
+ * vertical chain. Use this whenever a card is (re)measured so descendants
+ * stay glued to the parent's plug with no extra gap.
+ */
+export function relayoutVerticalChainOf<T extends LayoutCard>(
+  state: {
+    cards: Record<string, T>;
+    connections: LayoutConnection[];
+    cardOrder: string[];
+  },
+  cardId: string,
+): Record<string, T> {
+  const rootId = findVerticalChainRoot(state, cardId);
+  const laid = layoutVerticalChain(state, rootId);
+  const next = { ...state.cards };
+  for (const id of Object.keys(laid)) {
+    const c = laid[id];
+    if (c && next[id]) next[id] = { ...next[id], position: c.position };
+  }
+  return next;
+}
+
+/**
+ * Repair only vertical chains across the whole canvas — used on hydrate so
+ * any stale snapshot positions get re-snapped to the canonical gap.
+ * Lateral branches stay where they are (per the absolute-positions policy).
+ */
+export function repairVerticalChainsOnly<T extends LayoutCard>(
+  cards: Record<string, T>,
+  connections: LayoutConnection[],
+  cardOrder: string[],
+): Record<string, T> {
+  const layoutState: CanvasLayoutState = { cards, connections, cardOrder };
+
+  const roots = new Set([
+    ...independentRootIds(layoutState),
+    ...lateralBranchRootIds(layoutState),
+  ]);
+
+  let next: Record<string, T> = { ...cards };
+  for (const rootId of roots) {
+    const laid = layoutVerticalChain(
+      { cards: next, connections, cardOrder },
+      rootId,
+    );
+    for (const id of Object.keys(laid)) {
+      const c = laid[id];
+      if (c && next[id]) {
+        next[id] = { ...next[id], position: c.position };
+      }
+    }
+  }
+  return next;
+}
+
 /** Full layout repair on hydrate or thread completion. */
 export function repairCanvasLayout<T extends LayoutCard>(
   cards: Record<string, T>,
