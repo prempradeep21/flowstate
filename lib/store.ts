@@ -211,6 +211,10 @@ interface CanvasState {
   setLeftPanelCollapsed: (collapsed: boolean) => void;
   toggleLeftPanel: () => void;
 
+  rightPanelCollapsed: boolean;
+  setRightPanelCollapsed: (collapsed: boolean) => void;
+  toggleRightPanel: () => void;
+
   uploadedAttachments: UploadedAttachment[];
   addUploadedAttachment: (attachment: UploadedAttachment) => void;
   removeUploadedAttachment: (id: string) => void;
@@ -356,6 +360,7 @@ interface CanvasState {
 
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) => void;
+  resetCanvasState: () => void;
 }
 
 const MIN_SCALE = 0.25;
@@ -545,6 +550,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
   toggleLeftPanel: () =>
     set((s) => ({ leftPanelCollapsed: !s.leftPanelCollapsed })),
+
+  rightPanelCollapsed: true,
+  setRightPanelCollapsed: (collapsed) => set({ rightPanelCollapsed: collapsed }),
+  toggleRightPanel: () =>
+    set((s) => ({ rightPanelCollapsed: !s.rightPanelCollapsed })),
 
   uploadedAttachments: [],
   addUploadedAttachment: (attachment) =>
@@ -1514,8 +1524,42 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasArtifactOrder: state.canvasArtifactOrder,
       canvasTextLabels: state.canvasTextLabels,
       canvasTextLabelOrder: state.canvasTextLabelOrder,
+      uploadedAttachments: state.uploadedAttachments,
     };
   },
+
+  resetCanvasState: () =>
+    set({
+      viewport: { x: 0, y: 0, scale: 1 },
+      cards: {},
+      cardOrder: [],
+      connections: [],
+      threads: {},
+      threadOrder: [],
+      groups: {},
+      sessionArtifacts: {},
+      canvasArtifactNodes: {},
+      canvasArtifactOrder: [],
+      canvasTextLabels: {},
+      canvasTextLabelOrder: [],
+      uploadedAttachments: [],
+      globalOrigin: null,
+      activeThreadId: null,
+      openArtifactCardId: null,
+      openGroupArtifactId: null,
+      openSessionArtifactId: null,
+      openSessionArtifactVersionId: null,
+      selectedCanvasArtifactId: null,
+      selectedCanvasTextLabelId: null,
+      selectedFamilyRootIds: [],
+      activeGroupId: null,
+      undoPast: [],
+      plugDrag: null,
+      plugComposerAttachments: {},
+      canvasPlacementRequest: null,
+      activeCanvasPlacement: null,
+      viewMode: "canvas",
+    }),
 
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
     set(() => {
@@ -1588,6 +1632,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         activeGroupId: null,
         undoPast: [],
         globalOrigin,
+        uploadedAttachments: snapshot.uploadedAttachments
+          ? (JSON.parse(
+              JSON.stringify(snapshot.uploadedAttachments),
+            ) as UploadedAttachment[])
+          : [],
+        plugDrag: null,
+        plugComposerAttachments: {},
+        canvasPlacementRequest: null,
+        activeCanvasPlacement: null,
       };
     }),
 }));

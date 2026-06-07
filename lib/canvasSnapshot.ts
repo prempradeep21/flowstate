@@ -10,6 +10,7 @@ import type {
   Connection,
   ConnectorStyle,
   Thread,
+  UploadedAttachment,
   Viewport,
 } from "@/lib/store";
 
@@ -32,6 +33,7 @@ export interface CanvasSnapshot {
   canvasArtifactOrder?: string[];
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
+  uploadedAttachments?: UploadedAttachment[];
 }
 
 export interface CanvasSnapshotSource {
@@ -50,6 +52,7 @@ export interface CanvasSnapshotSource {
   canvasArtifactOrder: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
+  uploadedAttachments: UploadedAttachment[];
 }
 
 function normalizeCardStatus(status: CardStatus): CardStatus {
@@ -95,6 +98,33 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasTextLabels),
     ) as Record<string, CanvasTextLabel>,
     canvasTextLabelOrder: [...source.canvasTextLabelOrder],
+    uploadedAttachments: JSON.parse(
+      JSON.stringify(source.uploadedAttachments),
+    ) as UploadedAttachment[],
+  };
+}
+
+export function buildEmptyCanvasSnapshot(
+  selectedModel: ClaudeModel = "claude-sonnet-4-6",
+): CanvasSnapshot {
+  return {
+    version: CANVAS_SNAPSHOT_VERSION,
+    viewport: { x: 0, y: 0, scale: 1 },
+    cards: {},
+    cardOrder: [],
+    connections: [],
+    threads: {},
+    threadOrder: [],
+    groups: {},
+    connectorStyle: "orthogonal",
+    selectedModel,
+    viewMode: "canvas",
+    sessionArtifacts: {},
+    canvasArtifactNodes: {},
+    canvasArtifactOrder: [],
+    canvasTextLabels: {},
+    canvasTextLabelOrder: [],
+    uploadedAttachments: [],
   };
 }
 

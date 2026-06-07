@@ -3,8 +3,7 @@
 import { AuthButton } from "@/components/AuthButton";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
-import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
-import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
+import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
 import { ViewModeToggle } from "@/components/ViewModeToggle";
 import { useCanvasStore } from "@/lib/store";
 
@@ -47,8 +46,7 @@ export function AppLeftPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <ArtifactsSection />
-        <AttachmentsSection />
+        <CanvasesSection />
       </div>
 
       <div className="space-y-2 border-t border-canvas-border p-3">

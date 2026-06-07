@@ -13,6 +13,7 @@ import type { User } from "@supabase/supabase-js";
 import { useCanvasPersistence } from "@/hooks/useCanvasPersistence";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
+import type { CanvasMeta } from "@/lib/canvasPersistence";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
 interface AuthContextValue {
@@ -21,6 +22,11 @@ interface AuthContextValue {
   supabaseConfigured: boolean;
   persistenceStatus: PersistenceStatus;
   saveStatus: SaveStatus;
+  activeCanvasId: string | null;
+  canvases: CanvasMeta[];
+  isSwitchingCanvas: boolean;
+  switchCanvas: (canvasId: string) => Promise<void>;
+  createNewCanvas: () => Promise<string | null>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -35,7 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useState<PersistenceStatus>("idle");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
-  useCanvasPersistence({
+  const {
+    activeCanvasId,
+    canvases,
+    switchCanvas,
+    createNewCanvas,
+    isSwitching: isSwitchingCanvas,
+  } = useCanvasPersistence({
     user,
     supabaseConfigured,
     persistenceStatus,
@@ -111,16 +123,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabaseConfigured,
       persistenceStatus,
       saveStatus,
+      activeCanvasId,
+      canvases,
+      isSwitchingCanvas,
+      switchCanvas,
+      createNewCanvas,
       signInWithGoogle,
       signOut,
     }),
     [
+      activeCanvasId,
       authLoading,
+      canvases,
+      createNewCanvas,
+      isSwitchingCanvas,
       persistenceStatus,
       saveStatus,
       signInWithGoogle,
       signOut,
       supabaseConfigured,
+      switchCanvas,
       user,
     ],
   );
