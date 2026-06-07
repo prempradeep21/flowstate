@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  CSSProperties,
   PointerEvent as ReactPointerEvent,
   WheelEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from "react";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
@@ -24,7 +24,16 @@ import {
   getLandingCardId,
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
-import { CARD_WIDTH, getCardBounds } from "@/lib/canvasNodeBounds";
+import { isOriginCardPinned } from "@/lib/canvasOrigin";
+import { getConnectionCardBounds, measureCardSize } from "@/lib/canvasMeasure";
+import {
+  isCardPending,
+  pendingLayoutMinHeight,
+} from "@/lib/cardLayoutPolicy";
+import {
+  DEFAULT_CANVAS_TUNING,
+  RESOLVED_CANVAS_TUNING,
+} from "@/lib/canvasTuning";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { isCardInSelectedFamilies } from "@/lib/chatThreads";
 import {
@@ -33,23 +42,29 @@ import {
   useCanvasStore,
 } from "@/lib/store";
 import {
-  CARD_QA_MAX_HEIGHT,
   compactThinkingWord,
   compensatedStrokeWidth,
-  isExpandedCardContent,
-  isGodViewMode,
-  lineClampStyle,
-  shouldHideDivider,
-  shouldHideFollowUp,
-  shouldHideImages,
-  shouldHideLabels,
-  zoomLineClamp,
-  zoomSectionInsets,
 } from "@/lib/zoomDisplay";
 
 interface CardProps {
   card: CardType;
 }
+
+/** Fixed section padding — not zoom-dependent (card height is content-driven only). */
+const QA_SECTION_INSETS = {
+  question: {
+    paddingTop: 16,
+    paddingBottom: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+  answer: {
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+} as const;
 
 function handleAnswerWheel(e: WheelEvent) {
   e.stopPropagation();
@@ -70,20 +85,13 @@ export function Card({ card }: CardProps) {
   );
   const hasChildren = useCanvasStore((s) =>
     s.connections.some(
-      (c) => c.from === card.id && c.fromSide === "bottom",
+      (c) =>
+        c.from === card.id &&
+        (c.fromSide === "bottom" || c.fromSide == null),
     ),
   );
   const scale = useCanvasStore((s) => s.viewport.scale);
-  const godView = isGodViewMode(scale);
-  const lineClamp = zoomLineClamp(scale);
-  const expandedContent = isExpandedCardContent(scale);
-  const insets = zoomSectionInsets(scale);
-  const hideLabels = shouldHideLabels(scale);
-  const hideDivider = shouldHideDivider(scale);
-  const hideFollowUp = shouldHideFollowUp(scale);
-  const hideImages = shouldHideImages(scale);
   const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
-  const clampStyle = lineClampStyle(lineClamp);
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -94,14 +102,16 @@ export function Card({ card }: CardProps) {
       s.connections.some((c) => c.to === card.id),
   );
   const isLanding = useCanvasStore(
-    (s) =>
-      shouldShowCanvasLanding(s.cards, s.cardOrder) &&
-      getLandingCardId(s.cards, s.cardOrder) === card.id,
+    (s) => {
+      if (!shouldShowCanvasLanding(s.cards, s.cardOrder)) return false;
+      return getLandingCardId(s.cards, s.cardOrder) === card.id;
+    },
+    (a, b) => a === b,
   );
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
   const plugAccent = accent ?? "#7C9EFF";
-  const showBranchPlugs = card.status === "done" && !godView;
+  const showBranchPlugs = card.status === "done";
   const receivePlugsActive =
     plugDrag?.kind === "artifact" &&
     plugDrag.receiveTargetCardId === card.id;
@@ -110,10 +120,29 @@ export function Card({ card }: CardProps) {
       ? plugDrag.hoveredReceiveSide
       : null;
 
-  const isDraggable = card.parentCardId === null;
+  const originPinned = useCanvasStore(
+    (s) =>
+      isOriginCardPinned(
+        s.cards,
+        s.cardOrder,
+        card.id,
+        s.globalOrigin,
+      ),
+    (a, b) => a === b,
+  );
+  const tuning = RESOLVED_CANVAS_TUNING;
+  const cardWidth = tuning.cardWidth;
+
+  const isDraggable =
+    !originPinned &&
+    (DEFAULT_CANVAS_TUNING.rootCardsOnlyDraggable
+      ? card.parentCardId === null
+      : true);
+
+  const isEmptyComposer = card.status === "empty" && !isLanding;
 
   const branchPlugWorld = (side: "left" | "right") => {
-    const { w, h } = getCardBounds(card);
+    const { w, h } = getConnectionCardBounds(card, tuning);
     const anchor = plugAnchorAt(
       card.position.x,
       card.position.y,
@@ -148,42 +177,64 @@ export function Card({ card }: CardProps) {
   const startedFor = useRef<string | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const layoutKeyRef = useRef("");
-  const lastScaleRef = useRef(1);
+  const lastSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const prevHasChildrenRef = useRef(hasChildren);
 
-  const displayBucket = godView
-    ? "god"
-    : hideFollowUp
-      ? "compact"
-      : expandedContent
-        ? "expanded"
-        : "summary";
+  // Structural changes that affect card height — NOT answer.length (ResizeObserver handles growth).
   const layoutKey = [
     card.status,
-    card.question,
-    card.answer.length,
     card.outputArtifactId ?? "",
     hasChildren ? "1" : "0",
     card.images?.length ?? 0,
     card.responseType ?? "text",
-    displayBucket,
-    lineClamp ?? "full",
+    cardWidth,
   ].join("|");
 
   const TEXT_SELECTABLE =
     'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
 
+  const isPending =
+    card.status === "thinking" || card.status === "streaming";
+
+  const pendingMinHeight = isPending
+    ? pendingLayoutMinHeight(card.size?.h, tuning.fallbackCardHeight)
+    : undefined;
+
+  // Lock layout height when a response starts — no collapse during thinking.
+  useLayoutEffect(() => {
+    if (!isCardPending(card.status)) return;
+    const el = cardRef.current;
+    const measured = el
+      ? measureCardSize(el, cardWidth).h
+      : card.size?.h ?? tuning.fallbackCardHeight;
+    const locked = pendingLayoutMinHeight(
+      Math.max(card.size?.h ?? 0, measured),
+      tuning.fallbackCardHeight,
+    );
+    if (!card.size || card.size.h < locked) {
+      lastSizeRef.current = { w: cardWidth, h: locked };
+      setCardSize(card.id, { w: cardWidth, h: locked });
+    }
+  }, [card.status, card.id, card.size, cardWidth, setCardSize, tuning.fallbackCardHeight]);
+
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const update = () => {
-      const currentScale = useCanvasStore.getState().viewport.scale;
-      const layoutChanged = layoutKey !== layoutKeyRef.current;
-      const scaleChanged = currentScale !== lastScaleRef.current;
-      if (scaleChanged && !layoutChanged) return;
-      layoutKeyRef.current = layoutKey;
-      lastScaleRef.current = currentScale;
-      const next = { w: el.offsetWidth, h: el.offsetHeight };
+      const next = measureCardSize(el, cardWidth);
+      const prev = lastSizeRef.current;
+      const status = useCanvasStore.getState().cards[card.id]?.status;
+
+      if (isCardPending(status)) {
+        if (status === "thinking" && prev && next.h < prev.h) return;
+        if (status === "streaming" && prev && next.h < prev.h) return;
+        if (status === "thinking" && !prev) {
+          next.h = pendingLayoutMinHeight(next.h, tuning.fallbackCardHeight);
+        }
+      }
+
+      if (prev && prev.w === next.w && prev.h === next.h) return;
+      lastSizeRef.current = next;
       setCardSize(card.id, next);
     };
     update();
@@ -192,7 +243,24 @@ export function Card({ card }: CardProps) {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [card.id, setCardSize, layoutKey]);
+  }, [card.id, setCardSize, layoutKey, cardWidth, tuning.fallbackCardHeight]);
+
+  // Follow-up composer removal shrinks the card; remeasure and re-snap chain.
+  useLayoutEffect(() => {
+    if (prevHasChildrenRef.current === hasChildren) return;
+    prevHasChildrenRef.current = hasChildren;
+    lastSizeRef.current = null;
+    const el = cardRef.current;
+    if (!el) return;
+    const next = measureCardSize(el, cardWidth);
+    lastSizeRef.current = next;
+    setCardSize(card.id, next);
+    if (hasChildren) {
+      requestAnimationFrame(() => {
+        useCanvasStore.getState().snapFollowUpChildToParent(card.id);
+      });
+    }
+  }, [hasChildren, card.id, setCardSize, cardWidth]);
 
   useEffect(() => {
     if (card.status !== "thinking") return;
@@ -226,12 +294,20 @@ export function Card({ card }: CardProps) {
           pendingFiles: undefined,
         });
         handleArtifactOnDone(card.id);
+        requestAnimationFrame(() => {
+          const state = useCanvasStore.getState();
+          const hasBottomChild = state.connections.some(
+            (c) =>
+              c.from === card.id &&
+              (c.fromSide === "bottom" || c.fromSide == null),
+          );
+          if (hasBottomChild) {
+            state.relayoutFollowUpChainFromParent(card.id);
+          }
+        });
       },
     });
   }, [card.status, card.question, card.id, updateCard, selectedModel]);
-
-  const isPending =
-    card.status === "thinking" || card.status === "streaming";
 
   const submitQuestion = (question: string, options?: FollowUpOptions) => {
     const q = question.trim();
@@ -310,13 +386,21 @@ export function Card({ card }: CardProps) {
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
       onPointerCancel={handleDragPointerUp}
-      className={`group/card relative absolute overflow-visible select-text ${
+      className={`group/card absolute overflow-visible select-text ${
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
-      } ${hideForLanding ? "pointer-events-none invisible" : ""}`}
+      } ${hideForLanding ? "pointer-events-none invisible" : ""} ${
+        isEmptyComposer
+          ? "overflow-hidden rounded-2xl border border-canvas-border bg-transparent shadow-card"
+          : ""
+      }`}
       style={{
         left: card.position.x,
         top: card.position.y,
-        width: CARD_WIDTH,
+        width: cardWidth,
+        ...(isEmptyComposer
+          ? { minHeight: tuning.emptyCardHeight, borderWidth: cardBorderWidth }
+          : {}),
+        ...(pendingMinHeight != null ? { minHeight: pendingMinHeight } : {}),
       }}
       aria-hidden={hideForLanding || undefined}
     >
@@ -342,6 +426,21 @@ export function Card({ card }: CardProps) {
           </div>
         </>
       )}
+      {isEmptyComposer ? (
+        <div className="px-3 py-2.5">
+          <ChatComposer
+            variant="canvas"
+            cardId={card.id}
+            accentColour={plugAccent}
+            receivePlugsActive={receivePlugsActive}
+            receiveHighlightSide={receiveHighlightSide}
+            placeholder={emptyPlaceholder}
+            autoFocus
+            disabled={isPending}
+            onSubmit={submitQuestion}
+          />
+        </div>
+      ) : (
       <div
         className={`group/inner relative flex flex-col overflow-hidden rounded-2xl border bg-transparent shadow-card transition-shadow hover:shadow-cardHover ${
           isSelected
@@ -358,111 +457,71 @@ export function Card({ card }: CardProps) {
         {card.status !== "empty" && (
           <CardQaMenu cardId={card.id} viewportScale={scale} />
         )}
-        <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
-            expandedContent ? "max-h-[var(--card-qa-max-height)]" : ""
-          }`}
-          style={
-            expandedContent
-              ? ({
-                  "--card-qa-max-height": `${CARD_QA_MAX_HEIGHT}px`,
-                } as CSSProperties)
-              : undefined
-          }
-        >
-          {card.status === "empty" && !isLanding ? (
-            <div className="px-3 py-2.5">
-              <ChatComposer
-                variant="canvas"
-                cardId={card.id}
-                accentColour={plugAccent}
-                receivePlugsActive={receivePlugsActive}
-                receiveHighlightSide={receiveHighlightSide}
-                placeholder={emptyPlaceholder}
-                autoFocus
-                disabled={isPending}
-                onSubmit={submitQuestion}
-              />
-            </div>
-          ) : card.status !== "empty" ? (
-            <QaTranslucentSurface className="group/body flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {isPending && (
+          <PendingStatusIndicator
+            thinkingLabel={card.thinkingLabel}
+            isThinking={card.status === "thinking"}
+          />
+        )}
+        <div className="flex min-w-0 flex-col">
+          {card.status !== "empty" ? (
+            <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
                 accentColour={accent}
                 accentWidth={compensatedStrokeWidth(3, scale, 3)}
-                style={{
-                  paddingTop: insets.question.paddingTop,
-                  paddingBottom: insets.question.paddingBottom,
-                  paddingLeft: insets.question.paddingLeft,
-                  paddingRight: insets.question.paddingRight,
-                }}
+                style={QA_SECTION_INSETS.question}
               >
-                {!hideLabels && (
-                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-                    Question
-                  </div>
-                )}
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                  Question
+                </div>
                 <div
                   data-selectable-text
                   className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
-                  style={clampStyle}
                 >
                   {card.question}
                 </div>
               </QaQuestionSection>
 
-              {!hideDivider && (
-                <div className="mx-5 shrink-0 h-px bg-canvas-border" />
-              )}
+              <div className="mx-5 shrink-0 h-px bg-canvas-border" />
+
               <div
                 data-card-answer
                 onWheel={handleAnswerWheel}
-                className={`min-h-0 min-w-0 ${
-                  expandedContent
-                    ? "flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
-                    : "overflow-hidden"
-                }`}
+                className="min-w-0"
                 style={{
-                  paddingTop: insets.answer.paddingTop,
-                  paddingBottom: insets.answer.paddingBottom,
-                  paddingLeft: insets.answer.paddingLeft,
-                  paddingRight: insets.answer.paddingRight,
+                  ...QA_SECTION_INSETS.answer,
+                  ...(pendingMinHeight != null
+                    ? { minHeight: Math.max(120, pendingMinHeight * 0.35) }
+                    : {}),
                 }}
               >
-                {!hideLabels && (
-                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
-                    Answer
-                  </div>
-                )}
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                  Answer
+                </div>
                 {card.status === "thinking" ? (
-                  <SummaryLoading label={card.thinkingLabel ?? "Thinking"} />
+                  <p className="text-[14px] leading-relaxed text-canvas-muted/70">
+                    &nbsp;
+                  </p>
                 ) : (
-                  <>
-                    {(card.answer ||
-                      card.images?.length ||
-                      card.artifactPayload ||
-                      card.responseType !== "text") &&
-                      (lineClamp !== null ? (
-                        <ClampedAnswer
-                          card={card}
-                          clampStyle={clampStyle}
-                          isStreaming={card.status === "streaming"}
-                          hideImages={hideImages}
-                        />
-                      ) : (
-                        <CardAnswerBody
-                          card={card}
-                          isStreaming={card.status === "streaming"}
-                          hideImages={hideImages}
-                        />
-                      ))}
-                  </>
+                  (card.answer ||
+                    card.images?.length ||
+                    card.artifactPayload ||
+                    card.responseType !== "text") && (
+                    <CardAnswerBody
+                      card={card}
+                      isStreaming={card.status === "streaming"}
+                    />
+                  )
                 )}
               </div>
             </QaTranslucentSurface>
           ) : null}
 
-          {card.status === "done" && !hasChildren && !hideFollowUp && (
-            <div className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5">
+          {card.status === "done" && !hasChildren && (
+            <div
+              data-follow-up-footer
+              className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5"
+            >
               <ChatComposer
                 variant="canvas"
                 cardId={card.id}
@@ -476,71 +535,33 @@ export function Card({ card }: CardProps) {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
 
-function SummaryLoading({ label }: { label: string }) {
-  const word = compactThinkingWord(label);
+function PendingStatusIndicator({
+  thinkingLabel,
+  isThinking,
+}: {
+  thinkingLabel?: string;
+  isThinking: boolean;
+}) {
+  const label = isThinking
+    ? compactThinkingWord(thinkingLabel ?? "Thinking")
+    : "Responding";
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-canvas-border bg-canvas-bg/80 px-3 py-2.5"
-      style={{ animation: "summary-pulse-stroke 2s ease-in-out infinite" }}
+      className="absolute right-3 top-3 z-30 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
+      aria-live="polite"
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        <div
-          className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent"
-          style={{ animation: "summary-shimmer 1.8s ease-in-out infinite" }}
-        />
-      </div>
-      <span className="relative text-sm font-medium capitalize text-canvas-muted">
-        {word}
+      <span className="relative flex h-2.5 w-2.5 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+      </span>
+      <span className="max-w-[140px] truncate text-[11px] font-medium capitalize text-canvas-muted">
+        {label}
       </span>
     </div>
   );
 }
-
-function ClampedAnswer({
-  card,
-  clampStyle,
-  isStreaming,
-  hideImages,
-}: {
-  card: CardType;
-  clampStyle?: ReturnType<typeof lineClampStyle>;
-  isStreaming: boolean;
-  hideImages?: boolean;
-}) {
-  if (
-    (card.responseType ?? "text") === "text" &&
-    !card.artifactPayload
-  ) {
-    return (
-      <CardAnswerBody
-        card={card}
-        isStreaming={isStreaming}
-        clampStyle={clampStyle}
-        plainClamp
-        hideImages={hideImages}
-      />
-    );
-  }
-
-  return (
-    <div
-      data-selectable-text
-      className="min-w-0 cursor-text select-text"
-      style={clampStyle}
-    >
-      <CardAnswerBody
-        card={card}
-        isStreaming={isStreaming}
-        hideImages={hideImages}
-      />
-    </div>
-  );
-}
-

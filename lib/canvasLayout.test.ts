@@ -6,8 +6,10 @@ import {
   layoutVerticalChain,
   relayoutChildrenOf,
   repairCanvasLayout,
+  resolveBranchDropPosition,
   shiftBottomAttachedSubtrees,
 } from "@/lib/canvasLayout";
+import { plugAnchorAt } from "@/lib/plugConnector";
 
 /** Simulates setCardSize: update size only, no relayout (absolute canvas policy). */
 function applySizeOnly<T extends { id: string; size?: { w: number; h: number } }>(
@@ -84,6 +86,57 @@ describe("layoutVerticalChain", () => {
     expect(followUpInvariantHolds({ ...state, cards: next }, "p", "c")).toBe(true);
   });
 
+  it("moves child up when parent height shrinks (composer removal)", () => {
+    const composerExtra = 80;
+    const parent = card("p", {
+      position: { x: 0, y: 0 },
+      size: { w: 420, h: 300 + composerExtra },
+    });
+    const child = card("c", {
+      position: { x: 0, y: 300 + composerExtra + FOLLOW_UP_GAP },
+      size: { w: 420, h: 120 },
+      parentCardId: "p",
+    });
+    const state = {
+      cards: { p: parent, c: child },
+      connections: [conn("p", "c")],
+      cardOrder: ["p", "c"],
+    };
+    const shrunkParent = {
+      ...parent,
+      size: { w: 420, h: 300 },
+    };
+    const next = layoutVerticalChain(
+      { ...state, cards: { ...state.cards, p: shrunkParent } },
+      "p",
+    );
+    expect(next.c.position.y).toBe(300 + FOLLOW_UP_GAP);
+    expect(next.c.position.y).toBe(child.position.y - composerExtra);
+  });
+
+  it("connector anchors align when follow-up invariant holds", () => {
+    const parent = card("p", {
+      position: { x: 100, y: 50 },
+      size: { w: 420, h: 300 },
+    });
+    const child = card("c", {
+      position: { x: 100, y: 50 + 300 + FOLLOW_UP_GAP },
+      size: { w: 420, h: 180 },
+      parentCardId: "p",
+    });
+    const state = {
+      cards: { p: parent, c: child },
+      connections: [conn("p", "c")],
+      cardOrder: ["p", "c"],
+    };
+    expect(followUpInvariantHolds(state, "p", "c")).toBe(true);
+
+    const from = plugAnchorAt(100, 50, 420, 300, "bottom");
+    const to = plugAnchorAt(child.position.x, child.position.y, 420, 180, "top");
+    expect(from.px).toBe(to.px);
+    expect(to.py - from.py).toBe(FOLLOW_UP_GAP);
+  });
+
   it("does not move siblings when a card only grows in size (absolute positions)", () => {
     const a = card("a", {
       position: { x: 0, y: 0 },
@@ -102,6 +155,34 @@ describe("layoutVerticalChain", () => {
     const next = applySizeOnly(cards, "b", { w: 420, h: 400 });
     expect(next.b.position).toEqual(b.position);
     expect(next.c.position).toEqual(c.position);
+  });
+
+  it("re-snaps follow-up after parent height drops (composer removed)", () => {
+    const parent = card("p", {
+      position: { x: 0, y: 0 },
+      size: { w: 420, h: 500 },
+    });
+    const child = card("c", {
+      position: { x: 0, y: 540 },
+      parentCardId: "p",
+      size: { w: 420, h: 100 },
+    });
+    const state = {
+      cards: { p: parent, c: child },
+      connections: [conn("p", "c")],
+      cardOrder: ["p", "c"],
+    };
+    const shrunkParent = { ...parent, size: { w: 420, h: 400 } };
+    const laid = layoutVerticalChain(
+      { ...state, cards: { ...state.cards, p: shrunkParent } },
+      "p",
+    );
+    expect(laid.c.position.y).toBe(400 + FOLLOW_UP_GAP);
+    expect(followUpInvariantHolds(
+      { cards: { ...state.cards, p: shrunkParent, c: laid.c }, connections: state.connections, cardOrder: state.cardOrder },
+      "p",
+      "c",
+    )).toBe(true);
   });
 });
 
@@ -242,5 +323,38 @@ describe("repairCanvasLayout", () => {
     const bandY = parent.position.y + 500 + FOLLOW_UP_GAP;
     expect(next.f.position.y).toBe(bandY);
     expect(next.b.position.y).toBe(bandY);
+  });
+});
+
+describe("resolveBranchDropPosition", () => {
+  const tuning = {
+    cardWidth: 420,
+    branchCardWidth: 420,
+    branchHorizontalGap: 420,
+    emptyCardHeight: 88,
+    followUpGap: 40,
+  } as import("@/lib/canvasTuning").ResolvedCanvasTuning;
+
+  const source = {
+    id: "p",
+    position: { x: 100, y: 200 },
+    size: { w: 420, h: 300 },
+  };
+
+  it("uses cursor Y and centers X on the pointer when clear of parent column", () => {
+    const drop = resolveBranchDropPosition(900, 500, "right", source, tuning);
+    expect(drop).toEqual({ x: 900 - 210, y: 500 - 44 });
+  });
+
+  it("snaps X to the default side gap but keeps cursor Y when overlapping parent column", () => {
+    const drop = resolveBranchDropPosition(300, 500, "right", source, tuning);
+    expect(drop.x).toBe(100 + 420 + 420);
+    expect(drop.y).toBe(500 - 44);
+  });
+
+  it("snaps left branches to the left column when overlapping", () => {
+    const drop = resolveBranchDropPosition(200, 350, "left", source, tuning);
+    expect(drop.x).toBe(100 - 420 - 420);
+    expect(drop.y).toBe(350 - 44);
   });
 });

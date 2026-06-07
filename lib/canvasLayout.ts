@@ -8,13 +8,25 @@
  * plug-to-plug connectors remain short and straight. Lateral branches and
  * canvas artifact nodes are never moved by a sibling resize.
  */
+import { isCardPending } from "@/lib/cardLayoutPolicy";
 import { CARD_WIDTH, type CardBoundsInput } from "@/lib/canvasNodeBounds";
-import { getLayoutCardBounds } from "@/lib/canvasMeasure";
+import type { CardStatus } from "@/lib/store";
+import {
+  getLayoutCardBounds,
+  readCardDomHeight,
+  readCardLayoutHeight,
+} from "@/lib/canvasMeasure";
+import {
+  DEFAULT_CANVAS_TUNING,
+  resolveTuning,
+  type ResolvedCanvasTuning,
+} from "@/lib/canvasTuning";
 
 /** Layout graph types (structurally compatible with store Card / Connection). */
 export interface LayoutCard extends CardBoundsInput {
   id: string;
   position: { x: number; y: number };
+  status?: string;
 }
 
 export interface LayoutConnection {
@@ -25,10 +37,12 @@ export interface LayoutConnection {
   toSide?: "top" | "bottom" | "left" | "right" | null;
 }
 
-export const FOLLOW_UP_GAP = 40;
+export const FOLLOW_UP_GAP = DEFAULT_CANVAS_TUNING.followUpGap;
 export const BRANCH_CARD_WIDTH = CARD_WIDTH;
 export const BRANCH_HORIZONTAL_GAP = BRANCH_CARD_WIDTH;
 export const COLUMN_STEP = CARD_WIDTH + BRANCH_HORIZONTAL_GAP;
+
+const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 
 export interface CanvasLayoutState {
   cards: Record<string, LayoutCard>;
@@ -94,6 +108,7 @@ export function shiftBottomAttachedSubtrees<T extends LayoutCard>(
   connections: LayoutConnection[],
   parentId: string,
   dy: number,
+  shouldShift: (cardId: string) => boolean = () => true,
 ): Record<string, T> {
   if (dy === 0) return cards;
   const subtree = collectBottomSubtreeIds(connections, parentId);
@@ -101,6 +116,7 @@ export function shiftBottomAttachedSubtrees<T extends LayoutCard>(
   if (subtree.size === 0) return cards;
   const next = { ...cards };
   for (const id of subtree) {
+    if (!shouldShift(id)) continue;
     const c = next[id];
     if (!c) continue;
     next[id] = {
@@ -134,16 +150,60 @@ export function getFollowUpChild(
   return children[0];
 }
 
+/** Parent height for layout — DOM first, then stored size, then fallback. */
+export function resolveParentHeightForLayout(
+  parentId: string,
+  parent: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): number {
+  const layoutH = readCardLayoutHeight(parentId);
+  if (layoutH != null) return layoutH;
+  const domH = readCardDomHeight(parentId);
+  if (domH != null) return domH;
+  if (parent.size?.h != null && parent.size.h > 0) return parent.size.h;
+  return getLayoutCardBounds(parent, tuning).h;
+}
+
+/** Follow-up position using live DOM height when available. */
+export function computeFollowUpPositionFromDom(
+  parentId: string,
+  parent: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): { x: number; y: number } {
+  const parentH = resolveParentHeightForLayout(parentId, parent, tuning);
+  return {
+    x: parent.position.x,
+    y: parent.position.y + parentH + tuning.followUpGap,
+  };
+}
+
+/** Lateral branch slot X for plug-click placement. */
+export function defaultBranchSlotX(
+  side: "left" | "right",
+  source: LayoutCard,
+  slot: number,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): number {
+  const step = tuning.branchCardWidth + tuning.branchHorizontalGap;
+  return side === "right"
+    ? source.position.x + step + step * slot
+    : source.position.x - step - step * slot;
+}
+
 /** Canonical position for a follow-up directly below its parent. */
 export function computeFollowUpPosition(
   state: CanvasLayoutState,
   parentId: string,
   parent: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): { x: number; y: number } {
-  const { h: parentH } = getLayoutCardBounds(parent);
+  const parentH =
+    parent.size?.h != null && parent.size.h > 0
+      ? parent.size.h
+      : getLayoutCardBounds(parent, tuning).h;
   return {
     x: parent.position.x,
-    y: parent.position.y + parentH + FOLLOW_UP_GAP,
+    y: parent.position.y + parentH + tuning.followUpGap,
   };
 }
 
@@ -151,6 +211,7 @@ export function computeFollowUpPosition(
 export function layoutVerticalChain(
   state: CanvasLayoutState,
   startParentId: string,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, LayoutCard> {
   const cards = { ...state.cards };
   let currentId: string | null = startParentId;
@@ -162,13 +223,20 @@ export function layoutVerticalChain(
     const parent = cards[currentId];
     if (!parent) break;
 
-    const pos = computeFollowUpPosition({ ...state, cards }, currentId, parent);
+    const pos = computeFollowUpPosition(
+      { ...state, cards },
+      currentId,
+      parent,
+      tuning,
+    );
     const child = cards[childId];
     if (!child) break;
 
     cards[childId] = {
       ...child,
-      position: pos,
+      position: isCardPending(child.status as CardStatus | undefined)
+        ? child.position
+        : pos,
     };
     currentId = childId;
   }
@@ -181,6 +249,7 @@ export function childBandY(
   state: CanvasLayoutState,
   sourceId: string,
   source: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): number {
   let earliest: number | null = null;
   for (const conn of state.connections) {
@@ -192,13 +261,63 @@ export function childBandY(
     }
   }
   if (earliest !== null) return earliest;
-  const { h: sourceH } = getLayoutCardBounds(source);
-  return source.position.y + sourceH + FOLLOW_UP_GAP;
+  const { h: sourceH } = getLayoutCardBounds(source, tuning);
+  return source.position.y + sourceH + tuning.followUpGap;
+}
+
+/** Whether a branch card's X span overlaps the parent card column. */
+export function branchDropOverlapsParentColumn(
+  dropX: number,
+  branchCardWidth: number,
+  source: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): boolean {
+  const { w: parentW } = getLayoutCardBounds(source, tuning);
+  const parentLeft = source.position.x;
+  const parentRight = parentLeft + parentW;
+  const dropRight = dropX + branchCardWidth;
+  return dropX < parentRight && dropRight > parentLeft;
+}
+
+/** Default lateral X for a branch on the given side (first slot). */
+export function defaultBranchColumnX(
+  side: "left" | "right",
+  source: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): number {
+  const step = tuning.branchCardWidth + tuning.branchHorizontalGap;
+  return side === "right"
+    ? source.position.x + step
+    : source.position.x - step;
+}
+
+/**
+ * Drag-placed lateral branch: Y follows the cursor; X follows the cursor unless
+ * that would overlap the parent column, then snap X to the default side gap.
+ */
+export function resolveBranchDropPosition(
+  pointerX: number,
+  pointerY: number,
+  side: "left" | "right",
+  source: LayoutCard,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
+): { x: number; y: number } {
+  const w = tuning.branchCardWidth;
+  const h = tuning.emptyCardHeight;
+  let x = pointerX - w / 2;
+  const y = pointerY - h / 2;
+
+  if (branchDropOverlapsParentColumn(x, w, source, tuning)) {
+    x = defaultBranchColumnX(side, source, tuning);
+  }
+
+  return { x, y };
 }
 
 function repairLateralBranchBands(
   cards: Record<string, LayoutCard>,
   connections: LayoutConnection[],
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, LayoutCard> {
   const next = { ...cards };
   const parentIds = new Set(connections.map((c) => c.from));
@@ -207,8 +326,8 @@ function repairLateralBranchBands(
     const parent = next[parentId];
     if (!parent) continue;
 
-    const { h: parentH } = getLayoutCardBounds(parent);
-    const bandY = parent.position.y + parentH + FOLLOW_UP_GAP;
+    const { h: parentH } = getLayoutCardBounds(parent, tuning);
+    const bandY = parent.position.y + parentH + tuning.followUpGap;
 
     for (const conn of connections) {
       if (conn.from !== parentId) continue;
@@ -278,15 +397,16 @@ export function relayoutChildrenOf<T extends LayoutCard>(
     cardOrder: string[];
   },
   cardId: string,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, T> {
   const rootId = findVerticalChainRoot(state, cardId);
-  const laid = layoutVerticalChain(state, rootId);
+  const laid = layoutVerticalChain(state, rootId, tuning);
   const merged = { ...state.cards };
   for (const id of Object.keys(laid)) {
     const c = laid[id];
     if (c && merged[id]) merged[id] = { ...merged[id], position: c.position };
   }
-  const rebanded = repairLateralBranchBands(merged, state.connections);
+  const rebanded = repairLateralBranchBands(merged, state.connections, tuning);
   const next = { ...merged };
   for (const id of Object.keys(rebanded)) {
     const c = rebanded[id];
@@ -309,9 +429,10 @@ export function relayoutVerticalChainOf<T extends LayoutCard>(
     cardOrder: string[];
   },
   cardId: string,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, T> {
   const rootId = findVerticalChainRoot(state, cardId);
-  const laid = layoutVerticalChain(state, rootId);
+  const laid = layoutVerticalChain(state, rootId, tuning);
   const next = { ...state.cards };
   for (const id of Object.keys(laid)) {
     const c = laid[id];
@@ -329,6 +450,7 @@ export function repairVerticalChainsOnly<T extends LayoutCard>(
   cards: Record<string, T>,
   connections: LayoutConnection[],
   cardOrder: string[],
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, T> {
   const layoutState: CanvasLayoutState = { cards, connections, cardOrder };
 
@@ -342,6 +464,7 @@ export function repairVerticalChainsOnly<T extends LayoutCard>(
     const laid = layoutVerticalChain(
       { cards: next, connections, cardOrder },
       rootId,
+      tuning,
     );
     for (const id of Object.keys(laid)) {
       const c = laid[id];
@@ -358,6 +481,7 @@ export function repairCanvasLayout<T extends LayoutCard>(
   cards: Record<string, T>,
   connections: LayoutConnection[],
   cardOrder: string[],
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): Record<string, T> {
   const layoutState: CanvasLayoutState = { cards, connections, cardOrder };
 
@@ -371,6 +495,7 @@ export function repairCanvasLayout<T extends LayoutCard>(
     const laid = layoutVerticalChain(
       { cards: next, connections, cardOrder },
       rootId,
+      tuning,
     );
     for (const id of Object.keys(laid)) {
       const c = laid[id];
@@ -380,7 +505,7 @@ export function repairCanvasLayout<T extends LayoutCard>(
     }
   }
 
-  const rebanded = repairLateralBranchBands(next, connections);
+  const rebanded = repairLateralBranchBands(next, connections, tuning);
   for (const id of Object.keys(rebanded)) {
     const c = rebanded[id];
     if (c && next[id]) {
@@ -408,11 +533,12 @@ export function followUpInvariantHolds(
   state: CanvasLayoutState,
   parentId: string,
   childId: string,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): boolean {
   const parent = state.cards[parentId];
   const child = state.cards[childId];
   if (!parent || !child) return false;
-  const expected = computeFollowUpPosition(state, parentId, parent);
+  const expected = computeFollowUpPosition(state, parentId, parent, tuning);
   return (
     child.position.x === expected.x &&
     child.position.y === expected.y

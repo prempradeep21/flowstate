@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { DEFAULT_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { computeGroupBounds } from "@/lib/groupBounds";
 import type { BranchGroup } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
@@ -13,6 +14,8 @@ export function useGroupBounds(group: BranchGroup) {
   const threads = useCanvasStore((s) => s.threads);
   const threadOrder = useCanvasStore((s) => s.threadOrder);
 
+  const groupBoundsPadding = DEFAULT_CANVAS_TUNING.groupBoundsPadding;
+
   const familyKey = group.familyRootThreadIds.join(",");
 
   return useMemo(
@@ -20,7 +23,17 @@ export function useGroupBounds(group: BranchGroup) {
       computeGroupBounds(
         { cards, cardOrder, connections, threads, threadOrder },
         group,
+        groupBoundsPadding,
       ),
-    [cards, cardOrder, connections, threads, threadOrder, group.id, familyKey],
+    [
+      cards,
+      cardOrder,
+      connections,
+      threads,
+      threadOrder,
+      group.id,
+      familyKey,
+      groupBoundsPadding,
+    ],
   );
 }

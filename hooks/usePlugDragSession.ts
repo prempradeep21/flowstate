@@ -10,9 +10,9 @@ import {
   PLUG_DRAG_THRESHOLD_PX,
   screenToWorld,
 } from "@/lib/plugGeometry";
+import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { useCanvasStore } from "@/lib/store";
 
-const CARD_WIDTH = 420;
 const CARD_DROP_Y_OFFSET = 30;
 
 export function usePlugDragSession(
@@ -107,9 +107,10 @@ export function usePlugDragSession(
             versionId: drag.versionId,
           });
         } else if (drag.didDrag) {
+          const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithAttachment(
             {
-              x: world.x - CARD_WIDTH / 2,
+              x: world.x - cardWidth / 2,
               y: world.y - CARD_DROP_Y_OFFSET,
             },
             {

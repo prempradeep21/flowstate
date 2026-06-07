@@ -1,4 +1,4 @@
-import { CARD_WIDTH, FALLBACK_CARD_HEIGHT } from "@/lib/autoLayout";
+import { CARD_WIDTH, FALLBACK_CARD_HEIGHT } from "@/lib/canvasNodeBounds";
 import type { BranchGroup, Card } from "@/lib/store";
 import { getFamilyCardIds } from "@/lib/chatThreads";
 import type { ChatThreadState } from "@/lib/chatThreads";
@@ -36,6 +36,7 @@ export function getGroupCardIds(
 export function computeGroupBounds(
   state: ChatThreadState,
   group: BranchGroup,
+  padding: number = GROUP_BOUNDS_PADDING,
 ): GroupBounds | null {
   const cardIds = getGroupCardIds(state, group);
   if (cardIds.length === 0) return null;
@@ -57,7 +58,7 @@ export function computeGroupBounds(
 
   if (!Number.isFinite(minX)) return null;
 
-  const pad = GROUP_BOUNDS_PADDING;
+  const pad = padding;
   return {
     x: minX - pad,
     y: minY - pad,

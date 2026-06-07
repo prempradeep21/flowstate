@@ -6,6 +6,7 @@ import {
   QuestionIcon,
   TypeIcon,
 } from "@/components/MenuIcons";
+import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
 const toolbarBtn =
@@ -15,10 +16,20 @@ const iconToggleBtn =
   "flex h-9 w-9 items-center justify-center rounded-md transition-colors";
 
 export function CanvasBottomToolbar() {
+  const mounted = useClientMounted();
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
   const activeCanvasPlacement = useCanvasStore((s) => s.activeCanvasPlacement);
+
+  if (!mounted) {
+    return (
+      <div
+        className="pointer-events-none absolute bottom-5 left-1/2 z-50 h-[52px] w-[min(100%,420px)] -translate-x-1/2 rounded-xl border border-transparent"
+        aria-hidden
+      />
+    );
+  }
 
   return (
     <div

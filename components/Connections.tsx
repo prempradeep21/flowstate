@@ -1,25 +1,18 @@
 "use client";
 
-
-
 import { ReactNode, useCallback, useRef, useState } from "react";
-
 import {
-
-  CardSide,
-
   ConnectorStyle,
-
   useCanvasStore,
-
 } from "@/lib/store";
-
-import { getLayoutCardBounds } from "@/lib/canvasMeasure";
-
-import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
-
+import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
+import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
+import {
+  buildPlugConnectorPath,
+  connectorMarkerSizes,
+  resolveConnectionAnchors,
+} from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
-
 
 
 const STROKE_FALLBACK = "#B8B5AE";
@@ -236,6 +229,8 @@ export function Connections() {
 
   const setConnectorStyle = useCanvasStore((s) => s.setConnectorStyle);
 
+  const tuning = RESOLVED_CANVAS_TUNING;
+
 
 
   const [hover, setHover] = useState<HoverState | null>(null);
@@ -338,48 +333,21 @@ export function Connections() {
 
 
 
-          const { w: fromW, h: fromH } = getLayoutCardBounds(from);
-
-          const { w: toW, h: toH } = getLayoutCardBounds(to);
-
-
-
-          const fromSide: CardSide = conn.fromSide ?? "bottom";
-
-          const toSide: CardSide = conn.toSide ?? "top";
-
-
-
-          const a = plugAnchorAt(
-
-            from.position.x,
-
-            from.position.y,
-
-            fromW,
-
-            fromH,
-
+          const {
+            fromAnchor: a,
+            toAnchor: b,
             fromSide,
-
-          );
-
-          const b = plugAnchorAt(to.position.x, to.position.y, toW, toH, toSide);
-
-
-
-          const { d, midX, midY } = buildPlugConnectorPath(
-
-            a,
-
-            b,
-
-            fromSide,
-
             toSide,
+          } = resolveConnectionAnchors(conn, from, to, tuning);
 
+          const { arrowSize } = connectorMarkerSizes(viewport.scale);
+          const { d, midX, midY } = buildPlugConnectorPath(
+            a,
+            b,
+            fromSide,
+            toSide,
             connectorStyle,
-
+            { trimTargetArrowInset: arrowSize * 1.35 },
           );
 
 
@@ -397,55 +365,23 @@ export function Connections() {
 
 
           return (
-
             <g key={conn.id}>
-
-              <path
-
+              <ConnectorPathGroup
                 d={d}
-
-                fill="none"
-
-                stroke="transparent"
-
-                strokeWidth={hitWidth}
-
-                strokeLinecap="round"
-
-                className="cursor-pointer"
-
-                onPointerEnter={() =>
-
-                  showPicker(conn.id, midPointX, midPointY)
-
-                }
-
-                onPointerLeave={scheduleHide}
-
-              />
-
-              <path
-
-                d={d}
-
-                fill="none"
-
                 stroke={stroke}
-
-                strokeOpacity={isHovered ? 0.95 : 0.7}
-
                 strokeWidth={strokeWidth}
-
-                strokeLinecap="round"
-
-                strokeLinejoin="round"
-
-                pointerEvents="none"
-
+                fromAnchor={a}
+                toAnchor={b}
+                toSide={toSide}
+                viewportScale={viewport.scale}
+                opacity={isHovered ? 0.95 : 0.85}
+                hitWidth={hitWidth}
+                onPointerEnter={() =>
+                  showPicker(conn.id, midPointX, midPointY)
+                }
+                onPointerLeave={scheduleHide}
               />
-
             </g>
-
           );
 
         })}

@@ -1,13 +1,18 @@
 import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
-import { CARD_WIDTH, getArtifactBounds } from "@/lib/canvasNodeBounds";
+import { CANVAS_ARTIFACT_WIDTH, getArtifactBounds } from "@/lib/canvasNodeBounds";
 import {
-  ARTIFACT_SPAWN_GAP_X,
-  CANVAS_ARTIFACT_WIDTH,
+  DEFAULT_CANVAS_TUNING,
+  resolveTuning,
+  type ResolvedCanvasTuning,
+} from "@/lib/canvasTuning";
+import {
   useCanvasStore,
   type CanvasArtifactNode,
   type Card,
 } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
+
+const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 
 export function findCanvasNodeByArtifactId(
   nodes: Record<string, CanvasArtifactNode>,
@@ -20,21 +25,27 @@ export function computeDefaultSpawnPosition(
   sourceCardId: string,
   nodes: Record<string, CanvasArtifactNode>,
   cards: Record<string, Card>,
+  tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): { x: number; y: number } {
   const card = cards[sourceCardId];
   if (!card) {
-    return { x: CANVAS_ARTIFACT_WIDTH + ARTIFACT_SPAWN_GAP_X, y: 0 };
+    return {
+      x: CANVAS_ARTIFACT_WIDTH + tuning.artifactSpawnGapX,
+      y: 0,
+    };
   }
 
-  const cardW = card.size?.w ?? CARD_WIDTH;
-  let x = card.position.x + cardW + ARTIFACT_SPAWN_GAP_X;
+  const cardW = card.size?.w ?? tuning.cardWidth;
+  let x = card.position.x + cardW + tuning.artifactSpawnGapX;
   let y = card.position.y;
 
   const overlap = Object.values(nodes).filter(
-    (n) => Math.abs(n.position.y - y) < 40 && Math.abs(n.position.x - x) < 40,
+    (n) =>
+      Math.abs(n.position.y - y) < tuning.followUpGap &&
+      Math.abs(n.position.x - x) < tuning.followUpGap,
   );
   if (overlap.length > 0) {
-    y += overlap.length * 40;
+    y += overlap.length * tuning.followUpGap;
   }
 
   return { x, y };

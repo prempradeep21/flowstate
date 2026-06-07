@@ -1,4 +1,9 @@
 import type { CardSide, ConnectorStyle } from "@/lib/store";
+import type { ResolvedCanvasTuning } from "@/lib/canvasTuning";
+import {
+  branchTargetAnchorY,
+  getConnectionCardBounds,
+} from "@/lib/canvasMeasure";
 
 export interface PlugAnchor {
   px: number;
@@ -21,12 +26,19 @@ function isVerticalSide(side: CardSide) {
   return side === "top" || side === "bottom";
 }
 
+export function isLateralBranchConnection(
+  fromSide: CardSide | null | undefined,
+): boolean {
+  return fromSide === "left" || fromSide === "right";
+}
+
 export function plugAnchorAt(
   x: number,
   y: number,
   w: number,
   h: number,
   side: CardSide,
+  options?: { pyOverride?: number },
 ): PlugAnchor {
   switch (side) {
     case "top":
@@ -34,10 +46,88 @@ export function plugAnchorAt(
     case "bottom":
       return { px: x + w / 2, py: y + h, tx: 0, ty: 1 };
     case "left":
-      return { px: x, py: y + h / 2, tx: -1, ty: 0 };
+      return {
+        px: x,
+        py: options?.pyOverride ?? y + h / 2,
+        tx: -1,
+        ty: 0,
+      };
     case "right":
-      return { px: x + w, py: y + h / 2, tx: 1, ty: 0 };
+      return {
+        px: x + w,
+        py: options?.pyOverride ?? y + h / 2,
+        tx: 1,
+        ty: 0,
+      };
   }
+}
+
+export interface ConnectionAnchorInput {
+  fromSide?: CardSide | null;
+  toSide?: CardSide | null;
+}
+
+export interface LayoutCardAnchorInput {
+  id: string;
+  position: { x: number; y: number };
+  size?: { w: number; h: number };
+  status?: string;
+}
+
+/** Resolve plug anchors for a connection (branch child targets question-block center). */
+export function resolveConnectionAnchors(
+  conn: ConnectionAnchorInput,
+  from: LayoutCardAnchorInput,
+  to: LayoutCardAnchorInput,
+  tuning: ResolvedCanvasTuning,
+): {
+  fromAnchor: PlugAnchor;
+  toAnchor: PlugAnchor;
+  fromSide: CardSide;
+  toSide: CardSide;
+  fromW: number;
+  fromH: number;
+  toW: number;
+  toH: number;
+} {
+  const fromSide: CardSide = conn.fromSide ?? "bottom";
+  const toSide: CardSide = conn.toSide ?? "top";
+  const { w: fromW, h: fromH } = getConnectionCardBounds(from, tuning);
+  const { w: toW, h: toH } = getConnectionCardBounds(to, tuning);
+
+  const fromAnchor = plugAnchorAt(
+    from.position.x,
+    from.position.y,
+    fromW,
+    fromH,
+    fromSide,
+  );
+
+  const lateralBranch = isLateralBranchConnection(fromSide);
+  const toPyOverride =
+    lateralBranch && (toSide === "left" || toSide === "right")
+      ? branchTargetAnchorY(to.id, to.position.y, toH)
+      : undefined;
+
+  const toAnchor = plugAnchorAt(
+    to.position.x,
+    to.position.y,
+    toW,
+    toH,
+    toSide,
+    toPyOverride != null ? { pyOverride: toPyOverride } : undefined,
+  );
+
+  return {
+    fromAnchor,
+    toAnchor,
+    fromSide,
+    toSide,
+    fromW,
+    fromH,
+    toW,
+    toH,
+  };
 }
 
 function buildCurvyPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
@@ -65,6 +155,12 @@ function routeOrthogonalPoints(
   const verticalTo = isVerticalSide(toSide);
 
   if (verticalFrom && verticalTo) {
+    if (Math.abs(a.px - b.px) < 1) {
+      return [
+        { x: a.px, y: a.py },
+        { x: b.px, y: b.py },
+      ];
+    }
     const midY = (a.py + b.py) / 2;
     return [
       { x: a.px, y: a.py },
@@ -74,6 +170,12 @@ function routeOrthogonalPoints(
     ];
   }
   if (!verticalFrom && !verticalTo) {
+    if (Math.abs(a.py - b.py) < 1) {
+      return [
+        { x: a.px, y: a.py },
+        { x: b.px, y: b.py },
+      ];
+    }
     const midX = (a.px + b.px) / 2;
     return [
       { x: a.px, y: a.py },
@@ -154,17 +256,75 @@ function buildOrthogonalPath(
   return { d, midX: mid.x, midY: mid.y };
 }
 
+/** Move an anchor inward so the stroke stops at the arrow base. */
+export function trimPlugAnchorForArrow(
+  anchor: PlugAnchor,
+  side: CardSide,
+  inset: number,
+): PlugAnchor {
+  if (inset <= 0) return anchor;
+  switch (side) {
+    case "top":
+      return { ...anchor, py: anchor.py + inset };
+    case "bottom":
+      return { ...anchor, py: anchor.py - inset };
+    case "left":
+      return { ...anchor, px: anchor.px + inset };
+    case "right":
+      return { ...anchor, px: anchor.px - inset };
+  }
+}
+
 export function buildPlugConnectorPath(
   a: PlugAnchor,
   b: PlugAnchor,
   fromSide: CardSide,
   toSide: CardSide,
   style: ConnectorStyle,
+  options?: { trimTargetArrowInset?: number },
 ): PlugPathGeometry {
+  const target =
+    options?.trimTargetArrowInset != null && options.trimTargetArrowInset > 0
+      ? trimPlugAnchorForArrow(b, toSide, options.trimTargetArrowInset)
+      : b;
   if (style === "orthogonal") {
-    return buildOrthogonalPath(a, b, fromSide, toSide);
+    return buildOrthogonalPath(a, target, fromSide, toSide);
   }
-  return buildCurvyPath(a, b);
+  return buildCurvyPath(a, target);
+}
+
+/** Screen-constant marker sizes in world px. */
+export function connectorMarkerSizes(viewportScale: number) {
+  const scale = viewportScale > 0 ? viewportScale : 1;
+  return {
+    plugRadius: 5 / scale,
+    arrowSize: 5 / scale,
+  };
+}
+
+/** Filled circle path for the source plug dot. */
+export function connectorPlugCirclePath(cx: number, cy: number, r: number): string {
+  return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0`;
+}
+
+/** Triangle arrowhead at the target plug, pointing into the card. */
+export function connectorArrowPath(
+  px: number,
+  py: number,
+  side: CardSide,
+  size: number,
+): string {
+  const s = size;
+  switch (side) {
+    case "top":
+      return `M ${px} ${py} L ${px - s} ${py + s * 1.35} L ${px + s} ${py + s * 1.35} Z`;
+    case "bottom":
+      return `M ${px} ${py} L ${px - s} ${py - s * 1.35} L ${px + s} ${py - s * 1.35} Z`;
+    case "left":
+      return `M ${px} ${py} L ${px + s * 1.35} ${py - s} L ${px + s * 1.35} ${py + s} Z`;
+    case "right":
+      return `M ${px} ${py} L ${px - s * 1.35} ${py - s} L ${px - s * 1.35} ${py + s} Z`;
+  }
 }
 
 /** Free end of a drag preview — cursor with horizontal exit tangent. */

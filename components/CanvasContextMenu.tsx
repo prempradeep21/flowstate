@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import {
   ContextMenuItem,
-  LayoutGridIcon,
   TypeIcon,
   UndoIcon,
 } from "@/components/MenuIcons";
@@ -25,7 +24,6 @@ export function CanvasContextMenu({
   onClose,
   onAddText,
 }: CanvasContextMenuProps) {
-  const autoLayoutCanvas = useCanvasStore((s) => s.autoLayoutCanvas);
   const undo = useCanvasStore((s) => s.undo);
   const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -60,14 +58,6 @@ export function CanvasContextMenu({
         label="Add text"
         onClick={() => {
           onAddText();
-          onClose();
-        }}
-      />
-      <ContextMenuItem
-        icon={<LayoutGridIcon />}
-        label="Auto layout"
-        onClick={() => {
-          autoLayoutCanvas();
           onClose();
         }}
       />

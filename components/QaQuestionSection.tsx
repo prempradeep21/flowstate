@@ -51,6 +51,7 @@ export function QaQuestionSection({
 }: QaQuestionSectionProps) {
   return (
     <div
+      data-card-question
       className={`relative min-w-0 shrink-0 ${className}`}
       style={style}
     >

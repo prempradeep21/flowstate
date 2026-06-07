@@ -6,15 +6,18 @@ import type {
   CanvasSnapshot,
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
-import { computeAutoLayout } from "@/lib/autoLayout";
 import {
-  BRANCH_CARD_WIDTH,
-  BRANCH_HORIZONTAL_GAP,
-  childBandY,
-  computeFollowUpPosition,
+  resolveBranchDropPosition,
+  getFollowUpChild,
   relayoutVerticalChainOf,
+  repairCanvasLayout,
   repairVerticalChainsOnly,
+  shiftBottomAttachedSubtrees,
+  childBandY,
+  defaultBranchSlotX,
+  computeFollowUpPositionFromDom,
 } from "@/lib/canvasLayout";
+import { isCardPending } from "@/lib/cardLayoutPolicy";
 import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TABLE_ARTIFACT_WIDTH,
@@ -22,11 +25,22 @@ import {
   TABLE_ARTIFACT_HEIGHT,
   emptyCardSize,
   getArtifactBounds,
-  getCardBounds,
 } from "@/lib/canvasNodeBounds";
+import {
+  DEFAULT_CANVAS_TUNING,
+  RESOLVED_CANVAS_TUNING,
+  type ResolvedCanvasTuning,
+} from "@/lib/canvasTuning";
 
 export { CANVAS_ARTIFACT_WIDTH, CANVAS_TABLE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import {
+  CANVAS_ORIGIN,
+  isOriginCardPinned,
+  type GlobalOrigin,
+} from "@/lib/canvasOrigin";
+import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import { pickDefaultThreadId } from "@/lib/chatThreads";
+import { syncAllCardDomSizes } from "@/lib/canvasMeasure";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
 import {
   computeDefaultSpawnPosition,
@@ -43,7 +57,7 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import {
-  captureGraphSnapshot,
+  graphSnapshotFromState,
   GraphSnapshot,
   MAX_UNDO_STACK,
 } from "@/lib/undo";
@@ -231,6 +245,8 @@ interface CanvasState {
   canvasTextLabelOrder: string[];
   selectedCanvasTextLabelId: string | null;
   connectorStyle: ConnectorStyle;
+  /** First seeded card — world origin anchor (top-left at 0,0). Set once per canvas session. */
+  globalOrigin: GlobalOrigin | null;
   undoPast: GraphSnapshot[];
 
   plugDrag: PlugDragState | null;
@@ -264,7 +280,6 @@ interface CanvasState {
   setCardSize: (id: string, size: CardSize) => void;
   setCanvasArtifactSize: (nodeId: string, size: CardSize) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
-  syncFollowUpChildPosition: (parentId: string, childId: string) => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
   createFollowUp: (
@@ -332,7 +347,12 @@ interface CanvasState {
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
-  autoLayoutCanvas: () => void;
+  /** Re-measure cards from DOM at current zoom, then repair vertical chains. */
+  relayoutCanvasFromDom: () => void;
+  /** Re-snap the vertical chain under a parent after DOM height changes. */
+  relayoutFollowUpChainFromParent: (parentId: string) => void;
+  /** Snap the bottom follow-up to the parent after its composer footer unmounts. */
+  snapFollowUpChildToParent: (parentId: string) => void;
 
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) => void;
@@ -400,11 +420,97 @@ function layoutStateFrom(state: CanvasState): {
   };
 }
 
-function normalizeLoadedCards(cards: Record<string, Card>): Record<string, Card> {
+const TUNING: ResolvedCanvasTuning = RESOLVED_CANVAS_TUNING;
+
+function syncCardWidthsToTuning(
+  cards: Record<string, Card>,
+  cardWidth: number,
+  emptyHeight: number,
+): Record<string, Card> {
+  const next = { ...cards };
+  for (const id of Object.keys(next)) {
+    const c = next[id];
+    if (!c) continue;
+    if (c.size?.w === cardWidth) continue;
+    const h = c.size?.h ?? emptyHeight;
+    next[id] = { ...c, size: { w: cardWidth, h } };
+  }
+  return next;
+}
+
+function applyTuningLayoutRepair(
+  cards: Record<string, Card>,
+  connections: Connection[],
+  cardOrder: string[],
+  tuning: ResolvedCanvasTuning,
+  repairLateralBands: boolean,
+): Record<string, Card> {
+  if (repairLateralBands) {
+    return repairCanvasLayout(cards, connections, cardOrder, tuning);
+  }
+  return repairVerticalChainsOnly(cards, connections, cardOrder, tuning);
+}
+
+function relayoutCardsAfterSizeChange(
+  state: CanvasState,
+  cardsWithSize: Record<string, Card>,
+  cardId: string,
+  prev: CardSize | undefined,
+  normalized: CardSize,
+): Record<string, Card> {
+  const tuning = TUNING;
+
+  if (prev?.h != null) {
+    const dy = normalized.h - prev.h;
+    if (dy === 0) return cardsWithSize;
+    if (DEFAULT_CANVAS_TUNING.useDeltaShiftOnResize) {
+      return shiftBottomAttachedSubtrees(
+        cardsWithSize,
+        state.connections,
+        cardId,
+        dy,
+        (childId) => {
+          const child = cardsWithSize[childId];
+          return child != null && !isCardPending(child.status);
+        },
+      );
+    }
+    return relayoutVerticalChainOf(
+      { ...layoutStateFrom(state), cards: cardsWithSize },
+      cardId,
+      tuning,
+    );
+  }
+
+  return relayoutVerticalChainOf(
+    { ...layoutStateFrom(state), cards: cardsWithSize },
+    cardId,
+    tuning,
+  );
+}
+
+/** Sync DOM sizes and re-snap the vertical chain under `parentId`. */
+function relayoutFollowUpChainFromDom(
+  state: Pick<CanvasState, "cards" | "connections" | "cardOrder">,
+  parentId: string,
+): Record<string, Card> {
+  const tuning = TUNING;
+  let cards = syncAllCardDomSizes(state.cards, tuning.cardWidth);
+  return relayoutVerticalChainOf(
+    { ...layoutStateFrom(state as CanvasState), cards },
+    parentId,
+    tuning,
+  );
+}
+
+function normalizeLoadedCards(
+  cards: Record<string, Card>,
+  tuning: ResolvedCanvasTuning = TUNING,
+): Record<string, Card> {
   const next = { ...cards };
   for (const [id, card] of Object.entries(next)) {
     if (card.status === "empty" && !card.size) {
-      next[id] = { ...card, size: emptyCardSize() };
+      next[id] = { ...card, size: emptyCardSize(tuning) };
     }
   }
   return next;
@@ -483,6 +589,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasTextLabelOrder: [],
   selectedCanvasTextLabelId: null,
   connectorStyle: "orthogonal",
+  globalOrigin: null,
   undoPast: [],
 
   plugDrag: null,
@@ -585,7 +692,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   recordUndo: () =>
     set((state) => {
-      const snap = captureGraphSnapshot(state);
+      const snap = graphSnapshotFromState(state);
       const next = [...state.undoPast, snap];
       if (next.length > MAX_UNDO_STACK) next.shift();
       return { undoPast: next };
@@ -602,6 +709,55 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   setConnectorStyle: (style) => set({ connectorStyle: style }),
+
+  relayoutCanvasFromDom: () =>
+    set((state) => {
+      if (state.cardOrder.length === 0) return state;
+      const tuning = TUNING;
+      let cards = syncCardWidthsToTuning(
+        state.cards,
+        tuning.cardWidth,
+        tuning.emptyCardHeight,
+      );
+      cards = syncAllCardDomSizes(cards, tuning.cardWidth);
+      cards = applyTuningLayoutRepair(
+        cards,
+        state.connections,
+        state.cardOrder,
+        tuning,
+        DEFAULT_CANVAS_TUNING.repairLateralBandsOnTune,
+      );
+      return { cards };
+    }),
+
+  relayoutFollowUpChainFromParent: (parentId) =>
+    set((state) => {
+      if (!state.cards[parentId]) return state;
+      return { cards: relayoutFollowUpChainFromDom(state, parentId) };
+    }),
+
+  snapFollowUpChildToParent: (parentId) =>
+    set((state) => {
+      const parent = state.cards[parentId];
+      if (!parent) return state;
+      const childId = getFollowUpChild(parentId, layoutStateFrom(state));
+      if (!childId) return state;
+      const child = state.cards[childId];
+      if (!child) return state;
+      const pos = computeFollowUpPositionFromDom(parentId, parent, TUNING);
+      if (
+        child.position.x === pos.x &&
+        child.position.y === pos.y
+      ) {
+        return state;
+      }
+      return {
+        cards: {
+          ...state.cards,
+          [childId]: { ...child, position: pos },
+        },
+      };
+    }),
 
   setViewport: (next) =>
     set((state) => ({ viewport: { ...state.viewport, ...next } })),
@@ -633,64 +789,69 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
+      let nextPatch = patch;
+      if (
+        patch.position &&
+        isOriginCardPinned(
+          state.cards,
+          state.cardOrder,
+          id,
+          state.globalOrigin,
+        )
+      ) {
+        nextPatch = {
+          ...patch,
+          position: {
+            x: state.globalOrigin!.x,
+            y: state.globalOrigin!.y,
+          },
+        };
+      }
       return {
-        cards: { ...state.cards, [id]: { ...existing, ...patch } },
+        cards: { ...state.cards, [id]: { ...existing, ...nextPatch } },
       };
     }),
 
   /**
-   * Updates the measured size of a card and re-snaps its bottom-attached
-   * follow-up chain so descendants stay glued to the parent's plug at
-   * `parent.bottom + FOLLOW_UP_GAP`. Lateral branches and canvas artifact
-   * nodes are never moved by this — only the same-chat vertical chain.
-   *
-   * Using a full chain relayout (rather than just a delta shift) is robust to
-   * stale positions from older snapshots and to any race where a previous
-   * measurement was missed: every new measurement reconciles the chain to the
-   * canonical gap.
+   * Updates measured size. On height change, shifts only bottom-attached
+   * follow-ups by dy (default). Lateral branches and unrelated cards stay fixed.
+   * Full chain relayout runs on first measure only, or when the dev toggle
+   * "Full chain relayout on resize" is enabled (useDeltaShiftOnResize false).
    */
   setCardSize: (id, size) =>
     set((state) => {
       const existing = state.cards[id];
       if (!existing) return state;
+      const tuning = TUNING;
+      const normalized = { w: tuning.cardWidth, h: size.h };
       const prev = existing.size;
-      if (prev && prev.w === size.w && prev.h === size.h) return state;
 
-      const cardsWithSize = {
-        ...state.cards,
-        [id]: { ...existing, size },
-      };
-
-      const cards = relayoutVerticalChainOf(
-        { ...layoutStateFrom(state), cards: cardsWithSize },
-        id,
-      );
-
-      return { cards };
-    }),
-
-  /** Snap one new follow-up under its parent (placement only, not a chain relayout). */
-  syncFollowUpChildPosition: (parentId, childId) =>
-    set((state) => {
-      const parent = state.cards[parentId];
-      const child = state.cards[childId];
-      if (!parent || !child) return state;
-      const pos = computeFollowUpPosition(
-        layoutStateFrom(state),
-        parentId,
-        parent,
-      );
+      // Never shrink cards while a response is loading — height is grow-only until done.
       if (
-        child.position.x === pos.x &&
-        child.position.y === pos.y
+        isCardPending(existing.status) &&
+        prev?.h != null &&
+        normalized.h < prev.h
       ) {
         return state;
       }
+
+      if (prev && prev.w === normalized.w && prev.h === normalized.h) {
+        return state;
+      }
+
+      const cardsWithSize = {
+        ...state.cards,
+        [id]: { ...existing, size: normalized },
+      };
+
       return {
-        cards: {
-          ...state.cards,
-          [childId]: { ...child, position: pos },
-        },
+        cards: relayoutCardsAfterSizeChange(
+          state,
+          cardsWithSize,
+          id,
+          prev,
+          normalized,
+        ),
       };
     }),
 
@@ -712,6 +873,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       if (dx === 0 && dy === 0) return state;
       if (!state.cards[rootId]) return state;
+      if (
+        isOriginCardPinned(
+          state.cards,
+          state.cardOrder,
+          rootId,
+          state.globalOrigin,
+        )
+      ) {
+        return state;
+      }
 
       // BFS over connections to collect the root and all its descendants.
       const subtree = new Set<string>();
@@ -741,6 +912,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const cardId = newCardId();
     set((state) => {
       const undoPast = pushUndoSnapshot(state);
+      const tuning = TUNING;
+      const isSeed = state.cardOrder.length === 0;
       const threadId = newThreadId();
       const accent = PALETTE[state.threadOrder.length % PALETTE.length];
       const thread: Thread = { id: threadId, accentColour: accent };
@@ -750,8 +923,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         question: "",
         answer: "",
         status: "empty",
-        position,
-        size: emptyCardSize(),
+        position: isSeed
+          ? { x: CANVAS_ORIGIN.x, y: CANVAS_ORIGIN.y }
+          : position,
+        size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: null,
       };
@@ -761,6 +936,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         threadOrder: [...state.threadOrder, threadId],
         cards: { ...state.cards, [cardId]: card },
         cardOrder: [...state.cardOrder, cardId],
+        globalOrigin: isSeed
+          ? { cardId, x: CANVAS_ORIGIN.x, y: CANVAS_ORIGIN.y }
+          : state.globalOrigin,
       };
     });
     return cardId;
@@ -858,6 +1036,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ver.sourceCardId,
           state.canvasArtifactNodes,
           state.cards,
+          TUNING,
         );
       const artifactSize =
         art.kind === "table"
@@ -1029,7 +1208,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const undoPast = pushUndoSnapshot(state);
       const id = newCardId();
       childId = id;
-      const pos = computeFollowUpPosition(layoutStateFrom(state), parentId, parent);
+      const tuning = TUNING;
+      const pos = computeFollowUpPositionFromDom(parentId, parent, tuning);
       const inheritedArtifactId =
         options?.attachedArtifacts?.[0]?.artifactId ??
         parent.outputArtifactId ??
@@ -1047,6 +1227,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "thinking",
         position: pos,
+        size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,
         parentConversationId: parentId,
         attachedArtifacts: options?.attachedArtifacts,
@@ -1068,15 +1249,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         connections: [...state.connections, conn],
       };
     });
-    if (childId) {
-      const pid = parentId;
-      const cid = childId;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          get().syncFollowUpChildPosition(pid, cid);
-        });
-      });
-    }
     return childId;
   },
 
@@ -1105,6 +1277,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let cardId = "";
     set((state) => {
       const undoPast = pushUndoSnapshot(state);
+      const tuning = TUNING;
       const id = newCardId();
       cardId = id;
       const threadId = newThreadId();
@@ -1117,7 +1290,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "empty",
         position,
-        size: emptyCardSize(),
+        size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: null,
         attachedArtifacts: [ref],
@@ -1154,18 +1327,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const id = newCardId();
       branchId = id;
-      const y = childBandY(layoutStateFrom(state), sourceId, source);
+      const tuning = TUNING;
+      const layout = layoutStateFrom(state);
+      const drop = resolveBranchDropPosition(
+        position.x,
+        position.y,
+        side,
+        source,
+        tuning,
+      );
       const card: Card = {
         id,
         threadId: newThreadIdStr,
         question: "",
         answer: "",
         status: "empty",
-        position: {
-          x: position.x - BRANCH_CARD_WIDTH / 2,
-          y,
-        },
-        size: emptyCardSize(),
+        position: drop,
+        size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: sourceId,
       };
@@ -1202,19 +1380,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ).length;
 
       const slot = existingOnSide; // 0 for the first branch on this side
-      const lateralStep = BRANCH_CARD_WIDTH + BRANCH_HORIZONTAL_GAP;
-
-      const x =
-        side === "right"
-          ? source.position.x +
-            BRANCH_CARD_WIDTH +
-            BRANCH_HORIZONTAL_GAP +
-            lateralStep * slot
-          : source.position.x -
-            BRANCH_CARD_WIDTH -
-            BRANCH_HORIZONTAL_GAP -
-            lateralStep * slot;
-      const y = childBandY(layoutStateFrom(state), sourceId, source);
+      const tuning = TUNING;
+      const layout = layoutStateFrom(state);
+      const x = defaultBranchSlotX(side, source, slot, tuning);
+      const y = childBandY(layout, sourceId, source, tuning);
 
       const newThreadIdStr = newThreadId();
       const accent =
@@ -1233,7 +1402,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "empty",
         position: { x, y },
-        size: emptyCardSize(),
+        size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: sourceId,
       };
@@ -1327,26 +1496,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       openSessionArtifactVersionId: null,
     }),
 
-  autoLayoutCanvas: () =>
-    set((state) => {
-      if (state.cardOrder.length === 0) return state;
-      const undoPast = pushUndoSnapshot(state);
-      const positions = computeAutoLayout({
-        cards: state.cards,
-        cardOrder: state.cardOrder,
-        connections: state.connections,
-      });
-      if (positions.size === 0) return state;
-
-      const nextCards = { ...state.cards };
-      for (const [id, pos] of positions) {
-        const existing = nextCards[id];
-        if (!existing) continue;
-        nextCards[id] = { ...existing, position: pos };
-      }
-      return { undoPast, cards: nextCards };
-    }),
-
   getCanvasSnapshotSource: (): CanvasSnapshotSource => {
     const state = get();
     return {
@@ -1380,6 +1529,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const cardOrder = Array.isArray(snapshot.cardOrder)
         ? [...snapshot.cardOrder]
         : Object.keys(normalized);
+      const defaultTuning = TUNING;
       // Re-snap vertical chains so any stale gap from older snapshots
       // collapses back to the canonical FOLLOW_UP_GAP. Lateral branches are
       // not touched (absolute-positions policy).
@@ -1387,6 +1537,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         normalized,
         connections,
         cardOrder,
+        defaultTuning,
       );
       const canvasArtifactNodes = snapshot.canvasArtifactNodes
         ? normalizeLoadedArtifactNodes(
@@ -1394,6 +1545,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             sessionArtifacts,
           )
         : {};
+      const firstCardId = cardOrder[0];
+      const firstCard = firstCardId ? cards[firstCardId] : undefined;
+      const globalOrigin =
+        firstCardId && firstCard
+          ? {
+              cardId: firstCardId,
+              x: firstCard.position.x,
+              y: firstCard.position.y,
+            }
+          : null;
       return {
         viewport: { ...snapshot.viewport },
         cards,
@@ -1426,12 +1587,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedFamilyRootIds: [],
         activeGroupId: null,
         undoPast: [],
+        globalOrigin,
       };
     }),
 }));
 
 function pushUndoSnapshot(state: CanvasState): GraphSnapshot[] {
-  const snap = captureGraphSnapshot(state);
+  const snap = graphSnapshotFromState(state);
   const next = [...state.undoPast, snap];
   if (next.length > MAX_UNDO_STACK) next.shift();
   return next;

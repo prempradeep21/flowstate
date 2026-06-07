@@ -35,7 +35,13 @@ import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { focusCanvasCard } from "@/lib/canvasFocus";
-import { CARD_WIDTH, EMPTY_CARD_HEIGHT } from "@/lib/canvasNodeBounds";
+import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
+import { landingStackViewportCenter } from "@/lib/canvasOrigin";
+import {
+  isViewportBootstrapApplied,
+  markViewportBootstrapApplied,
+  resetViewportBootstrap,
+} from "@/lib/canvasViewportBootstrap";
 import { shouldCanvasWheelZoom } from "@/lib/canvasWheel";
 import {
   markUserViewportInteraction,
@@ -53,9 +59,6 @@ import { SendIconPreview } from "@/components/SendIconButton";
 import { usePersistenceReady } from "@/components/AuthProvider";
 
 const MARQUEE_MIN_DRAG_PX = 6;
-
-/** Avoid re-panning on resize once the initial viewport has been applied. */
-let initialViewportApplied = false;
 
 interface PlacementState {
   x: number;
@@ -100,7 +103,10 @@ export function Canvas() {
   const seedingRef = useRef(false);
 
   useEffect(() => {
-    if (cardOrder.length === 0) seedingRef.current = false;
+    if (cardOrder.length === 0) {
+      seedingRef.current = false;
+      landingViewportCenteredRef.current = false;
+    }
   }, [cardOrder.length]);
 
   usePlugDragSession(containerRef);
@@ -226,6 +232,18 @@ export function Canvas() {
   /** World coordinates are unbounded — cards stay where you place them on the canvas. */
   const placementWorld = (world: PlacementState): PlacementState => world;
 
+  const rootCardPositionAtPointer = (worldX: number, worldY: number) => {
+    const tuning = RESOLVED_CANVAS_TUNING;
+    return {
+      x: worldX - tuning.cardWidth / 2,
+      y: worldY - tuning.emptyCardHeight / 2,
+    };
+  };
+
+  const maybeFocusNewCard = (cardId: string) => {
+    requestCanvasFocus(() => focusCanvasCard(cardId));
+  };
+
   // Seed the home card as soon as the container has size (do not wait on cloud load).
   useEffect(() => {
     const el = containerRef.current;
@@ -239,15 +257,19 @@ export function Canvas() {
       if (state.cardOrder.length > 0 || seedingRef.current) return;
 
       seedingRef.current = true;
-      initialViewportApplied = false;
-      createRootCard({
-        x: -CARD_WIDTH / 2,
-        y: -EMPTY_CARD_HEIGHT / 2,
-      });
+      resetViewportBootstrap();
+      createRootCard({ x: 0, y: 0 });
+      const focal = landingStackViewportCenter(RESOLVED_CANVAS_TUNING);
       setViewport(
-        viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
+        viewportCenteredOnWorldPoint(
+          focal.x,
+          focal.y,
+          rect.width,
+          rect.height,
+          1,
+        ),
       );
-      initialViewportApplied = true;
+      markViewportBootstrapApplied();
     };
 
     seedIfEmpty();
@@ -269,22 +291,30 @@ export function Canvas() {
 
       const state = useCanvasStore.getState();
       if (state.cardOrder.length === 0) return;
-      if (initialViewportApplied) return;
+      if (isViewportBootstrapApplied()) return;
 
       const landingId = getLandingCardId(state.cards, state.cardOrder);
       if (landingId) {
+        const focal = landingStackViewportCenter(RESOLVED_CANVAS_TUNING);
         setViewport(
-          viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, 1),
+          viewportCenteredOnWorldPoint(
+            focal.x,
+            focal.y,
+            rect.width,
+            rect.height,
+            1,
+          ),
         );
-        initialViewportApplied = true;
+        markViewportBootstrapApplied();
         return;
       }
 
       const first = state.cards[state.cardOrder[0]];
       if (!first) return;
 
-      const w = first.size?.w ?? CARD_WIDTH;
-      const h = first.size?.h ?? EMPTY_CARD_HEIGHT;
+      const { cardWidth, emptyCardHeight } = RESOLVED_CANVAS_TUNING;
+      const w = first.size?.w ?? cardWidth;
+      const h = first.size?.h ?? emptyCardHeight;
       setViewport(
         viewportCenteredOnWorldPoint(
           first.position.x + w / 2,
@@ -294,7 +324,7 @@ export function Canvas() {
           1,
         ),
       );
-      initialViewportApplied = true;
+      markViewportBootstrapApplied();
     };
 
     bootstrap();
@@ -302,6 +332,16 @@ export function Canvas() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [persistenceReady, setViewport]);
+
+  // Snap follow-up chains to measured content height after hydrate / topology changes.
+  useEffect(() => {
+    if (!persistenceReady) return;
+    if (cardOrder.length === 0) return;
+    const t = window.setTimeout(() => {
+      useCanvasStore.getState().relayoutCanvasFromDom();
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [persistenceReady, cardOrder.length]);
 
   // Keep the landing stack in view when resuming an empty canvas (e.g. saved pan).
   useEffect(() => {
@@ -319,8 +359,16 @@ export function Canvas() {
       if (rect.width === 0 || rect.height === 0) return;
 
       const scale = useCanvasStore.getState().viewport.scale;
+      const tuning = RESOLVED_CANVAS_TUNING;
+      const focal = landingStackViewportCenter(tuning);
       setViewport(
-        viewportCenteredOnWorldPoint(0, 0, rect.width, rect.height, scale),
+        viewportCenteredOnWorldPoint(
+          focal.x,
+          focal.y,
+          rect.width,
+          rect.height,
+          scale,
+        ),
       );
       landingViewportCenteredRef.current = true;
     };
@@ -496,11 +544,10 @@ export function Canvas() {
       e.stopPropagation();
       const world =
         computeWorldFromClient(e.clientX, e.clientY) ?? placementRef.current;
-      const cardId = createRootCard({
-        x: world.x - CARD_WIDTH / 2,
-        y: world.y - EMPTY_CARD_HEIGHT / 2,
-      });
-      requestCanvasFocus(() => focusCanvasCard(cardId));
+      const cardId = createRootCard(
+        rootCardPositionAtPointer(world.x, world.y),
+      );
+      maybeFocusNewCard(cardId);
       setPlacement(null);
     };
     // Capture phase so we run before any element's own listeners (including
@@ -540,14 +587,12 @@ export function Canvas() {
     if (!world) return;
     const att = uploadedAttachments.find((a) => a.id === payload.attachmentId);
     if (!att) return;
-    const cardId = createRootCard({
-      x: world.x - CARD_WIDTH / 2,
-      y: world.y - EMPTY_CARD_HEIGHT / 2,
-    });
+    const pos = rootCardPositionAtPointer(world.x, world.y);
+    const cardId = createRootCard(pos);
     updateCard(cardId, {
       pendingFiles: [uploadedToPending(att)],
     });
-    requestCanvasFocus(() => focusCanvasCard(cardId));
+    maybeFocusNewCard(cardId);
   };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -810,14 +855,19 @@ function GhostTextLabel({ world }: { world: PlacementState }) {
 }
 
 function GhostCard({ world }: { world: PlacementState }) {
+  const tuning = RESOLVED_CANVAS_TUNING;
+  const pos = {
+    x: world.x - tuning.cardWidth / 2,
+    y: world.y - tuning.emptyCardHeight / 2,
+  };
   return (
     <div
       aria-hidden
       className="pointer-events-none absolute rounded-2xl border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
       style={{
-        left: world.x - CARD_WIDTH / 2,
-        top: world.y - EMPTY_CARD_HEIGHT / 2,
-        width: CARD_WIDTH,
+        left: pos.x,
+        top: pos.y,
+        width: tuning.cardWidth,
       }}
     >
       <div className="px-3 py-2.5">

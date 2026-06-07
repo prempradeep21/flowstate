@@ -1,11 +1,22 @@
 "use client";
 
 import { UndoIcon } from "@/components/MenuIcons";
+import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
 export function UndoButton() {
+  const mounted = useClientMounted();
   const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
   const undo = useCanvasStore((s) => s.undo);
+
+  if (!mounted) {
+    return (
+      <div
+        className="pointer-events-none h-9 w-9 shrink-0 rounded-full"
+        aria-hidden
+      />
+    );
+  }
 
   return (
     <button
