@@ -25,6 +25,7 @@ import {
   ContextMenuState,
 } from "@/components/CanvasContextMenu";
 import { CanvasLanding } from "@/components/CanvasLanding";
+import { CanvasBackgroundLayer } from "@/components/canvasBackgrounds/CanvasBackgroundLayer";
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
@@ -739,11 +740,6 @@ export function Canvas() {
     panState.current = null;
   };
 
-  // Dot grid that pans and scales with the viewport.
-  const dotSize = 22 * viewport.scale;
-  const offsetX = viewport.x % dotSize;
-  const offsetY = viewport.y % dotSize;
-
   return (
     <div
       ref={containerRef}
@@ -762,13 +758,8 @@ export function Canvas() {
             ? "cursor-grab active:cursor-grabbing"
             : "cursor-crosshair"
       }`}
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, var(--dot-color) 1px, transparent 1px)",
-        backgroundSize: `${dotSize}px ${dotSize}px`,
-        backgroundPosition: `${offsetX}px ${offsetY}px`,
-      }}
     >
+      <CanvasBackgroundLayer />
       <CanvasViewport>
         <PlugConnectorLayer />
         {groupList.map((group) => (

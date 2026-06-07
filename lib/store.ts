@@ -177,6 +177,21 @@ export interface Viewport {
 export type ConnectorStyle = "curvy" | "orthogonal";
 export type AppViewMode = "canvas" | "chat";
 
+export type CanvasBackgroundStyle =
+  | "grid"
+  | "ambient-gradient"
+  | "blueprint"
+  | "clouds"
+  | "smoke";
+
+export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
+  "grid",
+  "ambient-gradient",
+  "blueprint",
+  "clouds",
+  "smoke",
+] as const;
+
 export interface BranchGroup {
   id: string;
   label: string;
@@ -257,6 +272,7 @@ interface CanvasState {
   canvasTextLabelOrder: string[];
   selectedCanvasTextLabelId: string | null;
   connectorStyle: ConnectorStyle;
+  canvasBackgroundStyle: CanvasBackgroundStyle;
   /** First seeded card — world origin anchor (top-left at 0,0). Set once per canvas session. */
   globalOrigin: GlobalOrigin | null;
   undoPast: GraphSnapshot[];
@@ -366,6 +382,7 @@ interface CanvasState {
   openArtifact: (cardId: string) => void;
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
+  setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
   /** Re-measure cards from DOM at current zoom, then repair vertical chains. */
   relayoutCanvasFromDom: () => void;
   /** Re-snap the vertical chain under a parent after DOM height changes. */
@@ -644,6 +661,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasTextLabelOrder: [],
   selectedCanvasTextLabelId: null,
   connectorStyle: "orthogonal",
+  canvasBackgroundStyle: "grid",
   globalOrigin: null,
   undoPast: [],
 
@@ -764,6 +782,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   setConnectorStyle: (style) => set({ connectorStyle: style }),
+
+  setCanvasBackgroundStyle: (style) =>
+    set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
 
   relayoutCanvasFromDom: () =>
     set((state) => {
@@ -1650,6 +1671,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       threadOrder: state.threadOrder,
       groups: state.groups,
       connectorStyle: state.connectorStyle,
+      canvasBackgroundStyle: state.canvasBackgroundStyle,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
       sessionArtifacts: state.sessionArtifacts,
@@ -1748,6 +1770,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         threadOrder: [...snapshotNorm.threadOrder],
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
+        canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
         sessionArtifacts,

@@ -1,12 +1,15 @@
 "use client";
 
+import { useRef, useState } from "react";
 import {
   BranchForkIcon,
   ChatBubbleIcon,
   QuestionIcon,
+  SettingsIcon,
   ShareIcon,
   TypeIcon,
 } from "@/components/MenuIcons";
+import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
 import { UndoButton } from "@/components/UndoButton";
 import { useCanEditCanvas, useAuth } from "@/components/AuthProvider";
 import { isCanvasOwner } from "@/lib/collaborationPersistence";
@@ -21,6 +24,8 @@ const iconToggleBtn =
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const canEdit = useCanEditCanvas();
   const { activeCanvasRole, setShareModalOpen, user, activeCanvasId } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
@@ -41,11 +46,17 @@ export function CanvasBottomToolbar() {
   }
 
   return (
-    <div
-      className="pointer-events-auto absolute bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-canvas-border bg-canvas-card p-1.5 shadow-card"
-      role="toolbar"
-      aria-label="Canvas tools"
-    >
+    <div className="pointer-events-auto absolute bottom-5 left-1/2 z-50 -translate-x-1/2">
+      <CanvasSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        anchorRef={settingsBtnRef}
+      />
+      <div
+        className="flex items-center gap-1 rounded-xl border border-canvas-border bg-canvas-card p-1.5 shadow-card"
+        role="toolbar"
+        aria-label="Canvas tools"
+      >
       <button
         type="button"
         disabled={!canEdit}
@@ -100,6 +111,22 @@ export function CanvasBottomToolbar() {
         aria-hidden
       />
 
+      <button
+        ref={settingsBtnRef}
+        type="button"
+        className={`${iconToggleBtn} ${
+          settingsOpen
+            ? "bg-canvas-bg text-canvas-ink"
+            : "text-canvas-muted hover:text-canvas-ink"
+        }`}
+        aria-label="Canvas settings"
+        aria-expanded={settingsOpen}
+        aria-haspopup="dialog"
+        onClick={() => setSettingsOpen((v) => !v)}
+      >
+        <SettingsIcon />
+      </button>
+
       <div
         className="flex rounded-lg bg-canvas-bg p-0.5"
         role="group"
@@ -131,6 +158,7 @@ export function CanvasBottomToolbar() {
         >
           <ChatBubbleIcon />
         </button>
+      </div>
       </div>
     </div>
   );

@@ -22,6 +22,25 @@ describe("normalizeCanvasSnapshot", () => {
     expect(parsed?.cardOrder).toEqual([]);
   });
 
+  it("defaults canvasBackgroundStyle to grid for legacy snapshots", () => {
+    const snapshot = normalizeCanvasSnapshot({ version: 1 });
+    expect(snapshot.canvasBackgroundStyle).toBe("grid");
+  });
+
+  it("preserves valid canvasBackgroundStyle values", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "blueprint",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("blueprint");
+
+    const smoke = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "smoke",
+    });
+    expect(smoke.canvasBackgroundStyle).toBe("smoke");
+  });
+
   it("drops session artifacts missing versions", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,

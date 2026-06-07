@@ -3,6 +3,7 @@ import type {
   AppViewMode,
   BranchGroup,
   CanvasArtifactNode,
+  CanvasBackgroundStyle,
   CanvasTextLabel,
   Card,
   CardStatus,
@@ -26,6 +27,7 @@ export interface CanvasSnapshot {
   threadOrder: string[];
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
+  canvasBackgroundStyle: CanvasBackgroundStyle;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -46,6 +48,7 @@ export interface CanvasSnapshotSource {
   threadOrder: string[];
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
+  canvasBackgroundStyle: CanvasBackgroundStyle;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -87,6 +90,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     threadOrder: [...source.threadOrder],
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
+    canvasBackgroundStyle: source.canvasBackgroundStyle,
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
     sessionArtifacts: JSON.parse(
@@ -120,6 +124,7 @@ export function buildEmptyCanvasSnapshot(
     threadOrder: [],
     groups: {},
     connectorStyle: "orthogonal",
+    canvasBackgroundStyle: "grid",
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
@@ -130,6 +135,24 @@ export function buildEmptyCanvasSnapshot(
     uploadedAttachments: [],
     collaborationHasEdits: false,
   };
+}
+
+const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
+  "grid",
+  "ambient-gradient",
+  "blueprint",
+  "clouds",
+  "smoke",
+]);
+
+function normalizeCanvasBackgroundStyle(
+  raw: unknown,
+  fallback: CanvasBackgroundStyle,
+): CanvasBackgroundStyle {
+  return typeof raw === "string" &&
+    VALID_BACKGROUND_STYLES.has(raw as CanvasBackgroundStyle)
+    ? (raw as CanvasBackgroundStyle)
+    : fallback;
 }
 
 const VALID_MODELS = new Set<ClaudeModel>([
@@ -228,6 +251,10 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.connectorStyle === "orthogonal"
         ? snapshot.connectorStyle
         : base.connectorStyle,
+    canvasBackgroundStyle: normalizeCanvasBackgroundStyle(
+      snapshot.canvasBackgroundStyle,
+      base.canvasBackgroundStyle,
+    ),
     selectedModel:
       snapshot.selectedModel && VALID_MODELS.has(snapshot.selectedModel)
         ? snapshot.selectedModel
