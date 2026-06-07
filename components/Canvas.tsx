@@ -2,7 +2,6 @@
 
 import {
   PointerEvent as ReactPointerEvent,
-  WheelEvent as ReactWheelEvent,
   useEffect,
   useRef,
   useState,
@@ -33,16 +32,17 @@ import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
+import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { focusCanvasCard } from "@/lib/canvasFocus";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { landingStackViewportCenter } from "@/lib/canvasOrigin";
 import {
   isViewportBootstrapApplied,
+  isViewportRestoredFromSnapshot,
   markViewportBootstrapApplied,
   resetViewportBootstrap,
 } from "@/lib/canvasViewportBootstrap";
-import { shouldCanvasWheelZoom } from "@/lib/canvasWheel";
 import {
   markUserViewportInteraction,
   requestCanvasFocus,
@@ -72,7 +72,6 @@ export function Canvas() {
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const panBy = useCanvasStore((s) => s.panBy);
-  const zoomAt = useCanvasStore((s) => s.zoomAt);
   const viewport = useCanvasStore((s) => s.viewport);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
@@ -112,6 +111,7 @@ export function Canvas() {
   }, [cardOrder.length]);
 
   usePlugDragSession(containerRef);
+  useCanvasWheelZoom(containerRef);
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
   );
@@ -286,6 +286,7 @@ export function Canvas() {
 
     const el = containerRef.current;
     if (!el) return;
+    if (isViewportBootstrapApplied()) return;
 
     const bootstrap = () => {
       const rect = el.getBoundingClientRect();
@@ -294,6 +295,11 @@ export function Canvas() {
       const state = useCanvasStore.getState();
       if (state.cardOrder.length === 0) return;
       if (isViewportBootstrapApplied()) return;
+
+      if (isViewportRestoredFromSnapshot()) {
+        markViewportBootstrapApplied();
+        return;
+      }
 
       const landingId = getLandingCardId(state.cards, state.cardOrder);
       if (landingId) {
@@ -330,9 +336,6 @@ export function Canvas() {
     };
 
     bootstrap();
-    const ro = new ResizeObserver(bootstrap);
-    ro.observe(el);
-    return () => ro.disconnect();
   }, [persistenceReady, setViewport]);
 
   // Snap follow-up chains to measured content height after hydrate / topology changes.
@@ -736,21 +739,6 @@ export function Canvas() {
     panState.current = null;
   };
 
-  const handleWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
-    if (!shouldCanvasWheelZoom(e.target)) return;
-
-    // Ctrl/Meta + wheel = zoom (also trackpad pinch comes through as ctrl+wheel).
-    // Plain wheel = also zoom on the canvas to keep the interaction simple in V1.
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const pivotX = e.clientX - rect.left;
-    const pivotY = e.clientY - rect.top;
-    const intensity = e.ctrlKey || e.metaKey ? 0.0125 : 0.0015;
-    const factor = Math.exp(-e.deltaY * intensity);
-    markUserViewportInteraction();
-    zoomAt(factor, pivotX, pivotY);
-  };
-
   // Dot grid that pans and scales with the viewport.
   const dotSize = 22 * viewport.scale;
   const offsetX = viewport.x % dotSize;
@@ -764,7 +752,6 @@ export function Canvas() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onWheel={handleWheel}
       onContextMenu={handleContextMenu}
       onDragOver={allowSidebarDrop}
       onDrop={handleSidebarDrop}

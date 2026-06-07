@@ -232,7 +232,7 @@ export function useCollaboration({
             const parsed = parseCanvasSnapshot(newState);
             if (!parsed) return;
             isRemoteUpdateRef.current = true;
-            hydrateFromSnapshot(parsed);
+            hydrateFromSnapshot(parsed, { applyViewport: false });
             requestAnimationFrame(() => {
               isRemoteUpdateRef.current = false;
             });

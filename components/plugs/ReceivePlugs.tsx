@@ -12,7 +12,7 @@ export function ReceivePlugs({
   active: boolean;
   highlightSide: "left" | "right" | null;
 }) {
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
   const scaleFactor = counterScaleFactor(scale);
 
   if (!active) return null;

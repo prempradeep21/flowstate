@@ -22,14 +22,14 @@ export function PlugConnectorLayer() {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const viewport = useCanvasStore((s) => s.viewport);
+  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (!plugDrag) return null;
 
   const strokeWidth = compensatedStrokeWidth(
     BASE_STROKE_SCREEN,
-    viewport.scale,
+    viewportSettledScale,
     BASE_STROKE_SCREEN,
   );
 
@@ -103,7 +103,7 @@ export function PlugConnectorLayer() {
         fromAnchor={fromAnchor}
         toAnchor={end}
         toSide={toSide}
-        viewportScale={viewport.scale}
+        viewportScale={viewportSettledScale}
         dashed={dashed}
         opacity={0.85}
         showTargetArrow={false}

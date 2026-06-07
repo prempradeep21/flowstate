@@ -19,7 +19,7 @@ export function Plug({
   onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => void;
   onClick?: (e: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
   const isLeft = side === "left";
 
   return (

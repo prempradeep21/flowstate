@@ -19,7 +19,7 @@ import { isGodViewMode } from "@/lib/zoomDisplay";
 const DRAG_THRESHOLD_PX = 4;
 
 const INTERACTIVE =
-  "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-plug], [data-resize-handle]";
+  "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-plug], [data-resize-handle], .leaflet-container, .leaflet-control-container";
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
@@ -68,7 +68,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
   const selectedCanvasArtifactId = useCanvasStore(
     (s) => s.selectedCanvasArtifactId,
   );

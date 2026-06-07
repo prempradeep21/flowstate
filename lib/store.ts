@@ -238,6 +238,8 @@ interface CanvasState {
   addUsage: (input: number, output: number) => void;
 
   viewport: Viewport;
+  /** Scale used for stroke/chrome compensation; lags during active zoom gestures. */
+  viewportSettledScale: number;
   cards: Record<string, Card>;
   cardOrder: string[];
   connections: Connection[];
@@ -372,7 +374,10 @@ interface CanvasState {
   snapFollowUpChildToParent: (parentId: string) => void;
 
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
-  hydrateFromSnapshot: (snapshot: CanvasSnapshot) => void;
+  hydrateFromSnapshot: (
+    snapshot: CanvasSnapshot,
+    options?: { applyViewport?: boolean },
+  ) => void;
   canvasReadOnly: boolean;
   setCanvasReadOnly: (readOnly: boolean) => void;
   collaborationHasEdits: boolean;
@@ -385,6 +390,25 @@ interface CanvasState {
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 3;
+const VIEWPORT_SETTLE_MS = 150;
+
+let viewportSettleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushViewportSettledScale(scale: number): void {
+  if (viewportSettleTimer) {
+    clearTimeout(viewportSettleTimer);
+    viewportSettleTimer = null;
+  }
+  useCanvasStore.setState({ viewportSettledScale: scale });
+}
+
+function scheduleViewportSettledScale(scale: number): void {
+  if (viewportSettleTimer) clearTimeout(viewportSettleTimer);
+  viewportSettleTimer = setTimeout(() => {
+    useCanvasStore.setState({ viewportSettledScale: scale });
+    viewportSettleTimer = null;
+  }, VIEWPORT_SETTLE_MS);
+}
 
 // Placeholder palette for thread accents until OQ-01 is resolved.
 // Cycles after 8 threads.
@@ -602,6 +626,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
 
   viewport: { x: 0, y: 0, scale: 1 },
+  viewportSettledScale: 1,
   cards: {},
   cardOrder: [],
   connections: [],
@@ -790,7 +815,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   setViewport: (next) =>
-    set((state) => ({ viewport: { ...state.viewport, ...next } })),
+    set((state) => {
+      const viewport = { ...state.viewport, ...next };
+      if (next.scale != null && next.scale !== state.viewport.scale) {
+        scheduleViewportSettledScale(viewport.scale);
+      }
+      return { viewport };
+    }),
 
   panBy: (dx, dy) =>
     set((state) => ({
@@ -812,6 +843,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       // Keep the world point under the cursor fixed while scaling.
       const nx = pivotScreenX - k * (pivotScreenX - x);
       const ny = pivotScreenY - k * (pivotScreenY - y);
+      scheduleViewportSettledScale(nextScale);
       return { viewport: { x: nx, y: ny, scale: nextScale } };
     }),
 
@@ -1630,9 +1662,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     };
   },
 
-  resetCanvasState: () =>
+  resetCanvasState: () => {
+    flushViewportSettledScale(1);
     set({
       viewport: { x: 0, y: 0, scale: 1 },
+      viewportSettledScale: 1,
       cards: {},
       cardOrder: [],
       connections: [],
@@ -1663,11 +1697,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       viewMode: "canvas",
       collaborationHasEdits: false,
       canvasReadOnly: false,
-    }),
+    });
+  },
 
-  hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
-    set(() => {
+  hydrateFromSnapshot: (snapshot, options) =>
+    set((state) => {
       const snapshotNorm = normalizeCanvasSnapshot(snapshot);
+      const applyViewport = options?.applyViewport !== false;
+      const viewport = applyViewport
+        ? { ...snapshotNorm.viewport }
+        : { ...state.viewport };
+      flushViewportSettledScale(viewport.scale);
       const sessionArtifacts = JSON.parse(
         JSON.stringify(snapshotNorm.sessionArtifacts),
       ) as Record<string, SessionArtifact>;
@@ -1699,7 +1739,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             }
           : null;
       return {
-        viewport: { ...snapshotNorm.viewport },
+        viewport,
+        viewportSettledScale: viewport.scale,
         cards,
         cardOrder,
         connections,

@@ -17,12 +17,20 @@ import {
   type CanvasMeta,
 } from "@/lib/canvasPersistence";
 import { fetchSharedCanvasList } from "@/lib/collaborationPersistence";
-import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
+import {
+  markViewportRestoredFromSnapshot,
+  resetViewportBootstrap,
+} from "@/lib/canvasViewportBootstrap";
+import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
 const SAVE_DEBOUNCE_MS = 800;
+
+function hasMeaningfulSavedViewport(viewport: Viewport): boolean {
+  return viewport.x !== 0 || viewport.y !== 0 || viewport.scale !== 1;
+}
 
 interface UseCanvasPersistenceOptions {
   user: User | null;
@@ -109,7 +117,10 @@ export function useCanvasPersistence({
       isHydratingRef.current = true;
       resetViewportBootstrap();
       closeArtifact();
-      hydrateFromSnapshot(row.state);
+      hydrateFromSnapshot(row.state, { applyViewport: true });
+      if (hasMeaningfulSavedViewport(row.state.viewport)) {
+        markViewportRestoredFromSnapshot();
+      }
       canvasIdRef.current = row.id;
       setActiveCanvasId(row.id);
       isDirtyRef.current = false;

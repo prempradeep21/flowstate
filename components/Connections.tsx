@@ -223,7 +223,7 @@ export function Connections() {
 
   const threads = useCanvasStore((s) => s.threads);
 
-  const viewport = useCanvasStore((s) => s.viewport);
+  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
 
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
 
@@ -289,7 +289,7 @@ export function Connections() {
 
     BASE_STROKE_SCREEN,
 
-    viewport.scale,
+    viewportSettledScale,
 
     BASE_STROKE_SCREEN,
 
@@ -299,7 +299,7 @@ export function Connections() {
 
     HIT_STROKE_SCREEN,
 
-    viewport.scale,
+    viewportSettledScale,
 
     HIT_STROKE_SCREEN,
 
@@ -340,7 +340,7 @@ export function Connections() {
             toSide,
           } = resolveConnectionAnchors(conn, from, to, tuning);
 
-          const { arrowSize } = connectorMarkerSizes(viewport.scale);
+          const { arrowSize } = connectorMarkerSizes(viewportSettledScale);
           const { d, midX, midY } = buildPlugConnectorPath(
             a,
             b,
@@ -373,7 +373,7 @@ export function Connections() {
                 fromAnchor={a}
                 toAnchor={b}
                 toSide={toSide}
-                viewportScale={viewport.scale}
+                viewportScale={viewportSettledScale}
                 opacity={isHovered ? 0.95 : 0.85}
                 hitWidth={hitWidth}
                 onPointerEnter={() =>
@@ -398,7 +398,7 @@ export function Connections() {
 
           y={hover.midY}
 
-          scale={viewport.scale}
+          scale={viewportSettledScale}
 
           activeStyle={connectorStyle}
 

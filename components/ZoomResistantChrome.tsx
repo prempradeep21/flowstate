@@ -15,7 +15,7 @@ export function ZoomResistantChrome({
   transformOrigin = "top left",
   className,
 }: ZoomResistantChromeProps) {
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
   if (scale >= 1) {
     return className ? <div className={className}>{children}</div> : <>{children}</>;
   }

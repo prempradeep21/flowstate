@@ -106,7 +106,7 @@ export function Card({ card }: CardProps) {
         (c.fromSide === "bottom" || c.fromSide == null),
     ),
   );
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
   const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
 
   const accent = useCanvasStore(

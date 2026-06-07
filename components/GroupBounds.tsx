@@ -20,7 +20,7 @@ const CORNER_RADIUS = 12;
 
 export function GroupBounds({ group }: GroupBoundsProps) {
   const bounds = useGroupBounds(group);
-  const scale = useCanvasStore((s) => s.viewport.scale);
+  const scale = useCanvasStore((s) => s.viewportSettledScale);
 
   if (!bounds) return null;
 
