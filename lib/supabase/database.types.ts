@@ -165,6 +165,14 @@ export interface Database {
         Args: { p_token: string };
         Returns: string | null;
       };
+      accept_canvas_invite: {
+        Args: { p_invite_id: string };
+        Returns: string;
+      };
+      process_pending_canvas_invites: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

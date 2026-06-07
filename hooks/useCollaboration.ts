@@ -161,69 +161,97 @@ export function useCollaboration({
   useEffect(() => {
     if (!user || !supabaseConfigured || !activeCanvasId || !accessInfo) return;
 
-    const supabase = createClient();
+    let cancelled = false;
+    let presenceChannel: RealtimeChannel | null = null;
+    let realtimeChannel: RealtimeChannel | null = null;
 
-    const presenceChannel = supabase.channel(
-      `canvas:${activeCanvasId}:presence`,
-      { config: { presence: { key: user.id } } },
-    );
+    void (async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
 
-    presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        const ids = new Set<string>(Object.keys(state));
-        setOnlineUserIds(ids);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const name =
-            user.user_metadata?.full_name ??
-            user.user_metadata?.name ??
-            user.email ??
-            "User";
-          const avatar = user.user_metadata?.avatar_url as string | undefined;
-          await presenceChannel.track({
-            userId: user.id,
-            displayName: name,
-            avatarUrl: avatar,
-            color: collaboratorColor(user.id),
-            worldX: -99999,
-            worldY: -99999,
-            updatedAt: Date.now(),
-          });
-        }
-      });
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
 
-    presenceChannelRef.current = presenceChannel;
-
-    const realtimeChannel = supabase
-      .channel(`canvas:${activeCanvasId}:state`)
-      .on(
-        "postgres_changes",
+      presenceChannel = supabase.channel(
+        `canvas:${activeCanvasId}:presence`,
         {
-          event: "UPDATE",
-          schema: "public",
-          table: "canvases",
-          filter: `id=eq.${activeCanvasId}`,
+          config: {
+            private: true,
+            presence: { key: user.id },
+          },
         },
-        (payload) => {
-          const newState = (payload.new as { state?: unknown })?.state;
-          const parsed = parseCanvasSnapshot(newState);
-          if (!parsed) return;
-          isRemoteUpdateRef.current = true;
-          hydrateFromSnapshot(parsed);
-          requestAnimationFrame(() => {
-            isRemoteUpdateRef.current = false;
-          });
-        },
-      )
-      .subscribe();
+      );
 
-    realtimeChannelRef.current = realtimeChannel;
+      presenceChannel
+        .on("presence", { event: "sync" }, () => {
+          const state = presenceChannel!.presenceState();
+          const ids = new Set<string>(Object.keys(state));
+          setOnlineUserIds(ids);
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED" && !cancelled) {
+            const name =
+              user.user_metadata?.full_name ??
+              user.user_metadata?.name ??
+              user.email ??
+              "User";
+            const avatar = user.user_metadata?.avatar_url as string | undefined;
+            await presenceChannel!.track({
+              userId: user.id,
+              displayName: name,
+              avatarUrl: avatar,
+              color: collaboratorColor(user.id),
+              worldX: -99999,
+              worldY: -99999,
+              updatedAt: Date.now(),
+            });
+          }
+        });
+
+      if (cancelled) {
+        void presenceChannel.unsubscribe();
+        return;
+      }
+
+      presenceChannelRef.current = presenceChannel;
+
+      realtimeChannel = supabase
+        .channel(`canvas:${activeCanvasId}:state`, { config: { private: true } })
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "canvases",
+            filter: `id=eq.${activeCanvasId}`,
+          },
+          (payload) => {
+            const newState = (payload.new as { state?: unknown })?.state;
+            const parsed = parseCanvasSnapshot(newState);
+            if (!parsed) return;
+            isRemoteUpdateRef.current = true;
+            hydrateFromSnapshot(parsed);
+            requestAnimationFrame(() => {
+              isRemoteUpdateRef.current = false;
+            });
+          },
+        )
+        .subscribe();
+
+      if (cancelled) {
+        void realtimeChannel.unsubscribe();
+        return;
+      }
+
+      realtimeChannelRef.current = realtimeChannel;
+    })();
 
     return () => {
-      void presenceChannel.unsubscribe();
-      void realtimeChannel.unsubscribe();
+      cancelled = true;
+      void presenceChannel?.unsubscribe();
+      void realtimeChannel?.unsubscribe();
       presenceChannelRef.current = null;
       realtimeChannelRef.current = null;
       setOnlineUserIds(new Set());

@@ -300,44 +300,17 @@ export async function inviteToCanvasByEmail(
 export async function acceptCanvasInvite(
   supabase: Supabase,
   inviteId: string,
-  userId: string,
-  userEmail: string,
+  _userId: string,
+  _userEmail: string,
 ): Promise<string> {
-  const { data: invite, error } = await supabase
-    .from("canvas_invites")
-    .select("id, canvas_id, email, role, status")
-    .eq("id", inviteId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("accept_canvas_invite", {
+    p_invite_id: inviteId,
+  });
 
   if (error) throw error;
-  if (!invite || invite.status !== "pending") {
-    throw new Error("Invite not found");
-  }
-  if (normalizeEmail(invite.email) !== normalizeEmail(userEmail)) {
-    throw new Error("Invite email does not match your account");
-  }
+  if (!data) throw new Error("Invite not found");
 
-  const { error: collabError } = await supabase
-    .from("canvas_collaborators")
-    .upsert(
-      {
-        canvas_id: invite.canvas_id,
-        user_id: userId,
-        role: invite.role,
-      },
-      { onConflict: "canvas_id,user_id" },
-    );
-
-  if (collabError) throw collabError;
-
-  const { error: updateError } = await supabase
-    .from("canvas_invites")
-    .update({ status: "accepted" })
-    .eq("id", inviteId);
-
-  if (updateError) throw updateError;
-
-  return invite.canvas_id;
+  return data;
 }
 
 export async function declineCanvasInvite(
@@ -546,33 +519,11 @@ export async function deleteCanvas(
 
 export async function processPendingInvitesForEmail(
   supabase: Supabase,
-  userId: string,
-  email: string,
+  _userId: string,
+  _email: string,
 ): Promise<void> {
-  const normalized = normalizeEmail(email);
-  const { data: invites, error } = await supabase
-    .from("canvas_invites")
-    .select("id, canvas_id, role")
-    .eq("status", "pending")
-    .ilike("email", normalized);
-
+  const { error } = await supabase.rpc("process_pending_canvas_invites");
   if (error) throw error;
-  if (!invites?.length) return;
-
-  for (const invite of invites) {
-    await supabase.from("canvas_collaborators").upsert(
-      {
-        canvas_id: invite.canvas_id,
-        user_id: userId,
-        role: invite.role,
-      },
-      { onConflict: "canvas_id,user_id" },
-    );
-    await supabase
-      .from("canvas_invites")
-      .update({ status: "accepted" })
-      .eq("id", invite.id);
-  }
 }
 
 export function canEditCanvas(role: CanvasRole | null): boolean {
