@@ -101,13 +101,10 @@ export function Card({ card }: CardProps) {
       card.parentCardId === null &&
       s.connections.some((c) => c.to === card.id),
   );
-  const isLanding = useCanvasStore(
-    (s) => {
-      if (!shouldShowCanvasLanding(s.cards, s.cardOrder)) return false;
-      return getLandingCardId(s.cards, s.cardOrder) === card.id;
-    },
-    (a, b) => a === b,
-  );
+  const isLanding = useCanvasStore((s) => {
+    if (!shouldShowCanvasLanding(s.cards, s.cardOrder)) return false;
+    return getLandingCardId(s.cards, s.cardOrder) === card.id;
+  });
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
   const plugAccent = accent ?? "#7C9EFF";
@@ -120,15 +117,13 @@ export function Card({ card }: CardProps) {
       ? plugDrag.hoveredReceiveSide
       : null;
 
-  const originPinned = useCanvasStore(
-    (s) =>
-      isOriginCardPinned(
-        s.cards,
-        s.cardOrder,
-        card.id,
-        s.globalOrigin,
-      ),
-    (a, b) => a === b,
+  const originPinned = useCanvasStore((s) =>
+    isOriginCardPinned(
+      s.cards,
+      s.cardOrder,
+      card.id,
+      s.globalOrigin,
+    ),
   );
   const tuning = RESOLVED_CANVAS_TUNING;
   const cardWidth = tuning.cardWidth;
