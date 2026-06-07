@@ -3,6 +3,7 @@ import {
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
 import type { ResolvedCanvasTuning } from "@/lib/canvasTuning";
+import type { Card } from "@/lib/store";
 
 export interface GlobalOrigin {
   cardId: string;
@@ -32,7 +33,7 @@ export function landingStackViewportCenter(
 }
 
 export function isOriginCardPinned(
-  cards: Record<string, { status: string }>,
+  cards: Record<string, Card>,
   cardOrder: string[],
   cardId: string,
   globalOrigin: GlobalOrigin | null,
@@ -51,7 +52,7 @@ export function getOriginCoords(
 }
 
 export function landingCardIdOrNull(
-  cards: Record<string, { status: string; parentCardId: string | null }>,
+  cards: Record<string, Card>,
   cardOrder: string[],
 ): string | null {
   return getLandingCardId(cards, cardOrder);

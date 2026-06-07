@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import {
   buildPlugConnectorPath,
   connectorArrowPath,
@@ -33,15 +34,7 @@ describe("trimPlugAnchorForArrow", () => {
 
 describe("resolveConnectionAnchors", () => {
   it("uses question-band center for lateral branch target plugs", () => {
-    const tuning = {
-      cardWidth: 420,
-      fallbackCardHeight: 240,
-      emptyCardHeight: 88,
-      followUpGap: 40,
-      branchHorizontalGap: 420,
-      branchCardWidth: 420,
-      lateralStep: 840,
-    } as import("@/lib/canvasTuning").ResolvedCanvasTuning;
+    const tuning = RESOLVED_CANVAS_TUNING;
 
     const from = {
       id: "parent",
@@ -69,15 +62,7 @@ describe("resolveConnectionAnchors", () => {
   });
 
   it("leaves vertical follow-up target at card top", () => {
-    const tuning = {
-      cardWidth: 420,
-      fallbackCardHeight: 240,
-      emptyCardHeight: 88,
-      followUpGap: 40,
-      branchHorizontalGap: 420,
-      branchCardWidth: 420,
-      lateralStep: 840,
-    } as import("@/lib/canvasTuning").ResolvedCanvasTuning;
+    const tuning = RESOLVED_CANVAS_TUNING;
 
     const from = {
       id: "parent",
