@@ -497,31 +497,15 @@ export async function joinCanvasViaShareLink(
   token: string,
   userId: string,
 ): Promise<string | null> {
-  const { data: link, error } = await supabase
-    .from("canvas_share_links")
-    .select("canvas_id, revoked_at")
-    .eq("token", token)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("join_canvas_via_share_token", {
+    p_token: token,
+  });
 
   if (error) throw error;
-  if (!link || link.revoked_at) return null;
+  if (!data) return null;
 
-  const access = await fetchCanvasAccessInfo(supabase, link.canvas_id, userId);
-  if (access) return link.canvas_id;
-
-  const { error: collabError } = await supabase
-    .from("canvas_collaborators")
-    .upsert(
-      {
-        canvas_id: link.canvas_id,
-        user_id: userId,
-        role: "viewer",
-      },
-      { onConflict: "canvas_id,user_id" },
-    );
-
-  if (collabError) throw collabError;
-  return link.canvas_id;
+  const access = await fetchCanvasAccessInfo(supabase, data, userId);
+  return access ? data : null;
 }
 
 export async function duplicateCanvasForUser(

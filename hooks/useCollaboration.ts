@@ -159,7 +159,7 @@ export function useCollaboration({
   }, [refreshActiveCanvasCollaboration]);
 
   useEffect(() => {
-    if (!user || !supabaseConfigured || !activeCanvasId) return;
+    if (!user || !supabaseConfigured || !activeCanvasId || !accessInfo) return;
 
     const supabase = createClient();
 
@@ -229,6 +229,7 @@ export function useCollaboration({
       setOnlineUserIds(new Set());
     };
   }, [
+    accessInfo,
     activeCanvasId,
     hydrateFromSnapshot,
     supabaseConfigured,
