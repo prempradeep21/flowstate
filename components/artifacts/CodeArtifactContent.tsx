@@ -7,9 +7,11 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 
 export function CodeArtifactContent({
   payload,
+  fill = false,
   onActiveFileChange,
 }: {
   payload: Extract<ArtifactPayload, { type: "code" }>;
+  fill?: boolean;
   onActiveFileChange?: (path: string) => void;
 }) {
   const files = payload.data.files ?? [];
@@ -24,7 +26,7 @@ export function CodeArtifactContent({
 
   if (!active) {
     return (
-      <ArtifactContentStage minHeight="240px">
+      <ArtifactContentStage minHeight={fill ? undefined : "240px"} fill={fill}>
         <p className="p-4 text-[13px] text-canvas-muted">No files in this artifact.</p>
       </ArtifactContentStage>
     );
@@ -32,6 +34,37 @@ export function CodeArtifactContent({
 
   const lang = active.language || languageFromPath(active.path);
   const html = highlightCode(active.content, lang);
+
+  if (fill) {
+    return (
+      <ArtifactContentStage fill className="h-full">
+        {files.length > 1 && (
+          <div className="flex shrink-0 flex-wrap gap-1 border-b border-canvas-border/40 px-3 pb-2 pt-3">
+            {files.map((f, i) => (
+              <button
+                key={f.path}
+                type="button"
+                onClick={() => selectFile(i)}
+                className={`rounded px-2 py-1 text-[12px] transition-colors ${
+                  i === activeIdx
+                    ? "bg-canvas-ink text-canvas-card"
+                    : "text-canvas-muted hover:bg-white/60"
+                }`}
+              >
+                {f.path}
+              </button>
+            ))}
+          </div>
+        )}
+        <pre
+          data-canvas-scroll
+          className="min-h-0 flex-1 overflow-auto p-4 font-mono text-[13px] leading-[1.55] text-canvas-ink"
+        >
+          <code dangerouslySetInnerHTML={{ __html: html }} />
+        </pre>
+      </ArtifactContentStage>
+    );
+  }
 
   return (
     <ArtifactContentStage minHeight="240px">

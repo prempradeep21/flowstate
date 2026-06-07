@@ -50,7 +50,7 @@ function payloadForCard(
       (card.outputArtifactVersionId &&
         getVersionById(art, card.outputArtifactVersionId)) ||
       getLatestVersion(art);
-    return ver.payload;
+    return ver?.payload ?? card.artifactPayload ?? null;
   }
   return card.artifactPayload ?? null;
 }

@@ -105,6 +105,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
             if (!art) return null;
             const ver =
               getVersionById(art, ref.versionId) ?? getLatestVersion(art);
+            if (!ver) return null;
             return (
               <div key={ref.artifactId} className="mb-3">
                 <ArtifactAttachmentPill

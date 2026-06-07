@@ -128,22 +128,132 @@ export function buildEmptyCanvasSnapshot(
   };
 }
 
+const VALID_MODELS = new Set<ClaudeModel>([
+  "claude-opus-4-7",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5",
+]);
+
+function normalizeViewport(raw: unknown, fallback: Viewport): Viewport {
+  if (!raw || typeof raw !== "object") return { ...fallback };
+  const v = raw as Partial<Viewport>;
+  return {
+    x: typeof v.x === "number" && Number.isFinite(v.x) ? v.x : fallback.x,
+    y: typeof v.y === "number" && Number.isFinite(v.y) ? v.y : fallback.y,
+    scale:
+      typeof v.scale === "number" && Number.isFinite(v.scale) && v.scale > 0
+        ? v.scale
+        : fallback.scale,
+  };
+}
+
+function normalizeRecord<T>(raw: unknown): Record<string, T> {
+  if (!raw || typeof raw !== "object") return {};
+  return { ...(raw as Record<string, T>) };
+}
+
+function normalizeStringArray(raw: unknown): string[] {
+  return Array.isArray(raw)
+    ? raw.filter((id): id is string => typeof id === "string")
+    : [];
+}
+
+function normalizeSessionArtifacts(
+  raw: unknown,
+): Record<string, SessionArtifact> {
+  const input = normalizeRecord<SessionArtifact>(raw);
+  const out: Record<string, SessionArtifact> = {};
+
+  for (const [id, artifact] of Object.entries(input)) {
+    if (!artifact || typeof artifact !== "object") continue;
+    const versions = Array.isArray(artifact.versions)
+      ? artifact.versions.filter(
+          (version): version is SessionArtifact["versions"][number] =>
+            Boolean(version && typeof version === "object" && version.id),
+        )
+      : [];
+    if (versions.length === 0) continue;
+
+    const latestVersionId =
+      typeof artifact.latestVersionId === "string" &&
+      versions.some((version) => version.id === artifact.latestVersionId)
+        ? artifact.latestVersionId
+        : versions[versions.length - 1]!.id;
+
+    out[id] = {
+      id: typeof artifact.id === "string" ? artifact.id : id,
+      title:
+        typeof artifact.title === "string" && artifact.title.trim().length > 0
+          ? artifact.title
+          : "Artifact",
+      kind: artifact.kind ?? "custom",
+      versions,
+      latestVersionId,
+    };
+  }
+
+  return out;
+}
+
+/** Merge partial or legacy persisted state with empty snapshot defaults. */
+export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
+  const base = buildEmptyCanvasSnapshot();
+  if (!raw || typeof raw !== "object") return base;
+
+  const snapshot = raw as Partial<CanvasSnapshot>;
+  if (snapshot.version !== CANVAS_SNAPSHOT_VERSION) return base;
+
+  const cards = normalizeRecord<Card>(snapshot.cards);
+  const cardOrder = normalizeStringArray(snapshot.cardOrder);
+  const normalizedCardOrder =
+    cardOrder.length > 0 ? cardOrder : Object.keys(cards);
+
+  return {
+    version: CANVAS_SNAPSHOT_VERSION,
+    viewport: normalizeViewport(snapshot.viewport, base.viewport),
+    cards,
+    cardOrder: normalizedCardOrder,
+    connections: Array.isArray(snapshot.connections)
+      ? snapshot.connections.map((connection) => ({ ...connection }))
+      : [],
+    threads: normalizeRecord<Thread>(snapshot.threads),
+    threadOrder: normalizeStringArray(snapshot.threadOrder),
+    groups: normalizeRecord<BranchGroup>(snapshot.groups),
+    connectorStyle:
+      snapshot.connectorStyle === "curvy" ||
+      snapshot.connectorStyle === "orthogonal"
+        ? snapshot.connectorStyle
+        : base.connectorStyle,
+    selectedModel:
+      snapshot.selectedModel && VALID_MODELS.has(snapshot.selectedModel)
+        ? snapshot.selectedModel
+        : base.selectedModel,
+    viewMode: snapshot.viewMode === "chat" ? "chat" : "canvas",
+    sessionArtifacts: normalizeSessionArtifacts(snapshot.sessionArtifacts),
+    canvasArtifactNodes: normalizeRecord<CanvasArtifactNode>(
+      snapshot.canvasArtifactNodes,
+    ),
+    canvasArtifactOrder: normalizeStringArray(snapshot.canvasArtifactOrder),
+    canvasTextLabels: normalizeRecord<CanvasTextLabel>(
+      snapshot.canvasTextLabels,
+    ),
+    canvasTextLabelOrder: normalizeStringArray(snapshot.canvasTextLabelOrder),
+    uploadedAttachments: Array.isArray(snapshot.uploadedAttachments)
+      ? (JSON.parse(
+          JSON.stringify(snapshot.uploadedAttachments),
+        ) as UploadedAttachment[])
+      : [],
+  };
+}
+
 export function isCanvasSnapshot(value: unknown): value is CanvasSnapshot {
   if (!value || typeof value !== "object") return false;
-  const v = value as Partial<CanvasSnapshot>;
-  return (
-    v.version === CANVAS_SNAPSHOT_VERSION &&
-    typeof v.viewport === "object" &&
-    v.viewport !== null &&
-    typeof v.cards === "object" &&
-    v.cards !== null &&
-    Array.isArray(v.cardOrder)
-  );
+  return (value as Partial<CanvasSnapshot>).version === CANVAS_SNAPSHOT_VERSION;
 }
 
 export function parseCanvasSnapshot(raw: unknown): CanvasSnapshot | null {
-  if (isCanvasSnapshot(raw)) return raw;
-  return null;
+  if (!isCanvasSnapshot(raw)) return null;
+  return normalizeCanvasSnapshot(raw);
 }
 
 export function snapshotHasContent(snapshot: CanvasSnapshot): boolean {

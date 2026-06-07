@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArtifactContent } from "@/components/artifacts/ArtifactContent";
+import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import {
   artifactDisplayTitle,
@@ -15,6 +15,7 @@ export function ArtifactShell({
   versionId,
   onVersionChange,
   menuVariant,
+  layout = "panel",
   onExpand,
   onRemoveFromCanvas,
 }: {
@@ -22,6 +23,7 @@ export function ArtifactShell({
   versionId: string;
   onVersionChange: (versionId: string) => void;
   menuVariant: "canvas" | "panel";
+  layout?: ArtifactLayout;
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
 }) {
@@ -46,26 +48,41 @@ export function ArtifactShell({
         artifactDisplayTitle(sessionArtifact, activeVersion)
       : artifactDisplayTitle(sessionArtifact, activeVersion);
 
+  const isCanvasLayout = layout === "canvas";
+
   return (
-    <>
-      <ArtifactPanelHeader
-        kind={sessionArtifact.kind}
-        title={title}
-        versions={sessionArtifact.versions}
-        activeVersionId={activeVersion.id}
-        onVersionChange={onVersionChange}
-        menuVariant={menuVariant}
-        onExpand={onExpand}
-        onRemoveFromCanvas={onRemoveFromCanvas}
-      />
-      <div className="mt-4">
+    <div
+      className={
+        isCanvasLayout ? "flex min-h-0 flex-1 flex-col" : undefined
+      }
+    >
+      <div className={isCanvasLayout ? "shrink-0" : undefined}>
+        <ArtifactPanelHeader
+          kind={sessionArtifact.kind}
+          title={title}
+          versions={sessionArtifact.versions}
+          activeVersionId={activeVersion.id}
+          onVersionChange={onVersionChange}
+          menuVariant={menuVariant}
+          onExpand={onExpand}
+          onRemoveFromCanvas={onRemoveFromCanvas}
+        />
+      </div>
+      <div
+        className={
+          isCanvasLayout
+            ? "mt-4 flex min-h-0 flex-1 flex-col"
+            : "mt-4"
+        }
+      >
         <ArtifactContent
+          layout={layout}
           payload={activeVersion.payload}
           onCodeActiveFileChange={
             sessionArtifact.kind === "code" ? setCodeTitleOverride : undefined
           }
         />
       </div>
-    </>
+    </div>
   );
 }

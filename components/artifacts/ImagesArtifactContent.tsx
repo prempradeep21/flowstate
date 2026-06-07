@@ -57,10 +57,31 @@ function MediaCell({ item }: { item: ImagesMediaItem }) {
 
 export function ImagesArtifactContent({
   payload,
+  fill = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "images" }>;
+  fill?: boolean;
 }) {
   const items = payload.data.items;
+
+  if (fill) {
+    return (
+      <ArtifactContentStage fill className="h-full">
+        <div className="h-full overflow-auto p-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2">
+            {items.map((item, i) => (
+              <div
+                key={i}
+                className="aspect-[4/3] overflow-hidden rounded-lg bg-canvas-bg"
+              >
+                <MediaCell item={item} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </ArtifactContentStage>
+    );
+  }
 
   return (
     <ArtifactContentStage>

@@ -260,6 +260,7 @@ export function ChatComposer({
               if (!art) return null;
               const ver =
                 getVersionById(art, ref.versionId) ?? getLatestVersion(art);
+              if (!ver) return null;
               return (
                 <div
                   key={ref.artifactId}
@@ -372,6 +373,7 @@ export function ChatComposer({
                       ) : (
                         artifacts.map((art) => {
                           const ver = getLatestVersion(art);
+                          if (!ver) return null;
                           return (
                             <button
                               key={art.id}

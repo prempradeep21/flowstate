@@ -9,34 +9,39 @@ import { ThreeDArtifactContent } from "@/components/artifacts/ThreeDArtifactCont
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
+export type ArtifactLayout = "canvas" | "panel";
+
 export function ArtifactContent({
   payload,
+  layout = "panel",
   onCodeActiveFileChange,
 }: {
   payload: ArtifactPayload;
+  layout?: ArtifactLayout;
   onCodeActiveFileChange?: (path: string) => void;
 }) {
   const kind = payloadToArtifactKind(payload);
+  const fill = layout === "canvas";
 
   switch (kind) {
     case "table":
       if (payload.type === "table") {
-        return <TableArtifactContent payload={payload} />;
+        return <TableArtifactContent payload={payload} fill={fill} />;
       }
       break;
     case "images":
       if (payload.type === "images") {
-        return <ImagesArtifactContent payload={payload} />;
+        return <ImagesArtifactContent payload={payload} fill={fill} />;
       }
       break;
     case "3d":
       if (payload.type === "3d") {
-        return <ThreeDArtifactContent payload={payload} />;
+        return <ThreeDArtifactContent payload={payload} fill={fill} />;
       }
       break;
     case "custom":
       if (payload.type === "custom") {
-        return <CustomArtifactContent payload={payload} />;
+        return <CustomArtifactContent payload={payload} fill={fill} />;
       }
       break;
     case "code":
@@ -44,6 +49,7 @@ export function ArtifactContent({
         return (
           <CodeArtifactContent
             payload={payload}
+            fill={fill}
             onActiveFileChange={onCodeActiveFileChange}
           />
         );

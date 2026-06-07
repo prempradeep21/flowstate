@@ -39,10 +39,14 @@ export function newSessionArtifactId() {
   return newId("art");
 }
 
-export function getLatestVersion(artifact: SessionArtifact): ArtifactVersion {
+export function getLatestVersion(
+  artifact: SessionArtifact,
+): ArtifactVersion | undefined {
+  const versions = Array.isArray(artifact.versions) ? artifact.versions : [];
+  if (versions.length === 0) return undefined;
   return (
-    artifact.versions.find((v) => v.id === artifact.latestVersionId) ??
-    artifact.versions[artifact.versions.length - 1]
+    versions.find((v) => v.id === artifact.latestVersionId) ??
+    versions[versions.length - 1]
   );
 }
 
@@ -50,7 +54,8 @@ export function getVersionById(
   artifact: SessionArtifact,
   versionId: string,
 ): ArtifactVersion | undefined {
-  return artifact.versions.find((v) => v.id === versionId);
+  const versions = Array.isArray(artifact.versions) ? artifact.versions : [];
+  return versions.find((v) => v.id === versionId);
 }
 
 export function artifactDisplayTitle(
@@ -59,6 +64,7 @@ export function artifactDisplayTitle(
   activeCodeFilePath?: string,
 ): string {
   const v = version ?? getLatestVersion(artifact);
+  if (!v) return artifact.title;
   if (artifact.kind === "code") {
     const files = v.payload.type === "code" ? v.payload.data.files : [];
     if (activeCodeFilePath) return activeCodeFilePath;
@@ -212,8 +218,9 @@ export function canAppendArtifactVersion(
 export function listSessionArtifacts(
   artifacts: Record<string, SessionArtifact>,
 ): SessionArtifact[] {
-  return Object.values(artifacts).sort(
-    (a, b) =>
-      (getLatestVersion(b).createdAt ?? 0) - (getLatestVersion(a).createdAt ?? 0),
-  );
+  return Object.values(artifacts).sort((a, b) => {
+    const bCreated = getLatestVersion(b)?.createdAt ?? 0;
+    const aCreated = getLatestVersion(a)?.createdAt ?? 0;
+    return bCreated - aCreated;
+  });
 }

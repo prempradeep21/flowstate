@@ -58,6 +58,7 @@ export function buildArtifactRegistry(
     const category = kindToCategory(art.kind);
     if (!category) continue;
     const ver = getLatestVersion(art);
+    if (!ver) continue;
     buckets[category].push({
       artifactId: art.id,
       versionId: ver.id,

@@ -28,9 +28,10 @@ export function ArtifactPanelHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const versionRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const safeVersions = Array.isArray(versions) ? versions : [];
   const active =
-    versions.find((v) => v.id === activeVersionId) ??
-    versions[versions.length - 1];
+    safeVersions.find((v) => v.id === activeVersionId) ??
+    safeVersions[safeVersions.length - 1];
 
   useEffect(() => {
     if (!versionOpen) return;
@@ -80,7 +81,7 @@ export function ArtifactPanelHeader({
         </button>
         {versionOpen && (
           <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card">
-            {[...versions].reverse().map((v) => (
+            {[...safeVersions].reverse().map((v) => (
               <button
                 key={v.id}
                 type="button"

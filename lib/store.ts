@@ -6,6 +6,7 @@ import type {
   CanvasSnapshot,
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
+import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -1563,16 +1564,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
     set(() => {
+      const snapshotNorm = normalizeCanvasSnapshot(snapshot);
       const sessionArtifacts = JSON.parse(
-        JSON.stringify(snapshot.sessionArtifacts),
+        JSON.stringify(snapshotNorm.sessionArtifacts),
       ) as Record<string, SessionArtifact>;
-      const normalized = normalizeLoadedCards({ ...snapshot.cards });
-      const connections = Array.isArray(snapshot.connections)
-        ? snapshot.connections.map((c) => ({ ...c }))
-        : [];
-      const cardOrder = Array.isArray(snapshot.cardOrder)
-        ? [...snapshot.cardOrder]
-        : Object.keys(normalized);
+      const normalized = normalizeLoadedCards({ ...snapshotNorm.cards });
+      const connections = snapshotNorm.connections.map((c) => ({ ...c }));
+      const cardOrder = [...snapshotNorm.cardOrder];
       const defaultTuning = TUNING;
       // Re-snap vertical chains so any stale gap from older snapshots
       // collapses back to the canonical FOLLOW_UP_GAP. Lateral branches are
@@ -1583,12 +1581,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         cardOrder,
         defaultTuning,
       );
-      const canvasArtifactNodes = snapshot.canvasArtifactNodes
-        ? normalizeLoadedArtifactNodes(
-            { ...snapshot.canvasArtifactNodes },
-            sessionArtifacts,
-          )
-        : {};
+      const canvasArtifactNodes = normalizeLoadedArtifactNodes(
+        { ...snapshotNorm.canvasArtifactNodes },
+        sessionArtifacts,
+      );
       const firstCardId = cardOrder[0];
       const firstCard = firstCardId ? cards[firstCardId] : undefined;
       const globalOrigin =
@@ -1600,43 +1596,35 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             }
           : null;
       return {
-        viewport: { ...snapshot.viewport },
+        viewport: { ...snapshotNorm.viewport },
         cards,
         cardOrder,
         connections,
-        threads: { ...snapshot.threads },
-        threadOrder: [...snapshot.threadOrder],
-        groups: { ...snapshot.groups },
-        connectorStyle: snapshot.connectorStyle,
-        selectedModel: snapshot.selectedModel,
-        viewMode: snapshot.viewMode,
+        threads: { ...snapshotNorm.threads },
+        threadOrder: [...snapshotNorm.threadOrder],
+        groups: { ...snapshotNorm.groups },
+        connectorStyle: snapshotNorm.connectorStyle,
+        selectedModel: snapshotNorm.selectedModel,
+        viewMode: snapshotNorm.viewMode,
         sessionArtifacts,
         canvasArtifactNodes,
-        canvasArtifactOrder: snapshot.canvasArtifactOrder
-          ? [...snapshot.canvasArtifactOrder]
-          : [],
-        activeThreadId: snapshot.threadOrder[0] ?? null,
+        canvasArtifactOrder: [...(snapshotNorm.canvasArtifactOrder ?? [])],
+        activeThreadId: snapshotNorm.threadOrder[0] ?? null,
         openArtifactCardId: null,
         openGroupArtifactId: null,
         openSessionArtifactId: null,
         openSessionArtifactVersionId: null,
         selectedCanvasArtifactId: null,
-        canvasTextLabels: snapshot.canvasTextLabels
-          ? { ...snapshot.canvasTextLabels }
-          : {},
-        canvasTextLabelOrder: snapshot.canvasTextLabelOrder
-          ? [...snapshot.canvasTextLabelOrder]
-          : [],
+        canvasTextLabels: { ...snapshotNorm.canvasTextLabels },
+        canvasTextLabelOrder: [...(snapshotNorm.canvasTextLabelOrder ?? [])],
         selectedCanvasTextLabelId: null,
         selectedFamilyRootIds: [],
         activeGroupId: null,
         undoPast: [],
         globalOrigin,
-        uploadedAttachments: snapshot.uploadedAttachments
-          ? (JSON.parse(
-              JSON.stringify(snapshot.uploadedAttachments),
-            ) as UploadedAttachment[])
-          : [],
+        uploadedAttachments: JSON.parse(
+          JSON.stringify(snapshotNorm.uploadedAttachments),
+        ) as UploadedAttachment[],
         plugDrag: null,
         plugComposerAttachments: {},
         canvasPlacementRequest: null,

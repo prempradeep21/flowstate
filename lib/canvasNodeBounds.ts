@@ -13,6 +13,17 @@ export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
 export const DEFAULT_ARTIFACT_HEIGHT = 280;
 export const TABLE_ARTIFACT_HEIGHT = 480;
+export const MIN_ARTIFACT_WIDTH = 280;
+export const MAX_ARTIFACT_WIDTH = 1200;
+export const MIN_ARTIFACT_HEIGHT = 160;
+export const MAX_ARTIFACT_HEIGHT = 900;
+
+export function clampArtifactSize(w: number, h: number): { w: number; h: number } {
+  return {
+    w: Math.min(MAX_ARTIFACT_WIDTH, Math.max(MIN_ARTIFACT_WIDTH, w)),
+    h: Math.min(MAX_ARTIFACT_HEIGHT, Math.max(MIN_ARTIFACT_HEIGHT, h)),
+  };
+}
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 

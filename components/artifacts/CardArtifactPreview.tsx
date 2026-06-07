@@ -19,6 +19,7 @@ export function CardArtifactPreview({ card }: { card: Card }) {
       (card.outputArtifactVersionId &&
         getVersionById(art, card.outputArtifactVersionId)) ||
       getLatestVersion(art);
+    if (!ver) return null;
     const generating =
       card.status === "streaming" || card.status === "thinking";
     return (
@@ -45,6 +46,7 @@ export function CardArtifactPreview({ card }: { card: Card }) {
       const art = sessionArtifacts[card.outputArtifactId];
       if (art) {
         const ver = getLatestVersion(art);
+        if (!ver) return null;
         return (
           <ArtifactPreviewPill
             kind={art.kind}
@@ -82,6 +84,7 @@ export function CardArtifactPreview({ card }: { card: Card }) {
       const art = sessionArtifacts[card.outputArtifactId];
       if (art) {
         const ver = getLatestVersion(art);
+        if (!ver) return null;
         return (
           <ArtifactPreviewPill
             kind="images"

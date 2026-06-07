@@ -63,6 +63,7 @@ export function focusCanvasArtifact(artifactId: string): boolean {
     const art = state.sessionArtifacts[artifactId];
     if (!art) return false;
     const ver = getVersionById(art, art.latestVersionId) ?? getLatestVersion(art);
+    if (!ver) return false;
     const nodeId = state.spawnCanvasArtifact(artifactId, ver.id);
     if (!nodeId) return false;
     node = useCanvasStore.getState().canvasArtifactNodes[nodeId];

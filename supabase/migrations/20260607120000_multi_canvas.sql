@@ -10,7 +10,25 @@ begin
   values (
     new.id,
     'My canvas',
-    jsonb_build_object('version', 1),
+    jsonb_build_object(
+      'version', 1,
+      'viewport', jsonb_build_object('x', 0, 'y', 0, 'scale', 1),
+      'cards', '{}'::jsonb,
+      'cardOrder', '[]'::jsonb,
+      'connections', '[]'::jsonb,
+      'threads', '{}'::jsonb,
+      'threadOrder', '[]'::jsonb,
+      'groups', '{}'::jsonb,
+      'connectorStyle', 'orthogonal',
+      'selectedModel', 'claude-sonnet-4-6',
+      'viewMode', 'canvas',
+      'sessionArtifacts', '{}'::jsonb,
+      'canvasArtifactNodes', '{}'::jsonb,
+      'canvasArtifactOrder', '[]'::jsonb,
+      'canvasTextLabels', '{}'::jsonb,
+      'canvasTextLabelOrder', '[]'::jsonb,
+      'uploadedAttachments', '[]'::jsonb
+    ),
     true
   );
   return new;
