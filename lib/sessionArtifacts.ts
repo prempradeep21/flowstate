@@ -13,6 +13,7 @@ export interface ArtifactVersion {
   payload: ArtifactPayload;
   createdAt: number;
   sourceCardId: string;
+  createdByUserId?: string;
 }
 
 export interface SessionArtifact {

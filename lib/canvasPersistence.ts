@@ -207,6 +207,28 @@ export async function createCanvas(
   return { id: data.id, state: parsed };
 }
 
+export function sortCanvasesByUpdatedAt(canvases: CanvasMeta[]): CanvasMeta[] {
+  return [...canvases].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+}
+
+export async function updateCanvasTitle(
+  supabase: Supabase,
+  canvasId: string,
+  title: string,
+): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Title cannot be empty");
+
+  const { error } = await supabase
+    .from("canvases")
+    .update({ title: trimmed })
+    .eq("id", canvasId);
+
+  if (error) throw error;
+}
+
 export async function saveCanvasState(
   supabase: Supabase,
   canvasId: string,

@@ -49,6 +49,12 @@ const config: Config = {
         cardHover:
           "0 1px 2px rgba(20, 18, 14, 0.05), 0 8px 24px rgba(20, 18, 14, 0.10)",
       },
+      transitionTimingFunction: {
+        panel: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+      transitionDuration: {
+        panel: "350ms",
+      },
     },
   },
   plugins: [],

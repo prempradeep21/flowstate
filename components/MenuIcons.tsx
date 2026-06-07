@@ -126,6 +126,22 @@ export function TypeIcon() {
   );
 }
 
+export function ShareIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <circle cx="12" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.1" />
+      <circle cx="4" cy="8" r="1.75" stroke="currentColor" strokeWidth="1.1" />
+      <circle cx="12" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.1" />
+      <path
+        d="M5.6 7.1 10.4 4.9M5.6 8.9l4.8 2.2"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function TrashIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

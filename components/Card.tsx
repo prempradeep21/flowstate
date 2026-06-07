@@ -45,6 +45,9 @@ import {
   compactThinkingWord,
   compensatedStrokeWidth,
 } from "@/lib/zoomDisplay";
+import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
+import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
+import { useContributorProfiles } from "@/lib/contributorProfiles";
 
 interface CardProps {
   card: CardType;
@@ -72,6 +75,19 @@ function handleAnswerWheel(e: WheelEvent) {
 }
 
 export function Card({ card }: CardProps) {
+  const { user, members, accessInfo, stampContributor } = useAuth();
+  const canEdit = useCanEditCanvas();
+  const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
+  const contributorProfiles = useContributorProfiles(
+    card.contributorIds,
+    members,
+    accessInfo?.ownerId,
+  );
+  const showContributors =
+    members.length > 1 &&
+    collaborationHasEdits &&
+    contributorProfiles.length > 0;
+
   const updateCard = useCanvasStore((s) => s.updateCard);
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCardSize = useCanvasStore((s) => s.setCardSize);
@@ -129,6 +145,7 @@ export function Card({ card }: CardProps) {
   const cardWidth = tuning.cardWidth;
 
   const isDraggable =
+    canEdit &&
     !originPinned &&
     (DEFAULT_CANVAS_TUNING.rootCardsOnlyDraggable
       ? card.parentCardId === null
@@ -306,8 +323,9 @@ export function Card({ card }: CardProps) {
 
   const submitQuestion = (question: string, options?: FollowUpOptions) => {
     const q = question.trim();
-    if (!q || isPending) return;
+    if (!q || isPending || !canEdit) return;
     recordUndo();
+    if (user?.id) stampContributor(user.id, card.id);
     updateCard(card.id, {
       question: q,
       answer: "",
@@ -323,7 +341,9 @@ export function Card({ card }: CardProps) {
   };
 
   const submitFollowUp = (question: string, options?: FollowUpOptions) => {
-    createFollowUp(card.id, question, options);
+    if (!canEdit) return;
+    const childId = createFollowUp(card.id, question, options);
+    if (user?.id && childId) stampContributor(user.id, childId);
   };
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -466,6 +486,11 @@ export function Card({ card }: CardProps) {
                 accentWidth={compensatedStrokeWidth(3, scale, 3)}
                 style={QA_SECTION_INSETS.question}
               >
+                {showContributors && (
+                  <div className="mb-2">
+                    <ContributorAvatarStack profiles={contributorProfiles} />
+                  </div>
+                )}
                 <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
                   Question
                 </div>

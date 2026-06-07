@@ -1,0 +1,79 @@
+"use client";
+
+import type { CollaboratorProfile } from "@/lib/collaborationTypes";
+
+const MAX_VISIBLE = 4;
+
+export function ContributorAvatarStack({
+  profiles,
+  size = 22,
+  maxVisible = MAX_VISIBLE,
+}: {
+  profiles: CollaboratorProfile[];
+  size?: number;
+  maxVisible?: number;
+}) {
+  if (profiles.length === 0) return null;
+
+  const visible = profiles.slice(0, maxVisible);
+  const overflow = profiles.length - visible.length;
+
+  return (
+    <div className="flex items-center" aria-label="Contributors">
+      {visible.map((profile, index) => (
+        <ContributorAvatar
+          key={profile.id}
+          profile={profile}
+          size={size}
+          style={{ marginLeft: index === 0 ? 0 : -(size * 0.3) }}
+        />
+      ))}
+      {overflow > 0 && (
+        <span
+          className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-bg text-[10px] font-semibold text-canvas-muted"
+          style={{
+            width: size,
+            height: size,
+            marginLeft: -(size * 0.3),
+          }}
+        >
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ContributorAvatar({
+  profile,
+  size,
+  style,
+}: {
+  profile: CollaboratorProfile;
+  size: number;
+  style?: React.CSSProperties;
+}) {
+  const label = profile.displayName ?? "User";
+  if (profile.avatarUrl) {
+    return (
+      <img
+        src={profile.avatarUrl}
+        alt={label}
+        title={label}
+        className="shrink-0 rounded-full border-2 border-canvas-card object-cover"
+        style={{ width: size, height: size, ...style }}
+      />
+    );
+  }
+
+  const initial = label.charAt(0).toUpperCase();
+  return (
+    <span
+      title={label}
+      className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-accent text-[10px] font-semibold text-white"
+      style={{ width: size, height: size, ...style }}
+    >
+      {initial}
+    </span>
+  );
+}

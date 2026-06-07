@@ -47,7 +47,5 @@ export function SaveStatusBadge({
     );
   }
 
-  return (
-    <div className={`${badgeClass} text-canvas-muted`}>Saved to cloud</div>
-  );
+  return null;
 }

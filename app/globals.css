@@ -38,6 +38,18 @@ body {
   border: 2px dashed var(--dot-color, #d9d7d2);
 }
 
+.floating-panel {
+  @apply absolute top-3 bottom-3 z-40 overflow-hidden rounded-xl border border-canvas-border bg-canvas-card shadow-card transition-[width] duration-panel ease-panel;
+}
+
+.floating-panel-left {
+  @apply left-3;
+}
+
+.floating-panel-right {
+  @apply right-3;
+}
+
 @keyframes summary-pulse-stroke {
   0%,
   100% {

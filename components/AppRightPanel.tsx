@@ -8,9 +8,18 @@ export function AppRightPanel() {
   const collapsed = useCanvasStore((s) => s.rightPanelCollapsed);
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
 
-  if (collapsed) {
-    return (
-      <aside className="pointer-events-auto absolute right-0 top-0 z-40 flex h-full w-[78px] flex-col items-center border-l border-canvas-border bg-canvas-card py-3">
+  return (
+    <aside
+      className={`floating-panel floating-panel-right pointer-events-auto flex flex-col ${
+        collapsed ? "w-[78px]" : "w-[420px]"
+      }`}
+    >
+      <div
+        className={[
+          "absolute inset-0 flex flex-col items-center py-3 transition-opacity duration-panel ease-panel",
+          collapsed ? "opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+      >
         <button
           type="button"
           onClick={toggleRightPanel}
@@ -22,27 +31,30 @@ export function AppRightPanel() {
         <span className="mt-3 rotate-90 text-[11px] font-medium uppercase tracking-wide text-canvas-muted">
           Artifacts
         </span>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="pointer-events-auto absolute right-0 top-0 z-40 flex h-full w-[420px] flex-col border-l border-canvas-border bg-canvas-card shadow-xl">
-      <div className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3">
-        <h2 className="text-[15px] font-medium text-canvas-ink">Canvas artifacts</h2>
-        <button
-          type="button"
-          onClick={toggleRightPanel}
-          aria-label="Collapse artifacts panel"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
-        >
-          <ChevronIcon direction="right" />
-        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <ArtifactsSection />
-        <AttachmentsSection />
+      <div
+        className={[
+          "flex h-full min-w-[420px] flex-col transition-opacity duration-panel ease-panel",
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100",
+        ].join(" ")}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3">
+          <h2 className="text-[15px] font-medium text-canvas-ink">Canvas artifacts</h2>
+          <button
+            type="button"
+            onClick={toggleRightPanel}
+            aria-label="Collapse artifacts panel"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          >
+            <ChevronIcon direction="right" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <ArtifactsSection />
+          <AttachmentsSection />
+        </div>
       </div>
     </aside>
   );

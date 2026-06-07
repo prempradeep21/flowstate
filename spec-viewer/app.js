@@ -4,19 +4,32 @@ marked.setOptions({
 });
 
 const SECTION_META = {
-  "1. Product Vision": { num: 1, desc: "What Flowstate Everywhere is and who it's for" },
-  "2. Philosophy & Governing Principles": { num: 2, desc: "Core beliefs and decision filters" },
-  "3. User Stories": { num: 3, desc: "V1 requirements as actor–action–outcome stories" },
-  "4. Out of Scope": { num: 4, desc: "Explicitly deferred features" },
-  "5. Decisions & Design Rationale": { num: 5, desc: "Every decision with rationale and provenance" },
-  "6. User Interface Specification": { num: 6, desc: "Visual and layout specifications" },
-  "7. Interaction Model": { num: 7, desc: "How users start threads, branch, and inherit context" },
-  "8. Version Roadmap": { num: 8, desc: "V1, V2, V3 and unscheduled ideas" },
-  "9. Technical Implementation": { num: 9, desc: "Stack, canvas, state, and persistence" },
-  "10. API Handling": { num: 10, desc: "Browser-direct LLM calls and context construction" },
-  "11. Onboarding": { num: 11, desc: "Developer landing flow and key validation" },
-  "12. Open Questions": { num: 12, desc: "Unresolved decisions logged for later" },
-  "13. Acceptance Checklist": { num: 13, desc: "Ship criteria for V1 completion" },
+  "1. Chronology of Updates": { num: 1, desc: "Main-branch pushes grouped into working sessions" },
+  "2. Product Vision": { num: 2, desc: "What Flowstate is and who it's for" },
+  "3. Philosophy & Governing Principles": { num: 3, desc: "Core beliefs and decision filters" },
+  "4. User Stories": { num: 4, desc: "V1 requirements as actor–action–outcome stories" },
+  "5. Out of Scope": { num: 5, desc: "Explicitly deferred features" },
+  "6. Decisions & Design Rationale": { num: 6, desc: "Every decision with rationale and provenance" },
+  "7. User Interface Specification": { num: 7, desc: "Visual and layout specifications" },
+  "8. Interaction Model": { num: 8, desc: "How users start threads, branch, and inherit context" },
+  "9. Version Roadmap": { num: 9, desc: "V1, V2, V3 and unscheduled ideas" },
+  "10. Technical Implementation": { num: 10, desc: "Stack, canvas, state, and persistence" },
+  "11. API Handling": { num: 11, desc: "Browser-direct LLM calls and context construction" },
+  "12. Onboarding": { num: 12, desc: "Developer landing flow and key validation" },
+  "13. Open Questions": { num: 13, desc: "Unresolved decisions logged for later" },
+  "14. Acceptance Checklist": { num: 14, desc: "Ship criteria for V1 completion" },
+};
+
+const CHRONOLOGY_CATEGORIES = {
+  Canvas: "cat-canvas",
+  Cards: "cat-cards",
+  Branching: "cat-branching",
+  Artifacts: "cat-artifacts",
+  Sessions: "cat-sessions",
+  "API & Context": "cat-api",
+  "Auth & Onboarding": "cat-auth",
+  "UI & Navigation": "cat-ui",
+  Technical: "cat-technical",
 };
 
 function slugify(text) {
@@ -164,6 +177,83 @@ function enhanceOpenQuestions(container) {
   });
 }
 
+function categoryBadge(label) {
+  const trimmed = label.trim();
+  const cls = CHRONOLOGY_CATEGORIES[trimmed] || "cat-default";
+  return `<span class="chrono-cat ${cls}">${escapeHtml(trimmed)}</span>`;
+}
+
+function parseSessionLabel(label) {
+  const parts = label.split(", ").map((p) => p.trim());
+  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  if (parts.length >= 3 && weekdays.includes(parts[1])) {
+    return {
+      dateDay: `${parts[0]}, ${parts[1]}`,
+      period: parts.slice(2).join(", "),
+    };
+  }
+  return { dateDay: label, period: "" };
+}
+
+function enhanceChronology(html, sectionId) {
+  const introEnd = html.indexOf("<hr>");
+  const intro = introEnd >= 0 ? html.slice(0, introEnd) : "";
+  const body = introEnd >= 0 ? html.slice(introEnd) : html;
+
+  const sessionBlocks = body.split(/(?=<h3>Session ·)/g).filter(Boolean);
+
+  const sessions = sessionBlocks
+    .map((block) => {
+      const titleMatch = block.match(/<h3>(Session · [^<]+)<\/h3>/);
+      if (!titleMatch) return "";
+
+      const title = titleMatch[1];
+      let inner = block.replace(/<h3>Session · [^<]+<\/h3>/, "");
+
+      const metaMatch = inner.match(/<p><strong>([\s\S]*?)<\/strong><\/p>/);
+      const meta = metaMatch ? metaMatch[1] : "";
+      if (metaMatch) inner = inner.replace(metaMatch[0], "");
+
+      inner = inner.replace(/<table>[\s\S]*?<\/table>/g, (tableHtml) => {
+        const wrapped = tableHtml.replace(/<table>/, '<table class="chrono-table">');
+        return `<div class="table-wrap chrono-table-wrap">${wrapped}</div>`;
+      });
+
+      const table = inner.match(/<div class="table-wrap chrono-table-wrap">[\s\S]*?<\/div>/);
+      let tableContent = table ? table[0] : "";
+      tableContent = tableContent.replace(
+        /<tr>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<\/tr>/g,
+        (_, time, category, update) =>
+          `<tr><td class="chrono-time">${escapeHtml(time.trim())}</td><td>${categoryBadge(category)}</td><td>${update.trim()}</td></tr>`
+      );
+
+      const label = title.replace(/^Session · /, "").trim();
+      const { dateDay, period } = parseSessionLabel(label);
+      const anchorId = `${sectionId}-${slugify(title)}`;
+
+      return `
+        <article class="chronology-session" id="${anchorId}">
+          <div class="chrono-marker" aria-hidden="true"></div>
+          <div class="chrono-session-card">
+            <header class="chrono-session-header">
+              <p class="chrono-date">${escapeHtml(dateDay)}</p>
+              <h3 class="chrono-session-title">${escapeHtml(period)}</h3>
+              ${meta ? `<p class="chrono-meta">${meta}</p>` : ""}
+            </header>
+            ${tableContent}
+          </div>
+        </article>`;
+    })
+    .join("");
+
+  const rulesTable = intro.replace(
+    /<table>[\s\S]*?<\/table>/,
+    (t) => `<div class="table-wrap chrono-rules-wrap">${t.replace("<table>", '<table class="chrono-rules">')}</div>`
+  );
+
+  return `${rulesTable}<div class="chronology-timeline">${sessions}</div>`;
+}
+
 function enhanceUserStories(html) {
   return html.replace(
     /<p><strong>(US-\d+)<\/strong>\s*—\s*(.*?)<\/p>/g,
@@ -255,6 +345,9 @@ function renderSectionContent(section) {
   if (section.title.includes("Version Roadmap")) {
     html = enhanceRoadmap(html);
   }
+  if (section.title.includes("Chronology")) {
+    html = enhanceChronology(html, section.id);
+  }
 
   const container = document.createElement("div");
   container.innerHTML = html;
@@ -263,7 +356,7 @@ function renderSectionContent(section) {
     enhanceDecisionTables(container);
   } else if (section.title.includes("Open Questions")) {
     enhanceOpenQuestions(container);
-  } else {
+  } else if (!section.title.includes("Chronology")) {
     wrapGenericTables(container);
   }
 
@@ -277,6 +370,7 @@ function renderHero(heroMd, sections) {
     ?.body.match(/^\| [^|]/gm)?.length || 0;
   const storyCount = (sections.find((s) => s.title.includes("User Stories"))?.body.match(/\*\*US-\d+/g) || []).length;
   const openCount = (sections.find((s) => s.title.includes("Open Questions"))?.body.match(/^\| OQ-/gm) || []).length;
+  const sessionCount = (sections.find((s) => s.title.includes("Chronology"))?.body.match(/^### Session ·/gm) || []).length;
 
   return `
     ${parsed.replace("<h1", '<h1 class="hero-title"').replace("<h3", '<p class="subtitle"').replace(/<\/h3>/, "</p>")}
@@ -285,6 +379,7 @@ function renderHero(heroMd, sections) {
       <span class="stat-pill"><strong>${storyCount}</strong> user stories</span>
       <span class="stat-pill"><strong>${decisionCount}+</strong> decisions logged</span>
       <span class="stat-pill"><strong>${openCount}</strong> open questions</span>
+      <span class="stat-pill"><strong>${sessionCount}</strong> work sessions</span>
     </div>
   `;
 }
@@ -306,6 +401,16 @@ function buildNav(sections) {
             (sub) =>
               `<a class="nav-link sub" href="#${section.id}-${slugify(sub)}" data-section="${section.id}">${sub}</a>`
           )
+          .join("");
+      }
+
+      if (section.title.includes("Chronology") && section.subsections.length) {
+        html += section.subsections
+          .filter((sub) => sub.startsWith("Session ·"))
+          .map((sub) => {
+            const short = sub.replace(/^Session · /, "");
+            return `<a class="nav-link sub" href="#${section.id}-${slugify(sub)}" data-section="${section.id}">${short}</a>`;
+          })
           .join("");
       }
 
@@ -343,7 +448,7 @@ function renderSections(sections) {
   </footer>`;
 
   sections.forEach((section) => {
-    if (!section.title.includes("Decisions")) return;
+    if (!section.title.includes("Decisions") && !section.title.includes("Chronology")) return;
     container.querySelectorAll(`#${CSS.escape(section.id)} h3`).forEach((h3) => {
       const label = h3.textContent.trim();
       if (section.subsections.includes(label)) {

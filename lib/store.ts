@@ -119,6 +119,7 @@ export interface Card {
   attachedArtifacts?: AttachedArtifactRef[];
   inheritedArtifactId?: string;
   pendingFiles?: PendingFileAttachment[];
+  contributorIds?: string[];
 }
 
 export interface FollowUpOptions {
@@ -361,6 +362,13 @@ interface CanvasState {
 
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) => void;
+  canvasReadOnly: boolean;
+  setCanvasReadOnly: (readOnly: boolean) => void;
+  collaborationHasEdits: boolean;
+  setCollaborationHasEdits: (value: boolean) => void;
+  appendContributorToCard: (cardId: string, userId: string) => void;
+  appendContributorToArtifact: (artifactId: string, userId: string) => void;
+  stampContributorOnActiveEdits: (userId: string) => void;
   resetCanvasState: () => void;
 }
 
@@ -1507,6 +1515,58 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       openSessionArtifactVersionId: null,
     }),
 
+  collaborationHasEdits: false,
+  canvasReadOnly: false,
+
+  setCanvasReadOnly: (readOnly) => set({ canvasReadOnly: readOnly }),
+
+  setCollaborationHasEdits: (value) => set({ collaborationHasEdits: value }),
+
+  appendContributorToCard: (cardId, userId) =>
+    set((state) => {
+      const card = state.cards[cardId];
+      if (!card) return state;
+      const existing = card.contributorIds ?? [];
+      if (existing.includes(userId)) return state;
+      return {
+        collaborationHasEdits: true,
+        cards: {
+          ...state.cards,
+          [cardId]: {
+            ...card,
+            contributorIds: [...existing, userId],
+          },
+        },
+      };
+    }),
+
+  appendContributorToArtifact: (artifactId, userId) =>
+    set((state) => {
+      const artifact = state.sessionArtifacts[artifactId];
+      if (!artifact) return state;
+      const versions = artifact.versions.map((v) => {
+        if (v.createdByUserId) return v;
+        return { ...v, createdByUserId: userId };
+      });
+      const latest = versions.find((v) => v.id === artifact.latestVersionId);
+      if (latest && !latest.createdByUserId) {
+        const idx = versions.findIndex((v) => v.id === latest.id);
+        versions[idx] = { ...latest, createdByUserId: userId };
+      }
+      return {
+        collaborationHasEdits: true,
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: { ...artifact, versions },
+        },
+      };
+    }),
+
+  stampContributorOnActiveEdits: (userId) => {
+    const state = get();
+    state.setCollaborationHasEdits(true);
+  },
+
   getCanvasSnapshotSource: (): CanvasSnapshotSource => {
     const state = get();
     return {
@@ -1526,6 +1586,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasTextLabels: state.canvasTextLabels,
       canvasTextLabelOrder: state.canvasTextLabelOrder,
       uploadedAttachments: state.uploadedAttachments,
+      collaborationHasEdits: state.collaborationHasEdits,
     };
   },
 
@@ -1560,6 +1621,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasPlacementRequest: null,
       activeCanvasPlacement: null,
       viewMode: "canvas",
+      collaborationHasEdits: false,
+      canvasReadOnly: false,
     }),
 
   hydrateFromSnapshot: (snapshot: CanvasSnapshot) =>
@@ -1629,6 +1692,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         plugComposerAttachments: {},
         canvasPlacementRequest: null,
         activeCanvasPlacement: null,
+        collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,
       };
     }),
 }));

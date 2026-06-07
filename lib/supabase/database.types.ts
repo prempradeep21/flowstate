@@ -44,6 +44,7 @@ export interface Database {
           state: Json;
           version: number;
           is_default: boolean;
+          allow_viewer_duplicate: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -54,6 +55,7 @@ export interface Database {
           state?: Json;
           version?: number;
           is_default?: boolean;
+          allow_viewer_duplicate?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -64,6 +66,7 @@ export interface Database {
           state?: Json;
           version?: number;
           is_default?: boolean;
+          allow_viewer_duplicate?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -95,6 +98,63 @@ export interface Database {
           user_id?: string;
           role?: "owner" | "editor" | "viewer";
           invited_at?: string;
+        };
+        Relationships: [];
+      };
+      canvas_invites: {
+        Row: {
+          id: string;
+          canvas_id: string;
+          email: string;
+          role: "editor" | "viewer";
+          invited_by: string;
+          status: "pending" | "accepted" | "declined";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          canvas_id: string;
+          email: string;
+          role: "editor" | "viewer";
+          invited_by: string;
+          status?: "pending" | "accepted" | "declined";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          canvas_id?: string;
+          email?: string;
+          role?: "editor" | "viewer";
+          invited_by?: string;
+          status?: "pending" | "accepted" | "declined";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      canvas_share_links: {
+        Row: {
+          id: string;
+          canvas_id: string;
+          token: string;
+          created_by: string;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          canvas_id: string;
+          token?: string;
+          created_by: string;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          canvas_id?: string;
+          token?: string;
+          created_by?: string;
+          revoked_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };

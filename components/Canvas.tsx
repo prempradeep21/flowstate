@@ -56,7 +56,8 @@ import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
-import { usePersistenceReady } from "@/components/AuthProvider";
+import { usePersistenceReady, useAuth } from "@/components/AuthProvider";
+import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 
 const MARQUEE_MIN_DRAG_PX = 6;
 
@@ -67,6 +68,7 @@ interface PlacementState {
 
 export function Canvas() {
   const persistenceReady = usePersistenceReady();
+  const { user, presenceChannelRef } = useAuth();
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const panBy = useCanvasStore((s) => s.panBy);
@@ -834,6 +836,11 @@ export function Canvas() {
           onAddText={handleAddTextAtContextMenu}
         />
       )}
+      <CollaboratorCursors
+        containerRef={containerRef}
+        channelRef={presenceChannelRef}
+        currentUserId={user?.id}
+      />
     </div>
   );
 }

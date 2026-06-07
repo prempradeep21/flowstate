@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 
@@ -14,6 +16,7 @@ export function ArtifactPanelHeader({
   menuVariant = "panel",
   onExpand,
   onRemoveFromCanvas,
+  contributorProfiles,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -23,8 +26,8 @@ export function ArtifactPanelHeader({
   menuVariant?: "canvas" | "panel";
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
-}) {
-  const [versionOpen, setVersionOpen] = useState(false);
+  contributorProfiles?: CollaboratorProfile[];
+}) {  const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const versionRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -62,8 +65,10 @@ export function ArtifactPanelHeader({
 
   return (
     <div className="flex h-10 items-center gap-2">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">
-        <ArtifactTypeIcon kind={kind} />
+      {contributorProfiles && contributorProfiles.length > 0 && (
+        <ContributorAvatarStack profiles={contributorProfiles} size={20} />
+      )}
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">        <ArtifactTypeIcon kind={kind} />
       </span>
       <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-canvas-ink">
         {title}

@@ -6,17 +6,21 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useCanvasPersistence } from "@/hooks/useCanvasPersistence";
+import { useCollaboration } from "@/hooks/useCollaboration";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { useCanvasStore } from "@/lib/store";
 
 import type { CanvasMeta } from "@/lib/canvasPersistence";
+import type { CollaborationContextValue } from "@/hooks/useCollaboration";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
-interface AuthContextValue {
+interface AuthContextValue extends CollaborationContextValue {
   user: User | null;
   authLoading: boolean;
   supabaseConfigured: boolean;
@@ -27,8 +31,11 @@ interface AuthContextValue {
   isSwitchingCanvas: boolean;
   switchCanvas: (canvasId: string) => Promise<void>;
   createNewCanvas: () => Promise<string | null>;
+  renameCanvas: (canvasId: string, title: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  shareModalOpen: boolean;
+  setShareModalOpen: (open: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,20 +47,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [persistenceStatus, setPersistenceStatus] =
     useState<PersistenceStatus>("idle");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const setCanvasReadOnly = useCanvasStore((s) => s.setCanvasReadOnly);
+  const isRemoteUpdateRef = useRef(false);
 
   const {
     activeCanvasId,
     canvases,
     switchCanvas,
     createNewCanvas,
+    renameCanvas,
     isSwitching: isSwitchingCanvas,
+    loadCanvasRow,
+    refreshOwnedCanvasList,
   } = useCanvasPersistence({
     user,
     supabaseConfigured,
     persistenceStatus,
     setPersistenceStatus,
     setSaveStatus,
+    isRemoteUpdateRef,
   });
+
+  const onCanvasJoined = useCallback(
+    async (canvasId: string) => {
+      if (!user) return;
+      await loadCanvasRow(canvasId, user.id);
+    },
+    [loadCanvasRow, user],
+  );
+
+  const onRefreshCanvasList = useCallback(async () => {
+    await refreshOwnedCanvasList();
+  }, [refreshOwnedCanvasList]);
+
+  const collaboration = useCollaboration({
+    user,
+    supabaseConfigured,
+    activeCanvasId,
+    onCanvasJoined,
+    onRefreshCanvasList,
+    isRemoteUpdateRef,
+  });
+
+  useEffect(() => {
+    const readOnly =
+      Boolean(user && activeCanvasId) && !collaboration.canEdit;
+    setCanvasReadOnly(readOnly);
+  }, [activeCanvasId, collaboration.canEdit, setCanvasReadOnly, user]);
 
   useEffect(() => {
     if (!supabaseConfigured) {
@@ -118,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      ...collaboration,
       user,
       authLoading,
       supabaseConfigured,
@@ -128,17 +170,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSwitchingCanvas,
       switchCanvas,
       createNewCanvas,
+      renameCanvas,
       signInWithGoogle,
       signOut,
+      shareModalOpen,
+      setShareModalOpen,
     }),
     [
       activeCanvasId,
       authLoading,
       canvases,
+      collaboration,
       createNewCanvas,
       isSwitchingCanvas,
       persistenceStatus,
+      renameCanvas,
       saveStatus,
+      shareModalOpen,
       signInWithGoogle,
       signOut,
       supabaseConfigured,
@@ -161,4 +209,10 @@ export function useAuth(): AuthContextValue {
 export function usePersistenceReady(): boolean {
   const { persistenceStatus } = useAuth();
   return persistenceStatus === "ready";
+}
+
+export function useCanEditCanvas(): boolean {
+  const { canEdit, user, activeCanvasId } = useAuth();
+  if (!user || !activeCanvasId) return true;
+  return canEdit;
 }

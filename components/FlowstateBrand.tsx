@@ -8,8 +8,8 @@ export function FlowstateBrand({ compact = false }: { compact?: boolean }) {
       <FlowstateLogo className={compact ? "h-[42px] w-[42px]" : "h-12 w-12"} />
       {!compact && (
         <div className="min-w-0">
-          <div className="text-[22.5px] font-semibold leading-tight text-canvas-ink">
-            <span className="font-display">Flowstate</span> Everywhere
+          <div className="font-display text-[22.5px] font-semibold leading-tight text-canvas-ink">
+            Flowstate
           </div>
         </div>
       )}

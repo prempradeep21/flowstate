@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
+import { useAuth } from "@/components/AuthProvider";
+import { artifactContributorProfiles } from "@/lib/contributorProfiles";
 import {
   artifactDisplayTitle,
   getLatestVersion,
   getVersionById,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
-
+import { useCanvasStore } from "@/lib/store";
 export function ArtifactShell({
   sessionArtifact,
   versionId,
@@ -28,7 +30,22 @@ export function ArtifactShell({
   onRemoveFromCanvas?: () => void;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
+  const { members, accessInfo } = useAuth();
+  const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
 
+  const contributorProfiles = useMemo(() => {
+    if (members.length <= 1 || !collaborationHasEdits) return [];
+    return artifactContributorProfiles(
+      sessionArtifact,
+      members,
+      accessInfo?.ownerId,
+    );
+  }, [
+    accessInfo?.ownerId,
+    collaborationHasEdits,
+    members,
+    sessionArtifact,
+  ]);
   const activeVersion = useMemo(() => {
     return (
       getVersionById(sessionArtifact, versionId) ??
@@ -66,8 +83,8 @@ export function ArtifactShell({
           menuVariant={menuVariant}
           onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}
-        />
-      </div>
+          contributorProfiles={contributorProfiles}
+        />      </div>
       <div
         className={
           isCanvasLayout

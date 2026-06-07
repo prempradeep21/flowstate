@@ -4,16 +4,24 @@ import { AuthButton } from "@/components/AuthButton";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
 import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
-import { ViewModeToggle } from "@/components/ViewModeToggle";
 import { useCanvasStore } from "@/lib/store";
 
 export function AppLeftPanel() {
   const collapsed = useCanvasStore((s) => s.leftPanelCollapsed);
   const toggleLeftPanel = useCanvasStore((s) => s.toggleLeftPanel);
 
-  if (collapsed) {
-    return (
-      <aside className="left-panel flex w-[78px] shrink-0 flex-col items-center border-r border-canvas-border bg-canvas-card py-3">
+  return (
+    <aside
+      className={`floating-panel floating-panel-left pointer-events-auto flex flex-col ${
+        collapsed ? "w-[78px]" : "w-[420px]"
+      }`}
+    >
+      <div
+        className={[
+          "absolute inset-0 flex flex-col items-center py-3 transition-opacity duration-panel ease-panel",
+          collapsed ? "opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+      >
         <FlowstateBrand compact />
         <button
           type="button"
@@ -23,35 +31,34 @@ export function AppLeftPanel() {
         >
           <ChevronIcon direction="right" />
         </button>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="left-panel flex w-[420px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
-      <div className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3">
-        <FlowstateBrand />
-        <button
-          type="button"
-          onClick={toggleLeftPanel}
-          aria-label="Collapse sidebar"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
-        >
-          <ChevronIcon direction="left" />
-        </button>
       </div>
 
-      <div className="border-b border-canvas-border px-3 py-3">
-        <ViewModeToggle />
-      </div>
+      <div
+        className={[
+          "flex h-full min-w-[420px] flex-col transition-opacity duration-panel ease-panel",
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100",
+        ].join(" ")}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3">
+          <FlowstateBrand />
+          <button
+            type="button"
+            onClick={toggleLeftPanel}
+            aria-label="Collapse sidebar"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          >
+            <ChevronIcon direction="left" />
+          </button>
+        </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <CanvasesSection />
-      </div>
+        <div className="flex-1 overflow-y-auto">
+          <CanvasesSection />
+        </div>
 
-      <div className="space-y-2 border-t border-canvas-border p-3">
-        <SaveStatusBadge size="panel" />
-        <AuthButton size="panel" />
+        <div className="space-y-2 border-t border-canvas-border p-3">
+          <SaveStatusBadge size="panel" />
+          <AuthButton size="panel" />
+        </div>
       </div>
     </aside>
   );

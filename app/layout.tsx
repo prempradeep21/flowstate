@@ -12,7 +12,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Flowstate Everywhere",
+  title: "Flowstate",
   description: "A spatial thinking canvas for AI-assisted inquiry.",
 };
 

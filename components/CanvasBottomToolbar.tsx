@@ -4,8 +4,12 @@ import {
   BranchForkIcon,
   ChatBubbleIcon,
   QuestionIcon,
+  ShareIcon,
   TypeIcon,
 } from "@/components/MenuIcons";
+import { UndoButton } from "@/components/UndoButton";
+import { useCanEditCanvas, useAuth } from "@/components/AuthProvider";
+import { isCanvasOwner } from "@/lib/collaborationPersistence";
 import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
@@ -17,10 +21,15 @@ const iconToggleBtn =
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
+  const canEdit = useCanEditCanvas();
+  const { activeCanvasRole, setShareModalOpen, user, activeCanvasId } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
   const activeCanvasPlacement = useCanvasStore((s) => s.activeCanvasPlacement);
+
+  const showShare =
+    Boolean(user && activeCanvasId) && isCanvasOwner(activeCanvasRole);
 
   if (!mounted) {
     return (
@@ -39,6 +48,7 @@ export function CanvasBottomToolbar() {
     >
       <button
         type="button"
+        disabled={!canEdit}
         className={`${toolbarBtn} ${
           activeCanvasPlacement === "question"
             ? "bg-canvas-bg text-canvas-ink"
@@ -54,6 +64,7 @@ export function CanvasBottomToolbar() {
       </button>
       <button
         type="button"
+        disabled={!canEdit}
         className={`${toolbarBtn} ${
           activeCanvasPlacement === "text" ? "bg-canvas-bg text-canvas-ink" : ""
         }`}
@@ -65,6 +76,24 @@ export function CanvasBottomToolbar() {
         </span>
         Add text
       </button>
+
+      {canEdit && <UndoButton variant="toolbar" />}
+
+      {showShare && (
+        <>
+          <div className="mx-1 h-7 w-px shrink-0 bg-canvas-border" aria-hidden />
+          <button
+            type="button"
+            className={toolbarBtn}
+            onClick={() => setShareModalOpen(true)}
+          >
+            <span className="text-canvas-muted">
+              <ShareIcon />
+            </span>
+            Share
+          </button>
+        </>
+      )}
 
       <div
         className="mx-1 h-7 w-px shrink-0 bg-canvas-border"

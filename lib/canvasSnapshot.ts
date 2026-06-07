@@ -34,6 +34,7 @@ export interface CanvasSnapshot {
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
+  collaborationHasEdits?: boolean;
 }
 
 export interface CanvasSnapshotSource {
@@ -53,6 +54,7 @@ export interface CanvasSnapshotSource {
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   uploadedAttachments: UploadedAttachment[];
+  collaborationHasEdits: boolean;
 }
 
 function normalizeCardStatus(status: CardStatus): CardStatus {
@@ -101,6 +103,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     uploadedAttachments: JSON.parse(
       JSON.stringify(source.uploadedAttachments),
     ) as UploadedAttachment[],
+    collaborationHasEdits: source.collaborationHasEdits,
   };
 }
 
@@ -125,6 +128,7 @@ export function buildEmptyCanvasSnapshot(
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
     uploadedAttachments: [],
+    collaborationHasEdits: false,
   };
 }
 
@@ -243,6 +247,7 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
           JSON.stringify(snapshot.uploadedAttachments),
         ) as UploadedAttachment[])
       : [],
+    collaborationHasEdits: Boolean(snapshot.collaborationHasEdits),
   };
 }
 

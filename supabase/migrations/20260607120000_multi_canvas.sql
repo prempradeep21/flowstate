@@ -1,4 +1,4 @@
-﻿-- Index for listing canvases by recency per owner
+-- Index for listing canvases by recency per owner
 create index if not exists canvases_owner_updated_at_idx
   on public.canvases (owner_id, updated_at desc);
 

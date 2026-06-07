@@ -5,23 +5,192 @@
 
 ## Table of Contents
 
-1. [Product Vision](#1-product-vision)
-2. [Philosophy & Governing Principles](#2-philosophy--governing-principles)
-3. [User Stories](#3-user-stories)
-4. [Out of Scope](#4-out-of-scope)
-5. [Decisions & Design Rationale](#5-decisions--design-rationale)
-6. [User Interface Specification](#6-user-interface-specification)
-7. [Interaction Model](#7-interaction-model)
-8. [Version Roadmap](#8-version-roadmap)
-9. [Technical Implementation](#9-technical-implementation)
-10. [API Handling](#10-api-handling)
-11. [Onboarding](#11-onboarding)
-12. [Open Questions](#12-open-questions)
-13. [Acceptance Checklist](#13-acceptance-checklist)
+1. [Chronology of Updates](#1-chronology-of-updates)
+2. [Product Vision](#2-product-vision)
+3. [Philosophy & Governing Principles](#3-philosophy--governing-principles)
+4. [User Stories](#4-user-stories)
+5. [Out of Scope](#5-out-of-scope)
+6. [Decisions & Design Rationale](#6-decisions--design-rationale)
+7. [User Interface Specification](#7-user-interface-specification)
+8. [Interaction Model](#8-interaction-model)
+9. [Version Roadmap](#9-version-roadmap)
+10. [Technical Implementation](#10-technical-implementation)
+11. [API Handling](#11-api-handling)
+12. [Onboarding](#12-onboarding)
+13. [Open Questions](#13-open-questions)
+14. [Acceptance Checklist](#14-acceptance-checklist)
 
 ---
 
-## 1. Product Vision
+## 1. Chronology of Updates
+
+A running log of what landed on **`main`** and shipped to the live tool. Each entry is tagged with the same categories used in [Decisions & Design Rationale](#6-decisions--design-rationale) (Canvas, Cards, Branching, Artifacts, Sessions, etc.).
+
+### How sessions are grouped
+
+| Rule | Detail |
+|---|---|
+| **Working session** | Consecutive pushes to `main` where each push is ≤ **3 hours** after the previous one, on the **same calendar day** |
+| **New session** | Starts when the gap exceeds 3 hours **or** the calendar date changes (whichever comes first) |
+| **Single-push session** | A lone push after a long gap is its own session |
+| **Timestamps** | All times in **IST (UTC+5:30)** unless noted |
+| **Session titles** | Human-readable: *7th June, Sunday, Night* — day + weekday + **Morning** (00:00–11:59), **Afternoon** (12:00–17:59), or **Night** (18:00–23:59). Add *, earlier* or *, later* only when two sessions on the same day share a period |
+| **Source of truth** | Derived from `git log main`; update this section when meaningful work merges to `main` |
+
+Sessions are listed **newest first**.
+
+---
+
+### Session · 7th June, Sunday, Night
+
+**5 pushes to `main`** · **~2h 55m** · Playground layout port, production type fixes, multi-canvas, resizable artifacts
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 21:46 | Artifacts | Resizable canvas artifacts with clamped bounds; hardened snapshot loading for incomplete persisted state; bounds tests |
+| 21:46 | Technical | Spec viewer dev script added for personal spec reference |
+| 21:15 | Sessions | Multi-canvas support — scoped artifacts per canvas, canvas switching |
+| 19:02 | Technical | Fixed `canvasOrigin` and undo snapshot type errors blocking production build |
+| 19:01 | Cards | Removed unsupported Zustand equality selector overload in `Card` |
+| 18:52 | Canvas | Ported validated playground layout to main — layout constants, DOM-first card measurement, connector anchors, origin pinning; removed playground route |
+
+---
+
+### Session · 25th May, Monday, Night
+
+**1 push to `main`** · **Single push** · Vertical chain relayout fix and position docs
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 20:01 | Canvas | Re-snap follow-up chains on card measurement and snapshot hydrate (replacing delta-shift) |
+| 20:01 | Technical | Documented canvas card position rules; wired Google Analytics in root layout |
+
+---
+
+### Session · 25th May, Monday, Morning
+
+**1 push to `main`** · **Single push** · Flowstate rebrand and layout test expansion
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 00:08 | UI & Navigation | Rebrand from Branch AI to **Flowstate Everywhere** |
+| 00:08 | Canvas | Refined canvas/UI components; expanded Vitest layout coverage |
+
+---
+
+### Session · 24th May, Sunday, Night
+
+**1 push to `main`** · **Single push** · Follow-up layout, connectors, and toolbar polish
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 23:03 | Canvas | Unified layout in `canvasLayout` with DOM-aware bounds; auto-repair on resize and hydrate |
+| 23:03 | Branching | Connector rendering moved above cards; follow-up chain layout fixes |
+| 23:03 | UI & Navigation | Bottom toolbar, text labels, Q&A section styling, related canvas UX polish |
+
+---
+
+### Session · 24th May, Sunday, Afternoon
+
+**1 push to `main`** · **Single push** · Landing experience and plug-based interactions
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 15:13 | UI & Navigation | Viewport-anchored home screen with Denton typography, onboarding tip cards, collapsed sidebar, branch/chat toggle |
+| 15:13 | Branching | Plug connectors for lateral branch creation from card edges |
+| 15:13 | Artifacts | Canvas artifacts, artifact suggestion pills on landing |
+| 15:13 | Canvas | Store and layout updates supporting landing + plug model |
+
+---
+
+### Session · 24th May, Sunday, Morning
+
+**3 pushes to `main`** · **~1h 12m** · Auth pivot, Supabase persistence, artifact MCP
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 06:51 | Auth & Onboarding | Auth UI shown even when Supabase env is missing; Google sign-in moved to sidebar footer |
+| 06:38 | Auth & Onboarding | Google OAuth via Supabase; profile-backed default canvas save/load |
+| 06:38 | Sessions | Session artifact versioning; left sidebar for artifacts and attachments |
+| 06:38 | UI & Navigation | Refreshed chat/canvas chrome |
+| 05:39 | Auth & Onboarding | Removed client-side API key gate; server uses `ANTHROPIC_API_KEY` |
+| 05:39 | Artifacts | Structured card bodies; MCP/artifact support in chat |
+| 05:39 | API & Context | Refined chat context handling for artifact flows |
+
+---
+
+### Session · 23rd May, Saturday, Night
+
+**1 push to `main`** · **Single push** · Context history hotfix
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 23:45 | API & Context | Fixed empty context chains — API now uses client-sent ancestor history from `buildAncestorHistory` instead of resetting server-side store |
+
+---
+
+### Session · 23rd May, Saturday, Night, earlier
+
+**1 push to `main`** · **Single push** · Ancestor history pipeline
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 17:40 | API & Context | Client builds branch ancestor history and sends to chat API; server store seeded after reload |
+| 17:40 | Cards | Improved image search and multi-image grid layout in answers |
+
+---
+
+### Session · 23rd May, Saturday, Afternoon
+
+**1 push to `main`** · **Single push** · Grouping and chat view
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 14:22 | Canvas | Canvas grouping with selection toolbar |
+| 14:22 | UI & Navigation | Dedicated chat view; AI-generated group summaries |
+
+---
+
+### Session · 18th May, Monday, Night
+
+**1 push to `main`** · **Single push** · Server-side conversation store
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 20:24 | API & Context | In-memory `ConversationStore` with hierarchy-aware context; `/api/conversations` registration |
+| 20:24 | Branching | Branch cards inherit full upstream context from source card ancestry |
+| 20:24 | Cards | `parentConversationId` tracked for root, follow-up, and branch cards |
+
+---
+
+### Session · 16th May, Saturday, Night
+
+**3 pushes to `main`** · **~1h 25m** · Live Claude integration and API key gate
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 20:55 | Auth & Onboarding | API key dialog on load; sessionStorage key; token usage badge in top bar |
+| 19:57 | Canvas | Merged zoom-adaptive card layout and auto-resize inputs with Claude integration |
+| 19:30 | API & Context | Claude API wired (Opus/Sonnet/Haiku); SSE streaming via `/api/chat` |
+| 19:30 | Cards | Markdown answer rendering; Wikimedia `search_images` tool; photo grid in cards |
+| 19:30 | UI & Navigation | Model selector pill (top-right) |
+
+---
+
+### Session · 12th May, Tuesday, Morning
+
+**3 pushes to `main`** · **~28m** · Initial canvas bootstrap
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 00:59 | Artifacts | Floating document badge on cards; right-side markdown `ArtifactPanel` (~35% dummy roll rate) |
+| 00:59 | Cards | Bold 18px question text; badge scales inversely with viewport zoom |
+| 00:39 | Technical | Fixed Vercel production build — ambient types for plain `.css` imports |
+| 00:31 | Canvas | **Initial commit** — infinite canvas LLM exploration tool (pan/zoom, Q+A cards, branching, dummy LLM) |
+
+---
+
+## 2. Product Vision
 
 Every AI chat product today organises conversations as a list. A vertical scroll of sessions, each one a linear thread. This is a filing cabinet metaphor — and it doesn't reflect how thinking actually works.
 
@@ -37,7 +206,7 @@ The name references river deltas — where a single flow splits into many tribut
 
 ---
 
-## 2. Philosophy & Governing Principles
+## 3. Philosophy & Governing Principles
 
 ### Branching is universal
 
@@ -75,7 +244,7 @@ These principles are the decision filter. When a new feature or design question 
 
 ---
 
-## 3. User Stories
+## 4. User Stories
 
 These are the user stories that V1 must satisfy. Each has a clear actor, action, and outcome.
 
@@ -117,7 +286,7 @@ These are the user stories that V1 must satisfy. Each has a clear actor, action,
 
 ---
 
-## 4. Out of Scope
+## 5. Out of Scope
 
 The following are explicitly not being built in V1. They are noted here to prevent scope creep and to signal where the product will go.
 
@@ -139,7 +308,7 @@ The following are explicitly not being built in V1. They are noted here to preve
 
 ---
 
-## 5. Decisions & Design Rationale
+## 6. Decisions & Design Rationale
 
 ### Canvas
 
@@ -207,7 +376,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 | Test locally first; deploy to Vercel only at the end of V1 | Avoid premature deployment overhead during iteration | Prem |
 | Onboarding (API key landing page) deferred to the final step; Steps 1–4 open straight into the canvas | Lets early steps be tested without a real Anthropic key; lower friction during build | AI |
 | Use Zustand for client-side state management | Lightweight, minimal boilerplate; fits a client-only architecture without pulling in Redux-class tooling | AI |
-| Use a custom canvas component (not `react-flow` or a third-party canvas library) for V1 | Aligns with the spec preference; keeps bundle lean and gives full control over pan/zoom/curve rendering | AI (committing to the option already favoured by Prem in spec section 9) |
+| Use a custom canvas component (not `react-flow` or a third-party canvas library) for V1 | Aligns with the spec preference; keeps bundle lean and gives full control over pan/zoom/curve rendering | AI (committing to the option already favoured by Prem in spec section 10) |
 | Use an 8-colour placeholder palette for thread accents until OQ-01 is resolved; cycle after 8 threads. Colours: `#7C9EFF, #FF8FA3, #6FCF97, #F2C94C, #BB6BD9, #56CCF2, #F2994A, #9B51E0` | Need usable defaults so the build can proceed; trivial to swap once final palette is provided | AI |
 | Render thread accent on each card as a thin (3px) right-rounded vertical bar flush with the card's left edge, slightly inset top/bottom; not as a full coloured border | "Subtle left border or top accent" was specced as either-or; the inset bar reads as a lineage marker without fighting the card's rounded corners | AI |
 | When Q is pressed, the new card is placed with its top-center near the cursor: `x = worldX - CARD_WIDTH/2`, `y = worldY - 30` | Puts the question textarea right under the cursor so typing starts immediately at the gaze point | AI |
@@ -230,7 +399,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 
 ---
 
-## 6. User Interface Specification
+## 7. User Interface Specification
 
 ### Entry Point
 
@@ -302,7 +471,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 
 ---
 
-## 7. Interaction Model
+## 8. Interaction Model
 
 ### Starting a Thread
 
@@ -349,7 +518,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 
 ---
 
-## 8. Version Roadmap
+## 9. Version Roadmap
 
 ### V1 — Core Canvas (current build target)
 
@@ -390,7 +559,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 
 ---
 
-## 9. Technical Implementation
+## 10. Technical Implementation
 
 ### Stack
 
@@ -461,7 +630,7 @@ Decisions taken during planning and build sequencing for V1. Updated as new deci
 
 ---
 
-## 10. API Handling
+## 11. API Handling
 
 ### V1 Philosophy
 
@@ -532,7 +701,7 @@ The system prompt should inform the model that it is operating inside a branchin
 
 ---
 
-## 11. Onboarding
+## 12. Onboarding
 
 ### Target User
 
@@ -575,7 +744,7 @@ Canvas opens — blank, ready
 
 ---
 
-## 12. Open Questions
+## 13. Open Questions
 
 These are decisions not yet made. They are logged here so they are not forgotten or resolved prematurely.
 
@@ -591,7 +760,7 @@ These are decisions not yet made. They are logged here so they are not forgotten
 
 ---
 
-## 13. Acceptance Checklist
+## 14. Acceptance Checklist
 
 This checklist validates that V1 is complete and ready. All items must pass before V1 is considered shippable.
 

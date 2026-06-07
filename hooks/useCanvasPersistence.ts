@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   createCanvas,
@@ -11,9 +11,12 @@ import {
   generateUntitledCanvasTitle,
   resolveInitialCanvasId,
   saveCanvasState,
+  sortCanvasesByUpdatedAt,
+  updateCanvasTitle,
   updateLastActiveCanvas,
   type CanvasMeta,
 } from "@/lib/canvasPersistence";
+import { fetchSharedCanvasList } from "@/lib/collaborationPersistence";
 import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
@@ -27,6 +30,7 @@ interface UseCanvasPersistenceOptions {
   persistenceStatus: PersistenceStatus;
   setPersistenceStatus: (status: PersistenceStatus) => void;
   setSaveStatus: (status: SaveStatus) => void;
+  isRemoteUpdateRef?: React.MutableRefObject<boolean>;
 }
 
 export function useCanvasPersistence({
@@ -35,10 +39,12 @@ export function useCanvasPersistence({
   persistenceStatus,
   setPersistenceStatus,
   setSaveStatus,
+  isRemoteUpdateRef,
 }: UseCanvasPersistenceOptions) {
   const canvasIdRef = useRef<string | null>(null);
   const isHydratingRef = useRef(false);
   const isSwitchingRef = useRef(false);
+  const isDirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [activeCanvasId, setActiveCanvasId] = useState<string | null>(null);
@@ -50,24 +56,49 @@ export function useCanvasPersistence({
   const resetCanvasState = useCanvasStore((s) => s.resetCanvasState);
   const closeArtifact = useCanvasStore((s) => s.closeArtifact);
 
-  const flushSave = useCallback(async () => {
+  const bumpCanvasInList = useCallback((canvasId: string, patch?: Partial<CanvasMeta>) => {
+    const now = new Date().toISOString();
+    setCanvases((prev) =>
+      sortCanvasesByUpdatedAt(
+        prev.map((c) =>
+          c.id === canvasId ? { ...c, ...patch, updatedAt: now } : c,
+        ),
+      ),
+    );
+  }, []);
+
+  const performSave = useCallback(async () => {
     const canvasId = canvasIdRef.current;
     if (!canvasId || !user || !supabaseConfigured) return;
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
+    if (useCanvasStore.getState().canvasReadOnly) {
+      return;
+    }
+
+    if (!isDirtyRef.current) {
+      setSaveStatus("saved");
+      return;
     }
 
     setSaveStatus("saving");
     try {
       const supabase = createClient();
       await saveCanvasState(supabase, canvasId, getSnapshotSource());
+      isDirtyRef.current = false;
+      bumpCanvasInList(canvasId);
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
     }
-  }, [getSnapshotSource, setSaveStatus, supabaseConfigured, user]);
+  }, [bumpCanvasInList, getSnapshotSource, setSaveStatus, supabaseConfigured, user]);
+
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    await performSave();
+  }, [performSave]);
 
   const loadCanvasRow = useCallback(
     async (canvasId: string, userId: string) => {
@@ -81,6 +112,7 @@ export function useCanvasPersistence({
       hydrateFromSnapshot(row.state);
       canvasIdRef.current = row.id;
       setActiveCanvasId(row.id);
+      isDirtyRef.current = false;
       await updateLastActiveCanvas(supabase, userId, row.id);
       isHydratingRef.current = false;
     },
@@ -99,14 +131,32 @@ export function useCanvasPersistence({
 
       try {
         const supabase = createClient();
-        const [list, preferences] = await Promise.all([
+        const [list, preferences, shared] = await Promise.all([
           fetchCanvasList(supabase, nextUser.id),
           fetchUserPreferences(supabase, nextUser.id),
+          fetchSharedCanvasList(supabase, nextUser.id),
         ]);
 
         setCanvases(list);
 
+        const allIds = [
+          ...list.map((c) => c.id),
+          ...shared.map((c) => c.id),
+        ];
         let canvasId = resolveInitialCanvasId(list, preferences);
+        if (
+          canvasId &&
+          !allIds.includes(canvasId) &&
+          preferences.lastActiveCanvasId
+        ) {
+          canvasId = allIds.includes(preferences.lastActiveCanvasId)
+            ? preferences.lastActiveCanvasId
+            : canvasId;
+        } else if (!canvasId && preferences.lastActiveCanvasId) {
+          canvasId = allIds.includes(preferences.lastActiveCanvasId)
+            ? preferences.lastActiveCanvasId
+            : null;
+        }
 
         if (canvasId) {
           await loadCanvasRow(canvasId, nextUser.id);
@@ -118,6 +168,7 @@ export function useCanvasPersistence({
           );
           canvasIdRef.current = created.id;
           setActiveCanvasId(created.id);
+          isDirtyRef.current = false;
           await updateLastActiveCanvas(supabase, nextUser.id, created.id);
           const refreshed = await fetchCanvasList(supabase, nextUser.id);
           setCanvases(refreshed);
@@ -151,9 +202,6 @@ export function useCanvasPersistence({
       try {
         await flushSave();
         await loadCanvasRow(canvasId, user.id);
-        const supabase = createClient();
-        const list = await fetchCanvasList(supabase, user.id);
-        setCanvases(list);
         setSaveStatus("saved");
       } catch {
         setSaveStatus("error");
@@ -184,6 +232,7 @@ export function useCanvasPersistence({
 
       canvasIdRef.current = created.id;
       setActiveCanvasId(created.id);
+      isDirtyRef.current = false;
       await updateLastActiveCanvas(supabase, user.id, created.id);
 
       const refreshed = await fetchCanvasList(supabase, user.id);
@@ -206,6 +255,20 @@ export function useCanvasPersistence({
     user,
   ]);
 
+  const renameCanvas = useCallback(
+    async (canvasId: string, title: string) => {
+      if (!user || !supabaseConfigured) return;
+
+      const trimmed = title.trim();
+      if (!trimmed) return;
+
+      const supabase = createClient();
+      await updateCanvasTitle(supabase, canvasId, trimmed);
+      bumpCanvasInList(canvasId, { title: trimmed });
+    },
+    [bumpCanvasInList, supabaseConfigured, user],
+  );
+
   useEffect(() => {
     if (!supabaseConfigured) {
       setPersistenceStatus("ready");
@@ -216,6 +279,7 @@ export function useCanvasPersistence({
       canvasIdRef.current = null;
       setActiveCanvasId(null);
       setCanvases([]);
+      isDirtyRef.current = false;
       resetCanvasState();
       resetViewportBootstrap();
       setPersistenceStatus("ready");
@@ -247,26 +311,17 @@ export function useCanvasPersistence({
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||
+        isRemoteUpdateRef?.current ||
         !canvasIdRef.current
       ) {
         return;
       }
 
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(async () => {
-        const canvasId = canvasIdRef.current;
-        if (!canvasId || isHydratingRef.current || isSwitchingRef.current) {
-          return;
-        }
+      isDirtyRef.current = true;
 
-        setSaveStatus("saving");
-        try {
-          const supabase = createClient();
-          await saveCanvasState(supabase, canvasId, getSnapshotSource());
-          setSaveStatus("saved");
-        } catch {
-          setSaveStatus("error");
-        }
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        void performSave();
       }, SAVE_DEBOUNCE_MS);
     };
 
@@ -276,15 +331,26 @@ export function useCanvasPersistence({
       unsubscribe();
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [getSnapshotSource, persistenceStatus, setSaveStatus, supabaseConfigured, user]);
+  }, [isRemoteUpdateRef, performSave, persistenceStatus, supabaseConfigured, user]);
+
+  const refreshOwnedCanvasList = useCallback(async () => {
+    if (!user || !supabaseConfigured) return;
+    const supabase = createClient();
+    const list = await fetchCanvasList(supabase, user.id);
+    setCanvases(list);
+  }, [supabaseConfigured, user]);
 
   return {
     loadCanvasForUser,
+    loadCanvasRow,
     canvasIdRef,
     activeCanvasId,
     canvases,
+    setCanvases,
+    refreshOwnedCanvasList,
     switchCanvas,
     createNewCanvas,
+    renameCanvas,
     isSwitching,
   };
 }
