@@ -4,6 +4,7 @@ import {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
   useRef,
+  useState,
 } from "react";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { Plug } from "@/components/plugs/Plug";
@@ -83,6 +84,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
+  const [todoEditing, setTodoEditing] = useState(false);
 
   const dragStateRef = useRef<{
     pointerId: number;
@@ -289,9 +291,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
       <div
         className={`flex h-full flex-col overflow-hidden rounded-artifact-card border bg-canvas-card p-5 shadow-card transition-shadow hover:shadow-cardHover ${
-          isSelected
-            ? "border-canvas-ink ring-2 ring-canvas-ink/25"
-            : "border-canvas-border"
+          todoEditing
+            ? "border-2 border-dashed border-canvas-accent"
+            : isSelected
+              ? "border-canvas-ink ring-2 ring-canvas-ink/25"
+              : "border-canvas-border"
         }`}
       >
         <ArtifactShell
@@ -304,6 +308,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             openSessionArtifact(node.artifactId, node.versionId)
           }
           onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
+          onTodoEditingChange={setTodoEditing}
         />
       </div>
     </div>

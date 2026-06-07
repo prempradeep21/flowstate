@@ -57,6 +57,7 @@ function DraggableArtifactRow({
 
 export function ArtifactsSection() {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const createBlankTodoArtifact = useCanvasStore((s) => s.createBlankTodoArtifact);
   const groups = useMemo(
     () => buildArtifactRegistry(Object.values(sessionArtifacts)),
     [sessionArtifacts],
@@ -70,12 +71,23 @@ export function ArtifactsSection() {
       <div className="space-y-3">
         {groups.map((group) => (
           <div key={group.category}>
-            <div className="mb-1 text-[16.5px] font-medium text-canvas-muted/90">
-              {group.label}
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="text-[16.5px] font-medium text-canvas-muted/90">
+                {group.label}
+              </span>
+              {group.category === "todo" && (
+                <button
+                  type="button"
+                  onClick={() => createBlankTodoArtifact()}
+                  className="rounded-md px-2 py-0.5 text-[13px] font-medium text-canvas-accent transition-colors hover:bg-canvas-artifactIconBg"
+                >
+                  + New
+                </button>
+              )}
             </div>
             {group.items.length === 0 ? (
               <p className="px-2 py-1 text-[16.5px] text-canvas-muted/80">
-                None yet
+                {group.category === "todo" ? "None yet — create one" : "None yet"}
               </p>
             ) : (
               <ul className="space-y-0.5">

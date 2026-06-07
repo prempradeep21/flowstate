@@ -7,6 +7,16 @@ import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 
+export interface TodoEditControls {
+  canEdit: boolean;
+  isEditing: boolean;
+  isDirty: boolean;
+  onEdit: () => void;
+  onSave: () => void;
+  onDiscard: () => void;
+  onCancelEdit: () => void;
+}
+
 export function ArtifactPanelHeader({
   kind,
   title,
@@ -17,6 +27,7 @@ export function ArtifactPanelHeader({
   onExpand,
   onRemoveFromCanvas,
   contributorProfiles,
+  todoEditControls,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -27,7 +38,9 @@ export function ArtifactPanelHeader({
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   contributorProfiles?: CollaboratorProfile[];
-}) {  const [versionOpen, setVersionOpen] = useState(false);
+  todoEditControls?: TodoEditControls;
+}) {
+  const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const versionRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -63,16 +76,64 @@ export function ArtifactPanelHeader({
       ? Boolean(onExpand || onRemoveFromCanvas)
       : false;
 
+  const showTodoEdit =
+    todoEditControls?.canEdit && !todoEditControls.isEditing;
+  const showTodoSaveDiscard =
+    todoEditControls?.isEditing && todoEditControls.isDirty;
+  const showTodoCancel =
+    todoEditControls?.isEditing && !todoEditControls.isDirty;
+
   return (
     <div className="flex h-10 items-center gap-2">
       {contributorProfiles && contributorProfiles.length > 0 && (
         <ContributorAvatarStack profiles={contributorProfiles} size={20} />
       )}
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">        <ArtifactTypeIcon kind={kind} />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">
+        <ArtifactTypeIcon kind={kind} />
       </span>
       <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-canvas-ink">
         {title}
       </h2>
+
+      {showTodoEdit && (
+        <button
+          type="button"
+          onClick={todoEditControls.onEdit}
+          className="flex h-8 shrink-0 items-center rounded-full border border-canvas-ink/20 px-3 text-[13px] font-medium text-canvas-ink transition-colors hover:bg-canvas-bg"
+        >
+          Edit
+        </button>
+      )}
+
+      {showTodoCancel && (
+        <button
+          type="button"
+          onClick={todoEditControls.onCancelEdit}
+          className="flex h-8 shrink-0 items-center rounded-full border border-canvas-ink/20 px-3 text-[13px] font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        >
+          Cancel
+        </button>
+      )}
+
+      {showTodoSaveDiscard && (
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={todoEditControls.onDiscard}
+            className="flex h-8 items-center rounded-full px-3 text-[13px] font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={todoEditControls.onSave}
+            className="flex h-8 items-center rounded-full bg-canvas-accent px-3 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Save
+          </button>
+        </div>
+      )}
+
       <div className="relative shrink-0" ref={versionRef}>
         <button
           type="button"

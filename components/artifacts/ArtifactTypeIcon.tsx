@@ -55,6 +55,20 @@ export function ArtifactTypeIcon({
           <path d="M5 4L2 8l3 4M11 4l3 4-3 4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
+    case "map":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <path d="M8 1.5l4.5 2v7L8 13l-4.5-2.5v-7L8 1.5z" />
+          <circle cx="8" cy="7" r="1.5" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "todo":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+          <path d="M5 8l2 2 4-4.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     default:
       return null;
   }

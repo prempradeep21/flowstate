@@ -50,6 +50,7 @@ export function ArtifactPanel() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [todoEditing, setTodoEditing] = useState(false);
 
   const cardMarkdown = getArtifactMarkdown(card?.artifactId);
   const groupMarkdown = group?.summaryMarkdown ?? null;
@@ -67,6 +68,10 @@ export function ArtifactPanel() {
       setRefreshing(false);
     }
   }, [openGroupId]);
+
+  useEffect(() => {
+    setTodoEditing(false);
+  }, [openSessionArtifactId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,12 +116,19 @@ export function ArtifactPanel() {
       >
         {structuredOpen && sessionArtifact && activeVersion ? (
           <div className="flex h-full flex-col overflow-hidden p-5">
-            <div className="shrink-0 rounded-artifact-card border border-canvas-border bg-canvas-card p-5 shadow-card">
+            <div
+              className={`shrink-0 rounded-artifact-card border bg-canvas-card p-5 shadow-card ${
+                todoEditing
+                  ? "border-2 border-dashed border-canvas-accent"
+                  : "border-canvas-border"
+              }`}
+            >
               <ArtifactShell
                 sessionArtifact={sessionArtifact}
                 versionId={activeVersion.id}
                 onVersionChange={setArtifactPanelVersion}
                 menuVariant="panel"
+                onTodoEditingChange={setTodoEditing}
               />
             </div>
           </div>

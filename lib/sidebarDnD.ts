@@ -3,7 +3,13 @@ import type { UploadedAttachment } from "@/lib/store";
 
 export const SIDEBAR_DRAG_MIME = "application/x-flowstate-item";
 
-export type SidebarArtifactCategory = "table" | "custom" | "3d" | "image";
+export type SidebarArtifactCategory =
+  | "table"
+  | "custom"
+  | "3d"
+  | "image"
+  | "map"
+  | "todo";
 
 export type SidebarDragPayload =
   | {

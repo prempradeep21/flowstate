@@ -17,7 +17,7 @@ export function handleArtifactOnDone(cardId: string): string | null {
   if (result) {
     useCanvasStore
       .getState()
-      .spawnCanvasArtifact(result.artifactId, result.versionId);
+      .spawnCanvasArtifact(result.artifactId, result.versionId, { focus: true });
     return result.artifactId;
   }
   return null;

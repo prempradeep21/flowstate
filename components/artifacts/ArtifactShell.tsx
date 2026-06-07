@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
+import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
 import { useAuth } from "@/components/AuthProvider";
 import { artifactContributorProfiles } from "@/lib/contributorProfiles";
 import {
@@ -12,6 +13,7 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
+
 export function ArtifactShell({
   sessionArtifact,
   versionId,
@@ -20,6 +22,7 @@ export function ArtifactShell({
   layout = "panel",
   onExpand,
   onRemoveFromCanvas,
+  onTodoEditingChange,
 }: {
   sessionArtifact: SessionArtifact;
   versionId: string;
@@ -28,9 +31,14 @@ export function ArtifactShell({
   layout?: ArtifactLayout;
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
+  onTodoEditingChange?: (editing: boolean) => void;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
+  const [isTodoEditing, setIsTodoEditing] = useState(false);
+  const [isTodoDirty, setIsTodoDirty] = useState(false);
+  const todoActionsRef = useRef<TodoArtifactActions | null>(null);
   const { members, accessInfo } = useAuth();
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
 
   const contributorProfiles = useMemo(() => {
@@ -46,6 +54,7 @@ export function ArtifactShell({
     members,
     sessionArtifact,
   ]);
+
   const activeVersion = useMemo(() => {
     return (
       getVersionById(sessionArtifact, versionId) ??
@@ -53,9 +62,40 @@ export function ArtifactShell({
     );
   }, [sessionArtifact, versionId]);
 
+  const isLatest = versionId === sessionArtifact.latestVersionId;
+  const isTodo = sessionArtifact.kind === "todo";
+  const canEditTodo = isTodo && isLatest && !canvasReadOnly;
+
   useEffect(() => {
     setCodeTitleOverride(null);
+    setIsTodoEditing(false);
+    setIsTodoDirty(false);
   }, [sessionArtifact.id, versionId]);
+
+  useEffect(() => {
+    onTodoEditingChange?.(isTodoEditing);
+  }, [isTodoEditing, onTodoEditingChange]);
+
+  const handleVersionChange = useCallback(
+    (nextVersionId: string) => {
+      if (isTodoEditing && isTodoDirty) {
+        const ok = window.confirm(
+          "You have unsaved changes. Discard them and switch version?",
+        );
+        if (!ok) return;
+        todoActionsRef.current?.discard();
+      }
+      setIsTodoEditing(false);
+      setIsTodoDirty(false);
+      onVersionChange(nextVersionId);
+    },
+    [isTodoDirty, isTodoEditing, onVersionChange],
+  );
+
+  const exitEditMode = useCallback(() => {
+    setIsTodoEditing(false);
+    setIsTodoDirty(false);
+  }, []);
 
   if (!activeVersion) return null;
 
@@ -79,12 +119,30 @@ export function ArtifactShell({
           title={title}
           versions={sessionArtifact.versions}
           activeVersionId={activeVersion.id}
-          onVersionChange={onVersionChange}
+          onVersionChange={handleVersionChange}
           menuVariant={menuVariant}
           onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}
           contributorProfiles={contributorProfiles}
-        />      </div>
+          todoEditControls={
+            canEditTodo
+              ? {
+                  canEdit: true,
+                  isEditing: isTodoEditing,
+                  isDirty: isTodoDirty,
+                  onEdit: () => setIsTodoEditing(true),
+                  onSave: () => {
+                    todoActionsRef.current?.save();
+                  },
+                  onDiscard: () => {
+                    todoActionsRef.current?.discard();
+                  },
+                  onCancelEdit: exitEditMode,
+                }
+              : undefined
+          }
+        />
+      </div>
       <div
         className={
           isCanvasLayout
@@ -97,6 +155,21 @@ export function ArtifactShell({
           payload={activeVersion.payload}
           onCodeActiveFileChange={
             sessionArtifact.kind === "code" ? setCodeTitleOverride : undefined
+          }
+          todoContext={
+            isTodo
+              ? {
+                  artifactId: sessionArtifact.id,
+                  versionId: activeVersion.id,
+                  latestVersionId: sessionArtifact.latestVersionId,
+                  isEditing: isTodoEditing,
+                  onDirtyChange: setIsTodoDirty,
+                  onActionsReady: (actions) => {
+                    todoActionsRef.current = actions;
+                  },
+                  onSaved: exitEditMode,
+                }
+              : undefined
           }
         />
       </div>

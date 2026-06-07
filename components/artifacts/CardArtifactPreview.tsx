@@ -7,6 +7,7 @@ import {
   getLatestVersion,
   getVersionById,
 } from "@/lib/sessionArtifacts";
+import { todoCompletionLabel } from "@/lib/todoArtifact";
 import type { Card } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
 
@@ -22,6 +23,10 @@ export function CardArtifactPreview({ card }: { card: Card }) {
     if (!ver) return null;
     const generating =
       card.status === "streaming" || card.status === "thinking";
+    const todoSubtitle =
+      art.kind === "todo" && ver.payload.type === "todo"
+        ? todoCompletionLabel(ver.payload.data.items)
+        : undefined;
     return (
       <ArtifactPreviewPill
         kind={art.kind}
@@ -29,6 +34,11 @@ export function CardArtifactPreview({ card }: { card: Card }) {
         versionNumber={ver.number}
         artifactId={art.id}
         versionId={ver.id}
+        subtitle={
+          todoSubtitle
+            ? `Version ${ver.number} · ${todoSubtitle}`
+            : undefined
+        }
         generating={generating && !card.outputArtifactVersionId}
       />
     );

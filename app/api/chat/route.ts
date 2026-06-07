@@ -5,6 +5,12 @@ import {
   customArtifactByteSize,
   normalizeCustomArtifactData,
 } from "@/lib/customArtifact";
+import { geocodeMapArtifact } from "@/lib/geocoding";
+import {
+  detectTodoListIntent,
+  TODO_INTENT_SYSTEM_NOTE,
+} from "@/lib/artifactIntent";
+import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
@@ -37,13 +43,13 @@ const BASE_SYSTEM =
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
   description:
-    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, or 3D models. Put brief context in your text reply; put structured content here.",
+    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, or to-do lists. Put brief context in your text reply; put structured content here.",
   input_schema: {
     type: "object" as const,
     properties: {
       type: {
         type: "string",
-        enum: ["table", "code", "video", "custom", "3d"],
+        enum: ["table", "code", "video", "custom", "3d", "map", "todo"],
         description: "Artifact type to render on the card",
       },
       title: { type: "string", description: "Card artifact title" },
@@ -54,7 +60,7 @@ const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
       data: {
         type: "object",
         description:
-          "Type-specific payload. For custom: { html: string, css?: string, js?: string }. For table: { columns, rows }. For 3d: { modelUrl, format? }.",
+          "Type-specific payload. For custom: { html, css?, js? }. For table: { columns, rows }. For 3d: { modelUrl, format? }. For map: { place: { name } }. For todo: { items: [{ label, checked, dueDate?, priority? }] }.",
       },
     },
     required: ["type", "title", "data"],
@@ -191,6 +197,8 @@ export async function POST(req: Request) {
   }
   userContent.push({ type: "text", text: question });
 
+  const todoIntent = detectTodoListIntent(question);
+
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}`
     : "";
@@ -218,10 +226,12 @@ export async function POST(req: Request) {
       try {
         // Tool-use loop: Claude may call tools multiple times before a final reply.
         const MAX_TOOL_TURNS = 5;
+        let artifactEmitted = false;
         for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
           const systemPrompt = [
             BASE_SYSTEM,
             systemContext,
+            todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
             editingNote || null,
           ]
             .filter(Boolean)
@@ -232,6 +242,17 @@ export async function POST(req: Request) {
             system: systemPrompt,
             messages,
             tools: allTools,
+            ...(todoIntent &&
+            !editingArtifact &&
+            !artifactEmitted &&
+            turn === 0
+              ? {
+                  tool_choice: {
+                    type: "tool" as const,
+                    name: "emit_artifact",
+                  },
+                }
+              : {}),
           });
 
           for await (const event of stream) {
@@ -305,10 +326,41 @@ export async function POST(req: Request) {
                   data = normalized as unknown as Record<string, unknown>;
                 }
 
+                if (type === "map") {
+                  const enriched = await geocodeMapArtifact(data);
+                  if (!enriched) {
+                    resultContent =
+                      "emit_artifact map requires data.place.name with a geocodable location (e.g. \"Paris, France\"). Could not geocode the place.";
+                    toolResults.push({
+                      type: "tool_result" as const,
+                      tool_use_id: block.id,
+                      content: resultContent,
+                    });
+                    continue;
+                  }
+                  data = enriched as unknown as Record<string, unknown>;
+                }
+
+                if (type === "todo") {
+                  const normalized = normalizeTodoArtifactData(data);
+                  if (normalized.items.length === 0) {
+                    resultContent =
+                      "emit_artifact todo requires data.items with at least one { label, checked } entry.";
+                    toolResults.push({
+                      type: "tool_result" as const,
+                      tool_use_id: block.id,
+                      content: resultContent,
+                    });
+                    continue;
+                  }
+                  data = normalized as unknown as Record<string, unknown>;
+                }
+
                 emit({ thinking: `Building ${type}…` });
                 emit({
                   artifact: { type, title, description, data },
                 });
+                artifactEmitted = true;
                 resultContent = `Emitted ${type} artifact "${title}" for the canvas card.`;
               } else if (mcp.registry.has(block.name)) {
                 const server = mcp.registry.get(block.name)!;

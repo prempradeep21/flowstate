@@ -10,6 +10,7 @@ export function ArtifactPreviewPill({
   versionNumber,
   artifactId,
   versionId,
+  subtitle,
   generating = false,
   compact = false,
 }: {
@@ -18,6 +19,7 @@ export function ArtifactPreviewPill({
   versionNumber: number;
   artifactId: string;
   versionId?: string;
+  subtitle?: string;
   generating?: boolean;
   compact?: boolean;
 }) {
@@ -45,7 +47,7 @@ export function ArtifactPreviewPill({
           {title}
         </span>
         <span className={`italic text-canvas-muted ${compact ? "text-[10px]" : "text-[11px]"}`}>
-          Version {versionNumber}
+          {subtitle ?? `Version ${versionNumber}`}
           {generating ? " · Generating…" : ""}
         </span>
       </span>

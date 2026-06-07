@@ -126,6 +126,8 @@ export function askClaude(
                 "video",
                 "custom",
                 "3d",
+                "map",
+                "todo",
               ] as const;
               if (
                 !raw.type ||

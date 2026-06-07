@@ -4,6 +4,11 @@ import {
   payloadToArtifactKind,
   videoPayloadToImages,
 } from "@/lib/artifactTypes";
+import {
+  mergeTodoItemsFromAi,
+  normalizeTodoItem,
+  normalizeTodoPayload,
+} from "@/lib/todoArtifact";
 import type { Card, CardImage, Connection } from "@/lib/store";
 import { getThreadCardChain } from "@/lib/chatThreads";
 
@@ -101,9 +106,28 @@ export function buildImagesArtifactFromCard(
 
 export function normalizePayloadForRegistry(
   payload: ArtifactPayload,
+  previousPayload?: ArtifactPayload,
 ): ArtifactPayload {
   if (payload.type === "video") {
     return videoPayloadToImages(payload);
+  }
+  if (payload.type === "todo") {
+    const normalized = normalizeTodoPayload(payload);
+    if (previousPayload?.type === "todo") {
+      const incomingItems = normalized.data.items.map((item) =>
+        normalizeTodoItem(item),
+      );
+      return {
+        ...normalized,
+        data: {
+          items: mergeTodoItemsFromAi(
+            previousPayload.data.items,
+            incomingItems,
+          ),
+        },
+      };
+    }
+    return normalized;
   }
   return payload;
 }
@@ -144,7 +168,11 @@ export function appendArtifactVersion(
   payload: ArtifactPayload,
   sourceCardId: string,
 ): { artifact: SessionArtifact; versionId: string } {
-  const normalized = normalizePayloadForRegistry(payload);
+  const latest = getLatestVersion(artifact);
+  const normalized = normalizePayloadForRegistry(
+    payload,
+    latest?.payload,
+  );
   const nextNum =
     (artifact.versions[artifact.versions.length - 1]?.number ?? 0) + 1;
   const version = createVersionEntry(normalized, sourceCardId, nextNum);

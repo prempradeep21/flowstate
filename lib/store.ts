@@ -58,6 +58,10 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import {
+  createEmptyTodoPayload,
+  MANUAL_TODO_SOURCE_CARD_ID,
+} from "@/lib/todoArtifact";
+import {
   graphSnapshotFromState,
   GraphSnapshot,
   MAX_UNDO_STACK,
@@ -322,6 +326,13 @@ interface CanvasState {
     payload: ArtifactPayload,
     cardId: string,
   ) => { artifactId: string; versionId: string };
+  createBlankTodoArtifact: (
+    title?: string,
+  ) => { artifactId: string; versionId: string };
+  saveTodoArtifactVersion: (
+    artifactId: string,
+    payload: Extract<ArtifactPayload, { type: "todo" }>,
+  ) => { versionId: string };
   openSessionArtifact: (artifactId: string, versionId?: string) => void;
   setArtifactPanelVersion: (versionId: string) => void;
   listSessionArtifacts: () => SessionArtifact[];
@@ -998,6 +1009,35 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     });
     return result;
+  },
+
+  createBlankTodoArtifact: (title) => {
+    const payload = createEmptyTodoPayload(title);
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_TODO_SOURCE_CARD_ID,
+    );
+    get().openSessionArtifact(artifactId, versionId);
+    get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    return { artifactId, versionId };
+  },
+
+  saveTodoArtifactVersion: (artifactId, payload) => {
+    const { versionId } = get().createArtifactVersion(
+      artifactId,
+      payload,
+      MANUAL_TODO_SOURCE_CARD_ID,
+    );
+    get().setArtifactPanelVersion(versionId);
+    const node = findCanvasNodeByArtifactId(
+      get().canvasArtifactNodes,
+      artifactId,
+    );
+    if (node) {
+      get().setCanvasArtifactVersion(node.id, versionId);
+    }
+    return { versionId };
   },
 
   openSessionArtifact: (artifactId, versionId) =>

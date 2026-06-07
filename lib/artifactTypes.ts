@@ -1,4 +1,5 @@
 import { normalizeCustomArtifactData } from "@/lib/customArtifact";
+import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 
 /** Response shape for a single canvas card turn. */
 
@@ -10,10 +11,33 @@ export type ResponseType =
   | "code"
   | "custom"
   | "3d"
-  | "images";
+  | "images"
+  | "todo"
+  | "map";
 
 /** UI routing for drawer / preview chrome */
-export type ArtifactKind = "table" | "images" | "3d" | "custom" | "code";
+export type ArtifactKind =
+  | "table"
+  | "images"
+  | "3d"
+  | "custom"
+  | "code"
+  | "todo"
+  | "map";
+
+export type TodoPriority = "low" | "medium" | "high";
+
+export interface TodoItem {
+  id: string;
+  label: string;
+  checked: boolean;
+  dueDate?: string;
+  priority?: TodoPriority;
+}
+
+export interface TodoArtifactData {
+  items: TodoItem[];
+}
 
 export interface TableColumn {
   key: string;
@@ -72,13 +96,27 @@ export interface ThreeDArtifactData {
   format?: "glb" | "gltf";
 }
 
+export interface MapPlace {
+  name: string;
+  label?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface MapArtifactData {
+  place: MapPlace;
+  zoom: number;
+}
+
 export type ArtifactPayload =
   | { type: "table"; title: string; description?: string; data: TableArtifactData }
   | { type: "code"; title: string; description?: string; data: CodeArtifactData }
   | { type: "video"; title: string; description?: string; data: VideoArtifactData }
   | { type: "images"; title: string; description?: string; data: ImagesArtifactData }
   | { type: "custom"; title: string; description?: string; data: CustomArtifactData }
-  | { type: "3d"; title: string; description?: string; data: ThreeDArtifactData };
+  | { type: "3d"; title: string; description?: string; data: ThreeDArtifactData }
+  | { type: "todo"; title: string; description?: string; data: TodoArtifactData }
+  | { type: "map"; title: string; description?: string; data: MapArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {
@@ -192,6 +230,18 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
         type: "3d",
         ...base,
         data: artifact.data as unknown as ThreeDArtifactData,
+      };
+    case "todo":
+      return {
+        type: "todo",
+        ...base,
+        data: normalizeTodoArtifactData(artifact.data),
+      };
+    case "map":
+      return {
+        type: "map",
+        ...base,
+        data: artifact.data as unknown as MapArtifactData,
       };
     default:
       return {

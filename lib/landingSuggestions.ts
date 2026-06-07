@@ -26,4 +26,9 @@ export const LANDING_ARTIFACT_SUGGESTIONS: {
     label: "Images",
     prompt: "Create an image gallery showing ",
   },
+  {
+    kind: "map",
+    label: "Maps",
+    prompt: "Show me a map of ",
+  },
 ];

@@ -61,3 +61,18 @@ body {
     box-shadow: 0 0 0 1px rgb(138 134 126 / 0.12);
   }
 }
+
+@keyframes todo-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.todo-row-animate {
+  animation: todo-row-in 0.35s ease-out both;
+}
