@@ -2,6 +2,9 @@
 
 import { AmbientGradientBackground } from "@/components/canvasBackgrounds/AmbientGradientBackground";
 import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
+import { NetworkBackground } from "@/components/canvasBackgrounds/NetworkBackground";
+import { RisingSunBackground } from "@/components/canvasBackgrounds/RisingSunBackground";
+import { SkyBackground } from "@/components/canvasBackgrounds/SkyBackground";
 import type { BackgroundOption, BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import type { CanvasBackgroundStyle, CanvasTheme } from "@/lib/store";
 import type { ComponentType } from "react";
@@ -36,6 +39,21 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
     label: "Ambient",
     description: "Soft diffused color gradients",
   },
+  {
+    id: "sky",
+    label: "Sky",
+    description: "Slow-moving clouds over a deep sky",
+  },
+  {
+    id: "network",
+    label: "Network",
+    description: "Linked particles drifting on a dark canvas",
+  },
+  {
+    id: "rising-sun",
+    label: "Rising Sun",
+    description: "Warm animated sunrise from Unicorn Studio",
+  },
 ];
 
 export const BACKGROUND_COMPONENTS: Record<
@@ -44,4 +62,7 @@ export const BACKGROUND_COMPONENTS: Record<
 > = {
   grid: GridBackground,
   "ambient-gradient": AmbientGradientBackground,
+  sky: SkyBackground,
+  network: NetworkBackground,
+  "rising-sun": RisingSunBackground,
 };

@@ -35,6 +35,30 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("ambient-gradient");
   });
 
+  it("preserves sky canvasBackgroundStyle", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "sky",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("sky");
+  });
+
+  it("preserves network canvasBackgroundStyle", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "network",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("network");
+  });
+
+  it("preserves rising-sun canvasBackgroundStyle", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "rising-sun",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("rising-sun");
+  });
+
   it("falls back to grid for removed canvasBackgroundStyle values", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,

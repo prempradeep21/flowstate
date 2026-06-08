@@ -198,6 +198,9 @@ export function buildEmptyCanvasSnapshot(
 const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
   "grid",
   "ambient-gradient",
+  "sky",
+  "network",
+  "rising-sun",
 ]);
 
 function normalizeCanvasBackgroundStyle(
