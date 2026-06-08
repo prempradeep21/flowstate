@@ -128,6 +128,12 @@ export function ArtifactShell({
           versions={sessionArtifact.versions}
           activeVersionId={activeVersion.id}
           onVersionChange={handleVersionChange}
+          websiteUrl={
+            sessionArtifact.kind === "website" &&
+            activeVersion.payload.type === "website"
+              ? activeVersion.payload.data.url
+              : undefined
+          }
           menuVariant={menuVariant}
           onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}

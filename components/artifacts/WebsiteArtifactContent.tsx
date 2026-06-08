@@ -143,25 +143,6 @@ export function WebsiteArtifactContent({
           </p>
         </div>
       </div>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-no-drag
-        className="inline-flex w-fit items-center gap-2 rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-caption font-medium text-canvas-ink transition-colors hover:border-canvas-accent/40 hover:bg-canvas-bg"
-      >
-        Open in new tab
-        <svg
-          viewBox="0 0 16 16"
-          className="h-3.5 w-3.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          aria-hidden
-        >
-          <path d="M6 3h7v7M13 3L6 10" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
     </div>
   );
 

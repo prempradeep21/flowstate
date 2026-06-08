@@ -18,6 +18,25 @@ export interface TodoEditControls {
   onCancelEdit: () => void;
 }
 
+function ExternalLinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={className ?? "h-4 w-4 shrink-0"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path
+        d="M6 3h7v7M13 3L6 10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ArtifactPanelHeader({
   kind,
   title,
@@ -31,6 +50,7 @@ export function ArtifactPanelHeader({
   contributorProfiles,
   todoEditControls,
   isVideo = false,
+  websiteUrl,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -44,6 +64,7 @@ export function ArtifactPanelHeader({
   contributorProfiles?: CollaboratorProfile[];
   todoEditControls?: TodoEditControls;
   isVideo?: boolean;
+  websiteUrl?: string;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -163,40 +184,53 @@ export function ArtifactPanelHeader({
         </div>
       )}
 
-      {!isVideo && (
-        <div className="relative shrink-0" ref={versionRef}>
-          <button
-            type="button"
-            onClick={() => setVersionOpen((o) => !o)}
-            className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
-          >
-            Version {active?.number ?? 1}
-            <span className="text-canvas-body opacity-70" aria-hidden>
-              ⌵
-            </span>
-          </button>
-          {versionOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
-              {[...safeVersions].reverse().map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => {
-                    onVersionChange(v.id);
-                    setVersionOpen(false);
-                  }}
-                  className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
-                    v.id === activeVersionId
-                      ? "bg-canvas-bg font-medium text-canvas-ink"
-                      : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                  }`}
-                >
-                  Version {v.number}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      {kind === "website" && websiteUrl ? (
+        <a
+          href={websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-no-drag
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+        >
+          Visit website
+          <ExternalLinkIcon />
+        </a>
+      ) : (
+        !isVideo && (
+          <div className="relative shrink-0" ref={versionRef}>
+            <button
+              type="button"
+              onClick={() => setVersionOpen((o) => !o)}
+              className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+            >
+              Version {active?.number ?? 1}
+              <span className="text-canvas-body opacity-70" aria-hidden>
+                ⌵
+              </span>
+            </button>
+            {versionOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
+                {[...safeVersions].reverse().map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => {
+                      onVersionChange(v.id);
+                      setVersionOpen(false);
+                    }}
+                    className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
+                      v.id === activeVersionId
+                        ? "bg-canvas-bg font-medium text-canvas-ink"
+                        : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                    }`}
+                  >
+                    Version {v.number}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
       {hasMenuActions && (
         <div className="relative shrink-0" ref={menuRef}>
