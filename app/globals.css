@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --dot-color: #d9d7d2;
+  --dot-color: #8b8a86;
 }
 
 html,
@@ -35,11 +35,24 @@ body {
 }
 
 .canvas-group-bounds {
-  border: 2px dashed var(--dot-color, #d9d7d2);
+  border: 2px dashed var(--dot-color, #8b8a86);
+}
+
+::highlight(answer-explain) {
+  background-color: rgb(107 78 255 / 0.2);
+  color: inherit;
+}
+
+.canvas-translucent-fill {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
 }
 
 .floating-panel {
-  @apply absolute top-3 bottom-3 z-40 overflow-hidden rounded-xl border border-canvas-border bg-canvas-card shadow-card transition-[width] duration-panel ease-panel;
+  @apply absolute top-3 z-40 rounded-xl border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel;
 }
 
 .floating-panel-left {
@@ -48,6 +61,36 @@ body {
 
 .floating-panel-right {
   @apply right-3;
+}
+
+@keyframes panel-expand-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.panel-expand-in {
+  animation: panel-expand-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.floating-panel-right .panel-expand-in {
+  animation-name: panel-expand-in-right;
+}
+
+@keyframes panel-expand-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes summary-pulse-stroke {

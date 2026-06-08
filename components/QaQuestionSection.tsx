@@ -2,14 +2,8 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-/** Translucent radial fill: 20% white at center → 60% at edges. */
-export const QA_TRANSLUCENT_FILL_STYLE: CSSProperties = {
-  background:
-    "radial-gradient(circle at center, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.6) 100%)",
-};
-
-/** @deprecated Use QA_TRANSLUCENT_FILL_STYLE */
-export const QA_QUESTION_FILL_STYLE = QA_TRANSLUCENT_FILL_STYLE;
+/** Shared translucent radial fill: 20% white at center → 60% at edges. */
+export const CANVAS_TRANSLUCENT_FILL_CLASS = "canvas-translucent-fill";
 
 interface QaTranslucentSurfaceProps {
   children: ReactNode;
@@ -25,8 +19,8 @@ export function QaTranslucentSurface({
 }: QaTranslucentSurfaceProps) {
   return (
     <div
-      className={`relative min-w-0 ${className}`}
-      style={{ ...QA_TRANSLUCENT_FILL_STYLE, ...style }}
+      className={`relative min-w-0 ${CANVAS_TRANSLUCENT_FILL_CLASS} ${className}`}
+      style={style}
     >
       {children}
     </div>

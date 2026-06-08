@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
+import { CANVAS_TRANSLUCENT_FILL_CLASS } from "@/components/QaQuestionSection";
 import { Plug } from "@/components/plugs/Plug";
 import { clampArtifactSize, getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { plugAnchorAt } from "@/lib/plugConnector";
@@ -290,7 +291,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       )}
 
       <div
-        className={`flex h-full flex-col overflow-hidden rounded-artifact-card border bg-canvas-card p-5 shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`flex h-full flex-col overflow-hidden rounded-artifact-card border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
           todoEditing
             ? "border-2 border-dashed border-canvas-accent"
             : isSelected

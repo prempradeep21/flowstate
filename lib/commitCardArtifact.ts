@@ -1,10 +1,9 @@
+import { materializeCardArtifact } from "@/lib/materializeCardArtifact";
 import { imagesPayloadFromCardImages } from "@/lib/artifactTypes";
 import {
-  buildImagesArtifactFromCard,
   canAppendArtifactVersion,
   resolveEditingArtifactId,
-} from "@/lib/sessionArtifacts";import type { ArtifactPayload } from "@/lib/artifactTypes";
-import type { Card } from "@/lib/store";
+} from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
 /** Commit streaming payload or images to session registry after a turn completes. */
@@ -16,49 +15,22 @@ export function commitCardArtifact(cardId: string): {
   const card = state.cards[cardId];
   if (!card) return null;
 
-  let payload: ArtifactPayload | null = null;
-
-  if (card.artifactPayload) {
-    payload = card.artifactPayload;
-  } else if (
-    (card.responseType === "image" || card.images?.length) &&
-    card.images &&
-    card.images.length > 0
-  ) {
-    payload = buildImagesArtifactFromCard(
-      card.images,
-      card.question.slice(0, 48) || "Images",
-    );
-  }
-
-  if (!payload) return null;
-
-  const resolvedId = resolveEditingArtifactId(
-    card,
-    state.cards,
-    state.connections,
-    state.cardOrder,
-  );
-  const existingId =
-    resolvedId &&
-    canAppendArtifactVersion(state.sessionArtifacts[resolvedId], payload)
-      ? resolvedId
-      : null;
-
-  const { artifactId, versionId } = state.createArtifactVersion(
-    existingId,
-    payload,
-    cardId,
-  );
-
-  useCanvasStore.getState().updateCard(cardId, {
-    outputArtifactId: artifactId,
-    outputArtifactVersionId: versionId,
-    responseType: payload.type === "images" ? "images" : card.responseType,
-    artifactPayload: undefined,
+  const result = materializeCardArtifact(card, state.sessionArtifacts, {
+    cards: state.cards,
+    connections: state.connections,
+    cardOrder: state.cardOrder,
   });
+  if (!result) return null;
 
-  return { artifactId, versionId };
+  useCanvasStore.setState((current) => ({
+    sessionArtifacts: result.sessionArtifacts,
+    cards: {
+      ...current.cards,
+      [cardId]: result.card,
+    },
+  }));
+
+  return { artifactId: result.artifactId, versionId: result.versionId };
 }
 
 export function commitImagesArtifact(

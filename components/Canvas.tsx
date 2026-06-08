@@ -2,6 +2,8 @@
 
 import {
   PointerEvent as ReactPointerEvent,
+  MutableRefObject,
+  RefObject,
   useEffect,
   useRef,
   useState,
@@ -59,7 +61,6 @@ import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
 import { usePersistenceReady, useAuth } from "@/components/AuthProvider";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
-
 const MARQUEE_MIN_DRAG_PX = 6;
 
 interface PlacementState {
@@ -67,7 +68,11 @@ interface PlacementState {
   y: number;
 }
 
-export function Canvas() {
+export function Canvas({
+  containerRef: externalContainerRef,
+}: {
+  containerRef?: RefObject<HTMLDivElement | null>;
+} = {}) {
   const persistenceReady = usePersistenceReady();
   const { user, presenceChannelRef } = useAuth();
   const cards = useCanvasStore((s) => s.cards);
@@ -101,6 +106,13 @@ export function Canvas() {
   const landingCardId = getLandingCardId(cards, cardOrder);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const setContainerRef = (node: HTMLDivElement | null) => {
+    containerRef.current = node;
+    if (externalContainerRef) {
+      (externalContainerRef as MutableRefObject<HTMLDivElement | null>).current =
+        node;
+    }
+  };
   const landingViewportCenteredRef = useRef(false);
   const seedingRef = useRef(false);
 
@@ -742,7 +754,7 @@ export function Canvas() {
 
   return (
     <div
-      ref={containerRef}
+      ref={setContainerRef}
       data-canvas-container
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -751,7 +763,7 @@ export function Canvas() {
       onContextMenu={handleContextMenu}
       onDragOver={allowSidebarDrop}
       onDrop={handleSidebarDrop}
-      className={`relative h-full w-full overflow-hidden bg-canvas-bg select-none touch-none ${
+      className={`absolute inset-0 overflow-hidden bg-canvas-bg select-none touch-none ${
         placement || textPlacement
           ? "cursor-crosshair"
           : spaceHeld

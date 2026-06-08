@@ -9,7 +9,7 @@ import {
 } from "@/components/canvasBackgrounds/viewportSync";
 
 const BASE_SPACING = 22;
-const DOT_COLOR = "#D9D7D2";
+const DOT_COLOR = "#8B8A86";
 const BG_COLOR = "#FAFAF8";
 
 export function GridBackground({
@@ -40,8 +40,8 @@ export function GridBackground({
           />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill={BG_COLOR} />
-      <rect width="100%" height="100%" fill={`url(#${patternId})`} />
+      <rect x={0} y={0} width="100%" height="100%" fill={BG_COLOR} />
+      <rect x={0} y={0} width="100%" height="100%" fill={`url(#${patternId})`} />
     </ProceduralSvgBackground>
   );
 }

@@ -41,8 +41,9 @@ export function SmokeBackground({
     const resize = () => {
       const parent = canvas.parentElement;
       if (!parent) return;
-      width = parent.clientWidth;
-      height = parent.clientHeight;
+      const rect = parent.getBoundingClientRect();
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
       renderer.resize(width, height);
       if (!shouldAnimate) {
         renderer.render(0);
@@ -94,10 +95,10 @@ export function SmokeBackground({
 
   return (
     <div
-      className={`pointer-events-none absolute inset-0 overflow-hidden bg-[#141414] ${className}`}
+      className={`pointer-events-none absolute inset-0 z-0 size-full overflow-hidden bg-[#141414] ${className}`}
       aria-hidden
     >
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas ref={canvasRef} className="block size-full" />
     </div>
   );
 }

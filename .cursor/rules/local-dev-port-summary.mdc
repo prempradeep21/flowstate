@@ -1,0 +1,46 @@
+---
+description: End every code-changing response with a localhost port summary table for this chat's changes
+alwaysApply: true
+---
+
+# Local dev port summary (required after builds)
+
+Whenever you **implement a feature**, **fix a bug**, or **change project code** in this workspace, end your final response with a **Local dev ports** section. Do not skip this for question-only or read-only replies.
+
+## When to include
+
+Include the table if you edited, created, or deleted any project source file, config, or script. Skip only for pure Q&A with no code changes.
+
+## How to build the table
+
+1. **Discover running servers** before responding:
+   - Read the `terminals` folder (metadata + recent output) for active `npm run dev`, `next dev`, or project scripts.
+   - If unclear, probe known project ports (see registry below) or run a read-only listen check on Windows: `netstat -ano | findstr "LISTENING" | findstr ":300 :301 :302 :303"`.
+2. **Status** per port: `Running`, `Not running`, or `Unknown`.
+3. **Mark the relevant port** for *this chat's changes* with `**← use this**` in the "For this change" column. Pick based on what you touched (main app vs showcase vs spec viewer). If none apply, say `—` and note that no dev server is required.
+
+## Project port registry
+
+| Port(s) | Command | Title | Description |
+|---------|---------|-------|-------------|
+| 3000–3010 | `npm run dev` | Main app (Flowstate) | Primary Next.js canvas app; prefers 3000, auto-falls back to next free port |
+| 3020 | `npm run dev:showcase` | Showcase | Next.js showcase build (`.next-showcase`) |
+| 3030 | `npm run dev:spec` | Spec viewer | Static spec viewer for `branch-ai.md` |
+
+Use the **actual URL** from terminal output when the port is not 3000 (e.g. `http://localhost:3001`).
+
+## Required table format
+
+```markdown
+## Local dev ports
+
+| Port | URL | Status | What's running | For this change |
+|------|-----|--------|----------------|-----------------|
+| 3000 | http://localhost:3000 | Running | Main app (`npm run dev`) | **← use this** |
+| 3020 | http://localhost:3020 | Not running | Showcase | — |
+| 3030 | http://localhost:3030 | Not running | Spec viewer | — |
+```
+
+Add one short line under the table: **Open:** `http://localhost:XXXX` — the marked port for this session's changes.
+
+If no dev server is running but verification needs one, start the appropriate script (or tell the user which command to run) and refresh the table.

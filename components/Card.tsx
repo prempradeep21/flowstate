@@ -3,23 +3,34 @@
 import {
   PointerEvent as ReactPointerEvent,
   WheelEvent,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
+import { AnswerSelectionMenu } from "@/components/AnswerSelectionMenu";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
+import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { Plug } from "@/components/plugs/Plug";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import {
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
+import { useAnswerTextSelection } from "@/hooks/useAnswerTextSelection";
+import {
+  anchorYRelativeToCard,
+  getExplainRangeRect,
+} from "@/lib/answerTextRange";
 import { askClaude } from "@/lib/claudeClient";
+import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import {
   handleArtifactOnDone,
   handleStreamArtifact,
 } from "@/lib/artifactGeneration";
+import { getLatestVersion } from "@/lib/sessionArtifacts";
 import {
   getLandingCardId,
   shouldShowCanvasLanding,
@@ -37,13 +48,16 @@ import {
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { isCardInSelectedFamilies } from "@/lib/chatThreads";
 import {
+  AnswerExplain,
   Card as CardType,
   FollowUpOptions,
+  newExplainId,
   useCanvasStore,
 } from "@/lib/store";
 import {
   compactThinkingWord,
   compensatedStrokeWidth,
+  counterScaleFactor,
 } from "@/lib/zoomDisplay";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
@@ -92,6 +106,12 @@ export function Card({ card }: CardProps) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCardSize = useCanvasStore((s) => s.setCardSize);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
+  const createBranchFromSelection = useCanvasStore(
+    (s) => s.createBranchFromSelection,
+  );
+  const addAnswerExplain = useCanvasStore((s) => s.addAnswerExplain);
+  const updateAnswerExplain = useCanvasStore((s) => s.updateAnswerExplain);
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
   const plugDrag = useCanvasStore((s) => s.plugDrag);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
@@ -189,8 +209,187 @@ export function Card({ card }: CardProps) {
   const startedFor = useRef<string | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const answerTextRef = useRef<HTMLDivElement | null>(null);
+  const explainRunRef = useRef<QuickExplainHandle | null>(null);
+  const [openExplainId, setOpenExplainId] = useState<string | null>(null);
+  const [explainAnchorY, setExplainAnchorY] = useState<number | null>(null);
+  const [optimisticExplain, setOptimisticExplain] =
+    useState<AnswerExplain | null>(null);
+  const [quickExplainBusy, setQuickExplainBusy] = useState(false);
+  const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null);
   const lastSizeRef = useRef<{ w: number; h: number } | null>(null);
   const prevHasChildrenRef = useRef(hasChildren);
+
+  const hasAnswerText = Boolean(card.answer.trim());
+  const selectionEnabled = card.status === "done" && hasAnswerText;
+
+  const { selection, clearSelection } = useAnswerTextSelection({
+    containerRef: answerTextRef,
+    enabled: selectionEnabled,
+  });
+
+  useEffect(() => {
+    if (selection) setMenuAnchorRect(selection.rect);
+  }, [selection]);
+
+  const findExistingExplain = useCallback(
+    (selectedText: string, occurrenceIndex: number) =>
+      card.answerExplains?.find(
+        (e) =>
+          e.selectedText === selectedText &&
+          e.occurrenceIndex === occurrenceIndex,
+      ),
+    [card.answerExplains],
+  );
+
+  const setExplainAnchorFromRect = useCallback((rect: DOMRect) => {
+    if (!cardRef.current) return;
+    setExplainAnchorY(anchorYRelativeToCard(cardRef.current, rect));
+  }, []);
+
+  const startQuickExplain = useCallback(
+    (selectedText: string, occurrenceIndex: number, anchorRect?: DOMRect) => {
+      if (anchorRect) setExplainAnchorFromRect(anchorRect);
+
+      const existing = findExistingExplain(selectedText, occurrenceIndex);
+      if (existing && existing.status !== "error") {
+        setOpenExplainId(existing.id);
+        setQuickExplainBusy(false);
+        if (anchorRect && cardRef.current) {
+          setExplainAnchorY(anchorYRelativeToCard(cardRef.current, anchorRect));
+        }
+        clearSelection();
+        return;
+      }
+
+      const id = existing?.id ?? newExplainId();
+      const entry: AnswerExplain = {
+        id,
+        selectedText,
+        occurrenceIndex,
+        explanation: "",
+        status: "loading",
+      };
+
+      setOptimisticExplain(entry);
+      setOpenExplainId(id);
+
+      if (!existing) {
+        recordUndo();
+        addAnswerExplain(card.id, entry);
+      } else {
+        updateAnswerExplain(card.id, id, {
+          status: "loading",
+          explanation: "",
+        });
+      }
+
+      explainRunRef.current?.cancel();
+      explainRunRef.current = quickExplain(selectedText, {
+        onToken: (text) =>
+          updateAnswerExplain(card.id, id, { explanation: text }),
+        onDone: () => {
+          updateAnswerExplain(card.id, id, { status: "done" });
+          setQuickExplainBusy(false);
+        },
+        onError: (msg) => {
+          updateAnswerExplain(card.id, id, {
+            status: "error",
+            explanation: msg,
+          });
+          setQuickExplainBusy(false);
+        },
+      });
+    },
+    [
+      card.id,
+      findExistingExplain,
+      clearSelection,
+      recordUndo,
+      addAnswerExplain,
+      updateAnswerExplain,
+      setExplainAnchorFromRect,
+    ],
+  );
+
+  const handleQuickExplainFromMenu = useCallback(() => {
+    if (!selection || quickExplainBusy) return;
+    setMenuAnchorRect(selection.rect);
+    setQuickExplainBusy(true);
+    startQuickExplain(
+      selection.selectedText,
+      selection.occurrenceIndex,
+      selection.rect,
+    );
+    clearSelection();
+    window.setTimeout(() => setQuickExplainBusy(false), 400);
+  }, [selection, quickExplainBusy, startQuickExplain, clearSelection]);
+
+  const handleExplainClick = useCallback((id: string) => {
+    const explain =
+      card.answerExplains?.find((e) => e.id === id) ??
+      (optimisticExplain?.id === id ? optimisticExplain : null);
+    if (explain && answerTextRef.current && cardRef.current) {
+      const rangeRect = getExplainRangeRect(answerTextRef.current, explain);
+      if (rangeRect) {
+        setExplainAnchorY(
+          anchorYRelativeToCard(cardRef.current, rangeRect),
+        );
+      }
+    }
+    setOpenExplainId(id);
+  }, [card.answerExplains, optimisticExplain]);
+
+  const recomputeExplainAnchor = useCallback(() => {
+    if (!openExplainId || !answerTextRef.current || !cardRef.current) return;
+    const explain =
+      card.answerExplains?.find((e) => e.id === openExplainId) ??
+      (optimisticExplain?.id === openExplainId ? optimisticExplain : null);
+    if (!explain) return;
+    const rangeRect = getExplainRangeRect(answerTextRef.current, explain);
+    if (rangeRect) {
+      setExplainAnchorY(anchorYRelativeToCard(cardRef.current, rangeRect));
+    }
+  }, [openExplainId, card.answerExplains, optimisticExplain]);
+
+  useLayoutEffect(() => {
+    recomputeExplainAnchor();
+  }, [recomputeExplainAnchor, card.answer, card.answerExplains, optimisticExplain]);
+
+  useEffect(() => {
+    if (
+      optimisticExplain &&
+      card.answerExplains?.some((e) => e.id === optimisticExplain.id)
+    ) {
+      setOptimisticExplain(null);
+    }
+  }, [card.answerExplains, optimisticExplain]);
+
+  const handleAskQuestion = useCallback(() => {
+    if (!selection || !canEdit || canvasReadOnly) return;
+    recordUndo();
+    const branchId = createBranchFromSelection(
+      card.id,
+      selection.selectedText,
+      "right",
+    );
+    clearSelection();
+    if (user?.id && branchId) stampContributor(user.id, branchId);
+  }, [
+    selection,
+    canEdit,
+    canvasReadOnly,
+    recordUndo,
+    createBranchFromSelection,
+    card.id,
+    clearSelection,
+    user?.id,
+    stampContributor,
+  ]);
+
+  useEffect(() => {
+    return () => explainRunRef.current?.cancel();
+  }, []);
 
   // Structural changes that affect card height — NOT answer.length (ResizeObserver handles growth).
   const layoutKey = [
@@ -275,6 +474,29 @@ export function Card({ card }: CardProps) {
   }, [hasChildren, card.id, setCardSize, cardWidth]);
 
   useEffect(() => {
+    if (card.status !== "done") return;
+    if (card.artifactPayload && !card.outputArtifactId) {
+      handleArtifactOnDone(card.id);
+      return;
+    }
+    if (card.outputArtifactId && !card.outputArtifactVersionId) {
+      const art =
+        useCanvasStore.getState().sessionArtifacts[card.outputArtifactId];
+      const latest = art ? getLatestVersion(art) : undefined;
+      if (latest) {
+        updateCard(card.id, { outputArtifactVersionId: latest.id });
+      }
+    }
+  }, [
+    card.id,
+    card.status,
+    card.artifactPayload,
+    card.outputArtifactId,
+    card.outputArtifactVersionId,
+    updateCard,
+  ]);
+
+  useEffect(() => {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
     startedFor.current = card.question;
@@ -337,6 +559,8 @@ export function Card({ card }: CardProps) {
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
       pendingFiles: options?.pendingFiles,
+      quotedSelection: undefined,
+      answerExplains: undefined,
     });
   };
 
@@ -381,6 +605,22 @@ export function Card({ card }: CardProps) {
     const vpScale = useCanvasStore.getState().viewport.scale;
     moveSubtree(card.id, screenDx / vpScale, screenDy / vpScale);
   };
+
+  const openExplain = openExplainId
+    ? (card.answerExplains?.find((e) => e.id === openExplainId) ??
+      (optimisticExplain?.id === openExplainId ? optimisticExplain : null))
+    : null;
+
+  const displayAnswerExplains = (() => {
+    const stored = card.answerExplains ?? [];
+    if (
+      optimisticExplain &&
+      !stored.some((e) => e.id === optimisticExplain.id)
+    ) {
+      return [...stored, optimisticExplain];
+    }
+    return stored.length ? stored : undefined;
+  })();
 
   const handleDragPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     const ds = dragStateRef.current;
@@ -429,6 +669,7 @@ export function Card({ card }: CardProps) {
               ariaLabel="Pull a new thread to the left"
               onPointerDown={handleBranchPlugPointerDown("left")}
             />
+            <BranchPlugHint side="left" scale={scale} />
           </div>
           <div className="pointer-events-none absolute inset-y-0 right-0 z-30 opacity-0 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto">
             <Plug
@@ -438,6 +679,7 @@ export function Card({ card }: CardProps) {
               ariaLabel="Pull a new thread to the right"
               onPointerDown={handleBranchPlugPointerDown("right")}
             />
+            <BranchPlugHint side="right" scale={scale} />
           </div>
         </>
       )}
@@ -449,7 +691,10 @@ export function Card({ card }: CardProps) {
             accentColour={plugAccent}
             receivePlugsActive={receivePlugsActive}
             receiveHighlightSide={receiveHighlightSide}
-            placeholder={emptyPlaceholder}
+            placeholder={
+              card.quotedSelection ? "Ask about this…" : emptyPlaceholder
+            }
+            lockedPrefix={card.quotedSelection}
             autoFocus
             disabled={isPending}
             onSubmit={submitQuestion}
@@ -530,6 +775,9 @@ export function Card({ card }: CardProps) {
                     <CardAnswerBody
                       card={card}
                       isStreaming={card.status === "streaming"}
+                      answerExplains={displayAnswerExplains}
+                      textRootRef={answerTextRef}
+                      onExplainClick={handleExplainClick}
                     />
                   )
                 )}
@@ -556,7 +804,60 @@ export function Card({ card }: CardProps) {
         </div>
       </div>
       )}
+      {(selection || quickExplainBusy) && menuAnchorRect && (
+        <AnswerSelectionMenu
+          rect={menuAnchorRect}
+          onQuickExplain={handleQuickExplainFromMenu}
+          onAskQuestion={handleAskQuestion}
+          askDisabled={!canEdit || canvasReadOnly}
+          quickExplainLoading={quickExplainBusy}
+        />
+      )}
+      {openExplain && explainAnchorY != null && (
+        <QuickExplainPopup
+          explain={openExplain}
+          anchorY={explainAnchorY}
+          onClose={() => {
+            setOpenExplainId(null);
+            setQuickExplainBusy(false);
+            setExplainAnchorY(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+const BRANCH_PLUG_SIZE_PX = 10;
+const BRANCH_PLUG_HINT_GAP_PX = 8;
+const BRANCH_PLUG_HINT_OFFSET_PX =
+  BRANCH_PLUG_SIZE_PX / 2 + BRANCH_PLUG_HINT_GAP_PX;
+
+function BranchPlugHint({
+  side,
+  scale,
+}: {
+  side: "left" | "right";
+  scale: number;
+}) {
+  const isLeft = side === "left";
+  const counterScale = counterScaleFactor(scale);
+
+  return (
+    <span
+      className={`pointer-events-none absolute top-1/2 z-30 whitespace-nowrap text-[13px] text-canvas-muted ${
+        isLeft ? "right-full text-right" : "left-full text-left"
+      }`}
+      style={{
+        ...(isLeft
+          ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
+          : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
+        transform: `translateY(-50%) scale(${counterScale})`,
+        transformOrigin: isLeft ? "right center" : "left center",
+      }}
+    >
+      Pull a branch
+    </span>
   );
 }
 

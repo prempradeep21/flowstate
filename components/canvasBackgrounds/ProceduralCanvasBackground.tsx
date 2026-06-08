@@ -47,8 +47,9 @@ export function ProceduralCanvasBackground({
       const parent = canvas.parentElement;
       if (!parent) return;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = parent.clientWidth;
-      height = parent.clientHeight;
+      const rect = parent.getBoundingClientRect();
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
       canvas.width = Math.max(1, Math.floor(width * dpr));
       canvas.height = Math.max(1, Math.floor(height * dpr));
       canvas.style.width = `${width}px`;
@@ -107,10 +108,10 @@ export function ProceduralCanvasBackground({
 
   return (
     <div
-      className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
+      className={`pointer-events-none absolute inset-0 z-0 size-full overflow-hidden ${className}`}
       aria-hidden
     >
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas ref={canvasRef} className="block size-full" />
     </div>
   );
 }

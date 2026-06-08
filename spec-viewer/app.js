@@ -26,6 +26,7 @@ const CHRONOLOGY_CATEGORIES = {
   Branching: "cat-branching",
   Artifacts: "cat-artifacts",
   Sessions: "cat-sessions",
+  Collaboration: "cat-collaboration",
   "API & Context": "cat-api",
   "Auth & Onboarding": "cat-auth",
   "UI & Navigation": "cat-ui",

@@ -3,6 +3,13 @@
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import type { ArtifactKind } from "@/lib/artifactTypes";
+import type { ArtifactPreviewStatus } from "@/lib/materializeCardArtifact";
+
+function statusSuffix(status: ArtifactPreviewStatus): string {
+  if (status === "generating") return " · Generating…";
+  if (status === "failed") return " · Couldn't generate";
+  return "";
+}
 
 export function ArtifactPreviewPill({
   kind,
@@ -11,7 +18,7 @@ export function ArtifactPreviewPill({
   artifactId,
   versionId,
   subtitle,
-  generating = false,
+  status = "ready",
   compact = false,
 }: {
   kind: ArtifactKind;
@@ -20,20 +27,28 @@ export function ArtifactPreviewPill({
   artifactId: string;
   versionId?: string;
   subtitle?: string;
-  generating?: boolean;
+  status?: ArtifactPreviewStatus;
   compact?: boolean;
 }) {
+  const isInteractive = status === "ready" && Boolean(artifactId);
+
   return (
     <button
       type="button"
-      disabled={generating || !artifactId}
+      disabled={!isInteractive}
       onClick={() => {
         if (!artifactId) return;
         focusCanvasArtifact(artifactId);
       }}
-      className={`flex w-full max-w-md items-center gap-2.5 rounded-xl border border-canvas-border bg-canvas-card text-left transition-colors hover:border-canvas-ink/25 ${
+      className={`flex w-full max-w-md items-center gap-2.5 rounded-xl border bg-canvas-card text-left transition-colors ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
-      } ${generating ? "cursor-wait opacity-80" : ""}`}
+      } ${
+        status === "failed"
+          ? "cursor-default border-amber-500/35 opacity-90"
+          : status === "generating"
+            ? "cursor-wait border-canvas-border opacity-80"
+            : "border-canvas-border hover:border-canvas-ink/25"
+      }`}
     >
       <span
         className={`flex shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink ${
@@ -46,12 +61,16 @@ export function ArtifactPreviewPill({
         <span className={`block truncate font-medium text-canvas-ink ${compact ? "text-[12px]" : "text-[13px]"}`}>
           {title}
         </span>
-        <span className={`italic text-canvas-muted ${compact ? "text-[10px]" : "text-[11px]"}`}>
+        <span
+          className={`italic ${compact ? "text-[10px]" : "text-[11px]"} ${
+            status === "failed" ? "text-amber-700/90" : "text-canvas-muted"
+          }`}
+        >
           {subtitle ?? `Version ${versionNumber}`}
-          {generating ? " · Generating…" : ""}
+          {statusSuffix(status)}
         </span>
       </span>
-      {!generating && (
+      {isInteractive && (
         <span className="flex h-8 w-8 shrink-0 items-center justify-center text-canvas-ink" aria-hidden>
           <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z" />

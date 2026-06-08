@@ -731,6 +731,7 @@ pre {
 .cat-branching { background: rgba(242, 201, 76, 0.18); color: #f2c94c; }
 .cat-artifacts { background: rgba(187, 107, 217, 0.18); color: #bb6bd9; }
 .cat-sessions { background: rgba(86, 204, 242, 0.18); color: #56ccf2; }
+.cat-collaboration { background: rgba(255, 143, 163, 0.22); color: #ff8fa3; }
 .cat-api { background: rgba(242, 153, 74, 0.18); color: #f2994a; }
 .cat-auth { background: rgba(255, 143, 163, 0.18); color: #ff8fa3; }
 .cat-ui { background: rgba(139, 147, 167, 0.18); color: #aeb6c8; }

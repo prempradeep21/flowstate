@@ -3,6 +3,7 @@ const WHEEL_SCROLL_REGION_SELECTOR = [
   "[data-card-answer]",
   "[data-canvas-artifact]",
   "[data-canvas-scroll]",
+  ".leaflet-container",
 ].join(", ");
 
 function isVerticallyScrollable(el: HTMLElement): boolean {

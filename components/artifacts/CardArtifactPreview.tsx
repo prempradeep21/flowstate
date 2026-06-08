@@ -2,6 +2,7 @@
 
 import { ArtifactPreviewPill } from "@/components/artifacts/ArtifactPreviewPill";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
+import { resolveArtifactPreviewStatus } from "@/lib/materializeCardArtifact";
 import {
   artifactDisplayTitle,
   getLatestVersion,
@@ -13,16 +14,33 @@ import { useCanvasStore } from "@/lib/store";
 
 export function CardArtifactPreview({ card }: { card: Card }) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const previewStatus = resolveArtifactPreviewStatus(card);
+
   if (card.outputArtifactId) {
     const art = sessionArtifacts[card.outputArtifactId];
-    if (!art) return null;
+    if (!art) {
+      const kind = card.artifactPayload
+        ? payloadToArtifactKind(card.artifactPayload)
+        : "custom";
+      const title =
+        card.artifactPayload?.title ??
+        card.question.slice(0, 48) ??
+        "Artifact";
+      return (
+        <ArtifactPreviewPill
+          kind={kind}
+          title={title}
+          versionNumber={1}
+          artifactId=""
+          status="failed"
+        />
+      );
+    }
     const ver =
       (card.outputArtifactVersionId &&
         getVersionById(art, card.outputArtifactVersionId)) ||
       getLatestVersion(art);
     if (!ver) return null;
-    const generating =
-      card.status === "streaming" || card.status === "thinking";
     const todoSubtitle =
       art.kind === "todo" && ver.payload.type === "todo"
         ? todoCompletionLabel(ver.payload.data.items)
@@ -39,7 +57,7 @@ export function CardArtifactPreview({ card }: { card: Card }) {
             ? `Version ${ver.number} · ${todoSubtitle}`
             : undefined
         }
-        generating={generating && !card.outputArtifactVersionId}
+        status={previewStatus}
       />
     );
   }
@@ -50,33 +68,18 @@ export function CardArtifactPreview({ card }: { card: Card }) {
       kind === "code" && card.artifactPayload.type === "code"
         ? card.artifactPayload.data.files[0]?.path ?? card.artifactPayload.title
         : card.artifactPayload.title;
-    const generating =
-      card.status === "streaming" || card.status === "thinking";
-    if (card.outputArtifactId) {
-      const art = sessionArtifacts[card.outputArtifactId];
-      if (art) {
-        const ver = getLatestVersion(art);
-        if (!ver) return null;
-        return (
-          <ArtifactPreviewPill
-            kind={art.kind}
-            title={artifactDisplayTitle(art, ver)}
-            versionNumber={ver.number}
-            artifactId={art.id}
-            versionId={ver.id}
-            generating={generating}
-          />
-        );
-      }
-    }
     return (
-      <div className="pointer-events-none max-w-md opacity-90">
+      <div
+        className={
+          previewStatus === "generating" ? "pointer-events-none max-w-md opacity-90" : "max-w-md"
+        }
+      >
         <ArtifactPreviewPill
           kind={kind}
           title={title}
           versionNumber={1}
           artifactId=""
-          generating
+          status={previewStatus}
         />
       </div>
     );
@@ -87,9 +90,6 @@ export function CardArtifactPreview({ card }: { card: Card }) {
     card.images.length > 0 &&
     (card.responseType === "image" || card.responseType === "images")
   ) {
-    const generating =
-      !card.outputArtifactId &&
-      (card.status === "streaming" || card.status === "thinking");
     if (card.outputArtifactId) {
       const art = sessionArtifacts[card.outputArtifactId];
       if (art) {
@@ -102,19 +102,23 @@ export function CardArtifactPreview({ card }: { card: Card }) {
             versionNumber={ver.number}
             artifactId={art.id}
             versionId={ver.id}
-            generating={generating}
+            status={previewStatus}
           />
         );
       }
     }
     return (
-      <div className="pointer-events-none max-w-md opacity-90">
+      <div
+        className={
+          previewStatus === "generating" ? "pointer-events-none max-w-md opacity-90" : "max-w-md"
+        }
+      >
         <ArtifactPreviewPill
           kind="images"
           title="Images"
           versionNumber={1}
           artifactId=""
-          generating
+          status={previewStatus}
         />
       </div>
     );

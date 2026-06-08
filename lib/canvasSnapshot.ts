@@ -1,5 +1,7 @@
+import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
+  AnswerExplain,
   AppViewMode,
   BranchGroup,
   CanvasArtifactNode,
@@ -65,18 +67,48 @@ function normalizeCardStatus(status: CardStatus): CardStatus {
   return status;
 }
 
+function normalizeAnswerExplains(
+  explains?: AnswerExplain[],
+): AnswerExplain[] | undefined {
+  if (!explains?.length) return undefined;
+  return explains.map((e) => ({
+    ...e,
+    status:
+      e.status === "loading"
+        ? e.explanation.trim()
+          ? "done"
+          : "error"
+        : e.status,
+  }));
+}
+
 function normalizeCardForPersist(card: Card): Card {
   return {
     ...card,
     status: normalizeCardStatus(card.status),
     thinkingLabel: undefined,
     pendingFiles: undefined,
+    quotedSelection: undefined,
+    answerExplains: normalizeAnswerExplains(card.answerExplains),
   };
 }
 
 export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapshot {
+  let sessionArtifacts = JSON.parse(
+    JSON.stringify(source.sessionArtifacts),
+  ) as Record<string, SessionArtifact>;
+  const connections = source.connections.map((c) => ({ ...c }));
+  const cardOrder = [...source.cardOrder];
+  const repaired = repairLoadedArtifactState(
+    source.cards,
+    sessionArtifacts,
+    connections,
+    cardOrder,
+  );
+  sessionArtifacts = repaired.sessionArtifacts;
+
   const cards: Record<string, Card> = {};
-  for (const [id, card] of Object.entries(source.cards)) {
+  for (const [id, card] of Object.entries(repaired.cards)) {
     cards[id] = normalizeCardForPersist(card);
   }
 
@@ -84,8 +116,8 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     version: CANVAS_SNAPSHOT_VERSION,
     viewport: { ...source.viewport },
     cards,
-    cardOrder: [...source.cardOrder],
-    connections: source.connections.map((c) => ({ ...c })),
+    cardOrder,
+    connections,
     threads: { ...source.threads },
     threadOrder: [...source.threadOrder],
     groups: { ...source.groups },
@@ -93,9 +125,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     canvasBackgroundStyle: source.canvasBackgroundStyle,
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
-    sessionArtifacts: JSON.parse(
-      JSON.stringify(source.sessionArtifacts),
-    ) as Record<string, SessionArtifact>,
+    sessionArtifacts,
     canvasArtifactNodes: JSON.parse(
       JSON.stringify(source.canvasArtifactNodes),
     ) as Record<string, CanvasArtifactNode>,

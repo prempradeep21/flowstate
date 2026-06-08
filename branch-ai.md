@@ -24,7 +24,7 @@
 
 ## 1. Chronology of Updates
 
-A running log of what landed on **`main`** and shipped to the live tool. Each entry is tagged with the same categories used in [Decisions & Design Rationale](#6-decisions--design-rationale) (Canvas, Cards, Branching, Artifacts, Sessions, etc.).
+A running log of what landed on **`main`** and shipped to the live tool. Each entry is tagged with the same categories used in [Decisions & Design Rationale](#6-decisions--design-rationale) (Canvas, Cards, Branching, Artifacts, Sessions, Collaboration, etc.).
 
 ### How sessions are grouped
 
@@ -35,7 +35,7 @@ A running log of what landed on **`main`** and shipped to the live tool. Each en
 | **Single-push session** | A lone push after a long gap is its own session |
 | **Timestamps** | All times in **IST (UTC+5:30)** unless noted |
 | **Session titles** | Human-readable: *7th June, Sunday, Night* — day + weekday + **Morning** (00:00–11:59), **Afternoon** (12:00–17:59), or **Night** (18:00–23:59). Add *, earlier* or *, later* only when two sessions on the same day share a period |
-| **Source of truth** | Derived from `git log main`; update this section when meaningful work merges to `main` |
+| **Source of truth** | Run `npm run chronology:sync` to regenerate from `git log main` |
 
 Sessions are listed **newest first**.
 
@@ -43,152 +43,136 @@ Sessions are listed **newest first**.
 
 ### Session · 7th June, Sunday, Night
 
-**5 pushes to `main`** · **~2h 55m** · Playground layout port, production type fixes, multi-canvas, resizable artifacts
+**7 pushes to `main`** · **~4h 40m** · resolve collaborator invite RLS failures and policy recursion; add canvas collaboration with invi…
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 21:46 | Artifacts | Resizable canvas artifacts with clamped bounds; hardened snapshot loading for incomplete persisted state; bounds tests |
-| 21:46 | Technical | Spec viewer dev script added for personal spec reference |
-| 21:15 | Sessions | Multi-canvas support — scoped artifacts per canvas, canvas switching |
-| 19:02 | Technical | Fixed `canvasOrigin` and undo snapshot type errors blocking production build |
-| 19:01 | Cards | Removed unsupported Zustand equality selector overload in `Card` |
-| 18:52 | Canvas | Ported validated playground layout to main — layout constants, DOM-first card measurement, connector anchors, origin pinning; removed playground route |
+| 23:32 | Collaboration | Allow invitees to accept invites, read inviter metadata, join via share token RPC, and gate realtime until access is confirmed |
+| 23:11 | Collaboration | Enable owner/editor/viewer roles, share modal, sidebar invites, contributor avatars, and Supabase-backed collaboration schema |
+| 21:46 | Artifacts | Make canvas artifacts resizable with clamped bounds and updated content layouts, normalize incomplete persisted canvas state to fix production load crashes, and ship snapshot bounds tests plus the … |
+| 21:15 | Sessions | add multi-canvas support with scoped artifacts and canvas switching |
+| 19:02 | Technical | resolve canvasOrigin and undo snapshot type errors for production build |
+| 19:00 | Cards | remove unsupported Zustand equality selector overload |
+| 18:52 | Canvas | Bake validated layout constants, DOM-first card measurement, connector anchors, and origin pinning into production paths. Remove dev tuning UI and delete the playground route entirely |
 
 ---
 
 ### Session · 25th May, Monday, Night
 
-**1 push to `main`** · **Single push** · Vertical chain relayout fix and position docs
+**1 push to `main`** · **Single push** · Fix vertical chain layout on resize and hydrate; add GA and position docs.
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 20:01 | Canvas | Re-snap follow-up chains on card measurement and snapshot hydrate (replacing delta-shift) |
-| 20:01 | Technical | Documented canvas card position rules; wired Google Analytics in root layout |
+| 20:01 | Sessions | Re-snap follow-up chains on card measurement and snapshot load instead of delta-shifting. Document canvas positioning rules and wire Google Analytics in the root layout |
 
 ---
 
 ### Session · 25th May, Monday, Morning
 
-**1 push to `main`** · **Single push** · Flowstate rebrand and layout test expansion
+**1 push to `main`** · **Single push** · Rebrand to Flowstate, refine canvas/UI components, and expand layout tests.
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 00:08 | UI & Navigation | Rebrand from Branch AI to **Flowstate Everywhere** |
-| 00:08 | Canvas | Refined canvas/UI components; expanded Vitest layout coverage |
+| 00:08 | Canvas | Rebrand to Flowstate, refine canvas/UI components, and expand layout tests |
 
 ---
 
 ### Session · 24th May, Sunday, Night
 
-**1 push to `main`** · **Single push** · Follow-up layout, connectors, and toolbar polish
+**1 push to `main`** · **Single push** · Fix canvas follow-up layout and connectors; extend UI improvements.
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 23:03 | Canvas | Unified layout in `canvasLayout` with DOM-aware bounds; auto-repair on resize and hydrate |
-| 23:03 | Branching | Connector rendering moved above cards; follow-up chain layout fixes |
-| 23:03 | UI & Navigation | Bottom toolbar, text labels, Q&A section styling, related canvas UX polish |
+| 23:03 | Branching | Unify layout in canvasLayout with DOM-aware bounds, auto-repair on resize and hydrate, and connector rendering above cards. Add bottom toolbar, text labels, Q&A sections, vitest layout tests, and r… |
 
 ---
 
 ### Session · 24th May, Sunday, Afternoon
 
-**1 push to `main`** · **Single push** · Landing experience and plug-based interactions
+**1 push to `main`** · **Single push** · Add canvas landing experience and plug-based canvas interactions.
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 15:13 | UI & Navigation | Viewport-anchored home screen with Denton typography, onboarding tip cards, collapsed sidebar, branch/chat toggle |
-| 15:13 | Branching | Plug connectors for lateral branch creation from card edges |
-| 15:13 | Artifacts | Canvas artifacts, artifact suggestion pills on landing |
-| 15:13 | Canvas | Store and layout updates supporting landing + plug model |
+| 15:13 | Artifacts | Introduce a viewport-anchored home screen with Denton typography, artifact suggestion pills, onboarding tip cards, and a collapsed sidebar with a branch/chat toggle. Adds plug connectors, canvas ar… |
 
 ---
 
 ### Session · 24th May, Sunday, Morning
 
-**3 pushes to `main`** · **~1h 12m** · Auth pivot, Supabase persistence, artifact MCP
+**3 pushes to `main`** · **~1h 12m** · Show auth UI when Supabase is missing and move sign-in to sidebar.; Add Google auth, Supabase can…
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 06:51 | Auth & Onboarding | Auth UI shown even when Supabase env is missing; Google sign-in moved to sidebar footer |
-| 06:38 | Auth & Onboarding | Google OAuth via Supabase; profile-backed default canvas save/load |
-| 06:38 | Sessions | Session artifact versioning; left sidebar for artifacts and attachments |
-| 06:38 | UI & Navigation | Refreshed chat/canvas chrome |
-| 05:39 | Auth & Onboarding | Removed client-side API key gate; server uses `ANTHROPIC_API_KEY` |
-| 05:39 | Artifacts | Structured card bodies; MCP/artifact support in chat |
-| 05:39 | API & Context | Refined chat context handling for artifact flows |
+| 06:51 | Auth & Onboarding | Always render save/sign-in chrome with setup hints, and place Google login in the left panel footer for discoverability |
+| 06:38 | Sessions | Integrate Supabase Google OAuth with profile-backed default canvas save/load, a left sidebar with artifacts and attachments, session artifact versioning, and refreshed chat/canvas chrome |
+| 05:39 | Artifacts | Drop client-side key login in favor of server ANTHROPIC_API_KEY, add structured card bodies and MCP/artifact support, and refine chat context handling |
 
 ---
 
 ### Session · 23rd May, Saturday, Night
 
-**1 push to `main`** · **Single push** · Context history hotfix
+**1 push to `main`** · **Single push** · Fix context history: use client-sent ancestor history instead of server-side store
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 23:45 | API & Context | Fixed empty context chains — API now uses client-sent ancestor history from `buildAncestorHistory` instead of resetting server-side store |
-
----
-
-### Session · 23rd May, Saturday, Night, earlier
-
-**1 push to `main`** · **Single push** · Ancestor history pipeline
-
-| Time (IST) | Category | Update |
-|---|---|---|
-| 17:40 | API & Context | Client builds branch ancestor history and sends to chat API; server store seeded after reload |
-| 17:40 | Cards | Improved image search and multi-image grid layout in answers |
+| 23:45 | API & Context | The server-side conversationStore was an in-memory singleton that reset on every hot reload, causing all cards to receive empty context chains. The client already computed the correct ancestor hist… |
 
 ---
 
 ### Session · 23rd May, Saturday, Afternoon
 
-**1 push to `main`** · **Single push** · Grouping and chat view
+**1 push to `main`** · **Single push** · Send canvas ancestor history to chat API and improve image context.
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 14:22 | Canvas | Canvas grouping with selection toolbar |
-| 14:22 | UI & Navigation | Dedicated chat view; AI-generated group summaries |
+| 17:40 | API & Context | Build branch history on the client, seed the server store after reload, and refine image search/grid layout for multi-image answers |
+
+---
+
+### Session · 23rd May, Saturday, Afternoon, earlier
+
+**1 push to `main`** · **Single push** · Add canvas grouping, selection toolbar, chat view, and group summaries.
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 14:22 | Canvas | Add canvas grouping, selection toolbar, chat view, and group summaries |
 
 ---
 
 ### Session · 18th May, Monday, Night
 
-**1 push to `main`** · **Single push** · Server-side conversation store
+**1 push to `main`** · **Single push** · Add backend conversation store with hierarchy-aware context flow
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 20:24 | API & Context | In-memory `ConversationStore` with hierarchy-aware context; `/api/conversations` registration |
-| 20:24 | Branching | Branch cards inherit full upstream context from source card ancestry |
-| 20:24 | Cards | `parentConversationId` tracked for root, follow-up, and branch cards |
+| 20:24 | API & Context | claudeClient registers conversation before asking, sends conversationId Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com> |
 
 ---
 
 ### Session · 16th May, Saturday, Night
 
-**3 pushes to `main`** · **~1h 25m** · Live Claude integration and API key gate
+**3 pushes to `main`** · **~1h 25m** · Add API key gate, session-based key storage, and token usage badge; Merge UX canvas improvements …
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 20:55 | Auth & Onboarding | API key dialog on load; sessionStorage key; token usage badge in top bar |
-| 19:57 | Canvas | Merged zoom-adaptive card layout and auto-resize inputs with Claude integration |
-| 19:30 | API & Context | Claude API wired (Opus/Sonnet/Haiku); SSE streaming via `/api/chat` |
-| 19:30 | Cards | Markdown answer rendering; Wikimedia `search_images` tool; photo grid in cards |
-| 19:30 | UI & Navigation | Model selector pill (top-right) |
+| 20:55 | Auth & Onboarding | Show live token counter badge in top bar; clear key via ✕ button Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com> |
+| 19:57 | API & Context | Combines zoom-adaptive card layout, auto-resize inputs, and canvas UX with markdown answers, Wikimedia images, and model selection from main |
+| 19:30 | API & Context | Stream images and text via SSE from /api/chat route Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com> |
 
 ---
 
 ### Session · 12th May, Tuesday, Morning
 
-**3 pushes to `main`** · **~28m** · Initial canvas bootstrap
+**3 pushes to `main`** · **~28m** · Add floating document artifact badge and right-side markdown panel; Fix Vercel build: declare amb…
 
 | Time (IST) | Category | Update |
 |---|---|---|
-| 00:59 | Artifacts | Floating document badge on cards; right-side markdown `ArtifactPanel` (~35% dummy roll rate) |
-| 00:59 | Cards | Bold 18px question text; badge scales inversely with viewport zoom |
-| 00:39 | Technical | Fixed Vercel production build — ambient types for plain `.css` imports |
-| 00:31 | Canvas | **Initial commit** — infinite canvas LLM exploration tool (pan/zoom, Q+A cards, branching, dummy LLM) |
+| 00:59 | Artifacts | ArtifactPanel slides in from the right, renders one of four markdown   variants via react-markdown; closes on backdrop click, X, or Esc |
+| 00:39 | Technical | TypeScript 6.0 enforces type-checking of side-effect imports, and Next.js's bundled types only declare *.module.css, causing the production typecheck to fail on the './globals.css' import in app/la… |
+| 00:31 | Canvas | Initial commit: Branch AI - infinite canvas LLM exploration tool |
 
 ---
+
 
 ## 2. Product Vision
 

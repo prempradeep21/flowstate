@@ -95,7 +95,8 @@ export function useCanvasPersistence({
       isDirtyRef.current = false;
       bumpCanvasInList(canvasId);
       setSaveStatus("saved");
-    } catch {
+    } catch (err) {
+      console.warn("[canvas] save failed:", err);
       setSaveStatus("error");
     }
   }, [bumpCanvasInList, getSnapshotSource, setSaveStatus, supabaseConfigured, user]);

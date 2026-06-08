@@ -32,10 +32,7 @@ function MapView({
     const map = L.map(container, {
       center: [lat, lng],
       zoom,
-      scrollWheelZoom: false,
-      dragging: false,
-      doubleClickZoom: false,
-      zoomControl: false,
+      zoomControl: true,
     });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -62,8 +59,8 @@ function MapView({
   }, [lat, lng, zoom]);
 
   return (
-    <div className="relative h-full w-full min-h-0">
-      <div ref={containerRef} className="h-full w-full" />
+    <div className="relative h-full w-full min-h-0 cursor-default">
+      <div ref={containerRef} data-no-drag className="h-full w-full" />
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
         <p className="truncate text-[11px] font-medium text-white/90">{label}</p>
       </div>

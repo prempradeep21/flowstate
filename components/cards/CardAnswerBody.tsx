@@ -2,7 +2,7 @@
 
 import { CardArtifactPreview } from "@/components/artifacts/CardArtifactPreview";
 import { TextCardBody } from "@/components/cards/TextCardBody";
-import type { Card } from "@/lib/store";
+import type { AnswerExplain, Card } from "@/lib/store";
 
 interface CardAnswerBodyProps {
   card: Card;
@@ -10,6 +10,9 @@ interface CardAnswerBodyProps {
   clampStyle?: React.CSSProperties;
   plainClamp?: boolean;
   hideImages?: boolean;
+  answerExplains?: AnswerExplain[];
+  textRootRef?: React.RefObject<HTMLDivElement | null>;
+  onExplainClick?: (explainId: string) => void;
 }
 
 const STRUCTURED_TYPES = new Set([
@@ -27,6 +30,9 @@ export function CardAnswerBody({
   isStreaming,
   clampStyle,
   plainClamp,
+  answerExplains,
+  textRootRef,
+  onExplainClick,
 }: CardAnswerBodyProps) {
   const type = card.responseType ?? "text";
   const hasStructured =
@@ -46,6 +52,9 @@ export function CardAnswerBody({
           isStreaming={isStreaming}
           clampStyle={clampStyle}
           plainClamp={plainClamp}
+          answerExplains={answerExplains}
+          textRootRef={textRootRef}
+          onExplainClick={onExplainClick}
         />
       )}
       {showPreview && <CardArtifactPreview card={card} />}

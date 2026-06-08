@@ -11,7 +11,7 @@ const config: Config = {
       colors: {
         canvas: {
           bg: "#FAFAF8",
-          dot: "#D9D7D2",
+          dot: "#8B8A86",
           card: "#FFFFFF",
           border: "#E6E4DF",
           ink: "#2C2A26",

@@ -7,6 +7,7 @@ import type {
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
 import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -103,6 +104,19 @@ export interface UploadedAttachment {
   addedAt: number;
 }
 
+export interface AnswerExplain {
+  id: string;
+  selectedText: string;
+  /** 0-based occurrence among identical substrings in rendered plain text */
+  occurrenceIndex: number;
+  explanation: string;
+  status: "loading" | "done" | "error";
+}
+
+export interface BranchOptions {
+  quotedSelection?: string;
+}
+
 export interface Card {
   id: string;
   threadId: string;
@@ -124,6 +138,8 @@ export interface Card {
   inheritedArtifactId?: string;
   pendingFiles?: PendingFileAttachment[];
   contributorIds?: string[];
+  answerExplains?: AnswerExplain[];
+  quotedSelection?: string;
 }
 
 export interface FollowUpOptions {
@@ -315,12 +331,28 @@ interface CanvasState {
     question: string,
     options?: FollowUpOptions,
   ) => string | null;
-  createBranch: (sourceId: string, side: "left" | "right") => string | null;
+  createBranch: (
+    sourceId: string,
+    side: "left" | "right",
+    options?: BranchOptions,
+  ) => string | null;
   createBranchAt: (
     sourceId: string,
     side: "left" | "right",
     position: { x: number; y: number },
+    options?: BranchOptions,
   ) => string | null;
+  createBranchFromSelection: (
+    sourceId: string,
+    selectedText: string,
+    side?: "left" | "right",
+  ) => string | null;
+  addAnswerExplain: (cardId: string, explain: AnswerExplain) => void;
+  updateAnswerExplain: (
+    cardId: string,
+    explainId: string,
+    patch: Partial<AnswerExplain>,
+  ) => void;
   createRootCardWithAttachment: (
     position: { x: number; y: number },
     ref: AttachedArtifactRef,
@@ -471,6 +503,7 @@ function collectSubtreeIds(
 }
 
 export const newCardId = () => newId("card");
+export const newExplainId = () => newId("explain");
 const newThreadId = () => newId("thread");
 const newGroupId = () => newId("group");
 
@@ -575,9 +608,19 @@ function normalizeLoadedCards(
 ): Record<string, Card> {
   const next = { ...cards };
   for (const [id, card] of Object.entries(next)) {
-    if (card.status === "empty" && !card.size) {
-      next[id] = { ...card, size: emptyCardSize(tuning) };
+    let normalized = card;
+    if (card.status === "streaming" || card.status === "thinking") {
+      normalized = {
+        ...normalized,
+        status: "done",
+        thinkingLabel: undefined,
+        pendingFiles: undefined,
+      };
     }
+    if (normalized.status === "empty" && !normalized.size) {
+      normalized = { ...normalized, size: emptyCardSize(tuning) };
+    }
+    next[id] = normalized;
   }
   return next;
 }
@@ -1422,7 +1465,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return cardId;
   },
 
-  createBranchAt: (sourceId, side, position) => {
+  createBranchAt: (sourceId, side, position, options) => {
     let branchId: string | null = null;
     set((state) => {
       const source = state.cards[sourceId];
@@ -1458,6 +1501,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: sourceId,
+        quotedSelection: options?.quotedSelection,
       };
 
       const conn: Connection = {
@@ -1480,7 +1524,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return branchId;
   },
 
-  createBranch: (sourceId, side) => {
+  createBranch: (sourceId, side, options) => {
     let branchId: string | null = null;
     set((state) => {
       const source = state.cards[sourceId];
@@ -1517,6 +1561,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         size: emptyCardSize(tuning),
         parentCardId: null,
         parentConversationId: sourceId,
+        quotedSelection: options?.quotedSelection,
       };
 
       const conn: Connection = {
@@ -1538,6 +1583,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
     return branchId;
   },
+
+  createBranchFromSelection: (sourceId, selectedText, side = "right") => {
+    return get().createBranch(sourceId, side, {
+      quotedSelection: selectedText,
+    });
+  },
+
+  addAnswerExplain: (cardId, explain) =>
+    set((state) => {
+      const card = state.cards[cardId];
+      if (!card) return state;
+      const existing = card.answerExplains ?? [];
+      return {
+        cards: {
+          ...state.cards,
+          [cardId]: {
+            ...card,
+            answerExplains: [...existing, explain],
+          },
+        },
+      };
+    }),
+
+  updateAnswerExplain: (cardId, explainId, patch) =>
+    set((state) => {
+      const card = state.cards[cardId];
+      if (!card?.answerExplains?.length) return state;
+      const next = card.answerExplains.map((e) =>
+        e.id === explainId ? { ...e, ...patch } : e,
+      );
+      return {
+        cards: {
+          ...state.cards,
+          [cardId]: { ...card, answerExplains: next },
+        },
+      };
+    }),
 
   deleteFromCard: (cardId) =>
     set((state) => {
@@ -1737,18 +1819,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const connections = snapshotNorm.connections.map((c) => ({ ...c }));
       const cardOrder = [...snapshotNorm.cardOrder];
       const defaultTuning = TUNING;
+      const repaired = repairLoadedArtifactState(
+        normalized,
+        sessionArtifacts,
+        connections,
+        cardOrder,
+      );
       // Re-snap vertical chains so any stale gap from older snapshots
       // collapses back to the canonical FOLLOW_UP_GAP. Lateral branches are
       // not touched (absolute-positions policy).
       const cards = repairVerticalChainsOnly(
-        normalized,
+        repaired.cards,
         connections,
         cardOrder,
         defaultTuning,
       );
       const canvasArtifactNodes = normalizeLoadedArtifactNodes(
         { ...snapshotNorm.canvasArtifactNodes },
-        sessionArtifacts,
+        repaired.sessionArtifacts,
       );
       const firstCardId = cardOrder[0];
       const firstCard = firstCardId ? cards[firstCardId] : undefined;
@@ -1773,7 +1861,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
-        sessionArtifacts,
+        sessionArtifacts: repaired.sessionArtifacts,
         canvasArtifactNodes,
         canvasArtifactOrder: [...(snapshotNorm.canvasArtifactOrder ?? [])],
         activeThreadId: snapshotNorm.threadOrder[0] ?? null,

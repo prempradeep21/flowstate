@@ -35,6 +35,7 @@ export function ChatComposer({
   receiveHighlightSide = null,
   draftValue,
   onDraftChange,
+  lockedPrefix,
   onSubmit,
   variant = "chat",
 }: {
@@ -48,6 +49,8 @@ export function ChatComposer({
   receiveHighlightSide?: "left" | "right" | null;
   draftValue?: string;
   onDraftChange?: (value: string) => void;
+  /** Read-only quoted text shown before the textarea (branch-from-selection). */
+  lockedPrefix?: string;
   onSubmit: (question: string, options?: FollowUpOptions) => void;
   variant?: "chat" | "canvas" | "landing";
 }) {
@@ -136,7 +139,8 @@ export function ChatComposer({
   const submit = () => {
     const q = draft.trim();
     if (!q || !canSend) return;
-    onSubmit(q, {
+    const question = lockedPrefix ? `${lockedPrefix}: ${q}` : q;
+    onSubmit(question, {
       attachedArtifacts: attached.length > 0 ? attached : undefined,
       pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
       pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
@@ -397,21 +401,34 @@ export function ChatComposer({
 
           <div className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
 
-          <textarea
-            ref={textarea.ref}
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              textarea.resize();
-            }}
-            onKeyDown={onKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            rows={1}
-            className={`block min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
-              isCanvas || isLanding ? "text-[14px]" : "text-[15px]"
+          <div
+            className={`flex min-w-0 flex-1 ${
+              lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-end"
             }`}
-          />
+          >
+            {lockedPrefix && (
+              <span
+                className="rounded-lg bg-canvas-accent/15 px-2.5 py-1.5 text-[13px] font-medium leading-snug text-canvas-question break-words"
+              >
+                {lockedPrefix}
+              </span>
+            )}
+            <textarea
+              ref={textarea.ref}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                textarea.resize();
+              }}
+              onKeyDown={onKeyDown}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+              className={`block min-w-0 w-full resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
+                isCanvas || isLanding ? "text-[14px]" : "text-[15px]"
+              }`}
+            />
+          </div>
 
           <SendIconButton
             disabled={!canSend}
