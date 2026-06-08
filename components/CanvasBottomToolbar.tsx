@@ -10,6 +10,7 @@ import {
   TypeIcon,
 } from "@/components/MenuIcons";
 import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
+import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
 import { UndoButton } from "@/components/UndoButton";
 import { useCanEditCanvas, useAuth } from "@/components/AuthProvider";
 import { isCanvasOwner } from "@/lib/collaborationPersistence";
@@ -27,7 +28,14 @@ export function CanvasBottomToolbar() {
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const canEdit = useCanEditCanvas();
-  const { activeCanvasRole, setShareModalOpen, user, activeCanvasId } = useAuth();
+  const {
+    activeCanvasRole,
+    setShareModalOpen,
+    user,
+    activeCanvasId,
+    members,
+    onlineUserIds,
+  } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
@@ -90,19 +98,27 @@ export function CanvasBottomToolbar() {
 
       {canEdit && <UndoButton variant="toolbar" />}
 
-      {showShare && (
+      {(showShare || members.length > 1) && (
         <>
           <div className="mx-1 h-7 w-px shrink-0 bg-canvas-border" aria-hidden />
-          <button
-            type="button"
-            className={toolbarBtn}
+          {showShare && (
+            <button
+              type="button"
+              className={toolbarBtn}
+              onClick={() => setShareModalOpen(true)}
+            >
+              <span className="text-canvas-muted">
+                <ShareIcon />
+              </span>
+              Share
+            </button>
+          )}
+          <CollaboratorAvatarStack
+            members={members}
+            onlineUserIds={onlineUserIds}
             onClick={() => setShareModalOpen(true)}
-          >
-            <span className="text-canvas-muted">
-              <ShareIcon />
-            </span>
-            Share
-          </button>
+            size="sm"
+          />
         </>
       )}
 

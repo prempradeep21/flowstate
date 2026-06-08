@@ -18,6 +18,7 @@ export interface CanvasMeta {
   title: string;
   isDefault: boolean;
   updatedAt: string;
+  contentEditedAt: string;
 }
 
 export interface UserPreferences {
@@ -25,6 +26,37 @@ export interface UserPreferences {
 }
 
 type Supabase = SupabaseClient<Database>;
+
+/** Cached after first PostgREST response — avoids repeated 400s pre-migration. */
+let supportsContentEditedAtColumn: boolean | undefined;
+
+function isMissingContentEditedAtColumn(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  const message = error.message ?? "";
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    message.includes("content_edited_at")
+  );
+}
+
+function mapCanvasMetaRow(row: {
+  id: string;
+  title: string;
+  is_default: boolean;
+  updated_at: string;
+  content_edited_at?: string | null;
+}): CanvasMeta {
+  return {
+    id: row.id,
+    title: row.title,
+    isDefault: row.is_default,
+    updatedAt: row.updated_at,
+    contentEditedAt: row.content_edited_at ?? row.updated_at,
+  };
+}
 
 function parsePreferences(raw: unknown): UserPreferences {
   if (!raw || typeof raw !== "object") return {};
@@ -73,6 +105,25 @@ export async function fetchCanvasList(
   supabase: Supabase,
   userId: string,
 ): Promise<CanvasMeta[]> {
+  if (supportsContentEditedAtColumn !== false) {
+    const { data, error } = await supabase
+      .from("canvases")
+      .select("id, title, is_default, updated_at, content_edited_at")
+      .eq("owner_id", userId)
+      .order("content_edited_at", { ascending: false, nullsFirst: false });
+
+    if (!error) {
+      supportsContentEditedAtColumn = true;
+      return (data ?? []).map(mapCanvasMetaRow);
+    }
+
+    if (!isMissingContentEditedAtColumn(error)) {
+      throw error;
+    }
+
+    supportsContentEditedAtColumn = false;
+  }
+
   const { data, error } = await supabase
     .from("canvases")
     .select("id, title, is_default, updated_at")
@@ -81,12 +132,7 @@ export async function fetchCanvasList(
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    isDefault: row.is_default,
-    updatedAt: row.updated_at,
-  }));
+  return (data ?? []).map(mapCanvasMetaRow);
 }
 
 export async function fetchCanvasById(
@@ -207,11 +253,18 @@ export async function createCanvas(
   return { id: data.id, state: parsed };
 }
 
-export function sortCanvasesByUpdatedAt(canvases: CanvasMeta[]): CanvasMeta[] {
+export function sortCanvasesByContentEditedAt(
+  canvases: CanvasMeta[],
+): CanvasMeta[] {
   return [...canvases].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    (a, b) =>
+      new Date(b.contentEditedAt).getTime() -
+      new Date(a.contentEditedAt).getTime(),
   );
 }
+
+/** @deprecated Use sortCanvasesByContentEditedAt */
+export const sortCanvasesByUpdatedAt = sortCanvasesByContentEditedAt;
 
 export async function updateCanvasTitle(
   supabase: Supabase,
@@ -229,20 +282,52 @@ export async function updateCanvasTitle(
   if (error) throw error;
 }
 
+export interface SaveCanvasStateOptions {
+  /** Bump content_edited_at for sidebar recency sorting. */
+  touchContentEditedAt?: boolean;
+}
+
 export async function saveCanvasState(
   supabase: Supabase,
   canvasId: string,
   source: CanvasSnapshotSource,
+  options: SaveCanvasStateOptions = {},
 ): Promise<void> {
   const snapshot = buildCanvasSnapshot(source);
+  const touchContentEditedAt = options.touchContentEditedAt ?? false;
 
-  const { error } = await supabase
+  const baseUpdate = {
+    state:
+      snapshot as unknown as Database["public"]["Tables"]["canvases"]["Update"]["state"],
+    version: 1,
+  };
+
+  const withContentEditedAt =
+    touchContentEditedAt && supportsContentEditedAtColumn !== false
+      ? {
+          ...baseUpdate,
+          content_edited_at: new Date().toISOString(),
+        }
+      : baseUpdate;
+
+  let { error } = await supabase
     .from("canvases")
-    .update({
-      state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Update"]["state"],
-      version: 1,
-    })
+    .update(withContentEditedAt)
     .eq("id", canvasId);
+
+  if (
+    error &&
+    touchContentEditedAt &&
+    isMissingContentEditedAtColumn(error)
+  ) {
+    supportsContentEditedAtColumn = false;
+    ({ error } = await supabase
+      .from("canvases")
+      .update(baseUpdate)
+      .eq("id", canvasId));
+  } else if (!error && touchContentEditedAt) {
+    supportsContentEditedAtColumn = true;
+  }
 
   if (error) throw error;
 }

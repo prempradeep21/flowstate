@@ -47,6 +47,7 @@ export interface Database {
           allow_viewer_duplicate: boolean;
           created_at: string;
           updated_at: string;
+          content_edited_at: string | null;
         };
         Insert: {
           id?: string;
@@ -58,6 +59,7 @@ export interface Database {
           allow_viewer_duplicate?: boolean;
           created_at?: string;
           updated_at?: string;
+          content_edited_at?: string | null;
         };
         Update: {
           id?: string;
@@ -69,6 +71,7 @@ export interface Database {
           allow_viewer_duplicate?: boolean;
           created_at?: string;
           updated_at?: string;
+          content_edited_at?: string | null;
         };
         Relationships: [
           {

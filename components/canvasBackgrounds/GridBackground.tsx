@@ -1,7 +1,5 @@
 "use client";
 
-import { useId } from "react";
-import { ProceduralSvgBackground } from "@/components/canvasBackgrounds/ProceduralSvgBackground";
 import type { BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import {
   patternOffset,
@@ -14,34 +12,22 @@ const BG_COLOR = "#FAFAF8";
 
 export function GridBackground({
   viewport = { x: 0, y: 0, scale: 1 },
-  className,
+  className = "",
 }: BackgroundRenderProps) {
-  const patternId = useId().replace(/:/g, "");
   const tileSize = patternTileSize(BASE_SPACING, viewport.scale);
   const offset = patternOffset(viewport, tileSize);
   const dotRadius = Math.max(0.5, 0.5 * viewport.scale);
 
   return (
-    <ProceduralSvgBackground className={className}>
-      <defs>
-        <pattern
-          id={patternId}
-          width={tileSize}
-          height={tileSize}
-          patternUnits="userSpaceOnUse"
-          x={offset.x}
-          y={offset.y}
-        >
-          <circle
-            cx={tileSize / 2}
-            cy={tileSize / 2}
-            r={dotRadius}
-            fill={DOT_COLOR}
-          />
-        </pattern>
-      </defs>
-      <rect x={0} y={0} width="100%" height="100%" fill={BG_COLOR} />
-      <rect x={0} y={0} width="100%" height="100%" fill={`url(#${patternId})`} />
-    </ProceduralSvgBackground>
+    <div
+      className={`pointer-events-none absolute inset-0 z-0 size-full ${className}`}
+      aria-hidden
+      style={{
+        backgroundColor: BG_COLOR,
+        backgroundImage: `radial-gradient(circle, ${DOT_COLOR} ${dotRadius}px, transparent ${dotRadius}px)`,
+        backgroundSize: `${tileSize}px ${tileSize}px`,
+        backgroundPosition: `${offset.x}px ${offset.y}px`,
+      }}
+    />
   );
 }

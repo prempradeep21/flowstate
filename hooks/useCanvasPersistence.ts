@@ -1,7 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import {
+  classifyCanvasPersistChange,
+  pickCanvasPersistSlice,
+} from "@/lib/canvasPersistDirty";
 import {
   createCanvas,
   createDefaultCanvas,
@@ -11,7 +15,7 @@ import {
   generateUntitledCanvasTitle,
   resolveInitialCanvasId,
   saveCanvasState,
-  sortCanvasesByUpdatedAt,
+  sortCanvasesByContentEditedAt,
   updateCanvasTitle,
   updateLastActiveCanvas,
   type CanvasMeta,
@@ -53,7 +57,9 @@ export function useCanvasPersistence({
   const isHydratingRef = useRef(false);
   const isSwitchingRef = useRef(false);
   const isDirtyRef = useRef(false);
+  const contentEditDirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInFlightRef = useRef<Promise<void> | null>(null);
 
   const [activeCanvasId, setActiveCanvasId] = useState<string | null>(null);
   const [canvases, setCanvases] = useState<CanvasMeta[]>([]);
@@ -64,16 +70,25 @@ export function useCanvasPersistence({
   const resetCanvasState = useCanvasStore((s) => s.resetCanvasState);
   const closeArtifact = useCanvasStore((s) => s.closeArtifact);
 
-  const bumpCanvasInList = useCallback((canvasId: string, patch?: Partial<CanvasMeta>) => {
-    const now = new Date().toISOString();
-    setCanvases((prev) =>
-      sortCanvasesByUpdatedAt(
-        prev.map((c) =>
-          c.id === canvasId ? { ...c, ...patch, updatedAt: now } : c,
+  const bumpCanvasInList = useCallback(
+    (canvasId: string, patch?: Partial<CanvasMeta>) => {
+      const now = new Date().toISOString();
+      setCanvases((prev) =>
+        sortCanvasesByContentEditedAt(
+          prev.map((c) =>
+            c.id === canvasId
+              ? {
+                  ...c,
+                  ...patch,
+                  contentEditedAt: now,
+                }
+              : c,
+          ),
         ),
-      ),
-    );
-  }, []);
+      );
+    },
+    [],
+  );
 
   const performSave = useCallback(async () => {
     const canvasId = canvasIdRef.current;
@@ -88,16 +103,53 @@ export function useCanvasPersistence({
       return;
     }
 
+    if (saveInFlightRef.current) {
+      await saveInFlightRef.current;
+      if (!isDirtyRef.current) {
+        setSaveStatus("saved");
+        return;
+      }
+    }
+
+    const touchContentEditedAt = contentEditDirtyRef.current;
+    const snapshot = getSnapshotSource();
+
     setSaveStatus("saving");
+    const savePromise = (async () => {
+      try {
+        const supabase = createClient();
+        await saveCanvasState(supabase, canvasId, snapshot, {
+          touchContentEditedAt,
+        });
+
+        if (canvasIdRef.current === canvasId) {
+          isDirtyRef.current = false;
+          contentEditDirtyRef.current = false;
+        }
+
+        if (touchContentEditedAt) {
+          bumpCanvasInList(canvasId);
+        }
+
+        if (canvasIdRef.current === canvasId) {
+          setSaveStatus("saved");
+        }
+      } catch (err) {
+        console.warn("[canvas] save failed:", err);
+        if (canvasIdRef.current === canvasId) {
+          setSaveStatus("error");
+        }
+        throw err;
+      }
+    })();
+
+    saveInFlightRef.current = savePromise;
     try {
-      const supabase = createClient();
-      await saveCanvasState(supabase, canvasId, getSnapshotSource());
-      isDirtyRef.current = false;
-      bumpCanvasInList(canvasId);
-      setSaveStatus("saved");
-    } catch (err) {
-      console.warn("[canvas] save failed:", err);
-      setSaveStatus("error");
+      await savePromise;
+    } finally {
+      if (saveInFlightRef.current === savePromise) {
+        saveInFlightRef.current = null;
+      }
     }
   }, [bumpCanvasInList, getSnapshotSource, setSaveStatus, supabaseConfigured, user]);
 
@@ -125,6 +177,7 @@ export function useCanvasPersistence({
       canvasIdRef.current = row.id;
       setActiveCanvasId(row.id);
       isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
       await updateLastActiveCanvas(supabase, userId, row.id);
       isHydratingRef.current = false;
     },
@@ -181,6 +234,7 @@ export function useCanvasPersistence({
           canvasIdRef.current = created.id;
           setActiveCanvasId(created.id);
           isDirtyRef.current = false;
+          contentEditDirtyRef.current = false;
           await updateLastActiveCanvas(supabase, nextUser.id, created.id);
           const refreshed = await fetchCanvasList(supabase, nextUser.id);
           setCanvases(refreshed);
@@ -212,7 +266,12 @@ export function useCanvasPersistence({
       setIsSwitching(true);
 
       try {
-        await flushSave();
+        try {
+          await flushSave();
+        } catch {
+          setSaveStatus("error");
+        }
+
         await loadCanvasRow(canvasId, user.id);
         setSaveStatus("saved");
       } catch {
@@ -232,7 +291,12 @@ export function useCanvasPersistence({
     setIsSwitching(true);
 
     try {
-      await flushSave();
+      try {
+        await flushSave();
+      } catch {
+        setSaveStatus("error");
+      }
+
       resetCanvasState();
       resetViewportBootstrap();
       closeArtifact();
@@ -245,6 +309,7 @@ export function useCanvasPersistence({
       canvasIdRef.current = created.id;
       setActiveCanvasId(created.id);
       isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
       await updateLastActiveCanvas(supabase, user.id, created.id);
 
       const refreshed = await fetchCanvasList(supabase, user.id);
@@ -276,9 +341,11 @@ export function useCanvasPersistence({
 
       const supabase = createClient();
       await updateCanvasTitle(supabase, canvasId, trimmed);
-      bumpCanvasInList(canvasId, { title: trimmed });
+      setCanvases((prev) =>
+        prev.map((c) => (c.id === canvasId ? { ...c, title: trimmed } : c)),
+      );
     },
-    [bumpCanvasInList, supabaseConfigured, user],
+    [supabaseConfigured, user],
   );
 
   useEffect(() => {
@@ -292,6 +359,7 @@ export function useCanvasPersistence({
       setActiveCanvasId(null);
       setCanvases([]);
       isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
       resetCanvasState();
       resetViewportBootstrap();
       setPersistenceStatus("ready");
@@ -319,6 +387,8 @@ export function useCanvasPersistence({
       return;
     }
 
+    let prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+
     const scheduleSave = () => {
       if (
         isHydratingRef.current ||
@@ -329,7 +399,23 @@ export function useCanvasPersistence({
         return;
       }
 
+      const nextState = useCanvasStore.getState();
+      const nextSlice = pickCanvasPersistSlice(nextState);
+      const { persist, contentEdit } = classifyCanvasPersistChange(
+        prevSlice,
+        nextSlice,
+      );
+      prevSlice = nextSlice;
+
+      if (!persist) return;
+
       isDirtyRef.current = true;
+      if (contentEdit) {
+        contentEditDirtyRef.current = true;
+      }
+
+      // Only debounce auto-save for meaningful edits; viewport saves on switch.
+      if (!contentEdit) return;
 
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
