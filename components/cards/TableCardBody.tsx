@@ -31,7 +31,7 @@ export function TableCardBody({ card, isStreaming }: TableCardBodyProps) {
         title={payload.title}
         description={payload.description}
       >
-        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-white">
+        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card">
           <ArtifactTable
             columns={columns}
             rows={rows}

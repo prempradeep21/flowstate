@@ -11,6 +11,7 @@ export interface CanvasPersistSlice {
   groups: Record<string, unknown>;
   connectorStyle: string;
   canvasBackgroundStyle: string;
+  canvasTheme: string;
   selectedModel: string;
   viewMode: string;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -38,6 +39,7 @@ export function pickCanvasPersistSlice(
     groups: state.groups,
     connectorStyle: state.connectorStyle,
     canvasBackgroundStyle: state.canvasBackgroundStyle,
+    canvasTheme: state.canvasTheme,
     selectedModel: state.selectedModel,
     viewMode: state.viewMode,
     sessionArtifacts: state.sessionArtifacts,
@@ -115,6 +117,7 @@ export function isViewportOnlyChange(
     prev.groups === next.groups &&
     prev.connectorStyle === next.connectorStyle &&
     prev.canvasBackgroundStyle === next.canvasBackgroundStyle &&
+    prev.canvasTheme === next.canvasTheme &&
     prev.selectedModel === next.selectedModel &&
     prev.viewMode === next.viewMode &&
     prev.sessionArtifacts === next.sessionArtifacts &&

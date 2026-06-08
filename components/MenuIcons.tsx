@@ -184,6 +184,7 @@ interface ContextMenuItemProps {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  variant?: "default" | "danger";
 }
 
 export function ContextMenuItem({
@@ -191,16 +192,24 @@ export function ContextMenuItem({
   label,
   onClick,
   disabled,
+  variant = "default",
 }: ContextMenuItemProps) {
+  const danger = variant === "danger";
+
   return (
     <button
       type="button"
       role="menuitem"
       disabled={disabled}
       onClick={onClick}
-      className={menuItemClass}
+      className={[
+        menuItemClass,
+        danger ? "text-canvas-danger hover:bg-canvas-dangerSoft" : "",
+      ].join(" ")}
     >
-      <span className="text-canvas-muted">{icon}</span>
+      <span className={danger ? "text-canvas-danger" : "text-canvas-muted"}>
+        {icon}
+      </span>
       <span>{label}</span>
     </button>
   );

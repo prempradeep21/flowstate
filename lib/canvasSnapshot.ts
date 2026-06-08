@@ -8,6 +8,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasBackgroundStyle,
+  CanvasTheme,
   CanvasTextLabel,
   Card,
   CardStatus,
@@ -32,6 +33,7 @@ export interface CanvasSnapshot {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -56,6 +58,7 @@ export interface CanvasSnapshotSource {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -136,6 +139,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
     canvasBackgroundStyle: source.canvasBackgroundStyle,
+    canvasTheme: source.canvasTheme,
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
     sessionArtifacts,
@@ -175,6 +179,7 @@ export function buildEmptyCanvasSnapshot(
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
+    canvasTheme: "light",
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
@@ -202,6 +207,17 @@ function normalizeCanvasBackgroundStyle(
   return typeof raw === "string" &&
     VALID_BACKGROUND_STYLES.has(raw as CanvasBackgroundStyle)
     ? (raw as CanvasBackgroundStyle)
+    : fallback;
+}
+
+const VALID_THEMES = new Set<CanvasTheme>(["light", "dark"]);
+
+function normalizeCanvasTheme(
+  raw: unknown,
+  fallback: CanvasTheme,
+): CanvasTheme {
+  return typeof raw === "string" && VALID_THEMES.has(raw as CanvasTheme)
+    ? (raw as CanvasTheme)
     : fallback;
 }
 
@@ -305,6 +321,7 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.canvasBackgroundStyle,
       base.canvasBackgroundStyle,
     ),
+    canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     selectedModel:
       snapshot.selectedModel && VALID_MODELS.has(snapshot.selectedModel)
         ? snapshot.selectedModel

@@ -23,11 +23,11 @@ export function TableShaderSkeleton({
 
   return (
     <div
-      className={`overflow-hidden bg-white ${maxHeightClassName}`}
+      className={`overflow-hidden bg-canvas-card ${maxHeightClassName}`}
       style={tableAccentStyles(accentSeed)}
       aria-hidden
     >
-      <table className="w-full table-fixed border-collapse bg-white">
+      <table className="w-full table-fixed border-collapse bg-canvas-card">
         <thead>
           <tr
             className="border-b"

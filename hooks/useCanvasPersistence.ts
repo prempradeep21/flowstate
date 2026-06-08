@@ -7,6 +7,11 @@ import {
   pickCanvasPersistSlice,
 } from "@/lib/canvasPersistDirty";
 import {
+  buildCanvasSnapshot,
+  buildEmptyCanvasSnapshot,
+  type CanvasSnapshot,
+} from "@/lib/canvasSnapshot";
+import {
   createCanvas,
   createDefaultCanvas,
   fetchCanvasById,
@@ -21,13 +26,18 @@ import {
   type CanvasMeta,
   type CanvasRow,
 } from "@/lib/canvasPersistence";
+import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
 import {
   formatPersistenceError,
   isStatementTimeoutError,
   SAVE_PAYLOAD_WARN_BYTES,
   withSaveRetry,
 } from "@/lib/canvasSaveRetry";
-import { fetchSharedCanvasList } from "@/lib/collaborationPersistence";
+import {
+  deleteCanvas,
+  fetchSharedCanvasList,
+} from "@/lib/collaborationPersistence";
+import { deleteCanvasStorageAssets } from "@/lib/attachments";
 import {
   markViewportRestoredFromSnapshot,
   resetViewportBootstrap,
@@ -78,7 +88,11 @@ export function useCanvasPersistence({
   const saveInFlightRef = useRef<Promise<void> | null>(null);
   /** Pause viewport-only auto-save after DB statement timeout (large payload). */
   const viewportSaveBlockedUntilRef = useRef(0);
+  const localReadOnlyRef = useRef(false);
+  /** In-memory canvas state for localhost read-only session (lost on reload). */
+  const sessionSnapshotsRef = useRef(new Map<string, CanvasSnapshot>());
 
+  const [localReadOnly, setLocalReadOnly] = useState(false);
   const [activeCanvasId, setActiveCanvasId] = useState<string | null>(null);
   const [canvases, setCanvases] = useState<CanvasMeta[]>([]);
   const [isSwitching, setIsSwitching] = useState(false);
@@ -93,6 +107,21 @@ export function useCanvasPersistence({
   const getSnapshotSource = useCanvasStore((s) => s.getCanvasSnapshotSource);
   const resetCanvasState = useCanvasStore((s) => s.resetCanvasState);
   const closeArtifact = useCanvasStore((s) => s.closeArtifact);
+
+  useEffect(() => {
+    const readOnly = isLocalReadOnlyClient();
+    localReadOnlyRef.current = readOnly;
+    setLocalReadOnly(readOnly);
+  }, []);
+
+  const cacheActiveSessionSnapshot = useCallback(() => {
+    const canvasId = canvasIdRef.current;
+    if (!canvasId) return;
+    sessionSnapshotsRef.current.set(
+      canvasId,
+      buildCanvasSnapshot(getSnapshotSource()),
+    );
+  }, [getSnapshotSource]);
 
   const bumpCanvasInList = useCallback(
     (canvasId: string, patch?: Partial<CanvasMeta>) => {
@@ -167,6 +196,15 @@ export function useCanvasPersistence({
   const performSave = useCallback(async () => {
     if (!user || !supabaseConfigured) return;
 
+    if (localReadOnlyRef.current) {
+      if (isDirtyRef.current) {
+        cacheActiveSessionSnapshot();
+      }
+      isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
+      return;
+    }
+
     if (useCanvasStore.getState().canvasReadOnly) {
       return;
     }
@@ -204,9 +242,22 @@ export function useCanvasPersistence({
         saveInFlightRef.current = null;
       }
     }
-  }, [executeSave, getSnapshotSource, setSaveStatus, supabaseConfigured, user]);
+  }, [
+    cacheActiveSessionSnapshot,
+    executeSave,
+    getSnapshotSource,
+    setSaveStatus,
+    supabaseConfigured,
+    user,
+  ]);
 
   const flushSave = useCallback(async () => {
+    if (localReadOnlyRef.current) {
+      cacheActiveSessionSnapshot();
+      isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
+      return;
+    }
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
@@ -216,7 +267,7 @@ export function useCanvasPersistence({
       viewportSaveTimerRef.current = null;
     }
     await performSave();
-  }, [performSave]);
+  }, [cacheActiveSessionSnapshot, performSave]);
 
   /** Flush dirty state; content edits always complete before switch, viewport may use a deadline. */
   const flushSaveWithDeadline = useCallback(
@@ -292,12 +343,14 @@ export function useCanvasPersistence({
       isDirtyRef.current = false;
       contentEditDirtyRef.current = false;
 
-      const supabase = createClient();
-      const lastActive = updateLastActiveCanvas(supabase, userId, row.id);
-      if (options?.awaitLastActive === false) {
-        void lastActive.catch(() => {});
-      } else {
-        await lastActive;
+      if (!localReadOnlyRef.current) {
+        const supabase = createClient();
+        const lastActive = updateLastActiveCanvas(supabase, userId, row.id);
+        if (options?.awaitLastActive === false) {
+          void lastActive.catch(() => {});
+        } else {
+          await lastActive;
+        }
       }
 
       if (!isStaleLoad(generation)) {
@@ -420,14 +473,32 @@ export function useCanvasPersistence({
       setIsSwitching(true);
 
       try {
-        const supabase = createClient();
-        const [, row] = await Promise.all([
-          flushSaveWithDeadline(),
-          fetchCanvasById(supabase, canvasId),
-        ]);
-        if (!row) throw new Error("Canvas not found");
-        await applyCanvasRow(row, user.id, { awaitLastActive: false });
-        setSaveStatus("saved");
+        if (localReadOnlyRef.current) {
+          cacheActiveSessionSnapshot();
+        } else {
+          await flushSaveWithDeadline();
+        }
+
+        const targetMeta = canvases.find((c) => c.id === canvasId);
+        const cached = sessionSnapshotsRef.current.get(canvasId);
+
+        if (targetMeta?.localOnly || (localReadOnlyRef.current && cached)) {
+          const state = cached ?? buildEmptyCanvasSnapshot();
+          await applyCanvasRow(
+            { id: canvasId, state },
+            user.id,
+            { awaitLastActive: false },
+          );
+        } else {
+          const supabase = createClient();
+          const row = await fetchCanvasById(supabase, canvasId);
+          if (!row) throw new Error("Canvas not found");
+          await applyCanvasRow(row, user.id, { awaitLastActive: false });
+        }
+
+        if (!localReadOnlyRef.current) {
+          setSaveStatus("saved");
+        }
       } catch {
         setSaveStatus("error");
       } finally {
@@ -439,6 +510,7 @@ export function useCanvasPersistence({
     },
     [
       applyCanvasRow,
+      cacheActiveSessionSnapshot,
       canvases,
       flushSaveWithDeadline,
       setSaveStatus,
@@ -455,14 +527,48 @@ export function useCanvasPersistence({
     setSwitchingCanvasTitle("New canvas");
 
     try {
-      await flushSaveWithDeadline();
+      if (localReadOnlyRef.current) {
+        cacheActiveSessionSnapshot();
+      } else {
+        await flushSaveWithDeadline();
+      }
 
       resetCanvasState();
       resetViewportBootstrap();
       closeArtifact();
 
-      const supabase = createClient();
       const title = generateUntitledCanvasTitle(canvases.map((c) => c.title));
+
+      if (localReadOnlyRef.current) {
+        const now = new Date().toISOString();
+        const id = crypto.randomUUID();
+        const empty = buildEmptyCanvasSnapshot();
+        sessionSnapshotsRef.current.set(id, empty);
+        hydrateFromSnapshot(empty, {
+          applyViewport: true,
+          canvasReveal: true,
+        });
+        canvasIdRef.current = id;
+        setActiveCanvasId(id);
+        isDirtyRef.current = false;
+        contentEditDirtyRef.current = false;
+        setCanvases((prev) =>
+          sortCanvasesByContentEditedAt([
+            {
+              id,
+              title,
+              isDefault: false,
+              updatedAt: now,
+              contentEditedAt: now,
+              localOnly: true,
+            },
+            ...prev,
+          ]),
+        );
+        return id;
+      }
+
+      const supabase = createClient();
       const created = await createCanvas(supabase, user.id, title);
 
       canvasIdRef.current = created.id;
@@ -484,9 +590,11 @@ export function useCanvasPersistence({
       setSwitchingCanvasTitle(null);
     }
   }, [
+    cacheActiveSessionSnapshot,
     canvases,
     closeArtifact,
     flushSaveWithDeadline,
+    hydrateFromSnapshot,
     resetCanvasState,
     setSaveStatus,
     supabaseConfigured,
@@ -500,13 +608,139 @@ export function useCanvasPersistence({
       const trimmed = title.trim();
       if (!trimmed) return;
 
-      const supabase = createClient();
-      await updateCanvasTitle(supabase, canvasId, trimmed);
+      if (!localReadOnlyRef.current) {
+        const supabase = createClient();
+        await updateCanvasTitle(supabase, canvasId, trimmed);
+      }
+
       setCanvases((prev) =>
         prev.map((c) => (c.id === canvasId ? { ...c, title: trimmed } : c)),
       );
     },
     [supabaseConfigured, user],
+  );
+
+  const deleteOwnedCanvas = useCallback(
+    async (canvasId: string) => {
+      if (!user || !supabaseConfigured) return;
+
+      const owned = canvases.find((c) => c.id === canvasId);
+      if (!owned) return;
+
+      const isActive = canvasIdRef.current === canvasId;
+      const remaining = canvases.filter((c) => c.id !== canvasId);
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (viewportSaveTimerRef.current) {
+        clearTimeout(viewportSaveTimerRef.current);
+        viewportSaveTimerRef.current = null;
+      }
+
+      sessionSnapshotsRef.current.delete(canvasId);
+
+      if (isActive) {
+        isSwitchingRef.current = true;
+        setIsSwitching(true);
+        setSwitchingCanvasTitle(owned.title);
+
+        canvasIdRef.current = null;
+        setActiveCanvasId(null);
+        isDirtyRef.current = false;
+        contentEditDirtyRef.current = false;
+        resetCanvasState();
+        resetViewportBootstrap();
+        closeArtifact();
+      }
+
+      try {
+        if (localReadOnlyRef.current) {
+          setCanvases(remaining);
+          if (isActive && remaining.length > 0) {
+            const nextId = remaining[0]?.id;
+            if (nextId) {
+              await switchCanvas(nextId);
+            }
+          }
+          return;
+        }
+
+        const supabase = createClient();
+
+        try {
+          await deleteCanvasStorageAssets(supabase, user.id, canvasId);
+        } catch (err) {
+          console.warn("[canvas] storage cleanup failed:", err);
+        }
+
+        await deleteCanvas(supabase, canvasId);
+        setCanvases(remaining);
+
+        const prefs = await fetchUserPreferences(supabase, user.id);
+
+        if (isActive) {
+          if (remaining.length > 0) {
+            const nextId = resolveInitialCanvasId(remaining, prefs);
+            if (nextId) {
+              const row = await fetchCanvasById(supabase, nextId);
+              if (!row) throw new Error("Canvas not found");
+              await applyCanvasRow(row, user.id, { awaitLastActive: false });
+            }
+          } else {
+            const created = await createDefaultCanvas(
+              supabase,
+              user.id,
+              getSnapshotSource(),
+            );
+            hydrateFromSnapshot(created.state, {
+              applyViewport: true,
+              canvasReveal: true,
+            });
+            canvasIdRef.current = created.id;
+            setActiveCanvasId(created.id);
+            isDirtyRef.current = false;
+            contentEditDirtyRef.current = false;
+            await updateLastActiveCanvas(supabase, user.id, created.id);
+            const refreshed = await fetchCanvasList(supabase, user.id);
+            setCanvases(refreshed);
+          }
+          setSaveStatus("saved");
+        } else if (prefs.lastActiveCanvasId === canvasId) {
+          const currentActive = canvasIdRef.current;
+          if (currentActive) {
+            await updateLastActiveCanvas(supabase, user.id, currentActive);
+          }
+        }
+      } catch {
+        if (!localReadOnlyRef.current) {
+          const supabase = createClient();
+          const list = await fetchCanvasList(supabase, user.id);
+          setCanvases(list);
+          setSaveStatus("error");
+        }
+        throw new Error("Failed to delete canvas");
+      } finally {
+        if (isActive) {
+          isSwitchingRef.current = false;
+          setIsSwitching(false);
+          setSwitchingCanvasTitle(null);
+        }
+      }
+    },
+    [
+      applyCanvasRow,
+      canvases,
+      closeArtifact,
+      getSnapshotSource,
+      hydrateFromSnapshot,
+      resetCanvasState,
+      setSaveStatus,
+      supabaseConfigured,
+      switchCanvas,
+      user,
+    ],
   );
 
   useEffect(() => {
@@ -637,9 +871,11 @@ export function useCanvasPersistence({
     switchCanvas,
     createNewCanvas,
     renameCanvas,
+    deleteOwnedCanvas,
     flushSave,
     isSwitching,
     switchingCanvasId,
     switchingCanvasTitle,
+    localReadOnly,
   };
 }

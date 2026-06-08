@@ -18,6 +18,8 @@ async function findFreePort(start = 3000, end = 3010) {
 }
 
 (async () => {
+  require('./check-supabase-env');
+
   const preferred = 3000;
   const port = await findFreePort(preferred, 3010);
   if (port !== preferred) {

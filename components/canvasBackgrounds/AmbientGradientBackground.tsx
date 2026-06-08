@@ -90,7 +90,7 @@ export function AmbientGradientBackground({
           </radialGradient>
         ))}
       </defs>
-      <rect width="100%" height="100%" fill={CANVAS_BG} />
+      <rect width="100%" height="100%" style={{ fill: CANVAS_BG }} />
       <g filter={`url(#${blurId})`}>
         {blobs.map((_, i) => (
           <rect

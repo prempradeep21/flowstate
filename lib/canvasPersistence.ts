@@ -19,6 +19,8 @@ export interface CanvasMeta {
   isDefault: boolean;
   updatedAt: string;
   contentEditedAt: string;
+  /** Session-only canvas created on localhost read-only mode. */
+  localOnly?: boolean;
 }
 
 export interface UserPreferences {

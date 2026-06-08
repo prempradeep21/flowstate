@@ -3,12 +3,51 @@
 @tailwind utilities;
 
 :root {
-  /* Visual tokens (mirror lib/design/tokens.ts) */
-  --canvas-bg: #fafaf8;
-  --canvas-ink: #2c2a26;
-  --canvas-dot: #8b8a86;
-  --canvas-accent: #6b4eff;
-  --dot-color: var(--canvas-dot);
+  /* Visual tokens — RGB channels (mirror lib/design/tokens.ts canvasColors).
+     Consumed as rgb(var(--canvas-x) / <alpha>) so utilities support opacity
+     and flip under html[data-theme="dark"]. */
+  --canvas-bg: 250 250 248;
+  --canvas-dot: 139 138 134;
+  --canvas-card: 255 255 255;
+  --canvas-border: 230 228 223;
+  --canvas-ink: 44 42 38;
+  --canvas-muted: 138 134 126;
+  --canvas-accent: 107 78 255;
+  --canvas-artifact-icon-bg: 237 233 254;
+  --canvas-artifact-stage: 243 242 239;
+  --canvas-connector: 184 181 174;
+  --canvas-plug-fill: 247 246 243;
+  --canvas-stage-dark: 26 26 26;
+  --canvas-code-bg: 244 244 245;
+  --canvas-syntax-comment: 17 99 41;
+  --canvas-syntax-string: 149 56 0;
+  --canvas-syntax-keyword: 5 80 174;
+  --canvas-danger: 220 38 38;
+  --canvas-danger-soft: 254 242 242;
+  --canvas-danger-border: 254 202 202;
+  --canvas-success: 16 185 129;
+  --canvas-success-text: 4 120 87;
+  --canvas-success-soft: 236 253 245;
+  --canvas-success-ring: 167 243 208;
+  --canvas-warning: 180 83 9;
+  --canvas-warning-soft: 255 251 235;
+  --canvas-warning-ring: 253 230 138;
+  --canvas-warning-text: 146 64 14;
+  --canvas-info: 2 132 199;
+  --canvas-info-text: 3 105 161;
+  --canvas-info-soft: 240 249 255;
+  --canvas-info-ring: 186 230 253;
+  --canvas-map-primary: 107 78 255;
+  --canvas-map-saved: 217 119 6;
+  --canvas-tag-danger: 190 18 60;
+  --canvas-tag-danger-soft: 255 241 242;
+  --canvas-tag-danger-ring: 254 205 211;
+  --dot-color: rgb(var(--canvas-dot));
+  /* Elevation shadows — warm, soft in light mode. */
+  --canvas-card-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
+    0 4px 16px rgba(20, 18, 14, 0.06);
+  --canvas-card-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
+    0 8px 24px rgba(20, 18, 14, 0.1);
   /* Flowstate motion tokens (mirror lib/motion/tokens.ts) */
   --motion-ease-light: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-medium: cubic-bezier(0.16, 1, 0.3, 1);
@@ -24,6 +63,52 @@
   --motion-duration-canvas-load: 620ms;
 }
 
+/* Dark theme — warm near-black surfaces, off-white text, lightened accents.
+   Grounded in Material Design + Apple HIG dark-mode guidance. */
+html[data-theme="dark"] {
+  --canvas-bg: 24 23 21;
+  --canvas-dot: 58 56 51;
+  --canvas-card: 33 31 28;
+  --canvas-border: 52 50 45;
+  --canvas-ink: 236 234 227;
+  --canvas-muted: 168 162 154;
+  --canvas-accent: 142 120 255;
+  --canvas-artifact-icon-bg: 44 37 65;
+  --canvas-artifact-stage: 30 29 26;
+  --canvas-connector: 78 75 69;
+  --canvas-plug-fill: 30 29 26;
+  --canvas-stage-dark: 15 15 14;
+  --canvas-code-bg: 28 27 26;
+  --canvas-syntax-comment: 139 148 158;
+  --canvas-syntax-string: 165 214 255;
+  --canvas-syntax-keyword: 255 123 114;
+  --canvas-danger: 248 113 113;
+  --canvas-danger-soft: 42 24 24;
+  --canvas-danger-border: 92 42 42;
+  --canvas-success: 52 211 153;
+  --canvas-success-text: 110 231 183;
+  --canvas-success-soft: 17 38 31;
+  --canvas-success-ring: 31 92 69;
+  --canvas-warning: 251 191 36;
+  --canvas-warning-soft: 42 33 20;
+  --canvas-warning-ring: 92 74 31;
+  --canvas-warning-text: 252 211 77;
+  --canvas-info: 56 189 248;
+  --canvas-info-text: 125 211 252;
+  --canvas-info-soft: 20 34 42;
+  --canvas-info-ring: 31 74 92;
+  --canvas-map-primary: 142 120 255;
+  --canvas-map-saved: 251 191 36;
+  --canvas-tag-danger: 251 113 133;
+  --canvas-tag-danger-soft: 42 22 32;
+  --canvas-tag-danger-ring: 92 42 58;
+  /* On dark, elevation reads through lighter surfaces + deeper shadows. */
+  --canvas-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.5);
+  --canvas-card-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
+    0 10px 28px rgba(0, 0, 0, 0.6);
+}
+
 html,
 body,
 #__next {
@@ -31,8 +116,8 @@ body,
 }
 
 body {
-  background-color: var(--canvas-bg);
-  color: var(--canvas-ink);
+  background-color: rgb(var(--canvas-bg));
+  color: rgb(var(--canvas-ink));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -48,8 +133,8 @@ body {
 }
 
 .canvas-selection-marquee {
-  border: 2px dashed rgb(44 42 38 / 0.35);
-  background: rgb(44 42 38 / 0.04);
+  border: 2px dashed rgb(var(--canvas-ink) / 0.35);
+  background: rgb(var(--canvas-ink) / 0.04);
 }
 
 .canvas-group-bounds {
@@ -57,15 +142,19 @@ body {
 }
 
 ::highlight(answer-explain) {
-  background-color: color-mix(in srgb, var(--canvas-accent) 20%, transparent);
+  background-color: color-mix(
+    in srgb,
+    rgb(var(--canvas-accent)) 20%,
+    transparent
+  );
   color: inherit;
 }
 
 .canvas-translucent-fill {
   background: radial-gradient(
     circle at center,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.3) 100%
+    rgb(var(--canvas-card) / 0.1) 0%,
+    rgb(var(--canvas-card) / 0.3) 100%
   );
 }
 
@@ -94,12 +183,12 @@ body {
 @keyframes summary-pulse-stroke {
   0%,
   100% {
-    border-color: rgb(230 228 223 / 0.55);
-    box-shadow: 0 0 0 0 rgb(138 134 126 / 0);
+    border-color: rgb(var(--canvas-border) / 0.55);
+    box-shadow: 0 0 0 0 rgb(var(--canvas-muted) / 0);
   }
   50% {
-    border-color: rgb(138 134 126 / 0.45);
-    box-shadow: 0 0 0 1px rgb(138 134 126 / 0.12);
+    border-color: rgb(var(--canvas-muted) / 0.45);
+    box-shadow: 0 0 0 1px rgb(var(--canvas-muted) / 0.12);
   }
 }
 
@@ -137,7 +226,7 @@ body {
 .table-shimmer-bar {
   position: relative;
   overflow: hidden;
-  background: var(--table-accent-soft, rgb(138 134 126 / 0.12));
+  background: var(--table-accent-soft, rgb(var(--canvas-muted) / 0.12));
 }
 
 .table-shimmer-bar::after {
@@ -147,7 +236,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--table-accent, rgb(138 134 126 / 0.35)) 50%,
+    var(--table-accent, rgb(var(--canvas-muted) / 0.35)) 50%,
     transparent 100%
   );
   opacity: 0.35;
@@ -155,7 +244,7 @@ body {
 }
 
 .table-artifact-row:hover {
-  background-color: var(--table-accent-hover, rgb(0 0 0 / 0.04));
+  background-color: var(--table-accent-hover, rgb(var(--canvas-ink) / 0.04));
 }
 
 .table-artifact-row:hover td {
@@ -177,7 +266,7 @@ body {
 
 .table-col-resize-handle:hover::after,
 .table-col-resize-handle:active::after {
-  background-color: var(--table-accent, rgb(138 134 126 / 0.5));
+  background-color: var(--table-accent, rgb(var(--canvas-muted) / 0.5));
 }
 
 @keyframes switch-node-in {

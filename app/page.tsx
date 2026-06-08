@@ -10,6 +10,7 @@ import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { ShareModal } from "@/components/ShareModal";
+import { ThemeApplier } from "@/components/ThemeApplier";
 import { useAuth } from "@/components/AuthProvider";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
@@ -35,6 +36,7 @@ export default function Page() {
 
   return (
     <main className="relative h-full w-full overflow-hidden">
+      <ThemeApplier />
       <div className="relative h-full w-full">
         <div className="relative h-full w-full">
           {viewMode === "canvas" ? (
