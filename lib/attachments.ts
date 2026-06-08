@@ -90,7 +90,8 @@ export type AssetUploadErrorCode =
   | "file-too-large"
   | "image-read-failed"
   | "upload-failed"
-  | "missing-context";
+  | "missing-context"
+  | "read-only-local";
 
 export interface AssetUploadError {
   fileName?: string;
