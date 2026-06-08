@@ -1,8 +1,5 @@
 "use client";
 
-import { useCanvasStore } from "@/lib/store";
-import { counterScaleFactor } from "@/lib/zoomDisplay";
-
 export function ReceivePlugs({
   accentColour,
   active,
@@ -12,9 +9,6 @@ export function ReceivePlugs({
   active: boolean;
   highlightSide: "left" | "right" | null;
 }) {
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const scaleFactor = counterScaleFactor(scale);
-
   if (!active) return null;
 
   return (
@@ -30,8 +24,7 @@ export function ReceivePlugs({
               isLeft ? "left-0" : "right-0"
             }`}
             style={{
-              transform: `translate(${isLeft ? "-50%" : "50%"}, -50%) scale(${scaleFactor})`,
-              transformOrigin: "center",
+              transform: `translate(${isLeft ? "-50%" : "50%"}, -50%)`,
             }}
           >
             <span

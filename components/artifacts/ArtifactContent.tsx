@@ -10,6 +10,7 @@ import { TableArtifactContent } from "@/components/artifacts/TableArtifactConten
 import { ThreeDArtifactContent } from "@/components/artifacts/ThreeDArtifactContent";
 import { TodoArtifactContent } from "@/components/artifacts/TodoArtifactContent";
 import { TodoSidebarPreview } from "@/components/artifacts/TodoSidebarPreview";
+import { WebsiteArtifactContent } from "@/components/artifacts/WebsiteArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -146,6 +147,17 @@ export function ArtifactContent({
             />
           );
         }
+      }
+      break;
+    case "website":
+      if (payload.type === "website") {
+        return (
+          <WebsiteArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
   }

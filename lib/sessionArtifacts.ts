@@ -10,6 +10,7 @@ import {
   normalizeTodoItem,
   normalizeTodoPayload,
 } from "@/lib/todoArtifact";
+import { normalizeWebsitePayload } from "@/lib/websiteArtifact";
 import type { Card, CardImage, Connection } from "@/lib/store";
 import { getThreadCardChain } from "@/lib/chatThreads";
 
@@ -132,6 +133,9 @@ export function normalizePayloadForRegistry(
       };
     }
     return normalized;
+  }
+  if (payload.type === "website") {
+    return normalizeWebsitePayload(payload);
   }
   return payload;
 }

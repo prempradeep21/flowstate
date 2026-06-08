@@ -1,6 +1,5 @@
 "use client";
 
-import { ZoomResistantChrome } from "@/components/ZoomResistantChrome";
 import { useGroupBounds } from "@/lib/useGroupBounds";
 import type { BranchGroup } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
@@ -59,14 +58,9 @@ export function GroupBounds({ group }: GroupBoundsProps) {
           strokeDasharray={`${dash} ${gap}`}
         />
       </svg>
-      <ZoomResistantChrome
-        className="absolute left-3 top-3"
-        transformOrigin="top left"
-      >
-        <span className="rounded-canvas border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-muted shadow-card">
-          {group.label}
-        </span>
-      </ZoomResistantChrome>
+      <span className="absolute left-3 top-3 rounded-canvas border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-muted shadow-card">
+        {group.label}
+      </span>
     </div>
   );
 }

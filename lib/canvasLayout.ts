@@ -8,6 +8,7 @@
  * plug-to-plug connectors remain short and straight. Lateral branches and
  * canvas artifact nodes are never moved by a sibling resize.
  */
+import { collectSubtreeIds } from "@/lib/canvasSubtree";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
 import { CARD_WIDTH, type CardBoundsInput } from "@/lib/canvasNodeBounds";
 import type { CardStatus } from "@/lib/store";
@@ -48,23 +49,6 @@ export interface CanvasLayoutState {
   cards: Record<string, LayoutCard>;
   connections: LayoutConnection[];
   cardOrder: string[];
-}
-
-function collectSubtreeIds(
-  connections: LayoutConnection[],
-  rootId: string,
-): Set<string> {
-  const subtree = new Set<string>();
-  const queue = [rootId];
-  while (queue.length > 0) {
-    const cid = queue.shift()!;
-    if (subtree.has(cid)) continue;
-    subtree.add(cid);
-    for (const conn of connections) {
-      if (conn.from === cid) queue.push(conn.to);
-    }
-  }
-  return subtree;
 }
 
 function isBottomConnection(conn: LayoutConnection): boolean {

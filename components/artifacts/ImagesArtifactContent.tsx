@@ -1,24 +1,12 @@
 "use client";
 
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
-import type { ArtifactPayload, ImagesMediaItem } from "@/lib/artifactTypes";
-
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.slice(1).split("/")[0];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
+import {
+  isVideoArtifactPayload,
+  type ArtifactPayload,
+  type ImagesMediaItem,
+} from "@/lib/artifactTypes";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 function MediaCell({ item }: { item: ImagesMediaItem }) {
   if (item.kind === "youtube") {
@@ -65,6 +53,12 @@ export function ImagesArtifactContent({
   sidebar?: boolean;
 }) {
   const items = payload.data.items;
+  const isVideo = isVideoArtifactPayload(payload);
+  // Videos stay 16:9; image thumbnails use a 4:3 frame.
+  const aspectClass = isVideo ? "aspect-video" : "aspect-[4/3]";
+  // auto-fit (not auto-fill) collapses empty tracks so a single item grows to
+  // fill the available width and scales with the resizable artifact node.
+  const minColWidth = isVideo ? 220 : 140;
 
   if (sidebar) {
     return (
@@ -80,37 +74,35 @@ export function ImagesArtifactContent({
     );
   }
 
+  const grid = (
+    <div
+      className="grid gap-2"
+      style={{
+        gridTemplateColumns: `repeat(auto-fit, minmax(${minColWidth}px, 1fr))`,
+      }}
+    >
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className={`${aspectClass} overflow-hidden rounded-canvas bg-canvas-bg`}
+        >
+          <MediaCell item={item} />
+        </div>
+      ))}
+    </div>
+  );
+
   if (fill) {
     return (
       <ArtifactContentStage fill className="h-full">
-        <div className="h-full overflow-auto p-3">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2">
-            {items.map((item, i) => (
-              <div
-                key={i}
-                className="aspect-[4/3] overflow-hidden rounded-canvas bg-canvas-bg"
-              >
-                <MediaCell item={item} />
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="h-full overflow-auto p-3">{grid}</div>
       </ArtifactContentStage>
     );
   }
 
   return (
     <ArtifactContentStage>
-      <div className="grid grid-cols-3 gap-2 p-3">
-        {items.map((item, i) => (
-          <div
-            key={i}
-            className="aspect-[4/3] overflow-hidden rounded-canvas bg-canvas-bg"
-          >
-            <MediaCell item={item} />
-          </div>
-        ))}
-      </div>
+      <div className="p-3">{grid}</div>
     </ArtifactContentStage>
   );
 }

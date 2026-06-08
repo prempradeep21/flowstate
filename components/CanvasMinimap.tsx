@@ -17,6 +17,7 @@ import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { markUserViewportInteraction } from "@/lib/canvasViewportGuard";
 import { useCanvasStore } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
+import { formatViewportZoomPercent } from "@/lib/zoomDisplay";
 
 const MINIMAP_W = 160;
 const MINIMAP_H = 100;
@@ -264,6 +265,8 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
     [bounds, transform, containerSize, setViewport],
   );
 
+  const zoomPercent = formatViewportZoomPercent(displayViewport.scale);
+
   return (
     <div
       className="pointer-events-auto absolute bottom-5 right-5 z-[55] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 p-1 shadow-card backdrop-blur-sm"
@@ -325,6 +328,12 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
             }}
           />
         )}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-0.5 left-1 text-[10px] font-medium tabular-nums leading-none text-canvas-muted/90"
+        >
+          {zoomPercent}%
+        </span>
       </div>
     </div>
   );

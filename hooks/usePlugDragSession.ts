@@ -35,6 +35,9 @@ export function usePlugDragSession(
   const setCardComposerAssetAttachment = useCanvasStore(
     (s) => s.setCardComposerAssetAttachment,
   );
+  const addArtifactPlugConnection = useCanvasStore(
+    (s) => s.addArtifactPlugConnection,
+  );
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -112,6 +115,12 @@ export function usePlugDragSession(
             artifactId: drag.artifactId,
             versionId: drag.versionId,
           });
+          addArtifactPlugConnection({
+            artifactNodeId: drag.artifactNodeId,
+            cardId: hit.cardId,
+            fromSide: drag.fromSide,
+            toSide: hit.side,
+          });
         } else if (drag.didDrag) {
           const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithAttachment(
@@ -124,7 +133,15 @@ export function usePlugDragSession(
               versionId: drag.versionId,
             },
           );
-          if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
+          if (cardId) {
+            addArtifactPlugConnection({
+              artifactNodeId: drag.artifactNodeId,
+              cardId,
+              fromSide: drag.fromSide,
+              toSide: drag.fromSide === "left" ? "right" : "left",
+            });
+            requestCanvasFocus(() => focusCanvasCard(cardId));
+          }
         }
       } else if (drag.kind === "asset") {
         const nearest = findNearestComposerTarget(
@@ -184,5 +201,6 @@ export function usePlugDragSession(
     createRootCardWithAssetAttachment,
     setCardComposerAttachment,
     setCardComposerAssetAttachment,
+    addArtifactPlugConnection,
   ]);
 }

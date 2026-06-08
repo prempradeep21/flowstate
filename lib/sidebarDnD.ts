@@ -9,7 +9,8 @@ export type SidebarArtifactCategory =
   | "3d"
   | "image"
   | "map"
-  | "todo";
+  | "todo"
+  | "website";
 
 export type SidebarDragPayload =
   | {

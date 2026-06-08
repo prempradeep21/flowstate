@@ -1,3 +1,4 @@
+import { collectSubtreeIds } from "@/lib/canvasSubtree";
 import type { Card, Connection, Thread } from "@/lib/store";
 
 export interface ChatThreadState {
@@ -259,23 +260,33 @@ export function getBranchSubtreeThreadIds(
 
 export interface CollapseVisibilityState extends ChatThreadState {
   collapsedBranchThreadIds: string[];
+  collapsedCardIds: string[];
 }
 
 /** Card ids hidden because their branch thread subtree is collapsed on the canvas. */
 export function getHiddenCardIds(state: CollapseVisibilityState): Set<string> {
+  const hidden = new Set<string>();
+
   const hiddenThreadIds = new Set<string>();
   for (const branchThreadId of state.collapsedBranchThreadIds) {
     for (const tid of getBranchSubtreeThreadIds(state, branchThreadId)) {
       hiddenThreadIds.add(tid);
     }
   }
-  const hidden = new Set<string>();
   for (const id of state.cardOrder) {
     const card = state.cards[id];
     if (card && hiddenThreadIds.has(card.threadId)) {
       hidden.add(id);
     }
   }
+
+  for (const cardId of state.collapsedCardIds) {
+    const subtree = collectSubtreeIds(state.connections, cardId);
+    for (const id of subtree) {
+      if (id !== cardId) hidden.add(id);
+    }
+  }
+
   return hidden;
 }
 

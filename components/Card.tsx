@@ -15,9 +15,11 @@ import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { Plug } from "@/components/plugs/Plug";
+import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import {
+  QaQuestionHeaderRow,
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
@@ -29,6 +31,7 @@ import {
 } from "@/lib/answerTextRange";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
+import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import {
   handleArtifactOnDone,
@@ -64,11 +67,11 @@ import {
 import {
   compactThinkingWord,
   compensatedStrokeWidth,
-  counterScaleFactor,
 } from "@/lib/zoomDisplay";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
+import { shouldShowQaAnswerSection } from "@/lib/qaStreamDisplay";
 
 interface CardProps {
   card: CardType;
@@ -120,6 +123,9 @@ function CardInner({ card }: CardProps) {
   const viewport = useCanvasStore((s) => s.viewport);
   const collapsedBranchThreadIds = useCanvasStore(
     (s) => s.collapsedBranchThreadIds,
+  );
+  const isChatCollapsed = useCanvasStore((s) =>
+    s.collapsedCardIds.includes(card.id),
   );
   const toggleBranchThreadCollapsed = useCanvasStore(
     (s) => s.toggleBranchThreadCollapsed,
@@ -414,8 +420,10 @@ function CardInner({ card }: CardProps) {
       viewport,
     );
     if (!position) return;
-    recordUndo();
-    spawnCanvasTextLabel(position, selection.selectedText);
+    if (!createUrlArtifactFromText(selection.selectedText, position)) {
+      recordUndo();
+      spawnCanvasTextLabel(position, selection.selectedText);
+    }
     clearSelection();
   }, [
     selection,
@@ -435,10 +443,13 @@ function CardInner({ card }: CardProps) {
   const layoutKey = [
     card.status,
     card.outputArtifactId ?? "",
+    card.artifactPayload?.type ?? "",
     hasChildren ? "1" : "0",
     card.images?.length ?? 0,
     card.responseType ?? "text",
     cardWidth,
+    isChatCollapsed ? "1" : "0",
+    shouldShowQaAnswerSection(card) ? "1" : "0",
   ].join("|");
 
   const TEXT_SELECTABLE =
@@ -736,13 +747,12 @@ function CardInner({ card }: CardProps) {
                 <BranchCollapseToggle
                   key={b.threadId}
                   side="left"
-                  scale={scale}
                   collapsed={collapsedBranchThreadIds.includes(b.threadId)}
                   onToggle={() => toggleBranchThreadCollapsed(b.threadId)}
                 />
               ))}
             {!lateralBranches.some((b) => b.side === "left") && (
-              <BranchPlugHint side="left" scale={scale} />
+              <BranchPlugHint side="left" />
             )}
           </div>
           <div
@@ -765,38 +775,39 @@ function CardInner({ card }: CardProps) {
                 <BranchCollapseToggle
                   key={b.threadId}
                   side="right"
-                  scale={scale}
                   collapsed={collapsedBranchThreadIds.includes(b.threadId)}
                   onToggle={() => toggleBranchThreadCollapsed(b.threadId)}
                 />
               ))}
             {!lateralBranches.some((b) => b.side === "right") && (
-              <BranchPlugHint side="right" scale={scale} />
+              <BranchPlugHint side="right" />
             )}
           </div>
         </>
       )}
       {isEmptyComposer ? (
-        <div className="relative px-3 py-2.5">
+        <div className="relative min-w-0 overflow-hidden px-3 py-2.5">
           <CardQaMenu
             cardId={card.id}
             viewportScale={scale}
             hideDelete={isLanding}
           />
-          <ChatComposer
-            variant="canvas"
-            cardId={card.id}
-            accentColour={plugAccent}
-            receivePlugsActive={receivePlugsActive}
-            receiveHighlightSide={receiveHighlightSide}
-            placeholder={
-              card.quotedSelection ? "Ask about this…" : emptyPlaceholder
-            }
-            lockedPrefix={card.quotedSelection}
-            autoFocus
-            disabled={isPending}
-            onSubmit={submitQuestion}
-          />
+          <CanvasSharpContent className="w-full min-w-0">
+            <ChatComposer
+              variant="canvas"
+              cardId={card.id}
+              accentColour={plugAccent}
+              receivePlugsActive={receivePlugsActive}
+              receiveHighlightSide={receiveHighlightSide}
+              placeholder={
+                card.quotedSelection ? "Ask about this…" : emptyPlaceholder
+              }
+              lockedPrefix={card.quotedSelection}
+              autoFocus
+              disabled={isPending}
+              onSubmit={submitQuestion}
+            />
+          </CanvasSharpContent>
         </div>
       ) : (
       <div
@@ -812,22 +823,22 @@ function CardInner({ card }: CardProps) {
             : {}),
         }}
       >
-        {card.status !== "empty" && (
-          <CardQaMenu cardId={card.id} viewportScale={scale} />
-        )}
         {card.status === "thinking" && (
           <div
             className="thinking-accent-bar pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-canvas-accent"
             aria-hidden
           />
         )}
-        {isPending && (
+        {isPending && !isChatCollapsed && (
           <PendingStatusIndicator
             thinkingLabel={card.thinkingLabel}
             isThinking={card.status === "thinking"}
           />
         )}
-        <div className="flex min-w-0 flex-col">
+        <CanvasSharpContent
+          worldWidth={cardWidth}
+          className="flex min-w-0 flex-col"
+        >
           {card.status !== "empty" ? (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
@@ -835,14 +846,20 @@ function CardInner({ card }: CardProps) {
                 accentWidth={compensatedStrokeWidth(3, scale, 3)}
                 style={QA_SECTION_INSETS.question}
               >
-                {showContributors && (
-                  <div className="mb-2">
-                    <ContributorAvatarStack profiles={contributorProfiles} />
-                  </div>
-                )}
-                <div className="mb-1 text-canvas-caption font-medium uppercase tracking-wider text-canvas-muted">
-                  Question
-                </div>
+                <QaQuestionHeaderRow
+                  collaborators={
+                    showContributors ? (
+                      <ContributorAvatarStack profiles={contributorProfiles} />
+                    ) : null
+                  }
+                  controls={
+                    <CardQaMenu
+                      cardId={card.id}
+                      viewportScale={scale}
+                      layout="embedded"
+                    />
+                  }
+                />
                 <div
                   data-selectable-text
                   className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-bold leading-snug text-canvas-ink"
@@ -851,45 +868,41 @@ function CardInner({ card }: CardProps) {
                 </div>
               </QaQuestionSection>
 
-              <div className="mx-5 shrink-0 h-px bg-canvas-border" />
+              {!isChatCollapsed && (
+                <>
+                  <div className="mx-5 shrink-0 h-px bg-canvas-border" />
 
-              <div
-                data-card-answer
-                onWheel={handleAnswerWheel}
-                className="min-w-0"
-                style={{
-                  ...QA_SECTION_INSETS.answer,
-                  ...(pendingMinHeight != null
-                    ? { minHeight: Math.max(120, pendingMinHeight * 0.35) }
-                    : {}),
-                }}
-              >
-                <div className="mb-1 text-canvas-caption font-medium uppercase tracking-wider text-canvas-muted">
-                  Answer
-                </div>
-                {card.status === "thinking" ? (
-                  <p className="text-canvas-body leading-relaxed text-canvas-muted/70">
-                    &nbsp;
-                  </p>
-                ) : (
-                  (card.answer ||
-                    card.images?.length ||
-                    card.artifactPayload ||
-                    card.responseType !== "text") && (
-                    <CardAnswerBody
-                      card={card}
-                      isStreaming={card.status === "streaming"}
-                      answerExplains={displayAnswerExplains}
-                      textRootRef={answerTextRef}
-                      onExplainClick={handleExplainClick}
-                    />
-                  )
-                )}
-              </div>
+                  <div
+                    data-card-answer
+                    onWheel={handleAnswerWheel}
+                    className="min-w-0"
+                    style={{
+                      ...QA_SECTION_INSETS.answer,
+                      ...(pendingMinHeight != null
+                        ? { minHeight: Math.max(120, pendingMinHeight * 0.35) }
+                        : {}),
+                    }}
+                  >
+                    {shouldShowQaAnswerSection(card) ? (
+                      <CardAnswerBody
+                        card={card}
+                        isStreaming={false}
+                        answerExplains={displayAnswerExplains}
+                        textRootRef={answerTextRef}
+                        onExplainClick={handleExplainClick}
+                      />
+                    ) : isPending ? (
+                      <p className="text-canvas-body leading-relaxed text-canvas-muted/70">
+                        &nbsp;
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              )}
             </QaTranslucentSurface>
           ) : null}
 
-          {card.status === "done" && !hasChildren && (
+          {card.status === "done" && !hasChildren && !isChatCollapsed && (
             <div
               data-follow-up-footer
               className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5"
@@ -905,7 +918,7 @@ function CardInner({ card }: CardProps) {
               />
             </div>
           )}
-        </div>
+        </CanvasSharpContent>
       </div>
       )}
       </MotionCanvasNode>
@@ -947,17 +960,14 @@ const BRANCH_PLUG_HINT_OFFSET_PX =
 
 function BranchCollapseToggle({
   side,
-  scale,
   collapsed,
   onToggle,
 }: {
   side: "left" | "right";
-  scale: number;
   collapsed: boolean;
   onToggle: () => void;
 }) {
   const isLeft = side === "left";
-  const counterScale = counterScaleFactor(scale);
 
   return (
     <button
@@ -976,8 +986,6 @@ function BranchCollapseToggle({
         ...(isLeft
           ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
           : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
-        transform: `translateY(-50%) scale(${counterScale})`,
-        transformOrigin: isLeft ? "right center" : "left center",
       }}
     >
       {collapsed ? "+" : "−"}
@@ -985,27 +993,18 @@ function BranchCollapseToggle({
   );
 }
 
-function BranchPlugHint({
-  side,
-  scale,
-}: {
-  side: "left" | "right";
-  scale: number;
-}) {
+function BranchPlugHint({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";
-  const counterScale = counterScaleFactor(scale);
 
   return (
     <span
-      className={`pointer-events-none absolute top-1/2 z-30 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
+      className={`pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
         isLeft ? "right-full text-right" : "left-full text-left"
       }`}
       style={{
         ...(isLeft
           ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
           : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
-        transform: `translateY(-50%) scale(${counterScale})`,
-        transformOrigin: isLeft ? "right center" : "left center",
       }}
     >
       Pull a branch

@@ -2,6 +2,10 @@
 
 import { CardArtifactPreview } from "@/components/artifacts/CardArtifactPreview";
 import { TextCardBody } from "@/components/cards/TextCardBody";
+import {
+  shouldShowQaAnswerText,
+  shouldShowQaArtifactPreview,
+} from "@/lib/qaStreamDisplay";
 import type { AnswerExplain, Card } from "@/lib/store";
 
 interface CardAnswerBodyProps {
@@ -15,16 +19,6 @@ interface CardAnswerBodyProps {
   onExplainClick?: (explainId: string) => void;
 }
 
-const STRUCTURED_TYPES = new Set([
-  "table",
-  "code",
-  "video",
-  "custom",
-  "3d",
-  "images",
-  "image",
-]);
-
 export function CardAnswerBody({
   card,
   isStreaming,
@@ -34,19 +28,15 @@ export function CardAnswerBody({
   textRootRef,
   onExplainClick,
 }: CardAnswerBodyProps) {
-  const type = card.responseType ?? "text";
-  const hasStructured =
-    card.artifactPayload ||
-    card.outputArtifactId ||
-    (type !== "text" && STRUCTURED_TYPES.has(type));
+  const showPreview = shouldShowQaArtifactPreview(card);
+  const showText = shouldShowQaAnswerText(card);
 
-  const showPreview =
-    hasStructured ||
-    (card.images && card.images.length > 0 && type === "image");
+  if (!showPreview && !showText) return null;
 
   return (
     <div className="flex flex-col gap-3">
-      {card.answer.trim() && (
+      {showPreview && <CardArtifactPreview card={card} />}
+      {showText && (
         <TextCardBody
           card={card}
           isStreaming={isStreaming}
@@ -57,7 +47,6 @@ export function CardAnswerBody({
           onExplainClick={onExplainClick}
         />
       )}
-      {showPreview && <CardArtifactPreview card={card} />}
     </div>
   );
 }

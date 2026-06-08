@@ -6,15 +6,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import {
   clampTextLabelFontSize,
   clampTextLabelWidth,
   getTextLabelWidth,
 } from "@/lib/canvasTextLabelBounds";
+import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
+import { classifyPastedText } from "@/lib/urlDetection";
 import {
   useCanvasStore,
   type CanvasTextLabel,
 } from "@/lib/store";
+import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 
 const DRAG_THRESHOLD_PX = 4;
 const INTERACTIVE =
@@ -98,6 +102,7 @@ export function CanvasTextLabelNode({
   const moveCanvasTextLabel = useCanvasStore((s) => s.moveCanvasTextLabel);
   const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const updateCanvasTextLabel = useCanvasStore((s) => s.updateCanvasTextLabel);
+  const removeCanvasTextLabel = useCanvasStore((s) => s.removeCanvasTextLabel);
   const setCanvasTextLabelFontSize = useCanvasStore(
     (s) => s.setCanvasTextLabelFontSize,
   );
@@ -105,6 +110,9 @@ export function CanvasTextLabelNode({
     (s) => s.setCanvasTextLabelWidth,
   );
   const recordUndo = useCanvasStore((s) => s.recordUndo);
+  const createVideoArtifactFromUrl = useCanvasStore(
+    (s) => s.createVideoArtifactFromUrl,
+  );
 
   const [editing, setEditing] = useState(startEditing);
   const [draft, setDraft] = useState(label.text);
@@ -150,9 +158,18 @@ export function CanvasTextLabelNode({
 
   const commitEdit = () => {
     const trimmed = draft.trim();
-    if (trimmed.length > 0 && trimmed !== label.text) {
-      recordUndo();
-      updateCanvasTextLabel(label.id, trimmed);
+    if (trimmed.length > 0) {
+      if (classifyPastedText(trimmed)) {
+        recordUndo();
+        createUrlArtifactFromText(trimmed, label.position, { recordUndo: false });
+        removeCanvasTextLabel(label.id);
+        setEditing(false);
+        return;
+      }
+      if (trimmed !== label.text) {
+        recordUndo();
+        updateCanvasTextLabel(label.id, trimmed);
+      }
     } else if (trimmed.length === 0) {
       setDraft(label.text);
     }
@@ -341,46 +358,68 @@ export function CanvasTextLabelNode({
         width: containerWidth,
       }}
     >
-      {editing ? (
-        <textarea
-          ref={inputRef}
-          data-no-drag
-          value={draft}
-          rows={1}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+      <CanvasSharpContent
+        worldWidth={
+          typeof containerWidth === "number" ? containerWidth : undefined
+        }
+      >
+        {editing ? (
+          <textarea
+            ref={inputRef}
+            data-no-drag
+            value={draft}
+            rows={1}
+            onChange={(e) => setDraft(e.target.value)}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text/plain");
+              const url = text.trim();
+              if (!isYoutubeUrl(url)) return;
               e.preventDefault();
-              commitEdit();
-            }
-            if (e.key === "Escape") {
-              e.preventDefault();
-              setDraft(label.text);
-              setEditing(false);
-            }
-            e.stopPropagation();
-          }}
-          className="block min-h-0 w-full resize-none border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25"
-          style={{
-            fontSize: label.fontSize,
-            width: hasFixedWidth ? "100%" : `${Math.max(draft.length, 4)}ch`,
-          }}
-        />
-      ) : (
-        <div
-          className={`break-words font-medium leading-tight text-canvas-ink ${
-            hasFixedWidth ? "whitespace-pre-wrap" : "whitespace-pre"
-          } ${
-            isSelected
-              ? "ring-2 ring-canvas-ink/25 ring-offset-2 ring-offset-transparent"
-              : ""
-          }`}
-          style={{ fontSize: label.fontSize }}
-        >
-          {label.text}
-        </div>
-      )}
+              const position = label.position;
+              void (async () => {
+                const meta = await fetchYoutubeMeta(url);
+                createVideoArtifactFromUrl(url, {
+                  title: meta.title,
+                  thumb: meta.thumb,
+                  position,
+                });
+                removeCanvasTextLabel(label.id);
+              })();
+            }}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                commitEdit();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setDraft(label.text);
+                setEditing(false);
+              }
+              e.stopPropagation();
+            }}
+            className="block min-h-0 w-full resize-none border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25"
+            style={{
+              fontSize: label.fontSize,
+              width: hasFixedWidth ? "100%" : `${Math.max(draft.length, 4)}ch`,
+            }}
+          />
+        ) : (
+          <div
+            className={`break-words font-medium leading-tight text-canvas-ink ${
+              hasFixedWidth ? "whitespace-pre-wrap" : "whitespace-pre"
+            } ${
+              isSelected
+                ? "ring-2 ring-canvas-ink/25 ring-offset-2 ring-offset-transparent"
+                : ""
+            }`}
+            style={{ fontSize: label.fontSize }}
+          >
+            {label.text}
+          </div>
+        )}
+      </CanvasSharpContent>
 
       {isSelected && !editing && (
         <>

@@ -12,6 +12,7 @@ import {
   getVersionById,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
+import { isVideoArtifactPayload } from "@/lib/artifactTypes";
 import { useCanvasStore } from "@/lib/store";
 
 export function ArtifactShell({
@@ -65,6 +66,9 @@ export function ArtifactShell({
   const isLatest = versionId === sessionArtifact.latestVersionId;
   const isTodo = sessionArtifact.kind === "todo";
   const isMap = sessionArtifact.kind === "map";
+  const isVideo = activeVersion
+    ? isVideoArtifactPayload(activeVersion.payload)
+    : false;
   const canEditTodo = isTodo && isLatest && !canvasReadOnly;
   const canEditMap = isMap && isLatest && !canvasReadOnly;
 
@@ -118,6 +122,7 @@ export function ArtifactShell({
       <div className={isCanvasLayout ? "shrink-0" : undefined}>
         <ArtifactPanelHeader
           kind={sessionArtifact.kind}
+          isVideo={isVideo}
           title={title}
           artifactId={sessionArtifact.id}
           versions={sessionArtifact.versions}

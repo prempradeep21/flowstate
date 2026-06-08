@@ -12,10 +12,17 @@ export function ArtifactTypeIcon({
   kind,
   className = "h-4 w-4",
 }: {
-  kind: ArtifactKind;
+  kind: ArtifactKind | "video";
   className?: string;
 }) {
   switch (kind) {
+    case "video":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <rect x="2" y="3.5" width="12" height="9" rx="1.5" />
+          <path d="M6.5 6.2l3.4 1.8-3.4 1.8z" fill="currentColor" stroke="none" />
+        </svg>
+      );
     case "table":
       return (
         <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
@@ -67,6 +74,13 @@ export function ArtifactTypeIcon({
         <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
           <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
           <path d="M5 8l2 2 4-4.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "website":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <circle cx="8" cy="8" r="6" />
+          <path d="M2 8h12M8 2a10 10 0 0 1 3 6 10 10 0 0 1-3 6 10 10 0 0 1-3-6 10 10 0 0 1 3-6z" />
         </svg>
       );
     default:

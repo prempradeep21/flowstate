@@ -136,8 +136,8 @@ export function TextCardBody({
   }, [onExplainClick, answerExplains]);
 
   useEffect(() => {
-    if (isStreaming && card.answer) setAnswerRevealed(true);
-  }, [isStreaming, card.answer]);
+    if (card.answer) setAnswerRevealed(true);
+  }, [card.answer]);
 
   if (!card.answer) return null;
 

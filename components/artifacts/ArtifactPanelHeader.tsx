@@ -30,6 +30,7 @@ export function ArtifactPanelHeader({
   onRemoveFromCanvas,
   contributorProfiles,
   todoEditControls,
+  isVideo = false,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -42,6 +43,7 @@ export function ArtifactPanelHeader({
   onRemoveFromCanvas?: () => void;
   contributorProfiles?: CollaboratorProfile[];
   todoEditControls?: TodoEditControls;
+  isVideo?: boolean;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -112,7 +114,10 @@ export function ArtifactPanelHeader({
               : undefined
           }
         >
-          <ArtifactTypeIcon kind={kind} className="h-[22px] w-[22px]" />
+          <ArtifactTypeIcon
+            kind={isVideo ? "video" : kind}
+            className="h-[22px] w-[22px]"
+          />
         </span>
       </span>
       <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
@@ -158,39 +163,41 @@ export function ArtifactPanelHeader({
         </div>
       )}
 
-      <div className="relative shrink-0" ref={versionRef}>
-        <button
-          type="button"
-          onClick={() => setVersionOpen((o) => !o)}
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
-        >
-          Version {active?.number ?? 1}
-          <span className="text-canvas-body opacity-70" aria-hidden>
-            ⌵
-          </span>
-        </button>
-        {versionOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
-            {[...safeVersions].reverse().map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => {
-                  onVersionChange(v.id);
-                  setVersionOpen(false);
-                }}
-                className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
-                  v.id === activeVersionId
-                    ? "bg-canvas-bg font-medium text-canvas-ink"
-                    : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                }`}
-              >
-                Version {v.number}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {!isVideo && (
+        <div className="relative shrink-0" ref={versionRef}>
+          <button
+            type="button"
+            onClick={() => setVersionOpen((o) => !o)}
+            className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          >
+            Version {active?.number ?? 1}
+            <span className="text-canvas-body opacity-70" aria-hidden>
+              ⌵
+            </span>
+          </button>
+          {versionOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
+              {[...safeVersions].reverse().map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => {
+                    onVersionChange(v.id);
+                    setVersionOpen(false);
+                  }}
+                  className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
+                    v.id === activeVersionId
+                      ? "bg-canvas-bg font-medium text-canvas-ink"
+                      : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                  }`}
+                >
+                  Version {v.number}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {hasMenuActions && (
         <div className="relative shrink-0" ref={menuRef}>
           <button

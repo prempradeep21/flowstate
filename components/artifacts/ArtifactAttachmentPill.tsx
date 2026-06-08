@@ -15,12 +15,17 @@ export function ArtifactAttachmentPill({
   onRemove?: () => void;
 }) {
   return (
-    <div className="inline-flex max-w-xs items-center gap-2 rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-1.5">
+    <div className="flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-1.5">
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">
         <ArtifactTypeIcon kind={kind} className="h-3 w-3" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-canvas-compact font-medium text-canvas-ink">{title}</span>
+      <span className="min-w-0 flex-1 overflow-hidden">
+        <span
+          className="block overflow-hidden text-ellipsis whitespace-nowrap text-canvas-compact font-medium text-canvas-ink"
+          title={title}
+        >
+          {title}
+        </span>
         <span className="text-canvas-micro italic text-canvas-muted">Version {versionNumber}</span>
       </span>
       {onRemove && (

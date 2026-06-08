@@ -5,10 +5,15 @@ import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmen
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import {
+  QaQuestionHeaderRow,
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
+import { useAuth } from "@/components/AuthProvider";
+import { useContributorProfiles } from "@/lib/contributorProfiles";
+import { shouldShowQaAnswerSection } from "@/lib/qaStreamDisplay";
 import {
   artifactDisplayTitle,
   getLatestVersion,
@@ -79,27 +84,38 @@ function SidebarItem({
 function QnaTurnBlock({ cardId }: { cardId: string }) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
   const accent = useCanvasStore(
     (s) => s.threads[card?.threadId ?? ""]?.accentColour,
   );
+  const { members, accessInfo } = useAuth();
+  const contributorProfiles = useContributorProfiles(
+    card?.contributorIds,
+    members,
+    accessInfo?.ownerId,
+  );
+  const showContributors =
+    members.length > 1 &&
+    collaborationHasEdits &&
+    contributorProfiles.length > 0;
 
   if (!card || card.status === "empty") return null;
 
-  const showAnswer =
-    card.status === "thinking" ||
-    card.answer ||
-    card.artifactPayload ||
-    card.outputArtifactId ||
-    (card.images && card.images.length > 0);
+  const isPending = card.status === "thinking" || card.status === "streaming";
+  const showAnswer = isPending || shouldShowQaAnswerSection(card);
 
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
-      <div className="absolute right-3 top-3 z-20">
-        <CardQaMenu cardId={cardId} />
-      </div>
-
       <QaTranslucentSurface>
         <QaQuestionSection accentColour={accent} className="px-5 py-4">
+          <QaQuestionHeaderRow
+            collaborators={
+              showContributors ? (
+                <ContributorAvatarStack profiles={contributorProfiles} />
+              ) : null
+            }
+            controls={<CardQaMenu cardId={cardId} layout="embedded" />}
+          />
           {card.attachedArtifacts?.map((ref) => {
             const art = sessionArtifacts[ref.artifactId];
             if (!art) return null;
@@ -117,22 +133,19 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
             );
           })}
 
-          <p className="pr-8 text-canvas-body-lg font-medium leading-snug text-canvas-accent">
+          <p className="text-canvas-body-lg font-medium leading-snug text-canvas-accent">
             {card.question}
           </p>
         </QaQuestionSection>
 
         {showAnswer && (
           <div className="px-5 pb-4">
-            {card.status === "thinking" ? (
+            {shouldShowQaAnswerSection(card) ? (
+              <CardAnswerBody card={card} isStreaming={false} />
+            ) : (
               <div className="text-canvas-body text-canvas-muted animate-pulse">
                 {card.thinkingLabel ?? "Thinking"}…
               </div>
-            ) : (
-              <CardAnswerBody
-                card={card}
-                isStreaming={card.status === "streaming"}
-              />
             )}
           </div>
         )}
