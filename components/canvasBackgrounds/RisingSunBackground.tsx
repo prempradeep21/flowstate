@@ -20,6 +20,7 @@ import type { UnicornSceneProps } from "unicornstudio-react/next";
 type UnicornSceneComponent = ComponentType<UnicornSceneProps>;
 
 interface UnicornStudioScene {
+  element: HTMLElement;
   resize?: () => void;
   paused?: boolean;
   destroy: () => void;

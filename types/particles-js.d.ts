@@ -22,16 +22,10 @@ declare module "particles.js" {
   }
 }
 
-interface ParticlesJSGlobal {
-  particlesJS: (tagId: string, params: ParticlesJSConfig) => void;
-  pJSDom: ParticlesJSInstance[] | null;
+interface Window {
+  particlesJS: (
+    tagId: string,
+    params: import("particles.js").ParticlesJSConfig,
+  ) => void;
+  pJSDom: import("particles.js").ParticlesJSInstance[] | null;
 }
-
-declare global {
-  interface Window {
-    particlesJS: ParticlesJSGlobal["particlesJS"];
-    pJSDom: ParticlesJSGlobal["pJSDom"];
-  }
-}
-
-export {};
