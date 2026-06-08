@@ -7,14 +7,15 @@ import {
   TrashIcon,
 } from "@/components/MenuIcons";
 import { useCanvasStore } from "@/lib/store";
-import { counterScaleFactor } from "@/lib/zoomDisplay";
 
 interface CardQaMenuProps {
   cardId: string;
-  /** Counter-scale the trigger on zoomed canvas cards. Omit in chat view. */
+  /** Present on canvas cards (shows collapse toggle). Omit in chat view. */
   viewportScale?: number;
   /** Hide delete on the landing/home empty card. */
   hideDelete?: boolean;
+  /** Inline in the question header row instead of overlaying the card. */
+  layout?: "overlay" | "embedded";
 }
 
 function DotsIcon() {
@@ -32,14 +33,40 @@ function DotsIcon() {
   );
 }
 
+function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 16 16"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {collapsed ? (
+        <path d="M6 3l5 5-5 5" />
+      ) : (
+        <path d="M4 6l4 4 4-4" />
+      )}
+    </svg>
+  );
+}
+
 export function CardQaMenu({
   cardId,
   viewportScale,
   hideDelete = false,
+  layout = "overlay",
 }: CardQaMenuProps) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const deleteFromCard = useCanvasStore((s) => s.deleteFromCard);
+  const toggleCardCollapsed = useCanvasStore((s) => s.toggleCardCollapsed);
+  const isChatCollapsed = useCanvasStore((s) =>
+    s.collapsedCardIds.includes(cardId),
+  );
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,22 +93,33 @@ export function CardQaMenu({
   const isEmpty = card.status === "empty";
   if (isEmpty && hideDelete) return null;
   const canBranch = card.status === "done";
-  const counterScale =
-    viewportScale != null ? counterScaleFactor(viewportScale) : 1;
+  const isCanvas = viewportScale != null;
+  const showCollapseToggle = isCanvas && !isEmpty;
 
   return (
     <div
       ref={rootRef}
-      className="absolute right-2 top-2 z-30"
-      style={
-        counterScale !== 1
-          ? {
-              transform: `scale(${counterScale})`,
-              transformOrigin: "top right",
-            }
-          : undefined
+      className={
+        layout === "embedded"
+          ? "relative z-30 flex items-center gap-0.5"
+          : "absolute right-2 top-2 z-30 flex items-center gap-0.5"
       }
     >
+      {showCollapseToggle && (
+        <button
+          type="button"
+          aria-label={isChatCollapsed ? "Expand chat" : "Collapse chat"}
+          title={isChatCollapsed ? "Expand chat" : "Collapse chat"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleCardCollapsed(cardId);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        >
+          <ChatCollapseIcon collapsed={isChatCollapsed} />
+        </button>
+      )}
       <button
         type="button"
         aria-label="Card actions"

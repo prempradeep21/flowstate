@@ -35,22 +35,22 @@ const configured = Boolean(
   env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 );
 
+const isCli = require.main === module;
+
 if (!configured) {
   console.log(
     "\n[supabase] No .env.local Supabase keys — local canvas mode only.\n",
   );
-  process.exit(0);
-}
-
-if (readOnly) {
+  if (isCli) process.exit(0);
+} else if (readOnly) {
   console.log(
     `\n[supabase] Local read-only session — project ${projectRef ?? "(unknown)"}.`,
     "\n  Loads production data; writes stay in this browser until reload.\n",
   );
-  process.exit(0);
+  if (isCli) process.exit(0);
+} else {
+  console.warn(
+    `\n[supabase] WARNING: NEXT_PUBLIC_LOCAL_READ_ONLY=false — localhost WRITES to project ${projectRef ?? "unknown"}.`,
+    "\n  Remove that override to protect production while developing.\n",
+  );
 }
-
-console.warn(
-  `\n[supabase] WARNING: NEXT_PUBLIC_LOCAL_READ_ONLY=false — localhost WRITES to project ${projectRef ?? "unknown"}.`,
-  "\n  Remove that override to protect production while developing.\n",
-);

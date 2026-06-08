@@ -46,6 +46,8 @@ function artifactContextNote(payload: ArtifactPayload): string {
       const n = payload.data.items?.length ?? 0;
       return `[Card showed to-do list: "${payload.title}" with ${n} item(s)]`;
     }
+    case "website":
+      return `[Card showed website: "${payload.title}" (${payload.data.url})]`;
   }
 }
 

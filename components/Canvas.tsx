@@ -29,6 +29,7 @@ import {
   useCanvasStore,
 } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
+import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 import {
   CanvasContextMenu,
   ContextMenuState,
@@ -41,6 +42,7 @@ import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
+import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
@@ -49,6 +51,7 @@ import { useCanvasPan } from "@/hooks/useCanvasPan";
 import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
+import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { focusCanvasCard } from "@/lib/canvasFocus";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { landingStackViewportCenter } from "@/lib/canvasOrigin";
@@ -113,6 +116,9 @@ export function Canvas({
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
   const removeCanvasTextLabel = useCanvasStore((s) => s.removeCanvasTextLabel);
+  const createVideoArtifactFromUrl = useCanvasStore(
+    (s) => s.createVideoArtifactFromUrl,
+  );
   const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
@@ -488,6 +494,53 @@ export function Canvas({
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
+  // Paste a YouTube URL onto the canvas background to create a video artifact.
+  // Editable fields (textareas/inputs/contentEditable) keep native paste so the
+  // text-component conversion and the question composer are not hijacked here.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "TEXTAREA" ||
+          active.isContentEditable)
+      ) {
+        return;
+      }
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      const url = text.trim();
+      if (!isYoutubeUrl(url)) return;
+
+      e.preventDefault();
+
+      const cursor = cursorRef.current;
+      const world = cursor
+        ? computeWorldFromClient(cursor.x, cursor.y)
+        : null;
+      const center = useCanvasStore.getState().viewport;
+      void (async () => {
+        const meta = await fetchYoutubeMeta(url);
+        const position = world
+          ? {
+              x: world.x - CANVAS_ARTIFACT_WIDTH / 2,
+              y: world.y - 140,
+            }
+          : {
+              x: -center.x / center.scale,
+              y: -center.y / center.scale,
+            };
+        createVideoArtifactFromUrl(url, {
+          title: meta.title,
+          thumb: meta.thumb,
+          position,
+        });
+      })();
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [createVideoArtifactFromUrl]);
+
   // Q (enter placement) / Esc (cancel placement). Capture phase so Q works as a
   // canvas tool shortcut even when an empty question field is focused.
   useEffect(() => {
@@ -591,6 +644,43 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+
+  // Paste URL on canvas → website or YouTube artifact at cursor.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (target.isContentEditable) return;
+      }
+
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!text.trim()) return;
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const canvasPtr = canvasPointerRef.current;
+      const cursor = cursorRef.current;
+      const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+      const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+      const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+      const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+      const world = computeWorldFromClient(clientX, clientY);
+      if (!world) return;
+
+      if (!createUrlArtifactFromText(text, world)) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setPlacement(null);
+      setTextPlacement(null);
+    };
+
+    window.addEventListener("paste", onPaste, true);
+    return () => window.removeEventListener("paste", onPaste, true);
   }, []);
 
   // Window-level click handler that finalises placement and consumes the event
@@ -888,6 +978,7 @@ export function Canvas({
       <CanvasBackgroundLayer />
       <CanvasViewport>
         <PlugConnectorLayer />
+        <ArtifactPlugConnections />
         {groupList.map((group) => (
           <GroupBounds key={group.id} group={group} />
         ))}

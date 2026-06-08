@@ -4,6 +4,7 @@ import {
   PointerEvent as ReactPointerEvent,
   useRef,
 } from "react";
+import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import {
@@ -241,31 +242,33 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           onPointerDown={handleAssetPlugPointerDown("right")}
         />
 
-        {asset.kind === "image" ? (
-          <div className="h-full w-full overflow-hidden rounded-canvas bg-canvas-bg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={asset.publicUrl}
-              alt={asset.name}
-              draggable={false}
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ) : (
-          <div className="flex h-full w-full items-center gap-3 rounded-canvas px-4 py-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted">
-              <AssetKindIcon kind={asset.kind} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-canvas-ink">
-                {asset.name}
+        <CanvasSharpContent worldWidth={width} className="h-full w-full">
+          {asset.kind === "image" ? (
+            <div className="h-full w-full overflow-hidden rounded-canvas bg-canvas-bg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={asset.publicUrl}
+                alt={asset.name}
+                draggable={false}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center gap-3 rounded-canvas px-4 py-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted">
+                <AssetKindIcon kind={asset.kind} />
               </span>
-              <span className="block text-[11px] uppercase tracking-wide text-canvas-muted">
-                {asset.kind}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-medium text-canvas-ink">
+                  {asset.name}
+                </span>
+                <span className="block text-[11px] uppercase tracking-wide text-canvas-muted">
+                  {asset.kind}
+                </span>
               </span>
-            </span>
-          </div>
-        )}
+            </div>
+          )}
+        </CanvasSharpContent>
 
         {!canvasReadOnly && (
           <button

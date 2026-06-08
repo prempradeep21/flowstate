@@ -260,7 +260,7 @@ export function ChatComposer({
         isLanding
           ? "relative z-20 w-full shrink-0"
           : isCanvas
-            ? "relative z-20 shrink-0"
+            ? "relative z-20 w-full min-w-0 shrink-0"
             : "mx-auto w-full max-w-3xl"
       }
       onDragOver={onDragOver}
@@ -269,7 +269,7 @@ export function ChatComposer({
       <div
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
-        className={`group/composer relative flex flex-col rounded-canvas border border-canvas-border bg-canvas-card ${
+        className={`group/composer relative flex w-full min-w-0 flex-col rounded-canvas border border-canvas-border bg-canvas-card ${
           isLanding ? "shadow-cardHover" : "shadow-card"
         }`}
       >
@@ -284,7 +284,13 @@ export function ChatComposer({
           attachedAssets.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
-          <div className="flex gap-2 overflow-x-auto border-b border-canvas-border px-3 py-2">
+          <div
+            className={`flex gap-2 border-b border-canvas-border py-2 ${
+              isCanvas
+                ? "w-full min-w-0 flex-col px-3 pr-10"
+                : "overflow-x-auto px-3"
+            }`}
+          >
             {attached.map((ref) => {
               const art = sessionArtifacts[ref.artifactId];
               if (!art) return null;
@@ -294,7 +300,11 @@ export function ChatComposer({
               return (
                 <div
                   key={ref.artifactId}
-                  className="min-w-[calc(50%-4px)] shrink-0"
+                  className={
+                    isCanvas
+                      ? "min-w-0 w-full"
+                      : "min-w-[calc(50%-4px)] max-w-full shrink-0"
+                  }
                 >
                   <ArtifactAttachmentPill
                     kind={art.kind}

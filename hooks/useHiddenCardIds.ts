@@ -9,6 +9,7 @@ export function useHiddenCardIds(): Set<string> {
   const collapsedBranchThreadIds = useCanvasStore(
     (s) => s.collapsedBranchThreadIds,
   );
+  const collapsedCardIds = useCanvasStore((s) => s.collapsedCardIds);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const connections = useCanvasStore((s) => s.connections);
@@ -19,6 +20,7 @@ export function useHiddenCardIds(): Set<string> {
     () =>
       getHiddenCardIds({
         collapsedBranchThreadIds,
+        collapsedCardIds,
         cards,
         cardOrder,
         connections,
@@ -27,6 +29,7 @@ export function useHiddenCardIds(): Set<string> {
       }),
     [
       collapsedBranchThreadIds,
+      collapsedCardIds,
       cards,
       cardOrder,
       connections,

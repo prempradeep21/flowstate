@@ -2,6 +2,8 @@ import { normalizeCustomArtifactData } from "@/lib/customArtifact";
 import { normalizeMapArtifactData } from "@/lib/mapArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
+import { normalizeWebsiteArtifactData } from "@/lib/websiteArtifact";
+import { parseYoutubeId } from "@/lib/youtube";
 
 /** Response shape for a single canvas card turn. */
 
@@ -15,7 +17,8 @@ export type ResponseType =
   | "3d"
   | "images"
   | "todo"
-  | "map";
+  | "map"
+  | "website";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -25,7 +28,8 @@ export type ArtifactKind =
   | "custom"
   | "code"
   | "todo"
-  | "map";
+  | "map"
+  | "website";
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -127,6 +131,13 @@ export interface MapArtifactData {
   savedPlaces?: MapSavedPlace[];
 }
 
+export interface WebsiteArtifactData {
+  url: string;
+  title: string;
+  domainLabel: string;
+  faviconUrl?: string;
+}
+
 export type ArtifactPayload =
   | { type: "table"; title: string; description?: string; data: TableArtifactData }
   | { type: "code"; title: string; description?: string; data: CodeArtifactData }
@@ -135,7 +146,8 @@ export type ArtifactPayload =
   | { type: "custom"; title: string; description?: string; data: CustomArtifactData }
   | { type: "3d"; title: string; description?: string; data: ThreeDArtifactData }
   | { type: "todo"; title: string; description?: string; data: TodoArtifactData }
-  | { type: "map"; title: string; description?: string; data: MapArtifactData };
+  | { type: "map"; title: string; description?: string; data: MapArtifactData }
+  | { type: "website"; title: string; description?: string; data: WebsiteArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {
@@ -148,6 +160,19 @@ export interface EmittedArtifact {
 export function payloadToArtifactKind(payload: ArtifactPayload): ArtifactKind {
   if (payload.type === "video") return "images";
   return payload.type as ArtifactKind;
+}
+
+/**
+ * A "video" artifact is an images-kind payload whose items are all YouTube
+ * embeds (e.g. created by pasting a YouTube URL). Distinguished from an image
+ * gallery so the UI can use a video icon and skip version controls.
+ */
+export function isVideoArtifactPayload(payload: ArtifactPayload): boolean {
+  return (
+    payload.type === "images" &&
+    payload.data.items.length > 0 &&
+    payload.data.items.every((item) => item.kind === "youtube")
+  );
 }
 
 export function imagesPayloadFromCardImages(
@@ -168,21 +193,6 @@ export function imagesPayloadFromCardImages(
   };
 }
 
-function youtubeIdFromUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      return u.pathname.slice(1).split("/")[0] || null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      return u.searchParams.get("v");
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 export function videoPayloadToImages(
   payload: Extract<ArtifactPayload, { type: "video" }>,
 ): Extract<ArtifactPayload, { type: "images" }> {
@@ -192,7 +202,7 @@ export function videoPayloadToImages(
     description: payload.description,
     data: {
       items: payload.data.items.map((item) => {
-        const yt = youtubeIdFromUrl(item.url);
+        const yt = parseYoutubeId(item.url);
         if (yt) {
           return {
             kind: "youtube" as const,

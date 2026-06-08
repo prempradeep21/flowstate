@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
+import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { CANVAS_TRANSLUCENT_FILL_CLASS } from "@/components/QaQuestionSection";
 import { Plug } from "@/components/plugs/Plug";
@@ -302,7 +303,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         </>
       )}
 
-      <div
+      <CanvasSharpContent
+        worldWidth={width}
         className={`flex h-full flex-col overflow-hidden rounded-canvas border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
           todoEditing
             ? "border-2 border-dashed border-canvas-accent"
@@ -323,7 +325,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
           onTodoEditingChange={setTodoEditing}
         />
-      </div>
+      </CanvasSharpContent>
       </MotionCanvasNode>
     </div>
   );

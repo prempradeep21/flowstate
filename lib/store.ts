@@ -8,6 +8,7 @@ import type {
 } from "@/lib/canvasSnapshot";
 import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
+import { collectSubtreeIds } from "@/lib/canvasSubtree";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -72,6 +73,11 @@ import {
   MANUAL_TODO_SOURCE_CARD_ID,
 } from "@/lib/todoArtifact";
 import {
+  createWebsitePayload,
+  MANUAL_WEBSITE_SOURCE_CARD_ID,
+} from "@/lib/websiteArtifact";
+import { domainDisplayLabel } from "@/lib/urlDetection";
+import {
   graphSnapshotFromState,
   GraphSnapshot,
   MAX_UNDO_STACK,
@@ -82,6 +88,8 @@ export type ClaudeModel =
   | "claude-opus-4-7"
   | "claude-sonnet-4-6"
   | "claude-haiku-4-5";
+
+const MANUAL_VIDEO_SOURCE_CARD_ID = "manual-video";
 
 export type CardStatus = "empty" | "thinking" | "streaming" | "done";
 
@@ -220,6 +228,15 @@ export interface Connection {
   to: string;
   fromSide: CardSide;
   toSide: CardSide;
+}
+
+/** Dashed plug link from a canvas artefact node to a question card composer. */
+export interface ArtifactPlugConnection {
+  id: string;
+  artifactNodeId: string;
+  cardId: string;
+  fromSide: PlugSide;
+  toSide: PlugSide;
 }
 
 export interface Thread {
@@ -376,15 +393,19 @@ interface CanvasState {
   plugDrag: PlugDragState | null;
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
   plugComposerAssetAttachments: Record<string, AttachedAssetRef>;
+  artifactPlugConnections: ArtifactPlugConnection[];
 
   selectedFamilyRootIds: string[];
   /** Branch thread ids collapsed on the canvas (session UI only, not persisted). */
   collapsedBranchThreadIds: string[];
+  /** Card ids with answer + descendant subtree collapsed on canvas (session UI only). */
+  collapsedCardIds: string[];
   groups: Record<string, BranchGroup>;
   activeGroupId: string | null;
 
   setSelectedFamilyRootIds: (rootThreadIds: string[]) => void;
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
+  toggleCardCollapsed: (cardId: string) => void;
   clearSelection: () => void;
   createGroupFromSelection: (label?: string) => string | null;
   setGroupSummary: (groupId: string, markdown: string) => void;
@@ -453,6 +474,12 @@ interface CanvasState {
     cardId: string,
     ref: AttachedAssetRef,
   ) => void;
+  addArtifactPlugConnection: (conn: {
+    artifactNodeId: string;
+    cardId: string;
+    fromSide: PlugSide;
+    toSide: PlugSide;
+  }) => void;
   startPlugDrag: (drag: PlugDragState) => void;
   updatePlugDrag: (patch: Partial<Pick<PlugDragState, "pointerWorld">> & {
     receiveTargetCardId?: string | null;
@@ -471,6 +498,29 @@ interface CanvasState {
   createBlankTodoArtifact: (
     title?: string,
   ) => { artifactId: string; versionId: string };
+  createVideoArtifactFromUrl: (
+    url: string,
+    opts?: {
+      title?: string;
+      thumb?: string;
+      position?: { x: number; y: number };
+      recordUndo?: boolean;
+    },
+  ) => { artifactId: string; versionId: string };
+  createWebsiteArtifactFromUrl: (
+    url: string,
+    position?: { x: number; y: number },
+    opts?: { recordUndo?: boolean },
+  ) => { artifactId: string; versionId: string };
+  patchWebsiteArtifactTitle: (
+    artifactId: string,
+    patch: { title: string; faviconUrl?: string },
+  ) => void;
+  patchYoutubeArtifactTitle: (
+    artifactId: string,
+    versionId: string,
+    patch: { title: string; thumb?: string },
+  ) => void;
   ensurePendingTableArtifact: (
     cardId: string,
   ) => { artifactId: string; versionId: string } | null;
@@ -582,23 +632,6 @@ function newCanvasAssetNodeId() {
 
 function newCanvasTextLabelId() {
   return newId("ctxt");
-}
-
-function collectSubtreeIds(
-  connections: Connection[],
-  rootId: string,
-): Set<string> {
-  const subtree = new Set<string>();
-  const queue = [rootId];
-  while (queue.length > 0) {
-    const cid = queue.shift()!;
-    if (subtree.has(cid)) continue;
-    subtree.add(cid);
-    for (const conn of connections) {
-      if (conn.from === cid) queue.push(conn.to);
-    }
-  }
-  return subtree;
 }
 
 export const newCardId = () => newId("card");
@@ -954,9 +987,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   plugDrag: null,
   plugComposerAttachments: {},
   plugComposerAssetAttachments: {},
+  artifactPlugConnections: [],
 
   selectedFamilyRootIds: [],
   collapsedBranchThreadIds: [],
+  collapsedCardIds: [],
   groups: {},
   activeGroupId: null,
 
@@ -970,6 +1005,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         collapsedBranchThreadIds: collapsed
           ? state.collapsedBranchThreadIds.filter((id) => id !== branchThreadId)
           : [...state.collapsedBranchThreadIds, branchThreadId],
+      };
+    }),
+
+  toggleCardCollapsed: (cardId) =>
+    set((state) => {
+      const collapsed = state.collapsedCardIds.includes(cardId);
+      return {
+        collapsedCardIds: collapsed
+          ? state.collapsedCardIds.filter((id) => id !== cardId)
+          : [...state.collapsedCardIds, cardId],
       };
     }),
 
@@ -1392,6 +1437,135 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return { artifactId, versionId };
   },
 
+  createVideoArtifactFromUrl: (url, opts) => {
+    const title = opts?.title?.trim() || "YouTube video";
+    const payload: ArtifactPayload = {
+      type: "images",
+      title,
+      data: {
+        items: [
+          {
+            kind: "youtube",
+            url,
+            thumb: opts?.thumb,
+            title,
+          },
+        ],
+      },
+    };
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_VIDEO_SOURCE_CARD_ID,
+    );
+    if (opts?.position) {
+      get().spawnCanvasArtifact(artifactId, versionId, {
+        position: opts.position,
+        focus: true,
+      });
+    } else {
+      get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    }
+    return { artifactId, versionId };
+  },
+
+  createWebsiteArtifactFromUrl: (url, position, opts) => {
+    const domainLabel = domainDisplayLabel(url);
+    const payload = createWebsitePayload(url, domainLabel);
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_WEBSITE_SOURCE_CARD_ID,
+    );
+    if (position) {
+      get().spawnCanvasArtifact(artifactId, versionId, {
+        position,
+        focus: true,
+      });
+    } else {
+      get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    }
+    get().openSessionArtifact(artifactId, versionId);
+    return { artifactId, versionId };
+  },
+
+  patchWebsiteArtifactTitle: (artifactId, patch) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "website") return state;
+      const latest = getLatestVersion(art);
+      if (!latest || latest.payload.type !== "website") return state;
+      const title = patch.title.trim();
+      if (!title) return state;
+      const updatedPayload: ArtifactPayload = {
+        ...latest.payload,
+        title,
+        data: {
+          ...latest.payload.data,
+          title,
+          faviconUrl: patch.faviconUrl ?? latest.payload.data.faviconUrl,
+        },
+      };
+      const versions = art.versions.map((v) =>
+        v.id === latest.id ? { ...v, payload: updatedPayload } : v,
+      );
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
+  patchYoutubeArtifactTitle: (artifactId, versionId, patch) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "images") return state;
+      const version = art.versions.find((v) => v.id === versionId);
+      if (!version || version.payload.type !== "images") return state;
+      const title = patch.title.trim();
+      if (!title) return state;
+      const items = version.payload.data.items.map((item, i) =>
+        i === 0 && item.kind === "youtube"
+          ? {
+              ...item,
+              title,
+              thumb: patch.thumb ?? item.thumb,
+            }
+          : item,
+      );
+      const updatedPayload: ArtifactPayload = {
+        ...version.payload,
+        title,
+        data: { ...version.payload.data, items },
+      };
+      const versions = art.versions.map((v) =>
+        v.id === versionId ? { ...v, payload: updatedPayload } : v,
+      );
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
   ensurePendingTableArtifact: (cardId) => {
     const card = get().cards[cardId];
     if (!card) return null;
@@ -1612,6 +1786,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasArtifactId === nodeId
             ? null
             : state.selectedCanvasArtifactId,
+        artifactPlugConnections: state.artifactPlugConnections.filter(
+          (c) => c.artifactNodeId !== nodeId,
+        ),
       };
     }),
 
@@ -1820,6 +1997,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         [cardId]: ref,
       },
     })),
+
+  addArtifactPlugConnection: (conn) =>
+    set((state) => {
+      const id = `artplug_${conn.artifactNodeId}_${conn.cardId}`;
+      const withoutDup = state.artifactPlugConnections.filter(
+        (c) =>
+          !(
+            c.artifactNodeId === conn.artifactNodeId &&
+            c.cardId === conn.cardId
+          ),
+      );
+      return {
+        artifactPlugConnections: [
+          ...withoutDup,
+          { ...conn, id },
+        ],
+      };
+    }),
 
   createRootCardWithAttachment: (position, ref) => {
     let cardId = "";
@@ -2135,6 +2330,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         threadOrder: nextThreadOrder,
         activeThreadId,
         openArtifactCardId,
+        artifactPlugConnections: state.artifactPlugConnections.filter(
+          (c) => !toDelete.has(c.cardId),
+        ),
       };
     }),
 
@@ -2267,6 +2465,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       plugDrag: null,
       plugComposerAttachments: {},
       plugComposerAssetAttachments: {},
+      artifactPlugConnections: [],
       canvasPlacementRequest: null,
       activeCanvasPlacement: null,
       viewMode: "canvas",
@@ -2384,6 +2583,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         plugDrag: null,
         plugComposerAttachments: {},
         plugComposerAssetAttachments: {},
+        artifactPlugConnections: [],
         canvasPlacementRequest: null,
         activeCanvasPlacement: null,
         collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,

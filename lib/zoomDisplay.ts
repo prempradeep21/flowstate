@@ -97,6 +97,11 @@ export function counterScaleFactor(scale: number) {
   return scale > 0 ? 1 / scale : 1;
 }
 
+/** Canvas viewport zoom as a whole-number percentage (e.g. 100, 45). */
+export function formatViewportZoomPercent(scale: number): number {
+  return Math.round(Math.max(0, scale) * 100);
+}
+
 export function compensatedStrokeWidth(
   screenPx: number,
   scale: number,

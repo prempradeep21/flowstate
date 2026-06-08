@@ -351,53 +351,98 @@ export function Connections() {
 
           if (isConnectionHidden(useCanvasStore.getState(), conn)) {
             if (
-              isLateralBranchConnection(conn.fromSide) &&
               hiddenCardIds.has(conn.to) &&
               !hiddenCardIds.has(conn.from)
             ) {
               const { w, h } = getConnectionCardBounds(from, tuning);
-              const fromSide = (conn.fromSide ?? "right") as "left" | "right";
-              const toSide = fromSide === "left" ? "right" : "left";
-              const fromAnchor = plugAnchorAt(
-                from.position.x,
-                from.position.y,
-                w,
-                h,
-                fromSide,
-              );
-              const stubEnd = plugAnchorAtWorldPoint(
-                fromAnchor.px +
-                  (fromSide === "left"
-                    ? -COLLAPSED_STUB_LENGTH
-                    : COLLAPSED_STUB_LENGTH),
-                fromAnchor.py,
-                fromSide,
-              );
-              const { d } = buildPlugConnectorPath(
-                fromAnchor,
-                stubEnd,
-                fromSide,
-                toSide,
-                connectorStyle,
-              );
-              const stroke =
-                threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
-              return (
-                <g key={conn.id}>
-                  <ConnectorPathGroup
-                    d={d}
-                    stroke={stroke}
-                    strokeWidth={strokeWidth}
-                    fromAnchor={fromAnchor}
-                    toAnchor={stubEnd}
-                    toSide={toSide}
-                    viewportScale={viewportSettledScale}
-                    dashed
-                    opacity={0.55}
-                    showTargetArrow={false}
-                  />
-                </g>
-              );
+              if (isLateralBranchConnection(conn.fromSide)) {
+                const fromSide = (conn.fromSide ?? "right") as "left" | "right";
+                const toSide = fromSide === "left" ? "right" : "left";
+                const fromAnchor = plugAnchorAt(
+                  from.position.x,
+                  from.position.y,
+                  w,
+                  h,
+                  fromSide,
+                );
+                const stubEnd = plugAnchorAtWorldPoint(
+                  fromAnchor.px +
+                    (fromSide === "left"
+                      ? -COLLAPSED_STUB_LENGTH
+                      : COLLAPSED_STUB_LENGTH),
+                  fromAnchor.py,
+                  fromSide,
+                );
+                const { d } = buildPlugConnectorPath(
+                  fromAnchor,
+                  stubEnd,
+                  fromSide,
+                  toSide,
+                  connectorStyle,
+                );
+                const stroke =
+                  threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
+                return (
+                  <g key={conn.id}>
+                    <ConnectorPathGroup
+                      d={d}
+                      stroke={stroke}
+                      strokeWidth={strokeWidth}
+                      fromAnchor={fromAnchor}
+                      toAnchor={stubEnd}
+                      toSide={toSide}
+                      viewportScale={viewportSettledScale}
+                      dashed
+                      opacity={0.55}
+                      showTargetArrow={false}
+                    />
+                  </g>
+                );
+              }
+              const isBottomFollowUp =
+                conn.fromSide === "bottom" || conn.fromSide == null;
+              if (isBottomFollowUp) {
+                const fromSide = "bottom" as const;
+                const toSide = "top" as const;
+                const fromAnchor = plugAnchorAt(
+                  from.position.x,
+                  from.position.y,
+                  w,
+                  h,
+                  fromSide,
+                );
+                const stubEnd = {
+                  px: fromAnchor.px,
+                  py: fromAnchor.py + COLLAPSED_STUB_LENGTH,
+                  tx: 0,
+                  ty: 1,
+                };
+                const { d } = buildPlugConnectorPath(
+                  fromAnchor,
+                  stubEnd,
+                  fromSide,
+                  toSide,
+                  connectorStyle,
+                );
+                const stroke =
+                  threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
+                return (
+                  <g key={conn.id}>
+                    <ConnectorPathGroup
+                      d={d}
+                      stroke={stroke}
+                      strokeWidth={strokeWidth}
+                      fromAnchor={fromAnchor}
+                      toAnchor={stubEnd}
+                      toSide={toSide}
+                      viewportScale={viewportSettledScale}
+                      dashed
+                      opacity={0.55}
+                      showTargetArrow={false}
+                    />
+                  </g>
+                );
+              }
             }
             return null;
           }
