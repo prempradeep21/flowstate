@@ -33,8 +33,9 @@ import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
+import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import {
-  handleArtifactOnDone,
+  finalizeCardResponse,
   handleStreamArtifact,
 } from "@/lib/artifactGeneration";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
@@ -72,7 +73,10 @@ import {
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
-import { shouldShowQaAnswerSection } from "@/lib/qaStreamDisplay";
+import {
+  formatPendingBadgeLabel,
+  shouldShowQaAnswerSection,
+} from "@/lib/qaStreamDisplay";
 
 interface CardProps {
   card: CardType;
@@ -528,7 +532,7 @@ function CardInner({ card }: CardProps) {
   useEffect(() => {
     if (card.status !== "done") return;
     if (card.artifactPayload && !card.outputArtifactId) {
-      handleArtifactOnDone(card.id);
+      finalizeCardResponse(card.id, {});
       return;
     }
     if (card.outputArtifactId && !card.outputArtifactVersionId) {
@@ -560,14 +564,18 @@ function CardInner({ card }: CardProps) {
         });
         if (/building table/i.test(label)) {
           useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+        } else if (/building custom/i.test(label)) {
+          useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
         }
       },
-      onToken: (next) =>
+      onToken: (next) => {
+        const current = useCanvasStore.getState().cards[card.id];
         updateCard(card.id, {
           status: "streaming",
           answer: next,
-          thinkingLabel: undefined,
-        }),
+          thinkingLabel: current?.thinkingLabel,
+        });
+      },
       onImages: (images) =>
         updateCard(card.id, {
           images,
@@ -577,13 +585,9 @@ function CardInner({ card }: CardProps) {
         updateCard(card.id, { responseType }),
       onArtifact: (artifact) => handleStreamArtifact(card.id, artifact),
       onDone: ({ responseType }) => {
-        updateCard(card.id, {
-          status: "done",
-          thinkingLabel: undefined,
+        finalizeCardResponse(card.id, {
           responseType: responseType ?? card.responseType ?? "text",
-          pendingFiles: undefined,
         });
-        handleArtifactOnDone(card.id);
         requestAnimationFrame(() => {
           const state = useCanvasStore.getState();
           const hasBottomChild = state.connections.some(
@@ -838,8 +842,8 @@ function CardInner({ card }: CardProps) {
         )}
         {isPending && !isChatCollapsed && (
           <PendingStatusIndicator
+            status={card.status}
             thinkingLabel={card.thinkingLabel}
-            isThinking={card.status === "thinking"}
           />
         )}
         <CanvasSharpContent
@@ -899,9 +903,9 @@ function CardInner({ card }: CardProps) {
                         onExplainClick={handleExplainClick}
                       />
                     ) : isPending ? (
-                      <p className="text-canvas-body leading-relaxed text-canvas-muted/70">
-                        &nbsp;
-                      </p>
+                      <PendingAnswerPlaceholder
+                        thinkingLabel={card.thinkingLabel}
+                      />
                     ) : null}
                   </div>
                 </>
@@ -1020,15 +1024,15 @@ function BranchPlugHint({ side }: { side: "left" | "right" }) {
 }
 
 function PendingStatusIndicator({
+  status,
   thinkingLabel,
-  isThinking,
 }: {
+  status: CardType["status"];
   thinkingLabel?: string;
-  isThinking: boolean;
 }) {
-  const label = isThinking
-    ? compactThinkingWord(thinkingLabel ?? "Thinking")
-    : "Responding";
+  const label = compactThinkingWord(
+    formatPendingBadgeLabel(status, thinkingLabel),
+  );
   return (
     <div
       className="absolute right-3 top-3 z-30 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"

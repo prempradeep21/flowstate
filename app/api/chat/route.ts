@@ -7,6 +7,8 @@ import {
 } from "@/lib/customArtifact";
 import { geocodeMapArtifact } from "@/lib/geocoding";
 import {
+  CUSTOM_UI_THINKING_LABEL,
+  detectCustomUiIntent,
   detectTodoListIntent,
   TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
@@ -198,6 +200,7 @@ export async function POST(req: Request) {
   userContent.push({ type: "text", text: question });
 
   const todoIntent = detectTodoListIntent(question);
+  const customUiIntent = detectCustomUiIntent(question);
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}`
@@ -224,6 +227,11 @@ export async function POST(req: Request) {
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       try {
+        if (customUiIntent) {
+          emit({ thinking: CUSTOM_UI_THINKING_LABEL });
+          emit({ pendingArtifact: { type: "custom" } });
+        }
+
         // Tool-use loop: Claude may call tools multiple times before a final reply.
         const MAX_TOOL_TURNS = 5;
         let artifactEmitted = false;
@@ -358,6 +366,8 @@ export async function POST(req: Request) {
 
                 if (type === "table") {
                   emit({ pendingArtifact: { type: "table" } });
+                } else if (type === "custom") {
+                  emit({ pendingArtifact: { type: "custom" } });
                 }
                 emit({ thinking: `Building ${type}…` });
                 emit({

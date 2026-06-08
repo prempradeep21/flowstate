@@ -59,7 +59,10 @@ export function shouldShowQaAnswerSection(
     | "responseType"
   >,
 ): boolean {
-  if (card.status === "empty" || card.status === "thinking") return false;
+  if (card.status === "empty") return false;
+  if (card.status === "thinking") {
+    return shouldShowQaArtifactPreview(card);
+  }
   if (card.status === "done") {
     return shouldShowQaAnswerText(card) || shouldShowQaArtifactPreview(card);
   }
@@ -68,4 +71,23 @@ export function shouldShowQaAnswerSection(
 
 export function isQaResponsePending(status: CardStatus | undefined): boolean {
   return status === "thinking" || status === "streaming";
+}
+
+/** Human-readable status while a card is still generating. */
+export function formatPendingStatusLabel(thinkingLabel?: string): string {
+  const trimmed = thinkingLabel?.trim();
+  if (!trimmed) return "Thinking…";
+  return trimmed.endsWith("…") ? trimmed : `${trimmed}…`;
+}
+
+/** Badge label for the corner pending indicator. */
+export function formatPendingBadgeLabel(
+  status: CardStatus,
+  thinkingLabel?: string,
+): string {
+  if (thinkingLabel?.trim()) {
+    return thinkingLabel.trim().replace(/…$/, "");
+  }
+  if (status === "thinking") return "Thinking";
+  return "Responding";
 }

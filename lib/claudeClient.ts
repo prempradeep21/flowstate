@@ -9,6 +9,10 @@ import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import {
+  CUSTOM_UI_THINKING_LABEL,
+  detectCustomUiIntent,
+} from "@/lib/artifactIntent";
+import {
   ClaudeModel,
   CardImage,
   CanvasAsset,
@@ -62,7 +66,11 @@ export function askClaude(
   let responseType: ResponseType = "text";
 
   const run = async () => {
-    cb.onThinking("Thinking");
+    cb.onThinking(
+      detectCustomUiIntent(question)
+        ? CUSTOM_UI_THINKING_LABEL
+        : "Thinking",
+    );
     try {
       const state = useCanvasStore.getState();
       const card = state.cards[cardId];
@@ -215,6 +223,8 @@ export function askClaude(
               cb.onResponseType?.("image");
             } else if (parsed.pendingArtifact?.type === "table") {
               cb.onThinking?.("Building table…");
+            } else if (parsed.pendingArtifact?.type === "custom") {
+              cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {

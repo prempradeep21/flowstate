@@ -30,10 +30,10 @@ export const SOUND_EVENTS: SoundEventDefinition[] = [
   {
     id: "canvas-pan",
     label: "Canvas pan",
-    description: "While panning the canvas viewport (throttled).",
+    description: "While panning or zooming the canvas viewport (distance-based ticks).",
     category: "canvas",
     defaultPreset: "scroll-tick",
-    defaultVolume: 0.5,
+    defaultVolume: 0.35,
   },
   {
     id: "branch-collapse",

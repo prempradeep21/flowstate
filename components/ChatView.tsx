@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
+import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
@@ -143,9 +144,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
             {shouldShowQaAnswerSection(card) ? (
               <CardAnswerBody card={card} isStreaming={false} />
             ) : (
-              <div className="text-canvas-body text-canvas-muted animate-pulse">
-                {card.thinkingLabel ?? "Thinking"}…
-              </div>
+              <PendingAnswerPlaceholder thinkingLabel={card.thinkingLabel} />
             )}
           </div>
         )}

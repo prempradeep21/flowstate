@@ -23,7 +23,7 @@ export function resolveArtifactPreviewStatus(card: Card): ArtifactPreviewStatus 
     return "generating";
   }
   if (card.artifactPayload && !card.outputArtifactId) {
-    return "failed";
+    return card.status === "done" ? "failed" : "generating";
   }
   if (
     card.images &&

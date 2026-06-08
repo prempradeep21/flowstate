@@ -67,7 +67,7 @@ export function QuickExplainPopup({
       role="dialog"
       aria-label={`Quick explain: ${explain.selectedText}`}
       aria-busy={isLoading}
-      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-canvas border border-canvas-border/50 bg-white/30 shadow-card backdrop-blur-md"
+      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm"
       style={{
         left: "calc(100% + 12px)",
         top: anchorY,
@@ -76,7 +76,7 @@ export function QuickExplainPopup({
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
     >
-      <div className="flex items-start gap-2 border-b border-canvas-border/40 px-3 py-2.5">
+      <div className="flex items-start gap-2 border-b border-canvas-border px-3 py-2.5">
         <span className="mt-0.5 text-canvas-accent">
           {isLoading ? <LoadingSpinner /> : <HelpCircleIcon />}
         </span>
@@ -93,7 +93,7 @@ export function QuickExplainPopup({
         <button
           type="button"
           onClick={onClose}
-          className="shrink-0 rounded-canvas p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="shrink-0 rounded-canvas p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
           aria-label="Close"
         >
           <svg

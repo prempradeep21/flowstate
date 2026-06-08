@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import {
+  notifyCanvasViewportMovement,
   playSound,
-  playSoundThrottled,
   setMasterMuted,
   setMasterVolume,
 } from "@/lib/sounds/engine";
+import { isViewportGesturing } from "@/lib/canvasViewportGuard";
 import { useCanvasStore } from "@/lib/store";
 
 function isArtifactPanelOpen(state: {
@@ -106,12 +107,16 @@ export function useCanvasSounds(): void {
         }
       }
 
-      if (
-        Date.now() - mountAt > 1000 &&
-        (state.viewport.x !== prev.viewport.x ||
-          state.viewport.y !== prev.viewport.y)
-      ) {
-        void playSoundThrottled("canvas-pan");
+      if (Date.now() - mountAt > 1000 && isViewportGesturing()) {
+        const dx = state.viewport.x - prev.viewport.x;
+        const dy = state.viewport.y - prev.viewport.y;
+        const scaleRatio =
+          prev.viewport.scale > 0
+            ? state.viewport.scale / prev.viewport.scale
+            : 1;
+        if (dx !== 0 || dy !== 0 || scaleRatio !== 1) {
+          notifyCanvasViewportMovement(dx, dy, scaleRatio);
+        }
       }
 
       if (state.undoPast.length < prev.undoPast.length) {

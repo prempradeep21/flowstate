@@ -46,4 +46,14 @@ describe("qaStreamDisplay", () => {
     expect(shouldShowQaAnswerSection(card)).toBe(true);
     expect(shouldShowQaAnswerText(card)).toBe(false);
   });
+
+  it("shows pending artifact preview while thinking", () => {
+    const card = baseCard({
+      status: "thinking",
+      responseType: "custom",
+      outputArtifactId: "art-1",
+    });
+    expect(shouldShowQaArtifactPreview(card)).toBe(true);
+    expect(shouldShowQaAnswerSection(card)).toBe(true);
+  });
 });

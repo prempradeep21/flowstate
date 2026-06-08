@@ -528,6 +528,9 @@ interface CanvasState {
   ensurePendingTableArtifact: (
     cardId: string,
   ) => { artifactId: string; versionId: string } | null;
+  ensurePendingCustomArtifact: (
+    cardId: string,
+  ) => { artifactId: string; versionId: string } | null;
   saveTodoArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "todo" }>,
@@ -1616,6 +1619,49 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       outputArtifactId: artifactId,
       outputArtifactVersionId: versionId,
       responseType: "table",
+    });
+    get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    return { artifactId, versionId };
+  },
+
+  ensurePendingCustomArtifact: (cardId) => {
+    const card = get().cards[cardId];
+    if (!card) return null;
+
+    if (card.outputArtifactId) {
+      const art = get().sessionArtifacts[card.outputArtifactId];
+      if (art?.kind === "custom") {
+        const latest = getLatestVersion(art);
+        if (latest) {
+          get().spawnCanvasArtifact(card.outputArtifactId, latest.id, {
+            focus: true,
+          });
+          return {
+            artifactId: card.outputArtifactId,
+            versionId: latest.id,
+          };
+        }
+      }
+    }
+
+    const title = card.question.slice(0, 48) || "Custom component";
+    const payload: ArtifactPayload = {
+      type: "custom",
+      title,
+      data: {
+        html: '<div class="pending">Preparing component…</div>',
+        css: ".pending { padding: 1rem; color: #6b7280; font: 14px/1.5 system-ui,sans-serif; }",
+      },
+    };
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      cardId,
+    );
+    get().updateCard(cardId, {
+      outputArtifactId: artifactId,
+      outputArtifactVersionId: versionId,
+      responseType: "custom",
     });
     get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     return { artifactId, versionId };

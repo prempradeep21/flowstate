@@ -22,3 +22,26 @@ MANDATORY — To-do list request detected:
 - Keep your text reply to 1–2 short sentences — do NOT list the tasks in prose; the artifact is the deliverable.
 - Use a descriptive title, e.g. "UK Visa Appointment Checklist".
 `.trim();
+
+/** Detect when the user wants an interactive custom UI artifact. */
+
+const CUSTOM_UI_INTENT =
+  /\b(interactive|widget|component|dashboard|timer|calendar|clock|calculator|counter|stopwatch|countdown|form|ui|app)\b/i;
+
+const CUSTOM_BUILD_VERBS =
+  /\b(build|create|make|design|show|develop)\b.{0,48}\b(interactive|widget|component|ui|timer|calendar|clock|dashboard|app)\b/i;
+
+const CUSTOM_ARTIFACT =
+  /\b(interactive|custom|widget)\s+(artifact|component|ui)\b/i;
+
+export function detectCustomUiIntent(question: string): boolean {
+  const q = question.trim();
+  if (!q) return false;
+  return (
+    CUSTOM_UI_INTENT.test(q) ||
+    CUSTOM_BUILD_VERBS.test(q) ||
+    CUSTOM_ARTIFACT.test(q)
+  );
+}
+
+export const CUSTOM_UI_THINKING_LABEL = "Building custom component…";

@@ -184,15 +184,15 @@ export function ArtifactTable({
         className={`w-full table-fixed border-collapse bg-canvas-card text-left ${textSize}`}
       >
         <colgroup>
-          {columns.map((col, index) => {
+          {columns.map((col, colIndex) => {
             const spec = widthByKey.get(col.key);
             return (
               <col
-                key={col.key}
+                key={`${col.key}-${colIndex}`}
                 style={{
                   width: `${
                     spec?.percent ??
-                    columnPercents[index] ??
+                    columnPercents[colIndex] ??
                     100 / Math.max(columns.length, 1)
                   }%`,
                 }}
@@ -207,7 +207,7 @@ export function ArtifactTable({
           >
             {columns.map((col, colIndex) => (
               <th
-                key={col.key}
+                key={`${col.key}-${colIndex}`}
                 className={`relative ${headPad} font-bold`}
                 style={{ color: "var(--table-accent)" }}
               >
@@ -241,7 +241,7 @@ export function ArtifactTable({
                 const delayMs = ci * columnStagger + ri * rowStagger;
                 return (
                   <td
-                    key={col.key}
+                    key={`${col.key}-${ci}`}
                     className={`align-top text-canvas-ink ${cellPad} ${
                       spec?.wrap ? "break-words whitespace-normal" : "break-words"
                     } ${shouldAnimate ? "table-cell-animate" : ""}`}

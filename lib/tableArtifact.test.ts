@@ -36,4 +36,54 @@ describe("normalizeTableArtifactData", () => {
       rows: [],
     });
   });
+
+  it("deduplicates column keys within a table", () => {
+    expect(
+      normalizeTableArtifactData({
+        columns: [
+          { key: "forex", label: "Forex" },
+          { key: "copies", label: "Copies" },
+          { key: "forex", label: "Forex (again)" },
+          { key: "copies", label: "Copies (again)" },
+        ],
+        rows: [
+          {
+            forex: "USD",
+            copies: "Passport",
+          },
+        ],
+      }),
+    ).toEqual({
+      columns: [
+        { key: "forex", label: "Forex" },
+        { key: "copies", label: "Copies" },
+        { key: "forex_2", label: "Forex (again)" },
+        { key: "copies_2", label: "Copies (again)" },
+      ],
+      rows: [
+        {
+          forex: "USD",
+          copies: "Passport",
+          forex_2: "USD",
+          copies_2: "Passport",
+        },
+      ],
+    });
+  });
+
+  it("keeps same slug on different tables independent", () => {
+    const travel = normalizeTableArtifactData({
+      columns: [{ key: "forex", label: "Forex" }],
+      rows: [{ forex: "EUR" }],
+    });
+    const budget = normalizeTableArtifactData({
+      columns: [{ key: "forex", label: "Forex" }],
+      rows: [{ forex: "GBP" }],
+    });
+
+    expect(travel.columns[0]?.key).toBe("forex");
+    expect(budget.columns[0]?.key).toBe("forex");
+    expect(travel.rows[0]?.forex).toBe("EUR");
+    expect(budget.rows[0]?.forex).toBe("GBP");
+  });
 });
