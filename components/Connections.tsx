@@ -18,10 +18,10 @@ import {
   plugAnchorAtWorldPoint,
   resolveConnectionAnchors,
 } from "@/lib/plugConnector";
+import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-
-const STROKE_FALLBACK = "#B8B5AE";
+const STROKE_FALLBACK = CANVAS_CONNECTOR;
 
 const BASE_STROKE_SCREEN = 1.75;
 
@@ -141,7 +141,7 @@ function ConnectorStylePicker({
 
       aria-label="Connector style"
 
-      className="pointer-events-auto absolute z-20 flex items-center gap-0.5 rounded-lg border border-canvas-border bg-canvas-card p-0.5 shadow-card"
+      className="pointer-events-auto absolute z-20 flex items-center gap-0.5 rounded-canvas border border-canvas-border bg-canvas-card p-0.5 shadow-card"
 
       style={{
 
@@ -181,7 +181,7 @@ function ConnectorStylePicker({
 
             onClick={() => onSelect(style)}
 
-            className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+            className={`flex h-8 w-8 items-center justify-center rounded-canvas transition-colors ${
 
               active
 
@@ -239,6 +239,10 @@ export function Connections() {
   const setConnectorStyle = useCanvasStore((s) => s.setConnectorStyle);
   const recentConnectionId = useCanvasStore((s) => s.recentConnectionId);
   const clearRecentConnection = useCanvasStore((s) => s.clearRecentConnection);
+  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const hideForLoadReveal =
+    canvasLoadReveal?.phase === "pending" ||
+    canvasLoadReveal?.phase === "running";
 
   const tuning = RESOLVED_CANVAS_TUNING;
 
@@ -326,7 +330,10 @@ export function Connections() {
 
         className="absolute left-0 top-0"
 
-        style={{ overflow: "visible" }}
+        style={{
+          overflow: "visible",
+          opacity: hideForLoadReveal ? 0 : 1,
+        }}
 
         width={1}
 

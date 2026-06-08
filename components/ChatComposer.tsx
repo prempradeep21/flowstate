@@ -17,8 +17,10 @@ import {
 } from "@/lib/sessionArtifacts";
 import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
+import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import {
   AttachedArtifactRef,
+  AttachedAssetRef,
   CardImage,
   FollowUpOptions,
   PendingFileAttachment,
@@ -30,7 +32,7 @@ export function ChatComposer({
   disabled = false,
   autoFocus = false,
   cardId,
-  accentColour = "#7C9EFF",
+  accentColour = CANVAS_ACCENT,
   receivePlugsActive = false,
   receiveHighlightSide = null,
   draftValue,
@@ -56,8 +58,12 @@ export function ChatComposer({
 }) {
   const listSessionArtifacts = useCanvasStore((s) => s.listSessionArtifacts);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const canvasAssets = useCanvasStore((s) => s.canvasAssets);
   const plugAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerAttachments[cardId] : undefined,
+  );
+  const plugAssetAttachment = useCanvasStore((s) =>
+    cardId ? s.plugComposerAssetAttachments[cardId] : undefined,
   );
 
   const [internalDraft, setInternalDraft] = useState("");
@@ -66,6 +72,7 @@ export function ChatComposer({
   const [menuOpen, setMenuOpen] = useState(false);
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
+  const [attachedAssets, setAttachedAssets] = useState<AttachedAssetRef[]>([]);
   const [pendingImages, setPendingImages] = useState<CardImage[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,11 +98,24 @@ export function ChatComposer({
     });
   };
 
+  const addAssetAttachment = (ref: AttachedAssetRef) => {
+    setAttachedAssets((prev) => {
+      if (prev.some((r) => r.assetId === ref.assetId)) return prev;
+      return [...prev, ref];
+    });
+  };
+
   useEffect(() => {
     if (plugAttachment) {
       addAttachment(plugAttachment);
     }
   }, [plugAttachment]);
+
+  useEffect(() => {
+    if (plugAssetAttachment) {
+      addAssetAttachment(plugAssetAttachment);
+    }
+  }, [plugAssetAttachment]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -142,11 +162,13 @@ export function ChatComposer({
     const question = lockedPrefix ? `${lockedPrefix}: ${q}` : q;
     onSubmit(question, {
       attachedArtifacts: attached.length > 0 ? attached : undefined,
+      attachedAssets: attachedAssets.length > 0 ? attachedAssets : undefined,
       pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
       pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
     });
     setDraft("");
     setAttached([]);
+    setAttachedAssets([]);
     setPendingImages([]);
     setPendingFiles([]);
     setMenuOpen(false);
@@ -224,6 +246,9 @@ export function ChatComposer({
     onArtifact: (ref) => {
       addAttachment(ref);
     },
+    onAsset: (ref) => {
+      addAssetAttachment(ref);
+    },
     onUpload: (file) => {
       setPendingFiles((prev) => [...prev, file]);
     },
@@ -244,7 +269,7 @@ export function ChatComposer({
       <div
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
-        className={`group/composer relative flex flex-col rounded-2xl border border-canvas-border bg-canvas-card ${
+        className={`group/composer relative flex flex-col rounded-canvas border border-canvas-border bg-canvas-card ${
           isLanding ? "shadow-cardHover" : "shadow-card"
         }`}
       >
@@ -256,6 +281,7 @@ export function ChatComposer({
           />
         )}
         {(attached.length > 0 ||
+          attachedAssets.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
           <div className="flex gap-2 overflow-x-auto border-b border-canvas-border px-3 py-2">
@@ -283,10 +309,34 @@ export function ChatComposer({
                 </div>
               );
             })}
+            {attachedAssets.map((ref) => {
+              const asset = canvasAssets[ref.assetId];
+              if (!asset) return null;
+              return (
+                <span
+                  key={ref.assetId}
+                  className="inline-flex max-w-[180px] shrink-0 items-center rounded-canvas border border-canvas-border px-2 py-1 text-[11px] text-canvas-muted"
+                >
+                  <span className="truncate">{asset.name}</span>
+                  <button
+                    type="button"
+                    className="ml-1"
+                    aria-label={`Remove ${asset.name}`}
+                    onClick={() =>
+                      setAttachedAssets((prev) =>
+                        prev.filter((r) => r.assetId !== ref.assetId),
+                      )
+                    }
+                  >
+                    x
+                  </button>
+                </span>
+              );
+            })}
             {pendingImages.map((img, i) => (
               <div
                 key={i}
-                className="relative h-10 w-10 overflow-hidden rounded-lg border border-canvas-border"
+                className="relative h-10 w-10 overflow-hidden rounded-canvas border border-canvas-border"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.thumb} alt="" className="h-full w-full object-cover" />
@@ -296,7 +346,7 @@ export function ChatComposer({
                   onClick={() =>
                     setPendingImages((p) => p.filter((_, j) => j !== i))
                   }
-                  className="absolute right-0 top-0 bg-canvas-ink/60 px-1 text-[10px] text-white"
+                  className="absolute right-0 top-0 bg-canvas-ink/60 px-1 text-canvas-micro text-white"
                 >
                   ×
                 </button>
@@ -305,7 +355,7 @@ export function ChatComposer({
             {pendingFiles.map((f, i) => (
               <span
                 key={i}
-                className="inline-flex items-center rounded-lg border border-canvas-border px-2 py-1 text-[11px] text-canvas-muted"
+                className="inline-flex items-center rounded-canvas border border-canvas-border px-2 py-1 text-canvas-caption text-canvas-muted"
               >
                 {f.name}
                 <button
@@ -331,14 +381,14 @@ export function ChatComposer({
               className="group/plus mb-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-canvas-bg text-canvas-ink transition-colors hover:bg-canvas-border/60 disabled:opacity-40"
               aria-label="Add attachment"
             >
-              <span className="text-[20px] font-light leading-none">+</span>
+              <span className="text-canvas-heading font-light leading-none">+</span>
             </button>
             {menuOpen &&
               menuPos &&
               createPortal(
                 <div
                   ref={menuPortalRef}
-                  className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card"
+                  className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
                   style={{
                     left: menuPos.left,
                     top: menuPos.top,
@@ -347,21 +397,21 @@ export function ChatComposer({
                 >
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
                     onClick={() => imageInputRef.current?.click()}
                   >
                     Image
                   </button>
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     File
                   </button>
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-[13px] hover:bg-canvas-bg"
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
                     onClick={() => {
                       setArtifactMenuOpen((o) => !o);
                     }}
@@ -371,7 +421,7 @@ export function ChatComposer({
                   {artifactMenuOpen && (
                     <div className="max-h-40 overflow-y-auto border-t border-canvas-border">
                       {artifacts.length === 0 ? (
-                        <p className="px-3 py-2 text-[12px] text-canvas-muted">
+                        <p className="px-3 py-2 text-canvas-compact text-canvas-muted">
                           No artifacts yet
                         </p>
                       ) : (
@@ -382,7 +432,7 @@ export function ChatComposer({
                             <button
                               key={art.id}
                               type="button"
-                              className="block w-full px-3 py-2 text-left text-[12px] hover:bg-canvas-bg"
+                              className="block w-full px-3 py-2 text-left text-canvas-compact hover:bg-canvas-bg"
                               onClick={() =>
                                 attachArtifact(art.id, ver.id)
                               }
@@ -408,7 +458,7 @@ export function ChatComposer({
           >
             {lockedPrefix && (
               <span
-                className="rounded-lg bg-canvas-accent/15 px-2.5 py-1.5 text-[13px] font-medium leading-snug text-canvas-question break-words"
+                className="rounded-canvas bg-canvas-accent/15 px-2.5 py-1.5 text-canvas-body-sm font-medium leading-snug text-canvas-accent break-words"
               >
                 {lockedPrefix}
               </span>
@@ -425,7 +475,7 @@ export function ChatComposer({
               disabled={disabled}
               rows={1}
               className={`block min-w-0 w-full resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
-                isCanvas || isLanding ? "text-[14px]" : "text-[15px]"
+                isCanvas || isLanding ? "text-canvas-body" : "text-canvas-body-lg"
               }`}
             />
           </div>
@@ -434,7 +484,7 @@ export function ChatComposer({
             disabled={!canSend}
             onClick={submit}
             className={
-              isLanding ? "bg-canvas-question hover:opacity-90" : undefined
+              isLanding ? "bg-canvas-accent hover:opacity-90" : undefined
             }
           />
         </div>

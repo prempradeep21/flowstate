@@ -27,7 +27,7 @@ function LoadingSpinner() {
     <svg
       aria-hidden
       viewBox="0 0 16 16"
-      className="h-4 w-4 shrink-0 animate-spin text-canvas-question"
+      className="h-4 w-4 shrink-0 animate-spin text-canvas-accent"
       fill="none"
     >
       <circle
@@ -67,7 +67,7 @@ export function QuickExplainPopup({
       role="dialog"
       aria-label={`Quick explain: ${explain.selectedText}`}
       aria-busy={isLoading}
-      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-2xl border border-canvas-border/50 bg-white/30 shadow-card backdrop-blur-md"
+      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-canvas border border-canvas-border/50 bg-white/30 shadow-card backdrop-blur-md"
       style={{
         left: "calc(100% + 12px)",
         top: anchorY,
@@ -77,15 +77,15 @@ export function QuickExplainPopup({
       onPointerUp={(e) => e.stopPropagation()}
     >
       <div className="flex items-start gap-2 border-b border-canvas-border/40 px-3 py-2.5">
-        <span className="mt-0.5 text-canvas-question">
+        <span className="mt-0.5 text-canvas-accent">
           {isLoading ? <LoadingSpinner /> : <HelpCircleIcon />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold leading-snug text-canvas-question">
+          <p className="text-canvas-body-sm font-semibold leading-snug text-canvas-accent">
             {explain.selectedText}
           </p>
           {isLoading && (
-            <p className="mt-0.5 text-[11px] font-medium text-canvas-muted">
+            <p className="mt-0.5 text-canvas-caption font-medium text-canvas-muted">
               Explaining…
             </p>
           )}
@@ -93,7 +93,7 @@ export function QuickExplainPopup({
         <button
           type="button"
           onClick={onClose}
-          className="shrink-0 rounded-md p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="shrink-0 rounded-canvas p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
           aria-label="Close"
         >
           <svg
@@ -114,7 +114,7 @@ export function QuickExplainPopup({
       <div className="min-h-[72px] px-3 py-2.5" aria-live="polite">
         {isLoading && !explain.explanation && (
           <div className="space-y-2.5">
-            <p className="text-[12px] text-canvas-muted">
+            <p className="text-canvas-compact text-canvas-muted">
               Fetching a quick explanation…
             </p>
             <div className="space-y-2">
@@ -125,12 +125,12 @@ export function QuickExplainPopup({
           </div>
         )}
         {isError && (
-          <p className="text-[13px] leading-relaxed text-red-600">
+          <p className="text-canvas-body-sm leading-relaxed text-canvas-danger">
             {explain.explanation || "Could not load explanation."}
           </p>
         )}
         {explain.explanation && (
-          <p className="text-[13px] leading-relaxed text-canvas-ink">
+          <p className="text-canvas-body-sm leading-relaxed text-canvas-ink">
             {explain.explanation}
             {isLoading && (
               <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-canvas-ink/70 align-middle" />

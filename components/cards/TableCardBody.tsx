@@ -4,6 +4,7 @@ import { ArtifactCardChrome } from "@/components/cards/ArtifactCardChrome";
 import { ArtifactTable } from "@/components/artifacts/ArtifactTable";
 import { TextCardBody } from "@/components/cards/TextCardBody";
 import type { Card } from "@/lib/store";
+import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 
 interface TableCardBodyProps {
   card: Card;
@@ -18,7 +19,7 @@ export function TableCardBody({ card, isStreaming }: TableCardBodyProps) {
     return <TextCardBody card={card} isStreaming={isStreaming} />;
   }
 
-  const { columns, rows } = payload.data;
+  const { columns, rows } = normalizeTableArtifactData(payload.data);
 
   return (
     <div className="flex flex-col gap-3">
@@ -30,8 +31,12 @@ export function TableCardBody({ card, isStreaming }: TableCardBodyProps) {
         title={payload.title}
         description={payload.description}
       >
-        <div className="overflow-hidden rounded-lg border border-canvas-border">
-          <ArtifactTable columns={columns} rows={rows} />
+        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-white">
+          <ArtifactTable
+            columns={columns}
+            rows={rows}
+            accentSeed={card.id}
+          />
         </div>
       </ArtifactCardChrome>
     </div>

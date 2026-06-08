@@ -82,7 +82,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       onPointerDown={(e) => e.stopPropagation()}
     >
       <h1
-        className={`text-center font-display text-[52px] font-normal leading-[1.05] tracking-[-0.02em] text-canvas-ink sm:text-[56px] ${riseProps(0).className ?? ""}`}
+        className={`text-center font-display text-canvas-display font-normal leading-[1.05] tracking-[-0.02em] text-canvas-ink sm:text-canvas-display ${riseProps(0).className ?? ""}`}
         style={riseProps(0).style}
       >
         What&apos;s on your mind?
@@ -97,7 +97,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
               setDraft(suggestion.prompt);
               focusComposer();
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full border border-canvas-ink/20 bg-canvas-card px-4 py-1.5 text-[13px] text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border border-canvas-ink/20 bg-canvas-card px-4 py-1.5 text-canvas-body-sm text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
             style={riseProps(PILL_DELAYS[i]).style}
           >
             <ArtifactTypeIcon

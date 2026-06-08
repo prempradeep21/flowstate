@@ -1,4 +1,5 @@
 import type { CustomArtifactData } from "@/lib/artifactTypes";
+import { canvasColors } from "@/lib/design/tokens";
 
 export const CUSTOM_ARTIFACT_MAX_BYTES = 50 * 1024;
 
@@ -9,8 +10,8 @@ const BASE_CSS = `
     font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-    color: #1a1a1a;
-    background: #fafafa;
+    color: ${canvasColors.stageDark};
+    background: ${canvasColors.bg};
     overflow: auto;
   }
 `;

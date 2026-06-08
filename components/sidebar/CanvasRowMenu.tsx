@@ -80,7 +80,7 @@ export function CanvasRowMenu({ onRename, onOpenChange }: CanvasRowMenuProps) {
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+        className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
           open ? "bg-canvas-bg text-canvas-ink" : ""
         }`}
       >
@@ -90,7 +90,7 @@ export function CanvasRowMenu({ onRename, onOpenChange }: CanvasRowMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
+          className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <ContextMenuItem

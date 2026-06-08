@@ -4,6 +4,7 @@ import {
   payloadToArtifactKind,
   videoPayloadToImages,
 } from "@/lib/artifactTypes";
+import { normalizeTablePayload } from "@/lib/tableArtifact";
 import {
   mergeTodoItemsFromAi,
   normalizeTodoItem,
@@ -110,6 +111,9 @@ export function normalizePayloadForRegistry(
 ): ArtifactPayload {
   if (payload.type === "video") {
     return videoPayloadToImages(payload);
+  }
+  if (payload.type === "table") {
+    return normalizeTablePayload(payload);
   }
   if (payload.type === "todo") {
     const normalized = normalizeTodoPayload(payload);

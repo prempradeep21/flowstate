@@ -16,12 +16,13 @@ import {
   useCanvasStore,
   type CanvasArtifactNode as CanvasArtifactNodeType,
 } from "@/lib/store";
+import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 4;
 
 const INTERACTIVE =
-  "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-plug], [data-resize-handle], .leaflet-container, .leaflet-control-container";
+  "button, textarea, input, select, a, [role='menu'], [role='listbox'], [role='option'], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon";
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
@@ -39,7 +40,7 @@ function ArtifactResizeHandle({
       data-resize-handle
       aria-label="Resize artifact"
       onPointerDown={onPointerDown}
-      className="absolute bottom-0 right-0 z-40 flex h-6 w-6 cursor-nwse-resize items-end justify-end rounded-br-artifact-card p-1 opacity-0 transition-opacity group-hover/artifact:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30"
+      className="absolute bottom-0 right-0 z-40 flex h-6 w-6 cursor-nwse-resize items-end justify-end rounded-br-canvas p-1 opacity-0 transition-opacity group-hover/artifact:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30"
     >
       <svg
         width="12"
@@ -112,7 +113,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const godView = isGodViewMode(scale);
   const sourceCard = cards[node.sourceCardId];
   const plugAccent =
-    (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? "#7C9EFF";
+    (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
 
   const artifactPlugWorld = (side: "left" | "right") => {
     const anchor = plugAnchorAt(
@@ -302,7 +303,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       )}
 
       <div
-        className={`flex h-full flex-col overflow-hidden rounded-artifact-card border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`flex h-full flex-col overflow-hidden rounded-canvas border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
           todoEditing
             ? "border-2 border-dashed border-canvas-accent"
             : isSelected

@@ -1,14 +1,20 @@
 "use client";
 
+import { getDisplayFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
+import { useCanvasStore } from "@/lib/store";
+
 export function FlowstateBrand({ compact = false }: { compact?: boolean }) {
+  const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
+  const displayPreviewStyle = getDisplayFontPreviewStyles(displayFontId);
+
   return (
     <div
       className={`flex items-center gap-2.5 ${compact ? "justify-center" : ""}`}
     >
-      <FlowstateLogo className={compact ? "h-[42px] w-[42px]" : "h-12 w-12"} />
+      <FlowstateLogo className={compact ? "h-7 w-7 shrink-0" : "h-12 w-12"} />
       {!compact && (
-        <div className="min-w-0">
-          <div className="font-display text-[22.5px] font-semibold leading-tight text-canvas-ink">
+        <div className="min-w-0" data-font-preview-brand style={displayPreviewStyle}>
+          <div className="font-display text-canvas-brand font-semibold leading-tight text-canvas-ink">
             Flowstate
           </div>
         </div>

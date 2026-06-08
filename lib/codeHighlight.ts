@@ -15,16 +15,16 @@ export function highlightCode(source: string, _language: string): string {
   return lines
     .map((line) => {
       if (/^\s*#/.test(line) || /^\s*\/\//.test(line)) {
-        return `<span class="text-[#116329]">${escapeHtml(line)}</span>`;
+        return `<span class="text-canvas-syntaxComment">${escapeHtml(line)}</span>`;
       }
       let html = escapeHtml(line);
       html = html.replace(
         /('[^']*'|"[^"]*"|`[^`]*`)/g,
-        '<span class="text-[#953800]">$1</span>',
+        '<span class="text-canvas-syntaxString">$1</span>',
       );
       html = html.replace(
         KEYWORD_RE,
-        '<span class="text-[#0550AE] font-medium">$1</span>',
+        '<span class="text-canvas-syntaxKeyword font-medium">$1</span>',
       );
       return html;
     })

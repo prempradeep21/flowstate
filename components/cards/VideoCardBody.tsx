@@ -36,7 +36,7 @@ export function VideoCardBody({ card, isStreaming }: VideoCardBodyProps) {
           <button
             type="button"
             onClick={() => setWidescreen((w) => !w)}
-            className="shrink-0 rounded-md border border-canvas-border px-2 py-1 text-[11px] font-medium text-canvas-muted hover:border-canvas-ink/30"
+            className="shrink-0 rounded-canvas border border-canvas-border px-2 py-1 text-canvas-caption font-medium text-canvas-muted hover:border-canvas-ink/30"
           >
             {widescreen ? "Grid" : "Widescreen"}
           </button>
@@ -57,7 +57,7 @@ export function VideoCardBody({ card, isStreaming }: VideoCardBodyProps) {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
+              className="group block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
             >
               <div
                 className={
@@ -70,7 +70,7 @@ export function VideoCardBody({ card, isStreaming }: VideoCardBodyProps) {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <p className="truncate px-2 py-1.5 text-[12px] text-canvas-muted group-hover:text-canvas-ink">
+              <p className="truncate px-2 py-1.5 text-canvas-compact text-canvas-muted group-hover:text-canvas-ink">
                 {item.title}
               </p>
             </a>

@@ -9,8 +9,9 @@ export function SaveStatusBadge({
 }: {
   size?: SaveStatusBadgeSize;
 }) {
-  const textSize = size === "panel" ? "text-[18px]" : "text-xs";
-  const badgeClass = `pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize}`;
+  const textSize =
+    size === "panel" ? "floating-chrome-chip" : "text-canvas-compact";
+  const badgeClass = `pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize}`;
   const { user, supabaseConfigured, persistenceStatus, saveStatus } = useAuth();
 
   if (!supabaseConfigured) {
@@ -40,7 +41,7 @@ export function SaveStatusBadge({
   if (saveStatus === "error") {
     return (
       <div
-        className={`pointer-events-auto rounded-full border border-red-400/40 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-red-400`}
+        className={`pointer-events-auto rounded-full border border-canvas-danger/40 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-danger`}
       >
         Save failed
       </div>

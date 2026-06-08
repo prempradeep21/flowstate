@@ -192,7 +192,7 @@ export function CollaboratorCursors({
             />
           </svg>
           <div
-            className="ml-3 -mt-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white shadow-sm"
+            className="ml-3 -mt-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-canvas-caption font-medium text-white shadow-sm"
             style={{ backgroundColor: cursor.color }}
           >
             {cursor.avatarUrl && (

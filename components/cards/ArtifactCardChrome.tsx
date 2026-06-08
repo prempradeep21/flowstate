@@ -66,11 +66,11 @@ export function ArtifactCardChrome({
             {TYPE_ICONS[type] ?? TYPE_ICONS.custom}
           </span>
           <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold text-canvas-ink">
+            <h3 className="truncate text-canvas-body-lg font-semibold text-canvas-ink">
               {title}
             </h3>
             {description && (
-              <p className="mt-0.5 text-[13px] leading-snug text-canvas-muted">
+              <p className="mt-0.5 text-canvas-body-sm leading-snug text-canvas-muted">
                 {description}
               </p>
             )}

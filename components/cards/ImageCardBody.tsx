@@ -40,7 +40,7 @@ export function ImageCardBody({
               href={img.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
+              className="block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <img
@@ -56,7 +56,7 @@ export function ImageCardBody({
           ))}
         </div>
         {isStreaming && (
-          <p className="text-[13px] text-canvas-muted animate-pulse">Loading…</p>
+          <p className="text-canvas-body-sm text-canvas-muted animate-pulse">Loading…</p>
         )}
       </ArtifactCardChrome>
     );
@@ -80,7 +80,7 @@ export function ImageCardBody({
               href={img.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block overflow-hidden rounded-lg border border-canvas-border/60 bg-black/[0.03]"
+              className="block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
             >
               <img
                 src={img.thumb}

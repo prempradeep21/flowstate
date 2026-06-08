@@ -1,6 +1,9 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+
+const VIEWPORT_EDGE_PAD = 12;
 
 function HelpCircleIcon() {
   return (
@@ -110,13 +113,30 @@ export function AnswerSelectionMenu({
   addToCanvasDisabled?: boolean;
   quickExplainLoading?: boolean;
 }) {
-  const left = rect.left + rect.width / 2;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const anchorCenterX = rect.left + rect.width / 2;
   const top = rect.top - 8;
+  const [left, setLeft] = useState(anchorCenterX);
+
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const halfW = el.offsetWidth / 2;
+    const minLeft = VIEWPORT_EDGE_PAD + halfW;
+    const maxLeft = window.innerWidth - VIEWPORT_EDGE_PAD - halfW;
+    setLeft(Math.min(maxLeft, Math.max(minLeft, anchorCenterX)));
+  }, [
+    anchorCenterX,
+    quickExplainLoading,
+    askDisabled,
+    addToCanvasDisabled,
+  ]);
 
   return createPortal(
     <div
+      ref={menuRef}
       data-answer-selection-menu
-      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-xl bg-canvas-ink px-1 py-1 shadow-card"
+      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas bg-canvas-ink px-1 py-1 shadow-card"
       style={{ left, top }}
       onPointerDown={(e) => {
         e.preventDefault();
@@ -132,7 +152,7 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onQuickExplain();
         }}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-90"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-90"
       >
         {quickExplainLoading ? <LoadingSpinner /> : <HelpCircleIcon />}
         {quickExplainLoading ? "Explaining…" : "Quick explain"}
@@ -146,7 +166,7 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onAskQuestion();
         }}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <BranchIcon />
         Ask a question
@@ -160,7 +180,7 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onAddToCanvas();
         }}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <TypeIcon />
         Add to Canvas

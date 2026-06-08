@@ -9,7 +9,9 @@ import {
   connectorPlugCirclePath,
 } from "@/lib/plugConnector";
 
-const PLUG_FILL = "#F7F6F3";
+import { canvasColors } from "@/lib/design/tokens";
+
+const PLUG_FILL = canvasColors.plugFill;
 
 export function ConnectorPathGroup({
   d,

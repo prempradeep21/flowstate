@@ -27,6 +27,7 @@ import {
   anchorYRelativeToCard,
   getExplainRangeRect,
 } from "@/lib/answerTextRange";
+import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import {
@@ -158,13 +159,14 @@ function CardInner({ card }: CardProps) {
   });
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
-  const plugAccent = accent ?? "#7C9EFF";
+  const plugAccent = accent ?? CANVAS_ACCENT;
   const showBranchPlugs = card.status === "done";
   const receivePlugsActive =
-    plugDrag?.kind === "artifact" &&
+    (plugDrag?.kind === "artifact" || plugDrag?.kind === "asset") &&
     plugDrag.receiveTargetCardId === card.id;
   const receiveHighlightSide =
-    receivePlugsActive && plugDrag.kind === "artifact"
+    receivePlugsActive &&
+    (plugDrag.kind === "artifact" || plugDrag.kind === "asset")
       ? plugDrag.hoveredReceiveSide
       : null;
 
@@ -539,11 +541,15 @@ function CardInner({ card }: CardProps) {
     if (startedFor.current === card.question) return;
     startedFor.current = card.question;
     askClaude(card.id, card.parentConversationId ?? null, card.question, selectedModel, {
-      onThinking: (label) =>
+      onThinking: (label) => {
         updateCard(card.id, {
           status: "thinking",
           thinkingLabel: label,
-        }),
+        });
+        if (/building table/i.test(label)) {
+          useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+        }
+      },
       onToken: (next) =>
         updateCard(card.id, {
           status: "streaming",
@@ -596,6 +602,7 @@ function CardInner({ card }: CardProps) {
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
       pendingFiles: options?.pendingFiles,
       quotedSelection: undefined,
       answerExplains: undefined,
@@ -683,7 +690,7 @@ function CardInner({ card }: CardProps) {
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
       } ${hideForLanding ? "pointer-events-none invisible" : ""} ${
         isEmptyComposer
-          ? "overflow-hidden rounded-2xl border border-canvas-border bg-transparent shadow-card"
+          ? "overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card"
           : ""
       }`}
       style={{
@@ -793,7 +800,7 @@ function CardInner({ card }: CardProps) {
         </div>
       ) : (
       <div
-        className={`group/inner relative flex flex-col overflow-hidden rounded-2xl border bg-transparent shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-card transition-shadow hover:shadow-cardHover ${
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"
@@ -810,7 +817,7 @@ function CardInner({ card }: CardProps) {
         )}
         {card.status === "thinking" && (
           <div
-            className="thinking-accent-bar pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-canvas-question"
+            className="thinking-accent-bar pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-canvas-accent"
             aria-hidden
           />
         )}
@@ -833,12 +840,12 @@ function CardInner({ card }: CardProps) {
                     <ContributorAvatarStack profiles={contributorProfiles} />
                   </div>
                 )}
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                <div className="mb-1 text-canvas-caption font-medium uppercase tracking-wider text-canvas-muted">
                   Question
                 </div>
                 <div
                   data-selectable-text
-                  className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-[18px] font-bold leading-snug text-canvas-ink"
+                  className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-bold leading-snug text-canvas-ink"
                 >
                   {card.question}
                 </div>
@@ -857,11 +864,11 @@ function CardInner({ card }: CardProps) {
                     : {}),
                 }}
               >
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                <div className="mb-1 text-canvas-caption font-medium uppercase tracking-wider text-canvas-muted">
                   Answer
                 </div>
                 {card.status === "thinking" ? (
-                  <p className="text-[14px] leading-relaxed text-canvas-muted/70">
+                  <p className="text-canvas-body leading-relaxed text-canvas-muted/70">
                     &nbsp;
                   </p>
                 ) : (
@@ -962,7 +969,7 @@ function BranchCollapseToggle({
         e.stopPropagation();
         onToggle();
       }}
-      className={`pointer-events-auto absolute top-1/2 z-40 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-[13px] font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+      className={`pointer-events-auto absolute top-1/2 z-40 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-body-sm font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
         isLeft ? "right-full" : "left-full"
       }`}
       style={{
@@ -990,7 +997,7 @@ function BranchPlugHint({
 
   return (
     <span
-      className={`pointer-events-none absolute top-1/2 z-30 whitespace-nowrap text-[13px] text-canvas-muted ${
+      className={`pointer-events-none absolute top-1/2 z-30 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
         isLeft ? "right-full text-right" : "left-full text-left"
       }`}
       style={{
@@ -1022,10 +1029,10 @@ function PendingStatusIndicator({
       aria-live="polite"
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-canvas-success" />
       </span>
-      <span className="max-w-[140px] truncate text-[11px] font-medium capitalize text-canvas-muted">
+      <span className="max-w-[140px] truncate text-canvas-caption font-medium capitalize text-canvas-muted">
         {label}
       </span>
     </div>

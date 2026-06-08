@@ -27,7 +27,7 @@ export function CodeArtifactContent({
   if (!active) {
     return (
       <ArtifactContentStage minHeight={fill ? undefined : "240px"} fill={fill}>
-        <p className="p-4 text-[13px] text-canvas-muted">No files in this artifact.</p>
+        <p className="p-4 text-canvas-body-sm text-canvas-muted">No files in this artifact.</p>
       </ArtifactContentStage>
     );
   }
@@ -45,7 +45,7 @@ export function CodeArtifactContent({
                 key={f.path}
                 type="button"
                 onClick={() => selectFile(i)}
-                className={`rounded px-2 py-1 text-[12px] transition-colors ${
+                className={`rounded px-2 py-1 text-canvas-compact transition-colors ${
                   i === activeIdx
                     ? "bg-canvas-ink text-canvas-card"
                     : "text-canvas-muted hover:bg-white/60"
@@ -58,7 +58,7 @@ export function CodeArtifactContent({
         )}
         <pre
           data-canvas-scroll
-          className="min-h-0 flex-1 overflow-auto p-4 font-mono text-[13px] leading-[1.55] text-canvas-ink"
+          className="min-h-0 flex-1 overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
         >
           <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>
@@ -75,7 +75,7 @@ export function CodeArtifactContent({
               key={f.path}
               type="button"
               onClick={() => selectFile(i)}
-              className={`rounded px-2 py-1 text-[12px] transition-colors ${
+              className={`rounded px-2 py-1 text-canvas-compact transition-colors ${
                 i === activeIdx
                   ? "bg-canvas-ink text-canvas-card"
                   : "text-canvas-muted hover:bg-white/60"
@@ -88,7 +88,7 @@ export function CodeArtifactContent({
       )}
       <pre
         data-canvas-scroll
-        className="max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-[13px] leading-[1.55] text-canvas-ink"
+        className="max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
       >
         <code dangerouslySetInnerHTML={{ __html: html }} />
       </pre>

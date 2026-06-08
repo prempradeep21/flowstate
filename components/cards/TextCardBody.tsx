@@ -55,7 +55,7 @@ function ExplainOverlays({
             type="button"
             aria-label="Open quick explain"
             data-explain-overlay
-            className="absolute cursor-pointer rounded-sm border-0 bg-canvas-accent/20 p-0"
+            className="absolute cursor-pointer rounded-canvas-xs border-0 bg-canvas-accent/20 p-0"
             style={{
               left: box.left,
               top: box.top,
@@ -143,8 +143,8 @@ export function TextCardBody({
 
   const bodyClass =
     plainClamp
-      ? "min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink"
-      : "min-w-0 cursor-text text-[15px] leading-relaxed text-canvas-ink";
+      ? "min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-canvas-body-lg leading-relaxed text-canvas-ink"
+      : "min-w-0 cursor-text text-canvas-body-lg leading-relaxed text-canvas-ink";
 
   const content = plainClamp ? (
     <>

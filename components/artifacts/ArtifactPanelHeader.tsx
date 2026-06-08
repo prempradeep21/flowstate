@@ -6,6 +6,7 @@ import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
+import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export interface TodoEditControls {
   canEdit: boolean;
@@ -20,6 +21,7 @@ export interface TodoEditControls {
 export function ArtifactPanelHeader({
   kind,
   title,
+  artifactId,
   versions,
   activeVersionId,
   onVersionChange,
@@ -31,6 +33,7 @@ export function ArtifactPanelHeader({
 }: {
   kind: ArtifactKind;
   title: string;
+  artifactId?: string;
   versions: ArtifactVersion[];
   activeVersionId: string;
   onVersionChange: (versionId: string) => void;
@@ -83,15 +86,36 @@ export function ArtifactPanelHeader({
   const showTodoCancel =
     todoEditControls?.isEditing && !todoEditControls.isDirty;
 
+  const ctaClass =
+    "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
+
   return (
-    <div className="flex h-10 items-center gap-2">
+    <div className="flex h-14 items-center gap-[11px]">
       {contributorProfiles && contributorProfiles.length > 0 && (
-        <ContributorAvatarStack profiles={contributorProfiles} size={20} />
+        <ContributorAvatarStack profiles={contributorProfiles} size={28} />
       )}
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">
-        <ArtifactTypeIcon kind={kind} />
+      <span
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
+          kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
+        }`}
+        style={
+          kind === "table" && artifactId
+            ? tableAccentStyles(artifactId)
+            : undefined
+        }
+      >
+        <span
+          className="flex h-full w-full items-center justify-center rounded-full"
+          style={
+            kind === "table" && artifactId
+              ? { background: "var(--table-accent-soft)" }
+              : undefined
+          }
+        >
+          <ArtifactTypeIcon kind={kind} className="h-[22px] w-[22px]" />
+        </span>
       </span>
-      <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-canvas-ink">
+      <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
         {title}
       </h2>
 
@@ -99,7 +123,7 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={todoEditControls.onEdit}
-          className="flex h-8 shrink-0 items-center rounded-full border border-canvas-ink/20 px-3 text-[13px] font-medium text-canvas-ink transition-colors hover:bg-canvas-bg"
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
         >
           Edit
         </button>
@@ -109,25 +133,25 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={todoEditControls.onCancelEdit}
-          className="flex h-8 shrink-0 items-center rounded-full border border-canvas-ink/20 px-3 text-[13px] font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
         >
           Cancel
         </button>
       )}
 
       {showTodoSaveDiscard && (
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={todoEditControls.onDiscard}
-            className="flex h-8 items-center rounded-full px-3 text-[13px] font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+            className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
           >
             Discard
           </button>
           <button
             type="button"
             onClick={todoEditControls.onSave}
-            className="flex h-8 items-center rounded-full bg-canvas-accent px-3 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+            className={`${ctaClass} bg-canvas-accent text-white hover:opacity-90`}
           >
             Save
           </button>
@@ -138,15 +162,15 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={() => setVersionOpen((o) => !o)}
-          className="flex h-8 items-center gap-1 rounded-full border border-canvas-ink/20 px-3 text-[13px] font-medium text-canvas-ink transition-colors hover:bg-canvas-bg"
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
         >
           Version {active?.number ?? 1}
-          <span className="text-[10px] opacity-70" aria-hidden>
+          <span className="text-canvas-body opacity-70" aria-hidden>
             ⌵
           </span>
         </button>
         {versionOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card">
+          <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
             {[...safeVersions].reverse().map((v) => (
               <button
                 key={v.id}
@@ -155,7 +179,7 @@ export function ArtifactPanelHeader({
                   onVersionChange(v.id);
                   setVersionOpen(false);
                 }}
-                className={`block w-full px-3 py-2 text-left text-[13px] ${
+                className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
                   v.id === activeVersionId
                     ? "bg-canvas-bg font-medium text-canvas-ink"
                     : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
@@ -174,16 +198,16 @@ export function ArtifactPanelHeader({
             aria-label="More options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
           >
-            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
+            <svg viewBox="0 0 16 16" className="h-[22px] w-[22px]" fill="currentColor" aria-hidden>
               <circle cx="8" cy="3.5" r="1.25" />
               <circle cx="8" cy="8" r="1.25" />
               <circle cx="8" cy="12.5" r="1.25" />
             </svg>
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-canvas-border bg-canvas-card py-1 shadow-card">
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
               {onExpand && (
                 <button
                   type="button"
@@ -191,7 +215,7 @@ export function ArtifactPanelHeader({
                     setMenuOpen(false);
                     onExpand();
                   }}
-                  className="block w-full px-3 py-2 text-left text-[13px] text-canvas-ink hover:bg-canvas-bg"
+                  className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
                 >
                   Expand
                 </button>
@@ -203,7 +227,7 @@ export function ArtifactPanelHeader({
                     setMenuOpen(false);
                     onRemoveFromCanvas();
                   }}
-                  className="block w-full px-3 py-2 text-left text-[13px] text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                  className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
                 >
                   Remove from canvas
                 </button>

@@ -1,4 +1,4 @@
-import { distances, durations, easings, scales } from "./tokens";
+import { distances, durations, easings, scales, staggers } from "./tokens";
 import { durationSeconds, framerTransition } from "./transitions";
 
 const standardTransition = framerTransition("standard", "easeMedium");
@@ -122,3 +122,80 @@ export const overlayPopoverVariants = {
 };
 
 export const SPAWN_ANIMATION_MS = durations.standard + 50;
+
+function cappedStaggerDelay(index: number): number {
+  const raw = index * staggers.staggerItem;
+  return Math.min(raw, staggers.staggerCap) / 1000;
+}
+
+export const sidebarTileEnterVariants = {
+  initial: {
+    opacity: 0,
+    y: distances.shiftSm,
+  },
+  animate: (index: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: cappedStaggerDelay(index),
+      duration: durationSeconds("standard"),
+      ease: [...easings.easeMedium] as [number, number, number, number],
+    },
+  }),
+  reduced: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0 },
+  },
+};
+
+export const sidebarTileExitTransition = framerTransition("fast", "easeLight");
+
+/** Duration window for panel-expand tile stagger (ms). */
+export const SIDEBAR_TILE_STAGGER_MS = staggers.staggerCap + durations.standard;
+
+export type PanelStaggerSlot = { section: number; item: number };
+
+/** Section gap + per-item delay for left-panel line reveals. */
+export function panelStaggerDelaySeconds(
+  section: number,
+  item: number,
+): number {
+  const raw =
+    section * staggers.staggerSection + item * staggers.staggerItem;
+  return Math.min(raw, staggers.staggerCap) / 1000;
+}
+
+export const panelLineEnterVariants = {
+  initial: {
+    opacity: 0,
+    x: -distances.shiftSm,
+  },
+  animate: ({ section, item }: PanelStaggerSlot) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: panelStaggerDelaySeconds(section, item),
+      duration: durationSeconds("standard"),
+      ease: [...easings.easeMedium] as [number, number, number, number],
+    },
+  }),
+  reduced: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0 },
+  },
+};
+
+/** Section indices for left panel expand stagger. */
+export const LEFT_PANEL_SECTIONS = {
+  header: 0,
+  canvases: 1,
+  invitations: 2,
+  myCanvases: 3,
+  shared: 4,
+  footer: 5,
+} as const;
+
+/** Max time for left-panel line stagger on expand (ms). */
+export const PANEL_LINE_STAGGER_MS = staggers.staggerCap + durations.standard;

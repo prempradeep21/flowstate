@@ -19,8 +19,8 @@ const PRIORITY_OPTIONS: { value: TodoPriority | ""; label: string }[] = [
 
 const PRIORITY_STYLES: Record<TodoPriority, string> = {
   low: "text-canvas-muted bg-canvas-border/40",
-  medium: "text-amber-800 bg-amber-50 ring-1 ring-amber-200/80",
-  high: "text-canvas-accent bg-canvas-artifactIconBg ring-1 ring-violet-200/80",
+  medium: "text-canvas-warningText bg-canvas-warningSoft ring-1 ring-canvas-warningRing/80",
+  high: "text-canvas-accent bg-canvas-artifactIconBg ring-1 ring-canvas-accent/30",
 };
 
 function payloadsEqual(
@@ -109,7 +109,7 @@ function TodoRow({
       <div className="min-w-0 flex-1 space-y-2">
         {readOnly ? (
           <p
-            className={`text-[14px] leading-snug ${
+            className={`text-canvas-body leading-snug ${
               item.checked
                 ? "text-canvas-muted line-through decoration-canvas-border"
                 : "text-canvas-ink"
@@ -123,7 +123,7 @@ function TodoRow({
             value={item.label}
             onChange={(e) => onUpdate({ label: e.target.value })}
             placeholder="What needs doing?"
-            className={`w-full bg-transparent text-[14px] leading-snug outline-none placeholder:text-canvas-muted/60 ${
+            className={`w-full bg-transparent text-canvas-body leading-snug outline-none placeholder:text-canvas-muted/60 ${
               item.checked
                 ? "text-canvas-muted line-through decoration-canvas-border"
                 : "text-canvas-ink"
@@ -135,14 +135,14 @@ function TodoRow({
           {readOnly ? (
             <>
               {item.dueDate && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-canvas-muted">
+                <span className="inline-flex items-center gap-1 text-canvas-caption text-canvas-muted">
                   <CalendarIcon />
                   {formatDueDate(item.dueDate)}
                 </span>
               )}
               {item.priority && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${PRIORITY_STYLES[item.priority]}`}
+                  className={`rounded-full px-2 py-0.5 text-canvas-micro font-medium uppercase tracking-wide ${PRIORITY_STYLES[item.priority]}`}
                 >
                   {item.priority}
                 </span>
@@ -150,7 +150,7 @@ function TodoRow({
             </>
           ) : (
             <>
-              <label className="inline-flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-[11px] text-canvas-muted transition-colors hover:border-canvas-border hover:bg-canvas-card">
+              <label className="inline-flex items-center gap-1 rounded-canvas border border-transparent px-1 py-0.5 text-canvas-caption text-canvas-muted transition-colors hover:border-canvas-border hover:bg-canvas-card">
                 <CalendarIcon />
                 <input
                   type="date"
@@ -158,7 +158,7 @@ function TodoRow({
                   onChange={(e) =>
                     onUpdate({ dueDate: e.target.value || undefined })
                   }
-                  className="cursor-pointer bg-transparent text-[11px] text-canvas-muted outline-none [color-scheme:light]"
+                  className="cursor-pointer bg-transparent text-canvas-caption text-canvas-muted outline-none [color-scheme:light]"
                 />
               </label>
               <select
@@ -168,7 +168,7 @@ function TodoRow({
                     priority: (e.target.value as TodoPriority) || undefined,
                   })
                 }
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide outline-none transition-colors ${
+                className={`rounded-full px-2 py-0.5 text-canvas-micro font-medium uppercase tracking-wide outline-none transition-colors ${
                   item.priority
                     ? PRIORITY_STYLES[item.priority]
                     : "bg-canvas-border/30 text-canvas-muted"
@@ -190,7 +190,7 @@ function TodoRow({
           type="button"
           onClick={onRemove}
           aria-label="Remove item"
-          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-canvas-muted opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-canvas text-canvas-muted opacity-0 transition-all hover:bg-canvas-dangerSoft hover:text-canvas-danger group-hover:opacity-100"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
             <path
@@ -354,7 +354,7 @@ export function TodoArtifactContent({
       <div className={`flex flex-col ${fill ? "min-h-0 flex-1" : ""}`}>
         <div className="shrink-0 border-b border-canvas-border/60 px-4 pb-3 pt-4">
           <div className="mb-2 flex items-baseline justify-between gap-3">
-            <span className="font-display text-[13px] tracking-wide text-canvas-ink">
+            <span className="font-display text-canvas-body-sm tracking-wide text-canvas-ink">
               {total === 0
                 ? "Nothing here yet"
                 : done === total
@@ -362,7 +362,7 @@ export function TodoArtifactContent({
                   : `${total - done} remaining`}
             </span>
             {total > 0 && (
-              <span className="text-[11px] tabular-nums text-canvas-muted">
+              <span className="text-canvas-caption tabular-nums text-canvas-muted">
                 {done}/{total}
               </span>
             )}
@@ -374,12 +374,12 @@ export function TodoArtifactContent({
             />
           </div>
           {!isLatest && (
-            <p className="mt-2 text-[11px] italic text-canvas-muted">
+            <p className="mt-2 text-canvas-caption italic text-canvas-muted">
               Viewing an older version — switch to latest to edit.
             </p>
           )}
           {externalNotice && (
-            <p className="mt-2 text-[11px] text-amber-700">{externalNotice}</p>
+            <p className="mt-2 text-canvas-caption text-canvas-warningText">{externalNotice}</p>
           )}
         </div>
 
@@ -401,10 +401,10 @@ export function TodoArtifactContent({
                   />
                 </svg>
               </div>
-              <p className="font-display text-[14px] text-canvas-ink">
+              <p className="font-display text-canvas-body text-canvas-ink">
                 {readOnly ? "No items in this version" : "Start your list"}
               </p>
-              <p className="mt-1 text-[12px] text-canvas-muted">
+              <p className="mt-1 text-canvas-compact text-canvas-muted">
                 {readOnly
                   ? "This snapshot has no tasks."
                   : "Add a task below to get going."}
@@ -431,9 +431,9 @@ export function TodoArtifactContent({
             <button
               type="button"
               onClick={addItem}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-md border border-dashed border-canvas-border text-canvas-muted">
+              <span className="flex h-5 w-5 items-center justify-center rounded-canvas border border-dashed border-canvas-border text-canvas-muted">
                 +
               </span>
               Add task

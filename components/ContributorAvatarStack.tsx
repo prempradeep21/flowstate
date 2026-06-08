@@ -30,7 +30,7 @@ export function ContributorAvatarStack({
       ))}
       {overflow > 0 && (
         <span
-          className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-bg text-[10px] font-semibold text-canvas-muted"
+          className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-bg text-canvas-micro font-semibold text-canvas-muted"
           style={{
             width: size,
             height: size,
@@ -70,7 +70,7 @@ function ContributorAvatar({
   return (
     <span
       title={label}
-      className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-accent text-[10px] font-semibold text-white"
+      className="flex shrink-0 items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-accent text-canvas-micro font-semibold text-white"
       style={{ width: size, height: size, ...style }}
     >
       {initial}

@@ -40,11 +40,11 @@ export function ArtifactPreviewPill({
         if (!artifactId) return;
         focusCanvasArtifact(artifactId);
       }}
-      className={`flex w-full max-w-md items-center gap-2.5 rounded-xl border bg-canvas-card text-left transition-colors ${
+      className={`flex w-full max-w-md items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
       } ${
         status === "failed"
-          ? "cursor-default border-amber-500/35 opacity-90"
+          ? "cursor-default border-canvas-warning/35 opacity-90"
           : status === "generating"
             ? "cursor-wait border-canvas-border opacity-80"
             : "border-canvas-border hover:border-canvas-ink/25"
@@ -58,12 +58,12 @@ export function ArtifactPreviewPill({
         <ArtifactTypeIcon kind={kind} className={compact ? "h-3 w-3" : "h-4 w-4"} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate font-medium text-canvas-ink ${compact ? "text-[12px]" : "text-[13px]"}`}>
+        <span className={`block truncate font-medium text-canvas-ink ${compact ? "text-canvas-compact" : "text-canvas-body-sm"}`}>
           {title}
         </span>
         <span
-          className={`italic ${compact ? "text-[10px]" : "text-[11px]"} ${
-            status === "failed" ? "text-amber-700/90" : "text-canvas-muted"
+          className={`italic ${compact ? "text-canvas-micro" : "text-canvas-caption"} ${
+            status === "failed" ? "text-canvas-warningText/90" : "text-canvas-muted"
           }`}
         >
           {subtitle ?? `Version ${versionNumber}`}

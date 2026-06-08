@@ -58,27 +58,27 @@ export function SelectionToolbar() {
         transform: "translate(-50%, -100%)",
       }}
     >
-      <div className="rounded-xl border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 shadow-[0_8px_30px_rgb(44_42_38/0.12)] backdrop-blur-sm ring-1 ring-black/[0.04]">
+      <div className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 shadow-[0_8px_30px_rgb(44_42_38/0.12)] backdrop-blur-sm ring-1 ring-black/[0.04]">
         {hasSelection && (
           <>
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-canvas-muted">
+            <p className="text-canvas-caption font-medium uppercase tracking-[0.06em] text-canvas-muted">
               Selection
             </p>
-            <p className="mt-1 text-[13px] leading-snug text-canvas-ink">
+            <p className="mt-1 text-canvas-body-sm leading-snug text-canvas-ink">
               {selectionLabel}
             </p>
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => clearSelection()}
-                className="flex-1 rounded-lg border border-canvas-border bg-canvas-card px-3 py-1.5 text-[12px] font-medium text-canvas-muted transition-colors hover:border-canvas-ink/20 hover:bg-canvas-bg hover:text-canvas-ink"
+                className="flex-1 rounded-canvas border border-canvas-border bg-canvas-card px-3 py-1.5 text-canvas-compact font-medium text-canvas-muted transition-colors hover:border-canvas-ink/20 hover:bg-canvas-bg hover:text-canvas-ink"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleGroup}
-                className="flex-1 rounded-lg bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90"
+                className="flex-1 rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-compact font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90"
               >
                 Group
               </button>
@@ -87,17 +87,17 @@ export function SelectionToolbar() {
         )}
         {activeGroup && !hasSelection && (
           <>
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-canvas-muted">
+            <p className="text-canvas-caption font-medium uppercase tracking-[0.06em] text-canvas-muted">
               Group
             </p>
-            <p className="mt-1 truncate text-[13px] font-medium leading-snug text-canvas-ink">
+            <p className="mt-1 truncate text-canvas-body-sm font-medium leading-snug text-canvas-ink">
               {activeGroup.label}
             </p>
             <button
               type="button"
               disabled={summarizing || Boolean(activeGroup.summaryMarkdown)}
               onClick={handleSummarize}
-              className="mt-3 w-full rounded-lg bg-canvas-ink px-3 py-1.5 text-[12px] font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 w-full rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-compact font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {summarizing
                 ? "Summarizing…"
@@ -108,7 +108,7 @@ export function SelectionToolbar() {
           </>
         )}
         {error && (
-          <p className="mt-2 text-[11px] leading-snug text-red-600">{error}</p>
+          <p className="mt-2 text-canvas-caption leading-snug text-canvas-danger">{error}</p>
         )}
       </div>
     </div>

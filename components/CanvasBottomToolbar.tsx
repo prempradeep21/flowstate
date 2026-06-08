@@ -9,6 +9,7 @@ import {
   ShareIcon,
   TypeIcon,
 } from "@/components/MenuIcons";
+import { CanvasFontPopover } from "@/components/CanvasFontPopover";
 import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
 import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
 import { UndoButton } from "@/components/UndoButton";
@@ -18,14 +19,16 @@ import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
 const toolbarBtn =
-  "flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+  "flex items-center gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
 
 const iconToggleBtn =
-  "flex h-9 w-9 items-center justify-center rounded-md transition-colors";
+  "flex h-9 w-9 items-center justify-center rounded-canvas transition-colors";
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
+  const fontBtnRef = useRef<HTMLButtonElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const [fontOpen, setFontOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const canEdit = useCanEditCanvas();
   const {
@@ -47,7 +50,7 @@ export function CanvasBottomToolbar() {
   if (!mounted) {
     return (
       <div
-        className="pointer-events-none absolute bottom-5 left-1/2 z-50 h-[52px] w-[min(100%,420px)] -translate-x-1/2 rounded-xl border border-transparent"
+        className="pointer-events-none absolute bottom-5 left-1/2 z-50 h-[52px] w-[min(100%,420px)] -translate-x-1/2 rounded-canvas border border-transparent"
         aria-hidden
       />
     );
@@ -55,13 +58,18 @@ export function CanvasBottomToolbar() {
 
   return (
     <div className="pointer-events-auto absolute bottom-5 left-1/2 z-50 -translate-x-1/2">
+      <CanvasFontPopover
+        open={fontOpen}
+        onClose={() => setFontOpen(false)}
+        anchorRef={fontBtnRef}
+      />
       <CanvasSettingsPopover
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         anchorRef={settingsBtnRef}
       />
       <div
-        className="flex items-center gap-1 rounded-xl border border-canvas-border bg-canvas-card p-1.5 shadow-card"
+        className="floating-chrome-padding flex items-center gap-1 rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
         role="toolbar"
         aria-label="Canvas tools"
       >
@@ -128,6 +136,25 @@ export function CanvasBottomToolbar() {
       />
 
       <button
+        ref={fontBtnRef}
+        type="button"
+        className={`${iconToggleBtn} ${
+          fontOpen
+            ? "bg-canvas-bg text-canvas-ink"
+            : "text-canvas-muted hover:text-canvas-ink"
+        }`}
+        aria-label="Font preview"
+        aria-expanded={fontOpen}
+        aria-haspopup="dialog"
+        onClick={() => {
+          setSettingsOpen(false);
+          setFontOpen((v) => !v);
+        }}
+      >
+        <span className="text-canvas-body-lg font-semibold leading-none">Aa</span>
+      </button>
+
+      <button
         ref={settingsBtnRef}
         type="button"
         className={`${iconToggleBtn} ${
@@ -138,13 +165,16 @@ export function CanvasBottomToolbar() {
         aria-label="Canvas settings"
         aria-expanded={settingsOpen}
         aria-haspopup="dialog"
-        onClick={() => setSettingsOpen((v) => !v)}
+        onClick={() => {
+          setFontOpen(false);
+          setSettingsOpen((v) => !v);
+        }}
       >
         <SettingsIcon />
       </button>
 
       <div
-        className="flex rounded-lg bg-canvas-bg p-0.5"
+        className="flex rounded-canvas bg-canvas-bg p-0.5"
         role="group"
         aria-label="View mode"
       >

@@ -38,7 +38,7 @@ export function CodeCardBody({ card, isStreaming }: CodeCardBodyProps) {
                 key={f.path}
                 type="button"
                 onClick={() => setActiveIdx(i)}
-                className={`rounded px-2 py-1 text-[12px] ${
+                className={`rounded px-2 py-1 text-canvas-compact ${
                   i === activeIdx
                     ? "bg-canvas-ink text-canvas-card"
                     : "text-canvas-muted hover:bg-canvas-bg"
@@ -50,7 +50,7 @@ export function CodeCardBody({ card, isStreaming }: CodeCardBodyProps) {
           </div>
         )}
         {active && (
-          <pre className="max-h-80 overflow-auto rounded-lg bg-[#f4f4f5] p-3 text-[12px] leading-relaxed text-canvas-ink">
+          <pre className="max-h-80 overflow-auto rounded-canvas bg-canvas-codeBg p-3 text-canvas-compact leading-relaxed text-canvas-ink">
             <code>{active.content}</code>
           </pre>
         )}

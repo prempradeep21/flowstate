@@ -2,6 +2,7 @@
 
 import { useCanvasStore, type CardSide } from "@/lib/store";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
@@ -12,7 +13,9 @@ import {
 } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-const STROKE_FALLBACK = "#B8B5AE";
+import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+
+const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
 
 export function PlugConnectorLayer() {
@@ -21,6 +24,8 @@ export function PlugConnectorLayer() {
   const threads = useCanvasStore((s) => s.threads);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
+  const canvasAssets = useCanvasStore((s) => s.canvasAssets);
+  const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const tuning = RESOLVED_CANVAS_TUNING;
@@ -34,7 +39,7 @@ export function PlugConnectorLayer() {
   );
 
   let fromAnchor;
-  let stroke = STROKE_FALLBACK;
+  let stroke: string = STROKE_FALLBACK;
   let dashed = false;
   let fromSide: CardSide;
   let toSide: CardSide;
@@ -59,7 +64,7 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     stroke = threads[card.threadId]?.accentColour ?? STROKE_FALLBACK;
-  } else {
+  } else if (plugDrag.kind === "artifact") {
     const node = canvasArtifactNodes[plugDrag.artifactNodeId];
     if (!node) return null;
     const art = sessionArtifacts[node.artifactId];
@@ -77,6 +82,22 @@ export function PlugConnectorLayer() {
     stroke =
       (artCard && threads[artCard.threadId]?.accentColour) ??
       STROKE_FALLBACK;
+    dashed = true;
+  } else {
+    const node = canvasAssetNodes[plugDrag.assetNodeId];
+    if (!node) return null;
+    const asset = canvasAssets[node.assetId];
+    const { w, h } = getCanvasAssetBounds(node, asset);
+    fromSide = plugDrag.fromSide;
+    toSide = plugDrag.fromSide === "left" ? "right" : "left";
+    fromAnchor = plugAnchorAt(
+      node.position.x,
+      node.position.y,
+      w,
+      h,
+      fromSide,
+    );
+    stroke = "#7C9EFF";
     dashed = true;
   }
 

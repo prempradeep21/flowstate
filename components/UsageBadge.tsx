@@ -13,7 +13,7 @@ export function UsageBadge() {
 
   return (
     <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border bg-canvas-card px-3 py-1.5 shadow-card">
-      <span className="text-[11px] text-canvas-muted">
+      <span className="text-canvas-caption text-canvas-muted">
         ↑ {fmt(inputTokens)} &nbsp;↓ {fmt(outputTokens)} tokens
       </span>
     </div>

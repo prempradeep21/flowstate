@@ -50,9 +50,9 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
       ref={popoverRef}
       role="dialog"
       aria-label="Canvas settings"
-      className="absolute bottom-full left-1/2 z-[60] mb-3 w-[min(calc(100vw-2rem),280px)] -translate-x-1/2 rounded-xl border border-canvas-border bg-canvas-card p-3 shadow-card"
+      className="absolute bottom-full left-1/2 z-[60] mb-3 w-[min(calc(100vw-2rem),280px)] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
     >
-      <h3 className="mb-2 text-[13px] font-semibold text-canvas-ink">
+      <h3 className="mb-2 text-canvas-body-sm font-semibold text-canvas-ink">
         Background
       </h3>
       <div className="grid grid-cols-2 gap-2">
@@ -65,7 +65,7 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
               type="button"
               aria-pressed={selected}
               onClick={() => setCanvasBackgroundStyle(option.id)}
-              className={`group relative overflow-hidden rounded-lg border text-left transition-colors ${
+              className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
                   ? "border-canvas-ink ring-1 ring-canvas-ink"
                   : "border-canvas-border hover:border-canvas-muted"
@@ -77,13 +77,13 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
                 </div>
               </div>
               <div className="px-2 py-1.5">
-                <span className="text-[12px] font-medium text-canvas-ink">
+                <span className="text-canvas-compact font-medium text-canvas-ink">
                   {option.label}
                 </span>
               </div>
               {selected && (
                 <span
-                  className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-canvas-ink text-[10px] text-canvas-card"
+                  className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-canvas-ink text-canvas-micro text-canvas-card"
                   aria-hidden
                 >
                   ✓

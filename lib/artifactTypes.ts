@@ -1,4 +1,6 @@
 import { normalizeCustomArtifactData } from "@/lib/customArtifact";
+import { normalizeMapArtifactData } from "@/lib/mapArtifact";
+import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 
 /** Response shape for a single canvas card turn. */
@@ -44,8 +46,16 @@ export interface TableColumn {
   label: string;
 }
 
+export type TableTagTone = "neutral" | "success" | "warning" | "danger" | "info";
+
+export interface TableTag {
+  label: string;
+  tone?: TableTagTone;
+}
+
 export interface TableCell {
-  value: string;
+  value?: string;
+  tags?: TableTag[];
   badge?: string;
 }
 
@@ -103,9 +113,18 @@ export interface MapPlace {
   lng?: number;
 }
 
+export interface MapSavedPlace {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  type?: string;
+}
+
 export interface MapArtifactData {
   place: MapPlace;
   zoom: number;
+  savedPlaces?: MapSavedPlace[];
 }
 
 export type ArtifactPayload =
@@ -203,7 +222,7 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
       return {
         type: "table",
         ...base,
-        data: artifact.data as unknown as TableArtifactData,
+        data: normalizeTableArtifactData(artifact.data),
       };
     case "code":
       return {
@@ -241,7 +260,7 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
       return {
         type: "map",
         ...base,
-        data: artifact.data as unknown as MapArtifactData,
+        data: normalizeMapArtifactData(artifact.data),
       };
     default:
       return {

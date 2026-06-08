@@ -115,7 +115,7 @@ export function ArtifactPanel() {
         {structuredOpen && sessionArtifact && activeVersion ? (
           <div className="flex h-full flex-col overflow-hidden p-5">
             <div
-              className={`shrink-0 rounded-artifact-card border bg-canvas-card p-5 shadow-card ${
+              className={`shrink-0 rounded-canvas border bg-canvas-card p-5 shadow-card ${
                 todoEditing
                   ? "border-2 border-dashed border-canvas-accent"
                   : "border-canvas-border"
@@ -135,11 +135,11 @@ export function ArtifactPanel() {
             <header className="flex flex-col gap-1 border-b border-canvas-border bg-canvas-card px-5 py-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-canvas-muted">
+                  <div className="text-canvas-caption font-medium uppercase tracking-wider text-canvas-muted">
                     {group ? "Summary" : "Document"}
                   </div>
                   {group && (
-                    <div className="truncate text-[13px] font-medium text-canvas-ink">
+                    <div className="truncate text-canvas-body-sm font-medium text-canvas-ink">
                       {headerTitle}
                     </div>
                   )}
@@ -150,7 +150,7 @@ export function ArtifactPanel() {
                       <button
                         type="button"
                         onClick={() => downloadGroupMarkdown(group)}
-                        className="rounded-md px-2 py-1 text-[12px] text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                        className="rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
                       >
                         Download
                       </button>
@@ -158,7 +158,7 @@ export function ArtifactPanel() {
                         type="button"
                         disabled={!canRefresh || refreshing}
                         onClick={handleRefresh}
-                        className="rounded-md px-2 py-1 text-[12px] text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {refreshing ? "Refreshing…" : "Refresh"}
                       </button>
@@ -168,7 +168,7 @@ export function ArtifactPanel() {
                     type="button"
                     aria-label="Close"
                     onClick={closeArtifact}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                    className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
                   >
                     <svg
                       aria-hidden
@@ -187,10 +187,10 @@ export function ArtifactPanel() {
                 </div>
               </div>
               {refreshError && (
-                <p className="text-[11px] text-red-600">{refreshError}</p>
+                <p className="text-canvas-caption text-canvas-danger">{refreshError}</p>
               )}
             </header>
-            <div className="flex-1 overflow-y-auto bg-canvas-card px-6 py-6 text-[14px] leading-relaxed text-canvas-ink">
+            <div className="flex-1 overflow-y-auto bg-canvas-card px-6 py-6 text-canvas-body leading-relaxed text-canvas-ink">
               {legacyMarkdown && (
                 <ReactMarkdown components={MARKDOWN_COMPONENTS}>
                   {legacyMarkdown}

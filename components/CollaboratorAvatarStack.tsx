@@ -10,14 +10,14 @@ const sizeClasses: Record<
 > = {
   sm: {
     avatar: "h-7 w-7 border-[1.5px]",
-    text: "text-[10px]",
-    overflow: "text-[10px]",
+    text: "text-canvas-micro",
+    overflow: "text-canvas-micro",
     stack: "-space-x-1.5",
   },
   md: {
     avatar: "h-8 w-8 border-2",
-    text: "text-xs",
-    overflow: "text-xs",
+    text: "text-canvas-compact",
+    overflow: "text-canvas-compact",
     stack: "-space-x-2",
   },
 };
@@ -85,8 +85,8 @@ export function CollaboratorAvatarStack({
       <button
         type="button"
         onClick={onClick}
-        className={`pointer-events-auto rounded-md transition-colors hover:bg-canvas-bg ${
-          size === "sm" ? "px-1 py-0.5" : "rounded-lg px-1 py-1"
+        className={`pointer-events-auto rounded-canvas transition-colors hover:bg-canvas-bg ${
+          size === "sm" ? "px-1 py-0.5" : "rounded-canvas px-1 py-1"
         }`}
         aria-label="View collaborators"
       >

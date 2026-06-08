@@ -6,9 +6,11 @@ import {
   patternTileSize,
 } from "@/components/canvasBackgrounds/viewportSync";
 
+import { CANVAS_BG, CANVAS_DOT } from "@/lib/design/tokens";
+
 const BASE_SPACING = 22;
-const DOT_COLOR = "#8B8A86";
-const BG_COLOR = "#FAFAF8";
+const DOT_COLOR = CANVAS_DOT;
+const BG_COLOR = CANVAS_BG;
 
 export function GridBackground({
   viewport = { x: 0, y: 0, scale: 1 },

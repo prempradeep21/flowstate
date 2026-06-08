@@ -1,7 +1,7 @@
 export function LandingQIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-md border border-current font-sans text-[11px] font-semibold leading-none ${className}`}
+      className={`inline-flex items-center justify-center rounded-canvas border border-current font-sans text-canvas-caption font-semibold leading-none ${className}`}
       aria-hidden
     >
       Q

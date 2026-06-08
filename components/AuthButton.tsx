@@ -6,8 +6,9 @@ import { useAuth } from "@/components/AuthProvider";
 type AuthButtonSize = "default" | "panel";
 
 export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
-  const textSize = size === "panel" ? "text-[18px]" : "text-xs";
-  const avatarSize = size === "panel" ? "h-[42px] w-[42px]" : "h-7 w-7";
+  const textSize =
+    size === "panel" ? "floating-chrome-chip" : "text-canvas-compact";
+  const avatarSize = size === "panel" ? "h-7 w-7" : "h-7 w-7";
   const {
     user,
     authLoading,
@@ -20,7 +21,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
   if (!supabaseConfigured) {
     return (
       <div
-        className={`pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 ${textSize} text-amber-200/90`}
+        className={`pointer-events-auto rounded-canvas border border-canvas-warning/30 bg-canvas-warning/10 px-3 py-2 ${textSize} text-canvas-warningSoft/90`}
         title="Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local"
       >
         Sign-in needs Supabase keys in .env.local
@@ -31,7 +32,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
   if (authLoading) {
     return (
       <div
-        className={`pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-muted`}
+        className={`pointer-events-auto rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-muted`}
       >
         Loading…
       </div>
@@ -48,7 +49,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
 
     return (
       <div className="pointer-events-auto flex items-center gap-2">
-        <div className="flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-surface/90 py-1 pl-1 pr-2">
+        <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-canvas-border/60 bg-canvas-card/90 py-0.5 pl-0.5 pr-2">
           {avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -63,7 +64,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
               {name.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className={`max-w-[180px] truncate ${textSize} text-canvas-ink`}>
+          <span className={`max-w-[120px] truncate ${textSize} text-canvas-ink`}>
             {name}
           </span>
         </div>
@@ -78,7 +79,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
               setBusy(false);
             }
           }}
-          className={`rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50`}
+          className={`shrink-0 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50`}
         >
           Sign out
         </button>
@@ -98,7 +99,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
           setBusy(false);
         }
       }}
-      className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-surface/90 px-3 py-1.5 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
+      className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
     >
       <GoogleIcon />
       Sign in with Google

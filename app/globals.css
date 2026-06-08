@@ -3,7 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --dot-color: #8b8a86;
+  /* Visual tokens (mirror lib/design/tokens.ts) */
+  --canvas-bg: #fafaf8;
+  --canvas-ink: #2c2a26;
+  --canvas-dot: #8b8a86;
+  --canvas-accent: #6b4eff;
+  --dot-color: var(--canvas-dot);
   /* Flowstate motion tokens (mirror lib/motion/tokens.ts) */
   --motion-ease-light: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-medium: cubic-bezier(0.16, 1, 0.3, 1);
@@ -13,7 +18,10 @@
   --motion-duration-standard: 320ms;
   --motion-duration-panel: 380ms;
   --motion-duration-slow: 480ms;
+  --motion-shift-sm: 12px;
+  --motion-shift-md: 24px;
   --motion-shift-lg: 40px;
+  --motion-duration-canvas-load: 620ms;
 }
 
 html,
@@ -23,8 +31,8 @@ body,
 }
 
 body {
-  background-color: #fafaf8;
-  color: #2c2a26;
+  background-color: var(--canvas-bg);
+  color: var(--canvas-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -45,24 +53,24 @@ body {
 }
 
 .canvas-group-bounds {
-  border: 2px dashed var(--dot-color, #8b8a86);
+  border: 2px dashed var(--dot-color);
 }
 
 ::highlight(answer-explain) {
-  background-color: rgb(107 78 255 / 0.2);
+  background-color: color-mix(in srgb, var(--canvas-accent) 20%, transparent);
   color: inherit;
 }
 
 .canvas-translucent-fill {
   background: radial-gradient(
     circle at center,
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.6) 100%
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.3) 100%
   );
 }
 
 .floating-panel {
-  @apply absolute top-3 z-40 rounded-xl border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel;
+  @apply absolute top-3 z-40 rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel;
 }
 
 .floating-panel-left {
@@ -71,6 +79,16 @@ body {
 
 .floating-panel-right {
   @apply right-3;
+}
+
+/** Shared inset for collapsed/compact floating chrome (panels, toolbars). */
+.floating-chrome-padding {
+  @apply p-3;
+}
+
+/** Typography for floating panel footer chips (save status, auth). */
+.floating-chrome-chip {
+  @apply text-canvas-body-sm;
 }
 
 @keyframes summary-pulse-stroke {
@@ -99,6 +117,67 @@ body {
 .todo-row-animate {
   animation: todo-row-in var(--motion-duration-standard) var(--motion-ease-medium)
     both;
+}
+
+@keyframes table-cell-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.table-cell-animate {
+  animation: table-cell-in 0.45s var(--motion-ease-medium) both;
+}
+
+.table-shimmer-bar {
+  position: relative;
+  overflow: hidden;
+  background: var(--table-accent-soft, rgb(138 134 126 / 0.12));
+}
+
+.table-shimmer-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--table-accent, rgb(138 134 126 / 0.35)) 50%,
+    transparent 100%
+  );
+  opacity: 0.35;
+  animation: summary-shimmer 1.8s ease-in-out infinite;
+}
+
+.table-artifact-row:hover {
+  background-color: var(--table-accent-hover, rgb(0 0 0 / 0.04));
+}
+
+.table-artifact-row:hover td {
+  background-color: inherit;
+}
+
+.table-col-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background-color: transparent;
+  transition: background-color 150ms ease;
+}
+
+.table-col-resize-handle:hover::after,
+.table-col-resize-handle:active::after {
+  background-color: var(--table-accent, rgb(138 134 126 / 0.5));
 }
 
 @keyframes switch-node-in {
@@ -186,6 +265,40 @@ body {
   animation: landing-rise 280ms var(--motion-ease-medium) both;
 }
 
+@keyframes canvas-load-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-shift-md));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes canvas-load-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.motion-canvas-load-in {
+  animation: canvas-load-slide-in var(--motion-duration-canvas-load)
+    var(--motion-ease-medium) both;
+}
+
+.motion-canvas-load-fade {
+  animation: canvas-load-fade-in var(--motion-duration-canvas-load)
+    var(--motion-ease-medium) both;
+}
+
+.motion-canvas-load-pending {
+  opacity: 0;
+}
+
 .motion-landing-skip .motion-landing-rise {
   animation: none;
   opacity: 1;
@@ -268,12 +381,21 @@ body {
   }
 
   .motion-landing-rise,
+  .motion-canvas-load-in,
+  .motion-canvas-load-fade,
   .thinking-accent-bar,
   .answer-reveal-in,
   .connection-draw-in,
   .motion-popover-in,
   .motion-fade-in {
     animation: none;
+  }
+
+  .motion-canvas-load-in,
+  .motion-canvas-load-fade,
+  .motion-canvas-load-pending {
+    opacity: 1;
+    transform: none;
   }
 
   .motion-landing-rise {

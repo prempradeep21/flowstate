@@ -5,6 +5,7 @@ import { isViewportGesturing } from "@/lib/canvasViewportGuard";
 import { ProceduralSvgBackground } from "@/components/canvasBackgrounds/ProceduralSvgBackground";
 import type { BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import { useReducedMotion } from "@/components/canvasBackgrounds/useReducedMotion";
+import { CANVAS_BG } from "@/lib/design/tokens";
 
 interface Blob {
   cx: number;
@@ -89,7 +90,7 @@ export function AmbientGradientBackground({
           </radialGradient>
         ))}
       </defs>
-      <rect width="100%" height="100%" fill="#FAFAF8" />
+      <rect width="100%" height="100%" fill={CANVAS_BG} />
       <g filter={`url(#${blurId})`}>
         {blobs.map((_, i) => (
           <rect

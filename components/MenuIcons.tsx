@@ -177,7 +177,7 @@ export function TrashIcon() {
 }
 
 const menuItemClass =
-  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-canvas-body-sm text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
 
 interface ContextMenuItemProps {
   icon: ReactNode;

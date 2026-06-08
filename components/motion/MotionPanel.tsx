@@ -24,7 +24,7 @@ export function MotionPanelContent({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.1 }}
-          className="flex flex-col items-center gap-3 px-2 py-3"
+          className="floating-chrome-padding flex items-center gap-2"
         >
           {collapsedContent}
         </m.div>

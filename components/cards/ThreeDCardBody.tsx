@@ -30,7 +30,7 @@ export function ThreeDCardBody({ card, isStreaming }: ThreeDCardBodyProps) {
         title={payload.title}
         description={payload.description}
       >
-        <ArtifactMediaViewport className="bg-[#1a1a1a]">
+        <ArtifactMediaViewport className="bg-canvas-stageDark">
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
             <svg viewBox="0 0 120 120" className="h-24 w-24 text-white/35">
               <path
@@ -54,16 +54,16 @@ export function ThreeDCardBody({ card, isStreaming }: ThreeDCardBodyProps) {
                 href={modelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="max-w-full truncate text-[12px] text-violet-300 hover:underline"
+                className="max-w-full truncate text-canvas-compact text-violet-300 hover:underline"
               >
                 {modelUrl}
               </a>
             ) : (
-              <span className="text-[13px] text-white/50">No model URL</span>
+              <span className="text-canvas-body-sm text-white/50">No model URL</span>
             )}
           </div>
           {format && (
-            <span className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-[10px] uppercase text-white/70">
+            <span className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-canvas-micro uppercase text-white/70">
               {format}
             </span>
           )}

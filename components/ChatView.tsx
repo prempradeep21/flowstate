@@ -44,7 +44,7 @@ function SidebarItem({
       <button
         type="button"
         onClick={() => onSelect(node.threadId)}
-        className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors ${
+        className={`flex w-full items-start gap-2 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm transition-colors ${
           isActive
             ? "bg-canvas-ink/8 text-canvas-ink"
             : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
@@ -117,7 +117,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
             );
           })}
 
-          <p className="pr-8 text-[15px] font-medium leading-snug text-canvas-question">
+          <p className="pr-8 text-canvas-body-lg font-medium leading-snug text-canvas-accent">
             {card.question}
           </p>
         </QaQuestionSection>
@@ -125,7 +125,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
         {showAnswer && (
           <div className="px-5 pb-4">
             {card.status === "thinking" ? (
-              <div className="text-[14px] text-canvas-muted animate-pulse">
+              <div className="text-canvas-body text-canvas-muted animate-pulse">
                 {card.thinkingLabel ?? "Thinking"}…
               </div>
             ) : (
@@ -168,7 +168,7 @@ function ChatMessages({ threadId }: { threadId: string }) {
 
   if (visibleChain.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center text-[14px] text-canvas-muted">
+      <div className="flex flex-1 items-center justify-center text-canvas-body text-canvas-muted">
         No messages in this chat yet.
       </div>
     );
@@ -180,7 +180,7 @@ function ChatMessages({ threadId }: { threadId: string }) {
       className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
     >
       <div className="relative mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-2xl border border-canvas-border bg-transparent shadow-card">
+        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
           {visibleChain.map((cardId) => (
             <QnaTurnBlock key={cardId} cardId={cardId} />
           ))}
@@ -269,14 +269,14 @@ export function ChatView() {
     <div className="flex h-full w-full bg-canvas-bg">
       <aside className="flex w-[260px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
         <div className="border-b border-canvas-border px-4 py-3">
-          <h2 className="text-[13px] font-semibold text-canvas-ink">Chats</h2>
-          <p className="mt-0.5 text-[11px] text-canvas-muted">
+          <h2 className="text-canvas-body-sm font-semibold text-canvas-ink">Chats</h2>
+          <p className="mt-0.5 text-canvas-caption text-canvas-muted">
             Branches appear nested under their parent.
           </p>
         </div>
         <nav className="flex-1 overflow-y-auto p-2">
           {sidebar.length === 0 ? (
-            <p className="px-2 py-4 text-[13px] text-canvas-muted">
+            <p className="px-2 py-4 text-canvas-body-sm text-canvas-muted">
               Start a conversation on the canvas (press Q) to see it here.
             </p>
           ) : (
@@ -301,7 +301,7 @@ export function ChatView() {
             <ThreadChatComposer threadId={activeThreadId} />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-[14px] text-canvas-muted">
+          <div className="flex flex-1 items-center justify-center text-canvas-body text-canvas-muted">
             Select or start a chat from the canvas.
           </div>
         )}

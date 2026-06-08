@@ -63,7 +63,7 @@ export function GroupBounds({ group }: GroupBoundsProps) {
         className="absolute left-3 top-3"
         transformOrigin="top left"
       >
-        <span className="rounded-md border border-canvas-border bg-canvas-card px-2 py-0.5 text-[11px] font-medium text-canvas-muted shadow-card">
+        <span className="rounded-canvas border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-muted shadow-card">
           {group.label}
         </span>
       </ZoomResistantChrome>
