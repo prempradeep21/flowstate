@@ -18,6 +18,7 @@ import {
   type CanvasArtifactNode as CanvasArtifactNodeType,
 } from "@/lib/store";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 4;
@@ -218,6 +219,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
+    if (ds.didMove) {
+      void playSound("artifact-drag-drop");
+    }
     try {
       (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
     } catch {

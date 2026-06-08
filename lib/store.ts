@@ -369,6 +369,10 @@ interface CanvasState {
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasTheme: CanvasTheme;
+  /** UI sound effects enabled for this session. */
+  soundEnabled: boolean;
+  /** Master UI sound volume (0..1). */
+  soundVolume: number;
   /** Session-only font preview — body layer (not persisted). */
   canvasPreviewBodyFontId: string;
   /** Session-only font preview — display layer (not persisted). */
@@ -514,7 +518,7 @@ interface CanvasState {
   ) => { artifactId: string; versionId: string };
   patchWebsiteArtifactTitle: (
     artifactId: string,
-    patch: { title: string; faviconUrl?: string },
+    patch: { title: string; faviconUrl?: string; previewImageUrl?: string },
   ) => void;
   patchYoutubeArtifactTitle: (
     artifactId: string,
@@ -567,6 +571,8 @@ interface CanvasState {
   setConnectorStyle: (style: ConnectorStyle) => void;
   setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
+  setSoundEnabled: (enabled: boolean) => void;
+  setSoundVolume: (volume: number) => void;
   setCanvasPreviewBodyFontId: (id: string) => void;
   setCanvasPreviewDisplayFontId: (id: string) => void;
   /** Re-measure cards from DOM at current zoom, then repair vertical chains. */
@@ -957,6 +963,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
   canvasTheme: "light",
+  soundEnabled: true,
+  soundVolume: 0.7,
   canvasPreviewBodyFontId: DEFAULT_BODY_FONT_ID,
   canvasPreviewDisplayFontId: "denton",
   globalOrigin: null,
@@ -1137,6 +1145,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setCanvasTheme: (theme) =>
     set({ canvasTheme: theme, collaborationHasEdits: true }),
+
+  setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+
+  setSoundVolume: (volume) =>
+    set({ soundVolume: Math.max(0, Math.min(1, volume)) }),
 
   setCanvasPreviewBodyFontId: (id) => set({ canvasPreviewBodyFontId: id }),
   setCanvasPreviewDisplayFontId: (id) => set({ canvasPreviewDisplayFontId: id }),
@@ -1510,6 +1523,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ...latest.payload.data,
           title,
           faviconUrl: patch.faviconUrl ?? latest.payload.data.faviconUrl,
+          previewImageUrl:
+            patch.previewImageUrl ?? latest.payload.data.previewImageUrl,
         },
       };
       const versions = art.versions.map((v) =>

@@ -19,7 +19,7 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   custom: { span: 2, aspectClass: "aspect-square" },
   todo: { span: 2, aspectClass: null, minHeight: 80, maxHeight: 180 },
   code: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 140 },
-  website: { span: 1, aspectClass: null, minHeight: 80, maxHeight: 120 },
+  website: { span: 1, aspectClass: null, minHeight: 100, maxHeight: 140 },
 };
 
 /** Wide map every 3rd map (1-indexed: 3rd, 6th, …). */

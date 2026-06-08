@@ -92,6 +92,26 @@ function titleFromHtml(html: string): string | null {
   return null;
 }
 
+const PREVIEW_IMAGE_META_KEYS = [
+  "og:image",
+  "twitter:image",
+  "twitter:image:src",
+] as const;
+
+/** Parse social preview image URL from HTML (exported for unit tests). */
+export function previewImageFromHtml(html: string, baseUrl: URL): string | null {
+  for (const key of PREVIEW_IMAGE_META_KEYS) {
+    const raw = metaContent(html, key);
+    if (!raw) continue;
+    try {
+      return new URL(raw, baseUrl).toString();
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 function faviconFromHtml(html: string, baseUrl: URL): string | null {
   const iconMatch = html.match(
     /<link[^>]+rel=["'](?:shortcut icon|icon|apple-touch-icon)["'][^>]*>/i,
@@ -111,6 +131,7 @@ export interface LinkPreviewResult {
   title: string;
   domainLabel: string;
   faviconUrl?: string;
+  previewImageUrl?: string;
 }
 
 export async function fetchLinkPreview(url: string): Promise<LinkPreviewResult> {
@@ -162,8 +183,9 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreviewResult> 
 
     const title = titleFromHtml(html) ?? domainLabel;
     const faviconUrl = faviconFromHtml(html, parsed) ?? undefined;
+    const previewImageUrl = previewImageFromHtml(html, parsed) ?? undefined;
 
-    return { title, domainLabel, faviconUrl };
+    return { title, domainLabel, faviconUrl, previewImageUrl };
   } catch {
     return { title: domainLabel, domainLabel };
   } finally {

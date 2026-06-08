@@ -20,6 +20,7 @@ export interface LinkPreviewClientResult {
   title: string;
   domainLabel: string;
   faviconUrl?: string;
+  previewImageUrl?: string;
 }
 
 export async function fetchLinkPreviewClient(
@@ -42,6 +43,7 @@ function enrichWebsiteTitle(artifactId: string, url: string): void {
     useCanvasStore.getState().patchWebsiteArtifactTitle(artifactId, {
       title: preview.title,
       faviconUrl: preview.faviconUrl,
+      previewImageUrl: preview.previewImageUrl,
     });
   });
 }

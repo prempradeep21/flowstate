@@ -31,6 +31,10 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
   const setCanvasBackgroundStyle = useCanvasStore(
     (s) => s.setCanvasBackgroundStyle,
   );
+  const soundEnabled = useCanvasStore((s) => s.soundEnabled);
+  const soundVolume = useCanvasStore((s) => s.soundVolume);
+  const setSoundEnabled = useCanvasStore((s) => s.setSoundEnabled);
+  const setSoundVolume = useCanvasStore((s) => s.setSoundVolume);
 
   const handlePointerDown = useCallback(
     (e: PointerEvent) => {
@@ -165,6 +169,36 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
           );
         })}
       </div>
+
+      <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
+        Sound (master)
+      </h3>
+      <label className="mb-3 flex items-center gap-2 text-canvas-compact text-canvas-ink">
+        <input
+          type="checkbox"
+          checked={soundEnabled}
+          onChange={(e) => setSoundEnabled(e.target.checked)}
+        />
+        UI sounds
+      </label>
+      <label className="flex items-center gap-3">
+        <span className="shrink-0 text-canvas-compact text-canvas-muted">
+          Volume
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={soundVolume}
+          disabled={!soundEnabled}
+          onChange={(e) => setSoundVolume(Number(e.target.value))}
+          className="flex-1 disabled:opacity-40"
+        />
+        <span className="w-8 text-canvas-compact tabular-nums text-canvas-ink">
+          {Math.round(soundVolume * 100)}
+        </span>
+      </label>
     </div>
   );
 }

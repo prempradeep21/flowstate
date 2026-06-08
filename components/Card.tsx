@@ -38,6 +38,7 @@ import {
   handleStreamArtifact,
 } from "@/lib/artifactGeneration";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
+import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
 import {
   getLandingCardId,
   shouldShowCanvasLanding,
@@ -655,6 +656,9 @@ function CardInner({ card }: CardProps) {
     const dist = Math.hypot(screenDx, screenDy);
     if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
 
+    if (!ds.didMove) {
+      void playSoundThrottled("card-drag-start");
+    }
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -681,6 +685,9 @@ function CardInner({ card }: CardProps) {
   const handleDragPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
+    if (ds.didMove) {
+      void playSound("card-drag-drop");
+    }
     try {
       (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
     } catch {

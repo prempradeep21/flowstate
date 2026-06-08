@@ -17,7 +17,11 @@ export function normalizeWebsiteArtifactData(data: unknown): WebsiteArtifactData
     typeof obj.faviconUrl === "string" && obj.faviconUrl.trim()
       ? obj.faviconUrl.trim()
       : undefined;
-  return { url, title, domainLabel: domainLabel || title, faviconUrl };
+  const previewImageUrl =
+    typeof obj.previewImageUrl === "string" && obj.previewImageUrl.trim()
+      ? obj.previewImageUrl.trim()
+      : undefined;
+  return { url, title, domainLabel: domainLabel || title, faviconUrl, previewImageUrl };
 }
 
 export function normalizeWebsitePayload(

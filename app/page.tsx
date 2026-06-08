@@ -9,6 +9,7 @@ import { CanvasMinimap } from "@/components/CanvasMinimap";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
+import { CanvasSoundMuteButton } from "@/components/CanvasSoundMuteButton";
 import { ShareModal } from "@/components/ShareModal";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { useAuth } from "@/components/AuthProvider";
@@ -56,7 +57,10 @@ export default function Page() {
         <ArtifactPanel />
         <ShareModal />
         {viewMode === "canvas" && (
-          <CanvasMinimap containerRef={canvasContainerRef} />
+          <>
+            <CanvasSoundMuteButton />
+            <CanvasMinimap containerRef={canvasContainerRef} />
+          </>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
           <CanvasBottomToolbar />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchLinkPreview, validateLinkPreviewUrl } from "@/lib/linkPreview";
+import { fetchPageScreenshot } from "@/lib/pageScreenshot";
 
 export async function GET(req: Request) {
   const raw = new URL(req.url).searchParams.get("url")?.trim() ?? "";
@@ -13,6 +14,12 @@ export async function GET(req: Request) {
 
   try {
     const result = await fetchLinkPreview(raw);
+    if (!result.previewImageUrl) {
+      const screenshotUrl = await fetchPageScreenshot(raw);
+      if (screenshotUrl) {
+        result.previewImageUrl = screenshotUrl;
+      }
+    }
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Preview failed" }, { status: 500 });

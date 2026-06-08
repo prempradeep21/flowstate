@@ -92,5 +92,12 @@ export function focusCanvasArtifact(artifactId: string): boolean {
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   animateViewportTo(vp, { reducedMotion: reduced });
+
+  if (typeof window !== "undefined") {
+    void import("@/lib/sounds/engine").then(({ playSound }) => {
+      void playSound("artifact-focus");
+    });
+  }
+
   return true;
 }

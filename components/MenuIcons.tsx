@@ -142,6 +142,44 @@ export function ShareIcon() {
   );
 }
 
+export function SoundOnIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M3.5 5.5v5l3-2v-1l-3-2Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.5 5.5c1.2.8 2 2.1 2 3.5s-.8 2.7-2 3.5M11.25 4c1.9 1.2 3.15 3.2 3.15 5.5S13.15 13.8 11.25 15"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function SoundMuteIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M3.5 5.5v5l3-2v-1l-3-2Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m10.5 6 3 3M13.5 6l-3 3"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function SettingsIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

@@ -136,7 +136,7 @@ export function AnswerSelectionMenu({
     <div
       ref={menuRef}
       data-answer-selection-menu
-      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas bg-canvas-ink px-1 py-1 shadow-card"
+      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas border border-canvas-border/60 bg-canvas-ink px-1 py-1 shadow-card"
       style={{ left, top }}
       onPointerDown={(e) => {
         e.preventDefault();
@@ -152,12 +152,12 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onQuickExplain();
         }}
-        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-90"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-canvas-card transition-colors hover:bg-canvas-card/10 disabled:cursor-wait disabled:opacity-90"
       >
         {quickExplainLoading ? <LoadingSpinner /> : <HelpCircleIcon />}
         {quickExplainLoading ? "Explaining…" : "Quick explain"}
       </button>
-      <div className="mx-0.5 h-4 w-px bg-white/20" aria-hidden />
+      <div className="mx-0.5 h-4 w-px bg-canvas-card/20" aria-hidden />
       <button
         type="button"
         disabled={askDisabled || quickExplainLoading}
@@ -166,12 +166,12 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onAskQuestion();
         }}
-        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-canvas-card transition-colors hover:bg-canvas-card/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <BranchIcon />
         Ask a question
       </button>
-      <div className="mx-0.5 h-4 w-px bg-white/20" aria-hidden />
+      <div className="mx-0.5 h-4 w-px bg-canvas-card/20" aria-hidden />
       <button
         type="button"
         disabled={addToCanvasDisabled || quickExplainLoading}
@@ -180,7 +180,7 @@ export function AnswerSelectionMenu({
           e.stopPropagation();
           onAddToCanvas();
         }}
-        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-canvas px-2.5 py-1.5 text-canvas-compact font-medium text-canvas-card transition-colors hover:bg-canvas-card/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <TypeIcon />
         Add to Canvas

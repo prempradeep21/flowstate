@@ -136,6 +136,7 @@ export interface WebsiteArtifactData {
   title: string;
   domainLabel: string;
   faviconUrl?: string;
+  previewImageUrl?: string;
 }
 
 export type ArtifactPayload =
