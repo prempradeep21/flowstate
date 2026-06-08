@@ -13,6 +13,7 @@ import {
   type ContentBounds,
 } from "@/lib/canvasContentBounds";
 import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { markUserViewportInteraction } from "@/lib/canvasViewportGuard";
 import { useCanvasStore } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
@@ -21,6 +22,7 @@ const MINIMAP_W = 160;
 const MINIMAP_H = 100;
 const CHAT_DOT_SIZE = 4;
 const ARTIFACT_DOT_SIZE = 8;
+const ASSET_DOT_SIZE = 7;
 
 interface CanvasMinimapProps {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -71,6 +73,9 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
+  const canvasAssets = useCanvasStore((s) => s.canvasAssets);
+  const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
+  const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
@@ -122,6 +127,9 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
         cardOrder,
         canvasArtifactNodes,
         canvasArtifactOrder,
+        canvasAssets,
+        canvasAssetNodes,
+        canvasAssetOrder,
         canvasTextLabels,
         canvasTextLabelOrder,
         sessionArtifacts,
@@ -131,6 +139,9 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
       cardOrder,
       canvasArtifactNodes,
       canvasArtifactOrder,
+      canvasAssets,
+      canvasAssetNodes,
+      canvasAssetOrder,
       canvasTextLabels,
       canvasTextLabelOrder,
       sessionArtifacts,
@@ -181,6 +192,28 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
     }
     return dots;
   }, [canvasArtifactOrder, canvasArtifactNodes, sessionArtifacts, bounds, transform]);
+
+  const assetDots = useMemo(() => {
+    const dots: { id: string; left: number; top: number }[] = [];
+    for (const id of canvasAssetOrder) {
+      const node = canvasAssetNodes[id];
+      if (!node) continue;
+      const asset = canvasAssets[node.assetId];
+      const { w, h } = getCanvasAssetBounds(node, asset);
+      const pos = worldToMinimap(
+        node.position.x + w / 2,
+        node.position.y + h / 2,
+        bounds,
+        transform,
+      );
+      dots.push({
+        id,
+        left: pos.x - ASSET_DOT_SIZE / 2,
+        top: pos.y - ASSET_DOT_SIZE / 2,
+      });
+    }
+    return dots;
+  }, [canvasAssetOrder, canvasAssetNodes, canvasAssets, bounds, transform]);
 
   const viewportRect = useMemo(() => {
     if (containerSize.w <= 0 || containerSize.h <= 0) return null;
@@ -233,7 +266,7 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
 
   return (
     <div
-      className="pointer-events-auto absolute bottom-5 right-5 z-[55] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card/95 p-1 shadow-card backdrop-blur-sm"
+      className="pointer-events-auto absolute bottom-5 right-5 z-[55] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 p-1 shadow-card backdrop-blur-sm"
       aria-label="Canvas minimap"
     >
       <div
@@ -245,7 +278,7 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
           <div
             key={dot.id}
             aria-hidden
-            className="pointer-events-none absolute rounded-sm bg-canvas-ink/40"
+            className="pointer-events-none absolute rounded-canvas-xs bg-canvas-ink/40"
             style={{
               left: dot.left,
               top: dot.top,
@@ -258,12 +291,25 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
           <div
             key={dot.id}
             aria-hidden
-            className="pointer-events-none absolute rounded-sm bg-canvas-ink/25"
+            className="pointer-events-none absolute rounded-canvas-xs bg-canvas-ink/25"
             style={{
               left: dot.left,
               top: dot.top,
               width: ARTIFACT_DOT_SIZE,
               height: ARTIFACT_DOT_SIZE,
+            }}
+          />
+        ))}
+        {assetDots.map((dot) => (
+          <div
+            key={dot.id}
+            aria-hidden
+            className="pointer-events-none absolute rounded-canvas-xs bg-canvas-accent/45"
+            style={{
+              left: dot.left,
+              top: dot.top,
+              width: ASSET_DOT_SIZE,
+              height: ASSET_DOT_SIZE,
             }}
           />
         ))}

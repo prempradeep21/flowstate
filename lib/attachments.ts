@@ -1,11 +1,21 @@
 import type { UploadedAttachment } from "@/lib/store";
+import type { CanvasAsset, CanvasAssetKind } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
 
-export type UploadCategory = "images" | "documents";
+export type UploadCategory = "images" | "documents" | "code";
 
 export const UPLOAD_CATEGORY_LABELS: Record<UploadCategory, string> = {
   images: "Images",
   documents: "Documents",
+  code: "Code",
 };
+
+export const ASSET_STORAGE_BUCKET = "asset-files";
+export const ASSET_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const MAX_ASSET_BATCH_FILES = 20;
+export const IMAGE_ASSET_MAX_BYTES = 10 * 1024 * 1024;
+export const DOCUMENT_ASSET_MAX_BYTES = 10 * 1024 * 1024;
+export const CODE_ASSET_MAX_BYTES = 2 * 1024 * 1024;
 
 const IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -14,9 +24,108 @@ const IMAGE_TYPES = new Set([
   "image/webp",
 ]);
 
+const DOCUMENT_TYPES = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+]);
+
+const DOCUMENT_EXTENSIONS = new Set(["pdf", "txt", "md", "csv", "json"]);
+
+const CODE_EXTENSIONS = new Set([
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "sql",
+  "css",
+  "html",
+  "go",
+  "rs",
+  "java",
+  "cpp",
+  "c",
+  "cs",
+  "php",
+  "rb",
+  "sh",
+  "yaml",
+  "yml",
+]);
+
+export interface AssetUploadContext {
+  canvasId: string;
+  userId: string;
+}
+
+export type AssetUploadErrorCode =
+  | "too-many-files"
+  | "unsupported-type"
+  | "file-too-large"
+  | "image-read-failed"
+  | "upload-failed"
+  | "missing-context";
+
+export interface AssetUploadError {
+  fileName?: string;
+  code: AssetUploadErrorCode;
+  message: string;
+}
+
+export interface AssetUploadBatchResult {
+  assets: CanvasAsset[];
+  errors: AssetUploadError[];
+}
+
+function extensionForName(name: string): string {
+  return name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
+}
+
+function mimeFromExtension(ext: string): string {
+  switch (ext) {
+    case "md":
+      return "text/markdown";
+    case "csv":
+      return "text/csv";
+    case "json":
+      return "application/json";
+    case "pdf":
+      return "application/pdf";
+    default:
+      return "text/plain";
+  }
+}
+
+export function assetKindForFile(file: File): CanvasAssetKind | null {
+  const ext = extensionForName(file.name);
+  const type = file.type || "";
+  if (IMAGE_TYPES.has(type)) return "image";
+  if (DOCUMENT_TYPES.has(type) || DOCUMENT_EXTENSIONS.has(ext)) {
+    return "document";
+  }
+  if (CODE_EXTENSIONS.has(ext)) return "code";
+  return null;
+}
+
+export function maxBytesForAssetKind(kind: CanvasAssetKind): number {
+  if (kind === "code") return CODE_ASSET_MAX_BYTES;
+  if (kind === "image") return IMAGE_ASSET_MAX_BYTES;
+  return DOCUMENT_ASSET_MAX_BYTES;
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export function uploadCategoryForMime(mime: string): UploadCategory | null {
   if (IMAGE_TYPES.has(mime)) return "images";
-  if (mime === "application/pdf") return "documents";
+  if (DOCUMENT_TYPES.has(mime)) return "documents";
   return null;
 }
 
@@ -36,6 +145,7 @@ export function groupUploadedAttachments(
   const buckets: Record<UploadCategory, UploadedAttachment[]> = {
     images: [],
     documents: [],
+    code: [],
   };
 
   for (const att of attachments) {
@@ -43,11 +153,197 @@ export function groupUploadedAttachments(
     if (cat) buckets[cat].push(att);
   }
 
-  return (["images", "documents"] as const).map((category) => ({
+  return (["images", "documents", "code"] as const).map((category) => ({
     category,
     label: UPLOAD_CATEGORY_LABELS[category],
     items: buckets[category],
   }));
+}
+
+export function groupCanvasAssets(
+  assets: CanvasAsset[],
+): { category: UploadCategory; label: string; items: CanvasAsset[] }[] {
+  const buckets: Record<UploadCategory, CanvasAsset[]> = {
+    images: [],
+    documents: [],
+    code: [],
+  };
+  for (const asset of assets) {
+    if (asset.kind === "image") buckets.images.push(asset);
+    else if (asset.kind === "code") buckets.code.push(asset);
+    else buckets.documents.push(asset);
+  }
+  return (["images", "documents", "code"] as const).map((category) => ({
+    category,
+    label: UPLOAD_CATEGORY_LABELS[category],
+    items: buckets[category].sort((a, b) => b.createdAt - a.createdAt),
+  }));
+}
+
+function validateAssetFile(file: File): { kind: CanvasAssetKind } | AssetUploadError {
+  const kind = assetKindForFile(file);
+  if (!kind) {
+    return {
+      fileName: file.name,
+      code: "unsupported-type",
+      message: `${file.name} is not a supported image, document, or code file.`,
+    };
+  }
+  const maxBytes = maxBytesForAssetKind(kind);
+  if (file.size > maxBytes) {
+    return {
+      fileName: file.name,
+      code: "file-too-large",
+      message: `${file.name} is ${formatBytes(file.size)}; the limit is ${formatBytes(maxBytes)}.`,
+    };
+  }
+  return { kind };
+}
+
+function getImageDimensions(file: File): Promise<{
+  width: number;
+  height: number;
+  aspectRatio: number;
+}> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+      if (!width || !height) {
+        reject(new Error("Image has no readable dimensions"));
+        return;
+      }
+      resolve({ width, height, aspectRatio: width / height });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read image dimensions"));
+    };
+    img.src = url;
+  });
+}
+
+function safeStorageName(name: string): string {
+  const ext = extensionForName(name);
+  const stem = name
+    .replace(/\.[^.]+$/, "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${stem || "asset"}-${suffix}${ext ? `.${ext}` : ""}`;
+}
+
+export async function uploadAssetFiles(
+  files: FileList | File[],
+  context: AssetUploadContext | null,
+): Promise<AssetUploadBatchResult> {
+  const input = Array.from(files);
+  const result: AssetUploadBatchResult = { assets: [], errors: [] };
+
+  if (!context?.canvasId || !context.userId) {
+    return {
+      assets: [],
+      errors: [
+        {
+          code: "missing-context",
+          message: "Sign in and open a canvas before uploading assets.",
+        },
+      ],
+    };
+  }
+
+  if (input.length > MAX_ASSET_BATCH_FILES) {
+    result.errors.push({
+      code: "too-many-files",
+      message: `Drop ${MAX_ASSET_BATCH_FILES} files or fewer at a time.`,
+    });
+    return result;
+  }
+
+  const supabase = createClient();
+
+  for (const file of input) {
+    const validation = validateAssetFile(file);
+    if ("code" in validation) {
+      result.errors.push(validation);
+      continue;
+    }
+
+    let dimensions:
+      | { width: number; height: number; aspectRatio: number }
+      | undefined;
+    if (validation.kind === "image") {
+      try {
+        dimensions = await getImageDimensions(file);
+      } catch {
+        result.errors.push({
+          fileName: file.name,
+          code: "image-read-failed",
+          message: `Could not read dimensions for ${file.name}.`,
+        });
+        continue;
+      }
+    }
+
+    const storagePath = `${context.userId}/${context.canvasId}/${safeStorageName(file.name)}`;
+    const contentType =
+      file.type || mimeFromExtension(extensionForName(file.name));
+    const { error } = await supabase.storage
+      .from(ASSET_STORAGE_BUCKET)
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        contentType,
+        upsert: false,
+      });
+
+    if (error) {
+      result.errors.push({
+        fileName: file.name,
+        code: "upload-failed",
+        message: `Could not upload ${file.name}: ${error.message}`,
+      });
+      continue;
+    }
+
+    const { data: signed, error: signedError } = await supabase.storage
+      .from(ASSET_STORAGE_BUCKET)
+      .createSignedUrl(storagePath, ASSET_SIGNED_URL_TTL_SECONDS);
+
+    if (signedError || !signed?.signedUrl) {
+      result.errors.push({
+        fileName: file.name,
+        code: "upload-failed",
+        message: `Uploaded ${file.name}, but could not create a preview URL.`,
+      });
+      continue;
+    }
+
+    result.assets.push({
+      id: `asset_${Date.now().toString(36)}_${Math.random()
+        .toString(36)
+        .slice(2, 7)}`,
+      canvasId: context.canvasId,
+      ownerId: context.userId,
+      name: file.name,
+      mimeType: contentType,
+      sizeBytes: file.size,
+      storagePath,
+      publicUrl: signed.signedUrl,
+      kind: validation.kind,
+      ...(dimensions ?? {}),
+      createdAt: Date.now(),
+    });
+  }
+
+  return result;
 }
 
 export async function fileToUploadedAttachment(

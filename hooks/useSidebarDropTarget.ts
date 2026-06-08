@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import type { AttachedArtifactRef, PendingFileAttachment } from "@/lib/store";
+import type {
+  AttachedArtifactRef,
+  AttachedAssetRef,
+  PendingFileAttachment,
+} from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
 import {
   allowSidebarDrop,
@@ -12,6 +16,7 @@ import {
 
 export function useSidebarDropTarget(handlers: {
   onArtifact?: (ref: AttachedArtifactRef) => void;
+  onAsset?: (ref: AttachedAssetRef) => void;
   onUpload?: (file: PendingFileAttachment) => void;
 }) {
   const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
@@ -32,6 +37,12 @@ export function useSidebarDropTarget(handlers: {
         return;
       }
 
+      if (payload.kind === "asset") {
+        handlers.onAsset?.({ assetId: payload.assetId });
+        return;
+      }
+
+      if (payload.kind !== "upload") return;
       const att = uploadedAttachments.find(
         (a) => a.id === payload.attachmentId,
       );

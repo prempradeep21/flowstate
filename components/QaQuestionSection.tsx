@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-/** Shared translucent radial fill: 20% white at center → 60% at edges. */
+/** Shared translucent radial fill: 10% white at center → 30% at edges. */
 export const CANVAS_TRANSLUCENT_FILL_CLASS = "canvas-translucent-fill";
 
 interface QaTranslucentSurfaceProps {
@@ -52,7 +52,7 @@ export function QaQuestionSection({
       {accentColour && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 rounded-l-2xl"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 rounded-l-canvas"
           style={{
             background: accentColour,
             width: accentWidth,

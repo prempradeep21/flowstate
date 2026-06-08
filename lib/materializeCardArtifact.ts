@@ -64,6 +64,32 @@ export function materializeCardArtifact(
 } | null {
   const payload = payloadForCard(card);
 
+  if (
+    payload?.type === "table" &&
+    card.outputArtifactId &&
+    sessionArtifacts[card.outputArtifactId]
+  ) {
+    const art = sessionArtifacts[card.outputArtifactId];
+    const latest = getLatestVersion(art);
+    if (
+      latest?.payload.type === "table" &&
+      latest.payload.data.rows.length > 0
+    ) {
+      return {
+        card: {
+          ...card,
+          outputArtifactId: art.id,
+          outputArtifactVersionId: art.latestVersionId,
+          responseType: "table",
+          artifactPayload: undefined,
+        },
+        sessionArtifacts,
+        artifactId: art.id,
+        versionId: art.latestVersionId,
+      };
+    }
+  }
+
   if (!payload) {
     if (card.outputArtifactId && !card.outputArtifactVersionId) {
       const art = sessionArtifacts[card.outputArtifactId];
@@ -79,6 +105,11 @@ export function materializeCardArtifact(
     return null;
   }
 
+  const placeholderId =
+    card.outputArtifactId &&
+    canAppendArtifactVersion(sessionArtifacts[card.outputArtifactId], payload)
+      ? card.outputArtifactId
+      : null;
   const resolvedId = resolveEditingArtifactId(
     card,
     context.cards,
@@ -86,10 +117,11 @@ export function materializeCardArtifact(
     context.cardOrder,
   );
   const existingId =
-    resolvedId &&
+    placeholderId ??
+    (resolvedId &&
     canAppendArtifactVersion(sessionArtifacts[resolvedId], payload)
       ? resolvedId
-      : null;
+      : null);
 
   let artifactId: string;
   let versionId: string;

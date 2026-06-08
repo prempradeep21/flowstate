@@ -182,6 +182,10 @@ export function getExplainOverlayBoxes(
   return boxes;
 }
 
+function compactWhitespace(text: string): string {
+  return text.replace(/\s+/g, "");
+}
+
 export function getSelectionInContainer(
   container: HTMLElement,
 ): { selectedText: string; occurrenceIndex: number; rect: DOMRect } | null {
@@ -198,19 +202,33 @@ export function getSelectionInContainer(
   const full = joinText(nodes);
   const startOffset = rangeStartOffset(nodes, range);
 
-  if (
-    full.slice(startOffset, startOffset + selectedText.length) !== selectedText
-  ) {
-    return null;
-  }
+  const strictMatch =
+    full.slice(startOffset, startOffset + selectedText.length) === selectedText;
 
   let occurrenceIndex = 0;
-  let searchFrom = 0;
-  while (searchFrom < startOffset) {
-    const idx = full.indexOf(selectedText, searchFrom);
-    if (idx === -1 || idx >= startOffset) break;
-    occurrenceIndex++;
-    searchFrom = idx + 1;
+  if (strictMatch) {
+    let searchFrom = 0;
+    while (searchFrom < startOffset) {
+      const idx = full.indexOf(selectedText, searchFrom);
+      if (idx === -1 || idx >= startOffset) break;
+      occurrenceIndex++;
+      searchFrom = idx + 1;
+    }
+  } else {
+    // Markdown lists / multi-block answers: Range.toString() often inserts
+    // newlines between nodes that joinText() does not include.
+    const compactSelected = compactWhitespace(selectedText);
+    const compactFull = compactWhitespace(full);
+    if (!compactSelected || !compactFull.includes(compactSelected)) return null;
+
+    const compactStart = compactWhitespace(full.slice(0, startOffset)).length;
+    let searchFrom = 0;
+    while (searchFrom < compactStart) {
+      const idx = compactFull.indexOf(compactSelected, searchFrom);
+      if (idx === -1 || idx >= compactStart) break;
+      occurrenceIndex++;
+      searchFrom = idx + 1;
+    }
   }
 
   const rect = rangeVisualRect(range);

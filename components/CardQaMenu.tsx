@@ -92,7 +92,7 @@ export function CardQaMenu({
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex h-7 w-7 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+        className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
           open ? "bg-canvas-bg text-canvas-ink" : ""
         }`}
       >
@@ -102,7 +102,7 @@ export function CardQaMenu({
       {open && (
         <div
           role="menu"
-          className="motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
+          className="motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
           onPointerDown={(e) => e.stopPropagation()}
         >
           {isEmpty ? (

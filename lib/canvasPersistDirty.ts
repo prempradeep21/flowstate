@@ -14,8 +14,11 @@ export interface CanvasPersistSlice {
   selectedModel: string;
   viewMode: string;
   sessionArtifacts: Record<string, SessionArtifact>;
+  canvasAssets?: Record<string, unknown>;
   canvasArtifactNodes: Record<string, unknown>;
   canvasArtifactOrder: string[];
+  canvasAssetNodes?: Record<string, unknown>;
+  canvasAssetOrder?: string[];
   canvasTextLabels: Record<string, unknown>;
   canvasTextLabelOrder: string[];
   uploadedAttachments: unknown[];
@@ -38,8 +41,11 @@ export function pickCanvasPersistSlice(
     selectedModel: state.selectedModel,
     viewMode: state.viewMode,
     sessionArtifacts: state.sessionArtifacts,
+    canvasAssets: state.canvasAssets ?? {},
     canvasArtifactNodes: state.canvasArtifactNodes,
     canvasArtifactOrder: state.canvasArtifactOrder,
+    canvasAssetNodes: state.canvasAssetNodes ?? {},
+    canvasAssetOrder: state.canvasAssetOrder ?? [],
     canvasTextLabels: state.canvasTextLabels,
     canvasTextLabelOrder: state.canvasTextLabelOrder,
     uploadedAttachments: state.uploadedAttachments,
@@ -112,8 +118,11 @@ export function isViewportOnlyChange(
     prev.selectedModel === next.selectedModel &&
     prev.viewMode === next.viewMode &&
     prev.sessionArtifacts === next.sessionArtifacts &&
+    prev.canvasAssets === next.canvasAssets &&
     prev.canvasArtifactNodes === next.canvasArtifactNodes &&
     prev.canvasArtifactOrder === next.canvasArtifactOrder &&
+    prev.canvasAssetNodes === next.canvasAssetNodes &&
+    prev.canvasAssetOrder === next.canvasAssetOrder &&
     prev.canvasTextLabels === next.canvasTextLabels &&
     prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
     prev.uploadedAttachments === next.uploadedAttachments &&

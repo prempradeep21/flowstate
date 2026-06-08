@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useCanvasStore } from "@/lib/store";
-import type { SpawnKind, SpawnTargetKind } from "./types";
+import type { CanvasLoadRevealDelay, SpawnKind, SpawnTargetKind } from "./types";
 import { SPAWN_META_TTL_MS } from "./types";
 import { useReducedMotion } from "./useReducedMotion";
 import { shouldAnimateSpawn } from "./performance";
@@ -36,6 +36,22 @@ export function useSpawnMotionMode(
       reducedMotion,
     );
   }, [kind, bounds.x, bounds.y, bounds.w, bounds.h, reducedMotion]);
+}
+
+export function useCanvasLoadRevealDelay(
+  targetId: string,
+  targetKind: SpawnTargetKind,
+): CanvasLoadRevealDelay | null {
+  const reveal = useCanvasStore((s) => s.canvasLoadReveal);
+  if (!reveal) return null;
+
+  const key =
+    targetKind === "card" ? `card:${targetId}` : `artifact:${targetId}`;
+  const delay = reveal.delays[key];
+  if (delay === undefined) return null;
+
+  if (reveal.phase === "pending") return "pending";
+  return delay;
 }
 
 export function useClearSpawnMetaAfterAnimation(

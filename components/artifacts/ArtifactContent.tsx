@@ -3,11 +3,13 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { CodeArtifactContent } from "@/components/artifacts/CodeArtifactContent";
+import { CodeSidebarPreview } from "@/components/artifacts/CodeSidebarPreview";
 import { CustomArtifactContent } from "@/components/artifacts/CustomArtifactContent";
 import { ImagesArtifactContent } from "@/components/artifacts/ImagesArtifactContent";
 import { TableArtifactContent } from "@/components/artifacts/TableArtifactContent";
 import { ThreeDArtifactContent } from "@/components/artifacts/ThreeDArtifactContent";
 import { TodoArtifactContent } from "@/components/artifacts/TodoArtifactContent";
+import { TodoSidebarPreview } from "@/components/artifacts/TodoSidebarPreview";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -19,16 +21,21 @@ const MapArtifactContent = dynamic(
   { ssr: false },
 );
 
-export type ArtifactLayout = "canvas" | "panel";
+export type ArtifactLayout = "canvas" | "panel" | "sidebar";
 
 export function ArtifactContent({
   payload,
   layout = "panel",
+  artifactId,
+  versionId,
   onCodeActiveFileChange,
   todoContext,
+  mapCanEdit = false,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
+  artifactId?: string;
+  versionId?: string;
   onCodeActiveFileChange?: (path: string) => void;
   todoContext?: {
     artifactId: string;
@@ -39,33 +46,64 @@ export function ArtifactContent({
     onActionsReady?: (actions: import("@/components/artifacts/TodoArtifactContent").TodoArtifactActions) => void;
     onSaved?: () => void;
   };
+  mapCanEdit?: boolean;
 }) {
   const kind = payloadToArtifactKind(payload);
-  const fill = layout === "canvas";
+  const isSidebar = layout === "sidebar";
+  const fill = layout === "canvas" || isSidebar;
 
   switch (kind) {
     case "table":
       if (payload.type === "table") {
-        return <TableArtifactContent payload={payload} fill={fill} />;
+        return (
+          <TableArtifactContent
+            payload={payload}
+            artifactId={artifactId}
+            versionId={versionId}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
     case "images":
       if (payload.type === "images") {
-        return <ImagesArtifactContent payload={payload} fill={fill} />;
+        return (
+          <ImagesArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
     case "3d":
       if (payload.type === "3d") {
-        return <ThreeDArtifactContent payload={payload} fill={fill} />;
+        return (
+          <ThreeDArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
     case "custom":
       if (payload.type === "custom") {
-        return <CustomArtifactContent payload={payload} fill={fill} />;
+        return (
+          <CustomArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
     case "code":
       if (payload.type === "code") {
+        if (isSidebar) {
+          return <CodeSidebarPreview payload={payload} />;
+        }
         return (
           <CodeArtifactContent
             payload={payload}
@@ -77,24 +115,37 @@ export function ArtifactContent({
       break;
     case "map":
       if (payload.type === "map") {
-        return <MapArtifactContent payload={payload} fill={fill} />;
+        return (
+          <MapArtifactContent
+            payload={payload}
+            artifactId={artifactId}
+            canEdit={mapCanEdit && !isSidebar}
+            fill={fill}
+            sidebar={isSidebar}
+          />
+        );
       }
       break;
     case "todo":
-      if (payload.type === "todo" && todoContext) {
-        return (
-          <TodoArtifactContent
-            artifactId={todoContext.artifactId}
-            payload={payload}
-            versionId={todoContext.versionId}
-            latestVersionId={todoContext.latestVersionId}
-            isEditing={todoContext.isEditing}
-            fill={fill}
-            onDirtyChange={todoContext.onDirtyChange}
-            onActionsReady={todoContext.onActionsReady}
-            onSaved={todoContext.onSaved}
-          />
-        );
+      if (payload.type === "todo") {
+        if (isSidebar) {
+          return <TodoSidebarPreview payload={payload} />;
+        }
+        if (todoContext) {
+          return (
+            <TodoArtifactContent
+              artifactId={todoContext.artifactId}
+              payload={payload}
+              versionId={todoContext.versionId}
+              latestVersionId={todoContext.latestVersionId}
+              isEditing={todoContext.isEditing}
+              fill={fill}
+              onDirtyChange={todoContext.onDirtyChange}
+              onActionsReady={todoContext.onActionsReady}
+              onSaved={todoContext.onSaved}
+            />
+          );
+        }
       }
       break;
   }

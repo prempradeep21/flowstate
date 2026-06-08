@@ -25,7 +25,14 @@ Response rules:
 
 Table data shape for emit_artifact:
 - data.columns: array of { key, label }
-- data.rows: array of objects keyed by column key; cell values can be strings or { value, badge? }
+- data.rows: array of objects keyed by column key
+- Cell values can be strings or objects: { value?, tags?, badge? }
+- value: plain text for the cell
+- tags: array of { label, tone? } for stylized pills inside the cell (preferred for status, category, document labels)
+- tone: optional "neutral" | "success" | "warning" | "danger" | "info"
+- badge: legacy single-tag alias (prefer tags)
+- Put status/category labels as tags inside the relevant cell, not only in a separate badge column
+- Example cell: { value: "jan.kowalski@fleety.pl", tags: [{ label: "Valid", tone: "success" }, { label: "ADR", tone: "info" }] }
 
 Code data shape:
 - data.files: array of { path, language, content }
@@ -35,6 +42,7 @@ Video data shape:
 
 Map data shape (required when type is "map"):
 - data.place.name: string — a geocodable place name, e.g. "Paris, France" or "California, USA". Include country or state when ambiguous.
+- data.savedPlaces: optional array of user-saved pins — preserve when editing; each { id, label, lat, lng, type? }
 
 Todo data shape (required when type is "todo"):
 - data.items: array of { id?, label, checked, dueDate?, priority? }

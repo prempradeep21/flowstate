@@ -47,6 +47,8 @@ interface UseCollaborationOptions {
   onCanvasJoined: (canvasId: string) => Promise<void>;
   onRefreshCanvasList: () => Promise<void>;
   isRemoteUpdateRef: React.MutableRefObject<boolean>;
+  isDirtyRef?: React.MutableRefObject<boolean>;
+  isHydratingRef?: React.MutableRefObject<boolean>;
 }
 
 export function useCollaboration({
@@ -56,6 +58,8 @@ export function useCollaboration({
   onCanvasJoined,
   onRefreshCanvasList,
   isRemoteUpdateRef,
+  isDirtyRef,
+  isHydratingRef,
 }: UseCollaborationOptions) {
   const [sharedCanvases, setSharedCanvases] = useState<SharedCanvasMeta[]>([]);
   const [pendingInvites, setPendingInvites] = useState<CanvasInvite[]>([]);
@@ -253,6 +257,17 @@ export function useCollaboration({
             const newState = (payload.new as { state?: unknown })?.state;
             const parsed = parseCanvasSnapshot(newState);
             if (!parsed) return;
+
+            if (isHydratingRef?.current || isDirtyRef?.current) return;
+
+            const reveal = useCanvasStore.getState().canvasLoadReveal;
+            if (
+              reveal?.phase === "pending" ||
+              reveal?.phase === "running"
+            ) {
+              return;
+            }
+
             isRemoteUpdateRef.current = true;
             hydrateFromSnapshot(parsed, { applyViewport: false });
             requestAnimationFrame(() => {
@@ -282,6 +297,9 @@ export function useCollaboration({
     accessInfo,
     activeCanvasId,
     hydrateFromSnapshot,
+    isDirtyRef,
+    isHydratingRef,
+    isRemoteUpdateRef,
     supabaseConfigured,
     user,
   ]);

@@ -130,7 +130,7 @@ export function CanvasSwitchOverlay({
           GHOST_NODES.map((node, i) => (
             <div
               key={i}
-              className="switch-node-in absolute rounded-lg border border-canvas-border/80 bg-canvas-card/90 shadow-card"
+              className="switch-node-in absolute rounded-canvas border border-canvas-border/80 bg-canvas-card/90 shadow-card"
               style={{
                 left: `${node.x}%`,
                 top: `${node.y}%`,
@@ -149,14 +149,14 @@ export function CanvasSwitchOverlay({
 
         {!reducedMotion && (
           <div
-            className="switch-artifact absolute left-1/2 top-[72%] h-10 w-14 rounded-md border border-canvas-accent/40 bg-gradient-to-br from-canvas-accent/20 to-transparent shadow-sm"
+            className="switch-artifact absolute left-1/2 top-[72%] h-10 w-14 rounded-canvas border border-canvas-accent/40 bg-gradient-to-br from-canvas-accent/20 to-transparent shadow-sm"
             aria-hidden
           />
         )}
 
         <div className="absolute inset-x-0 bottom-[18%] flex flex-col items-center gap-3 text-center">
-          <p className="text-lg font-medium text-canvas-ink">{heading}</p>
-          <p className="max-w-sm text-sm text-canvas-muted">{statusLine}</p>
+          <p className="text-canvas-heading font-medium text-canvas-ink">{heading}</p>
+          <p className="max-w-sm text-canvas-body text-canvas-muted">{statusLine}</p>
           {!reducedMotion && (
             <div className="mt-1 flex gap-1" aria-hidden>
               {[0, 1, 2].map((i) => (

@@ -18,7 +18,8 @@ export type SidebarDragPayload =
       versionId: string;
       category: SidebarArtifactCategory;
     }
-  | { kind: "upload"; attachmentId: string };
+  | { kind: "upload"; attachmentId: string }
+  | { kind: "asset"; assetId: string };
 
 export function setSidebarDragData(
   dataTransfer: DataTransfer,
@@ -43,6 +44,9 @@ export function parseSidebarDragPayload(
       return parsed;
     }
     if (parsed.kind === "upload" && parsed.attachmentId) {
+      return parsed;
+    }
+    if (parsed.kind === "asset" && parsed.assetId) {
       return parsed;
     }
   } catch {

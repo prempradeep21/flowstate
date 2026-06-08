@@ -41,12 +41,37 @@ Sessions are listed **newest first**.
 
 ---
 
-### Session · 7th June, Sunday, Night
+### Session · 8th June, Monday, Afternoon
 
-**7 pushes to `main`** · **~4h 40m** · resolve collaborator invite RLS failures and policy recursion; add canvas collaboration with invi…
+**3 pushes to `main`** · **~2h 49m** · Add motion system, canvas performance work, and runtime stability fixes.; Fix canvas persistence,…
 
 | Time (IST) | Category | Update |
 |---|---|---|
+| 17:43 | Collaboration | Introduce Flowstate motion tokens and components, viewport culling and spatial indexing, React 19-safe Zustand selectors, non-blocking canvas saves on switch/create, and resilient collaboration inv… |
+| 15:45 | Collaboration | Serialize saves to avoid cross-canvas races on switch, sort canvases by content edits instead of viewport visits, fall back when content_edited_at is missing, render the dot grid via CSS for full c… |
+| 14:54 | UI & Navigation | Quick explain and branch-from-selection on canvas cards, floating sidebar pills with smooth expand, minimap on all canvases, and darker dot grid for readability |
+
+---
+
+### Session · 8th June, Monday, Morning
+
+**3 pushes to `main`** · **~2h 22m** · add canvas settings with procedural background options; smooth canvas zoom and preserve viewport …
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 03:03 | UI & Navigation | Introduce a toolbar settings popover for choosing per-canvas backgrounds, including dot grid, ambient gradient, blueprint, clouds, and WebGL smoke |
+| 01:14 | Collaboration | smooth canvas zoom and preserve viewport during realtime sync |
+| 00:41 | Technical | Geocode primary destinations via Nominatim and render OpenStreetMap previews on the canvas when users discuss trips, places, or geography |
+
+---
+
+### Session · 7th June, Sunday, Night
+
+**8 pushes to `main`** · **~4h 46m** · accept invites via RPC and authorize private realtime channels; resolve collaborator invite RLS f…
+
+| Time (IST) | Category | Update |
+|---|---|---|
+| 23:37 | Collaboration | Use server-side invite acceptance with auth.users email and add canvas realtime policies to stop 403 errors for collaborators |
 | 23:32 | Collaboration | Allow invitees to accept invites, read inviter metadata, join via share token RPC, and gate realtime until access is confirmed |
 | 23:11 | Collaboration | Enable owner/editor/viewer roles, share modal, sidebar invites, contributor avatars, and Supabase-backed collaboration schema |
 | 21:46 | Artifacts | Make canvas artifacts resizable with clamped bounds and updated content layouts, normalize incomplete persisted canvas state to fix production load crashes, and ship snapshot bounds tests plus the … |

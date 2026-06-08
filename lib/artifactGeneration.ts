@@ -1,14 +1,47 @@
 import type { EmittedArtifact } from "@/lib/artifactTypes";
 import { commitCardArtifact } from "@/lib/commitCardArtifact";
+import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
 import { applyEmittedArtifact } from "@/lib/dummyLLM";
-import { getLatestVersion, getVersionById, resolveEditingArtifactId } from "@/lib/sessionArtifacts";
+import {
+  getLatestVersion,
+  getVersionById,
+  resolveEditingArtifactId,
+} from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
 export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
   const applied = applyEmittedArtifact(emitted);
-  useCanvasStore.getState().updateCard(cardId, {
+  const state = useCanvasStore.getState();
+  const card = state.cards[cardId];
+  const payload = applied.artifactPayload;
+
+  if (payload?.type === "table" && card?.outputArtifactId) {
+    const art = state.sessionArtifacts[card.outputArtifactId];
+    if (art?.kind === "table") {
+      const { versionId } = state.createArtifactVersion(
+        card.outputArtifactId,
+        payload,
+        cardId,
+      );
+      const node = findCanvasNodeByArtifactId(
+        state.canvasArtifactNodes,
+        card.outputArtifactId,
+      );
+      if (node) {
+        state.setCanvasArtifactVersion(node.id, versionId);
+      }
+      state.updateCard(cardId, {
+        responseType: applied.responseType,
+        artifactPayload: payload,
+        outputArtifactVersionId: versionId,
+      });
+      return;
+    }
+  }
+
+  state.updateCard(cardId, {
     responseType: applied.responseType,
-    artifactPayload: applied.artifactPayload,
+    artifactPayload: payload,
   });
 }
 

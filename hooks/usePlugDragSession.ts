@@ -26,8 +26,14 @@ export function usePlugDragSession(
   const createRootCardWithAttachment = useCanvasStore(
     (s) => s.createRootCardWithAttachment,
   );
+  const createRootCardWithAssetAttachment = useCanvasStore(
+    (s) => s.createRootCardWithAssetAttachment,
+  );
   const setCardComposerAttachment = useCanvasStore(
     (s) => s.setCardComposerAttachment,
+  );
+  const setCardComposerAssetAttachment = useCanvasStore(
+    (s) => s.setCardComposerAssetAttachment,
   );
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -58,7 +64,7 @@ export function usePlugDragSession(
       const drag = useCanvasStore.getState().plugDrag;
       if (!drag) return;
 
-      if (drag.kind === "artifact") {
+      if (drag.kind === "artifact" || drag.kind === "asset") {
         const nearest = findNearestComposerTarget(
           world,
           container,
@@ -120,6 +126,32 @@ export function usePlugDragSession(
           );
           if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
         }
+      } else if (drag.kind === "asset") {
+        const nearest = findNearestComposerTarget(
+          world,
+          container,
+          viewport,
+          COMPOSER_PROXIMITY_PX,
+        );
+        const hit = nearest ? hitReceivePlug(world, nearest) : null;
+
+        if (hit) {
+          setCardComposerAssetAttachment(hit.cardId, {
+            assetId: drag.assetId,
+          });
+        } else if (drag.didDrag) {
+          const { cardWidth } = RESOLVED_CANVAS_TUNING;
+          const cardId = createRootCardWithAssetAttachment(
+            {
+              x: world.x - cardWidth / 2,
+              y: world.y - CARD_DROP_Y_OFFSET,
+            },
+            {
+              assetId: drag.assetId,
+            },
+          );
+          if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
+        }
       }
 
       endPlugDrag();
@@ -149,6 +181,8 @@ export function usePlugDragSession(
     createBranch,
     createBranchAt,
     createRootCardWithAttachment,
+    createRootCardWithAssetAttachment,
     setCardComposerAttachment,
+    setCardComposerAssetAttachment,
   ]);
 }

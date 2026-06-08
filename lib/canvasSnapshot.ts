@@ -5,6 +5,8 @@ import type {
   AppViewMode,
   BranchGroup,
   CanvasArtifactNode,
+  CanvasAsset,
+  CanvasAssetNode,
   CanvasBackgroundStyle,
   CanvasTextLabel,
   Card,
@@ -33,8 +35,11 @@ export interface CanvasSnapshot {
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
+  canvasAssets?: Record<string, CanvasAsset>;
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder?: string[];
+  canvasAssetNodes?: Record<string, CanvasAssetNode>;
+  canvasAssetOrder?: string[];
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
@@ -54,8 +59,11 @@ export interface CanvasSnapshotSource {
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
+  canvasAssets?: Record<string, CanvasAsset>;
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
+  canvasAssetNodes?: Record<string, CanvasAssetNode>;
+  canvasAssetOrder?: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   uploadedAttachments: UploadedAttachment[];
@@ -131,10 +139,17 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
     sessionArtifacts,
+    canvasAssets: JSON.parse(
+      JSON.stringify(source.canvasAssets ?? {}),
+    ) as Record<string, CanvasAsset>,
     canvasArtifactNodes: JSON.parse(
       JSON.stringify(source.canvasArtifactNodes),
     ) as Record<string, CanvasArtifactNode>,
     canvasArtifactOrder: [...source.canvasArtifactOrder],
+    canvasAssetNodes: JSON.parse(
+      JSON.stringify(source.canvasAssetNodes ?? {}),
+    ) as Record<string, CanvasAssetNode>,
+    canvasAssetOrder: [...(source.canvasAssetOrder ?? [])],
     canvasTextLabels: JSON.parse(
       JSON.stringify(source.canvasTextLabels),
     ) as Record<string, CanvasTextLabel>,
@@ -163,8 +178,11 @@ export function buildEmptyCanvasSnapshot(
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
+    canvasAssets: {},
     canvasArtifactNodes: {},
     canvasArtifactOrder: [],
+    canvasAssetNodes: {},
+    canvasAssetOrder: [],
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
     uploadedAttachments: [],
@@ -293,10 +311,15 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
         : base.selectedModel,
     viewMode: snapshot.viewMode === "chat" ? "chat" : "canvas",
     sessionArtifacts: normalizeSessionArtifacts(snapshot.sessionArtifacts),
+    canvasAssets: normalizeRecord<CanvasAsset>(snapshot.canvasAssets),
     canvasArtifactNodes: normalizeRecord<CanvasArtifactNode>(
       snapshot.canvasArtifactNodes,
     ),
     canvasArtifactOrder: normalizeStringArray(snapshot.canvasArtifactOrder),
+    canvasAssetNodes: normalizeRecord<CanvasAssetNode>(
+      snapshot.canvasAssetNodes,
+    ),
+    canvasAssetOrder: normalizeStringArray(snapshot.canvasAssetOrder),
     canvasTextLabels: normalizeRecord<CanvasTextLabel>(
       snapshot.canvasTextLabels,
     ),

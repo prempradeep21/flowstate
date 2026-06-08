@@ -85,6 +85,7 @@ export function TextCardBody({
 }: TextCardBodyProps) {
   const internalRef = useRef<HTMLDivElement | null>(null);
   const [useOverlayFallback, setUseOverlayFallback] = useState(false);
+  const [answerRevealed, setAnswerRevealed] = useState(false);
 
   const setRef = (node: HTMLDivElement | null) => {
     internalRef.current = node;
@@ -134,12 +135,11 @@ export function TextCardBody({
     return () => el.removeEventListener("click", onClick);
   }, [onExplainClick, answerExplains]);
 
-  if (!card.answer) return null;
-
-  const [answerRevealed, setAnswerRevealed] = useState(false);
   useEffect(() => {
     if (isStreaming && card.answer) setAnswerRevealed(true);
   }, [isStreaming, card.answer]);
+
+  if (!card.answer) return null;
 
   const bodyClass =
     plainClamp

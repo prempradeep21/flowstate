@@ -17,6 +17,7 @@ export function useViewportCulling(
     (s) =>
       s.cardOrder.length +
       s.canvasArtifactOrder.length +
+      s.canvasAssetOrder.length +
       s.canvasTextLabelOrder.length,
   );
   const enabled = shouldEnableViewportCulling(nodeCount);
@@ -55,6 +56,11 @@ export function useViewportCulling(
           alwaysVisibleArtifacts.add(state.selectedCanvasArtifactId);
         }
 
+        const alwaysVisibleAssets = new Set<string>();
+        if (state.selectedCanvasAssetId) {
+          alwaysVisibleAssets.add(state.selectedCanvasAssetId);
+        }
+
         const alwaysVisibleLabels = new Set<string>();
         if (state.selectedCanvasTextLabelId) {
           alwaysVisibleLabels.add(state.selectedCanvasTextLabelId);
@@ -68,6 +74,9 @@ export function useViewportCulling(
               cardOrder: state.cardOrder,
               canvasArtifactNodes: state.canvasArtifactNodes,
               canvasArtifactOrder: state.canvasArtifactOrder,
+              canvasAssets: state.canvasAssets,
+              canvasAssetNodes: state.canvasAssetNodes,
+              canvasAssetOrder: state.canvasAssetOrder,
               canvasTextLabels: state.canvasTextLabels,
               canvasTextLabelOrder: state.canvasTextLabelOrder,
               sessionArtifacts: state.sessionArtifacts,
@@ -76,6 +85,7 @@ export function useViewportCulling(
             {
               cards: alwaysVisibleCards,
               artifacts: alwaysVisibleArtifacts,
+              assets: alwaysVisibleAssets,
               labels: alwaysVisibleLabels,
             },
           ),
@@ -92,10 +102,14 @@ export function useViewportCulling(
         state.cardOrder !== prevState.cardOrder ||
         state.canvasArtifactNodes !== prevState.canvasArtifactNodes ||
         state.canvasArtifactOrder !== prevState.canvasArtifactOrder ||
+        state.canvasAssets !== prevState.canvasAssets ||
+        state.canvasAssetNodes !== prevState.canvasAssetNodes ||
+        state.canvasAssetOrder !== prevState.canvasAssetOrder ||
         state.canvasTextLabels !== prevState.canvasTextLabels ||
         state.canvasTextLabelOrder !== prevState.canvasTextLabelOrder ||
         state.selectedFamilyRootIds !== prevState.selectedFamilyRootIds ||
         state.selectedCanvasArtifactId !== prevState.selectedCanvasArtifactId ||
+        state.selectedCanvasAssetId !== prevState.selectedCanvasAssetId ||
         state.selectedCanvasTextLabelId !== prevState.selectedCanvasTextLabelId
       ) {
         update();

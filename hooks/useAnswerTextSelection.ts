@@ -83,17 +83,27 @@ export function useAnswerTextSelection({
     const container = containerRef.current;
     if (!container) return;
 
-    const onMouseUp = (e: MouseEvent) => {
-      if (!container.contains(e.target as Node)) return;
+    const syncSelectionFromDocument = (e: Event) => {
+      if (shouldIgnoreDismiss(e.target)) return;
+      requestAnimationFrame(() => {
+        const result = getSelectionInContainer(container);
+        if (result) {
+          setSelection(result);
+          return;
+        }
+        if (!container.contains(e.target as Node)) {
+          setSelection(null);
+        }
+      });
+    };
+
+    const onMouseUp = () => {
       requestAnimationFrame(readSelection);
     };
 
     // Bubble phase + pointerup so menu button clicks complete before dismiss.
     const onPointerUp = (e: PointerEvent) => {
-      if (shouldIgnoreDismiss(e.target)) return;
-      if (!container.contains(e.target as Node)) {
-        setSelection(null);
-      }
+      syncSelectionFromDocument(e);
     };
 
     const onKeyDown = (e: KeyboardEvent) => {

@@ -1,6 +1,10 @@
 import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
+import { estimateTextLabelBounds } from "@/lib/canvasTextLabelBounds";
 import type {
   CanvasArtifactNode,
+  CanvasAsset,
+  CanvasAssetNode,
   CanvasTextLabel,
   Card,
   SessionArtifact,
@@ -22,6 +26,9 @@ export interface CanvasContentBoundsInput {
   cardOrder: string[];
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
+  canvasAssets: Record<string, CanvasAsset>;
+  canvasAssetNodes: Record<string, CanvasAssetNode>;
+  canvasAssetOrder: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -58,12 +65,19 @@ export function computeCanvasContentBounds(
     include(node.position.x, node.position.y, w, h);
   }
 
+  for (const id of state.canvasAssetOrder) {
+    const node = state.canvasAssetNodes[id];
+    if (!node) continue;
+    const asset = state.canvasAssets[node.assetId];
+    const { w, h } = getCanvasAssetBounds(node, asset);
+    include(node.position.x, node.position.y, w, h);
+  }
+
   for (const id of state.canvasTextLabelOrder) {
     const label = state.canvasTextLabels[id];
     if (!label) continue;
-    const w = Math.max(80, label.text.length * label.fontSize * 0.35);
-    const h = label.fontSize;
-    include(label.position.x, label.position.y - h / 2, w, h);
+    const { w, h } = estimateTextLabelBounds(label);
+    include(label.position.x, label.position.y, w, h);
   }
 
   if (!Number.isFinite(minX)) {

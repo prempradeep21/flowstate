@@ -16,6 +16,13 @@ import {
   uploadedToPending,
 } from "@/lib/sidebarDnD";
 import {
+  getCanvasAssetBounds,
+} from "@/lib/canvasAssetBounds";
+import {
+  uploadAssetFiles,
+  type AssetUploadError,
+} from "@/lib/attachments";
+import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TABLE_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
@@ -30,11 +37,14 @@ import { CanvasLandingOverlay } from "@/components/CanvasLandingOverlay";
 import { CanvasBackgroundLayer } from "@/components/canvasBackgrounds/CanvasBackgroundLayer";
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
+import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
+import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
+import { getCanvasFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
 import { useCanvasPan } from "@/hooks/useCanvasPan";
 import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
@@ -62,6 +72,7 @@ import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
 import { usePersistenceReady, useAuth } from "@/components/AuthProvider";
+import { canvasLoadRevealTotalMs } from "@/lib/motion/canvasLoadReveal";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 const MARQUEE_MIN_DRAG_PX = 6;
 
@@ -76,13 +87,22 @@ export function Canvas({
   containerRef?: RefObject<HTMLDivElement | null>;
 } = {}) {
   const persistenceReady = usePersistenceReady();
-  const { user, presenceChannelRef } = useAuth();
+  const { user, activeCanvasId, presenceChannelRef, isSwitchingCanvas } =
+    useAuth();
+  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
+  const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
   const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
+  const canvasAssets = useCanvasStore((s) => s.canvasAssets);
+  const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
+  const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
+  const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
+  const spawnCanvasAsset = useCanvasStore((s) => s.spawnCanvasAsset);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
@@ -96,12 +116,17 @@ export function Canvas({
   const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
+  const selectCanvasAsset = useCanvasStore((s) => s.selectCanvasAsset);
   const setSelectedFamilyRootIds = useCanvasStore(
     (s) => s.setSelectedFamilyRootIds,
   );
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
   const hiddenCardIds = useHiddenCardIds();
+  const bodyFontId = useCanvasStore((s) => s.canvasPreviewBodyFontId);
+  const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
+  useCanvasFontLoader(bodyFontId, displayFontId);
+  const fontPreviewStyle = getCanvasFontPreviewStyles(bodyFontId, displayFontId);
 
   const showLanding = shouldShowCanvasLanding(cards, cardOrder);
   const landingCardId = getLandingCardId(cards, cardOrder);
@@ -120,6 +145,33 @@ export function Canvas({
   };
   const landingViewportCenteredRef = useRef(false);
   const seedingRef = useRef(false);
+
+  useEffect(() => {
+    if (canvasLoadReveal?.phase !== "pending") return;
+    if (!persistenceReady || isSwitchingCanvas) return;
+    startCanvasLoadReveal();
+  }, [
+    canvasLoadReveal?.phase,
+    persistenceReady,
+    isSwitchingCanvas,
+    startCanvasLoadReveal,
+  ]);
+
+  useEffect(() => {
+    if (canvasLoadReveal?.phase !== "running") return;
+    const totalMs = canvasLoadRevealTotalMs({
+      delays: canvasLoadReveal.delays,
+      unitCount: 0,
+      maxDelayMs: canvasLoadReveal.maxDelayMs,
+    });
+    const timer = window.setTimeout(() => clearCanvasLoadReveal(), totalMs);
+    return () => window.clearTimeout(timer);
+  }, [
+    canvasLoadReveal?.phase,
+    canvasLoadReveal?.maxDelayMs,
+    canvasLoadReveal?.delays,
+    clearCanvasLoadReveal,
+  ]);
 
   useEffect(() => {
     if (cardOrder.length === 0) {
@@ -141,6 +193,7 @@ export function Canvas({
   } | null>(null);
   const spaceHeldRef = useRef(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
+  const [assetDropErrors, setAssetDropErrors] = useState<AssetUploadError[]>([]);
   const [marqueeRect, setMarqueeRect] = useState<{
     x: number;
     y: number;
@@ -577,6 +630,40 @@ export function Canvas({
       window.removeEventListener("pointerdown", onPointerDown, true);
   }, [createRootCard, spawnCanvasTextLabel]);
 
+  const placeCanvasAsset = (
+    assetId: string,
+    world: { x: number; y: number },
+    index = 0,
+  ) => {
+    const asset = useCanvasStore.getState().canvasAssets[assetId];
+    if (!asset) return;
+    const bounds = getCanvasAssetBounds({}, asset);
+    const offset = index * 28;
+    spawnCanvasAsset(assetId, {
+      position: {
+        x: world.x - bounds.w / 2 + offset,
+        y: world.y - bounds.h / 2 + offset,
+      },
+      focus: true,
+    });
+  };
+
+  const handleNativeFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const world = computeWorldFromClient(e.clientX, e.clientY);
+    if (!world) return;
+    const result = await uploadAssetFiles(
+      e.dataTransfer.files,
+      user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
+    );
+    result.assets.forEach((asset, index) => {
+      addCanvasAsset(asset);
+      placeCanvasAsset(asset.id, world, index);
+    });
+    setAssetDropErrors(result.errors);
+  };
+
   const handleSidebarDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -603,6 +690,13 @@ export function Canvas({
       return;
     }
 
+    if (payload.kind === "asset") {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      placeCanvasAsset(payload.assetId, world);
+      return;
+    }
+
     const world = computeWorldFromClient(e.clientX, e.clientY);
     if (!world) return;
     const att = uploadedAttachments.find((a) => a.id === payload.attachmentId);
@@ -615,11 +709,29 @@ export function Canvas({
     maybeFocusNewCard(cardId);
   };
 
+  const handleCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer.types.includes("Files")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      return;
+    }
+    allowSidebarDrop(e);
+  };
+
+  const handleCanvasDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer.files.length > 0) {
+      await handleNativeFileDrop(e);
+      return;
+    }
+    handleSidebarDrop(e);
+  };
+
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (placementRef.current || textPlacementRef.current) return;
     if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-artifact]")) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-asset]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-text-label]")) return;
     setContextMenu({ screenX: e.clientX, screenY: e.clientY });
   };
@@ -757,14 +869,15 @@ export function Canvas({
     <div
       ref={setContainerRef}
       data-canvas-container
+      style={fontPreviewStyle}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onContextMenu={handleContextMenu}
-      onDragOver={allowSidebarDrop}
-      onDrop={handleSidebarDrop}
-      className={`absolute inset-0 overflow-hidden bg-canvas-bg select-none touch-none ${
+      onDragOver={handleCanvasDragOver}
+      onDrop={handleCanvasDrop}
+      className={`absolute inset-0 overflow-hidden bg-canvas-bg font-sans select-none touch-none ${
         placement || textPlacement
           ? "cursor-crosshair"
           : spaceHeld
@@ -799,6 +912,14 @@ export function Canvas({
           }
           return <CanvasArtifactNode key={id} node={node} />;
         })}
+        {canvasAssetOrder.map((id) => {
+          const node = canvasAssetNodes[id];
+          if (!node) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.assets.has(id)) {
+            return null;
+          }
+          return <CanvasAssetNode key={id} node={node} />;
+        })}
         {canvasTextLabelOrder.map((id) => {
           const label = canvasTextLabels[id];
           if (!label) return null;
@@ -827,6 +948,25 @@ export function Canvas({
       )}
       <SelectionOverlay rect={marqueeRect} />
       <SelectionToolbar />
+      {assetDropErrors.length > 0 && (
+        <div className="pointer-events-auto absolute left-1/2 top-4 z-50 max-w-md -translate-x-1/2 rounded-canvas border border-red-300/60 bg-red-50 px-3 py-2 text-canvas-body-sm text-red-700 shadow-card">
+          {assetDropErrors.slice(0, 3).map((error, index) => (
+            <p key={`${error.code}-${error.fileName ?? index}`}>
+              {error.message}
+            </p>
+          ))}
+          {assetDropErrors.length > 3 && (
+            <p>{assetDropErrors.length - 3} more upload errors.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => setAssetDropErrors([])}
+            className="mt-1 text-canvas-body-sm font-medium text-red-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}
@@ -868,7 +1008,7 @@ function GhostCard({ world }: { world: PlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute rounded-2xl border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
+      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
       style={{
         left: pos.x,
         top: pos.y,
@@ -876,17 +1016,17 @@ function GhostCard({ world }: { world: PlacementState }) {
       }}
     >
       <div className="px-3 py-2.5">
-        <div className="flex items-end gap-0 rounded-2xl border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
-          <span className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-[20px] font-light text-canvas-muted">
+        <div className="flex items-end gap-0 rounded-canvas border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
+          <span className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-canvas-heading font-light text-canvas-muted">
             +
           </span>
           <span className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
-          <span className="min-w-0 flex-1 py-2 text-[14px] text-canvas-muted/60">
+          <span className="min-w-0 flex-1 py-2 text-canvas-body text-canvas-muted/60">
             Ask anything
           </span>
           <SendIconPreview className="opacity-80" />
         </div>
-        <p className="mt-2 text-center text-[11px] text-canvas-muted">
+        <p className="mt-2 text-center text-canvas-caption text-canvas-muted">
           Click to place, Esc to cancel
         </p>
       </div>

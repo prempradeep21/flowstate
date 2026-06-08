@@ -29,6 +29,7 @@ All motion values live in [`lib/motion/tokens.ts`](../lib/motion/tokens.ts) and 
 | `drop` | Q-placement, attachment drop | Magnetic settle |
 | `popUp` | Follow-up, branch, artifact | Slide up + fade |
 | `landing` | Empty canvas overlay | CSS stagger |
+| `canvasLoad` | Hydrate after login / reload / switch | CSS slide + stagger (families) |
 | `panelExpand` | Sidebar toggle | CSS width + Framer content |
 | `overlay` | Artifact panel, share modal | Slide / scale |
 | `connection` | New edge | Stroke draw |
@@ -49,6 +50,7 @@ All motion values live in [`lib/motion/tokens.ts`](../lib/motion/tokens.ts) and 
 | Drop | bounce | opacity |
 | Pop-in | slide + fade | instant opacity |
 | Landing | stagger | immediate |
+| Canvas load | slide + stagger | opacity only |
 | Viewport pan | CSS transition | instant |
 | Connections | draw | static |
 | Overlays | slide | fade |

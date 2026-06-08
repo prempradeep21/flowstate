@@ -1,4 +1,4 @@
-import type { ArtifactKind } from "@/lib/artifactTypes";
+import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import {
   artifactDisplayTitle,
   getLatestVersion,
@@ -54,6 +54,46 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
     default:
       return null;
   }
+}
+
+export interface FlatArtifactListItem {
+  artifactId: string;
+  versionId: string;
+  title: string;
+  category: SidebarArtifactCategory;
+  kind: ArtifactKind;
+  payload: ArtifactPayload;
+  createdAt: number;
+}
+
+/** One sidebar tile per artifact — latest version preview only. */
+export function buildFlatArtifactList(
+  artifacts: SessionArtifact[],
+): FlatArtifactListItem[] {
+  const byArtifactId = new Map<string, FlatArtifactListItem>();
+
+  for (const art of artifacts) {
+    if (!SIDEBAR_KINDS.includes(art.kind)) continue;
+    const category = kindToCategory(art.kind);
+    if (!category) continue;
+    const ver = getLatestVersion(art);
+    if (!ver) continue;
+
+    const existing = byArtifactId.get(art.id);
+    if (existing && existing.createdAt >= ver.createdAt) continue;
+
+    byArtifactId.set(art.id, {
+      artifactId: art.id,
+      versionId: ver.id,
+      title: artifactDisplayTitle(art, ver),
+      category,
+      kind: art.kind,
+      payload: ver.payload,
+      createdAt: ver.createdAt,
+    });
+  }
+
+  return [...byArtifactId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function buildArtifactRegistry(

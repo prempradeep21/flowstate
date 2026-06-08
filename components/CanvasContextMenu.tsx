@@ -50,7 +50,7 @@ export function CanvasContextMenu({
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-50 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
+      className="fixed z-50 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
       style={{ left: menu.screenX, top: menu.screenY }}
     >
       <ContextMenuItem

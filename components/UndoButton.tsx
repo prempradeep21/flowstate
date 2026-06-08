@@ -20,7 +20,7 @@ export function UndoButton({ variant = "floating" }: { variant?: "floating" | "t
 
   const className =
     variant === "toolbar"
-      ? "flex h-9 w-9 items-center justify-center rounded-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
+      ? "flex h-9 w-9 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
       : "pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40";
 
   return (

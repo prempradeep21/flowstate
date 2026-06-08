@@ -8,7 +8,34 @@ import {
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
-import { ClaudeModel, CardImage, PendingFileAttachment, useCanvasStore } from "./store";
+import {
+  ClaudeModel,
+  CardImage,
+  CanvasAsset,
+  PendingFileAttachment,
+  useCanvasStore,
+} from "./store";
+
+const MAX_ASSET_TEXT_CONTEXT_CHARS = 60_000;
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function isTextAsset(asset: CanvasAsset): boolean {
+  return (
+    asset.kind === "code" ||
+    asset.mimeType.startsWith("text/") ||
+    asset.mimeType === "application/json"
+  );
+}
 
 async function registerConversation(
   conversationId: string,
@@ -51,6 +78,7 @@ export function askClaude(
       const editingArtifact = resolveEditingPayloadForApi(cardId);
 
       const files: PendingFileAttachment[] = [...(card?.pendingFiles ?? [])];
+      const assetTextContexts: string[] = [];
       if (card?.images?.length) {
         for (const img of card.images) {
           if (img.url.startsWith("data:")) {
@@ -66,7 +94,45 @@ export function askClaude(
         }
       }
 
+      for (const ref of card?.attachedAssets ?? []) {
+        const asset = state.canvasAssets[ref.assetId];
+        if (!asset?.publicUrl) continue;
+        try {
+          const response = await fetch(asset.publicUrl);
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          if (asset.mimeType.startsWith("image/") || asset.mimeType === "application/pdf") {
+            files.push({
+              name: asset.name,
+              mimeType: asset.mimeType,
+              base64: await blobToBase64(blob),
+            });
+          } else if (isTextAsset(asset)) {
+            const raw = await blob.text();
+            const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
+            const text = truncated
+              ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
+              : raw;
+            assetTextContexts.push(
+              `Asset: ${asset.name} (${asset.mimeType})\n${text}${
+                truncated ? "\n[Asset truncated due to size limit]" : ""
+              }`,
+            );
+          }
+        } catch {
+          assetTextContexts.push(
+            `Asset: ${asset.name} (${asset.mimeType}) could not be loaded.`,
+          );
+        }
+      }
+
       await registerConversation(cardId, parentConversationId);
+      const questionWithAssetContext =
+        assetTextContexts.length > 0
+          ? `${question}\n\nAttached asset context:\n\n${assetTextContexts.join(
+              "\n\n---\n\n",
+            )}`
+          : question;
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -76,7 +142,7 @@ export function askClaude(
         body: JSON.stringify({
           conversationId: cardId,
           parentConversationId,
-          question,
+          question: questionWithAssetContext,
           model,
           history,
           files: files.length > 0 ? files.map((f) => ({ name: f.name, type: f.mimeType, data: f.base64 })) : undefined,
@@ -147,6 +213,8 @@ export function askClaude(
             } else if (parsed.responseType === "image") {
               responseType = "image";
               cb.onResponseType?.("image");
+            } else if (parsed.pendingArtifact?.type === "table") {
+              cb.onThinking?.("Building table…");
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {

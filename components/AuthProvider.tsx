@@ -64,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchingCanvasTitle,
     loadCanvasRow,
     refreshOwnedCanvasList,
+    flushSave,
+    isDirtyRef,
+    isHydratingRef,
   } = useCanvasPersistence({
     user,
     supabaseConfigured,
@@ -92,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onCanvasJoined,
     onRefreshCanvasList,
     isRemoteUpdateRef,
+    isDirtyRef,
+    isHydratingRef,
   });
 
   useEffect(() => {
@@ -126,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       const nextUser = session?.user ?? null;
-      setUser(nextUser);
+      setUser((prev) => (prev?.id === nextUser?.id ? prev : nextUser));
 
       if (event === "SIGNED_OUT") {
         setSaveStatus("idle");
@@ -156,10 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!supabaseConfigured) return;
 
+    await flushSave();
+
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  }, [supabaseConfigured]);
+  }, [flushSave, supabaseConfigured]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

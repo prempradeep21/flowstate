@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Archivo, Parkinsans } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Providers } from "@/components/Providers";
 import { denton } from "@/lib/fonts/denton";
+import { satoshi } from "@/lib/fonts/satoshi";
 import "./globals.css";
+
+const parkinsans = Parkinsans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-parkinsans",
+});
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -31,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${denton.variable} h-full`}
+      className={`${parkinsans.variable} ${archivo.variable} ${denton.variable} ${satoshi.variable} h-full`}
     >
       <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
         <GoogleAnalytics />

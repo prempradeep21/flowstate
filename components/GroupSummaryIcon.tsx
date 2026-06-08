@@ -37,7 +37,7 @@ export function GroupSummaryIcon({ group }: GroupSummaryIconProps) {
           title="Open group summary"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => openGroupArtifact(group.id)}
-          className="pointer-events-auto relative flex h-8 w-8 items-center justify-center rounded-lg border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="pointer-events-auto relative flex h-8 w-8 items-center justify-center rounded-canvas border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
         >
           <svg
             aria-hidden

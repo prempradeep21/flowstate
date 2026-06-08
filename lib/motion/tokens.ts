@@ -39,6 +39,14 @@ export const scales = {
   scalePopStart: 0.92,
 } as const;
 
+/** Canvas load reveal — stagger left-to-right; nodes slide up from below. */
+export const canvasLoadDelays = {
+  totalMs: 3000,
+  slideDuration: 620,
+  shift: distances.shiftMd,
+  buffer: 0,
+} as const;
+
 /** Landing stagger delays (ms) — total perceptual complete < 1000ms. */
 export const landingDelays = {
   title: 0,

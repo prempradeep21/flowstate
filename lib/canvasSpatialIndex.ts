@@ -1,8 +1,12 @@
 import RBush from "rbush";
 import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
+import { estimateTextLabelBounds } from "@/lib/canvasTextLabelBounds";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import type {
   CanvasArtifactNode,
+  CanvasAsset,
+  CanvasAssetNode,
   CanvasTextLabel,
   Card,
   SessionArtifact,
@@ -18,6 +22,7 @@ export const CULLING_VIEWPORT_PADDING = 240;
 export interface VisibleNodes {
   cards: Set<string>;
   artifacts: Set<string>;
+  assets: Set<string>;
   labels: Set<string>;
 }
 
@@ -26,7 +31,7 @@ interface SpatialEntry {
   minY: number;
   maxX: number;
   maxY: number;
-  kind: "card" | "artifact" | "label";
+  kind: "card" | "artifact" | "asset" | "label";
   id: string;
 }
 
@@ -38,6 +43,9 @@ export interface CanvasSpatialInput {
   cardOrder: string[];
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasArtifactOrder: string[];
+  canvasAssets: Record<string, CanvasAsset>;
+  canvasAssetNodes: Record<string, CanvasAssetNode>;
+  canvasAssetOrder: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -54,16 +62,6 @@ export function getVisibleWorldRect(
   const maxX = (containerWidth - viewport.x) / viewport.scale + padding;
   const maxY = (containerHeight - viewport.y) / viewport.scale + padding;
   return { minX, minY, maxX, maxY };
-}
-
-function estimateTextLabelBounds(label: CanvasTextLabel): {
-  w: number;
-  h: number;
-} {
-  const charWidth = label.fontSize * 0.55;
-  const w = Math.max(label.fontSize * 2, label.text.length * charWidth);
-  const h = label.fontSize * 1.35;
-  return { w, h };
 }
 
 export function buildCanvasSpatialIndex(
@@ -103,6 +101,21 @@ export function buildCanvasSpatialIndex(
     });
   }
 
+  for (const id of input.canvasAssetOrder) {
+    const node = input.canvasAssetNodes[id];
+    if (!node) continue;
+    const asset = input.canvasAssets[node.assetId];
+    const { w, h } = getCanvasAssetBounds(node, asset);
+    entries.push({
+      minX: node.position.x,
+      minY: node.position.y,
+      maxX: node.position.x + w,
+      maxY: node.position.y + h,
+      kind: "asset",
+      id,
+    });
+  }
+
   for (const id of input.canvasTextLabelOrder) {
     const label = input.canvasTextLabels[id];
     if (!label) continue;
@@ -127,6 +140,7 @@ export function queryVisibleNodes(
   alwaysVisible: {
     cards?: Iterable<string>;
     artifacts?: Iterable<string>;
+    assets?: Iterable<string>;
     labels?: Iterable<string>;
   } = {},
 ): VisibleNodes {
@@ -140,15 +154,17 @@ export function queryVisibleNodes(
 
   const cards = new Set<string>(alwaysVisible.cards ?? []);
   const artifacts = new Set<string>(alwaysVisible.artifacts ?? []);
+  const assets = new Set<string>(alwaysVisible.assets ?? []);
   const labels = new Set<string>(alwaysVisible.labels ?? []);
 
   for (const hit of hits) {
     if (hit.kind === "card") cards.add(hit.id);
     else if (hit.kind === "artifact") artifacts.add(hit.id);
+    else if (hit.kind === "asset") assets.add(hit.id);
     else labels.add(hit.id);
   }
 
-  return { cards, artifacts, labels };
+  return { cards, artifacts, assets, labels };
 }
 
 export function shouldEnableViewportCulling(nodeCount: number): boolean {

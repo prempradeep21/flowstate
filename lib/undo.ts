@@ -1,6 +1,8 @@
 import type {
 
   CanvasArtifactNode,
+  CanvasAsset,
+  CanvasAssetNode,
 
   CanvasTextLabel,
 
@@ -38,6 +40,8 @@ export interface GraphSnapshot {
 
   sessionArtifacts: Record<string, SessionArtifact>;
 
+  canvasAssets?: Record<string, CanvasAsset>;
+
   openSessionArtifactId: string | null;
 
   openSessionArtifactVersionId: string | null;
@@ -47,6 +51,12 @@ export interface GraphSnapshot {
   canvasArtifactOrder: string[];
 
   selectedCanvasArtifactId: string | null;
+
+  canvasAssetNodes?: Record<string, CanvasAssetNode>;
+
+  canvasAssetOrder?: string[];
+
+  selectedCanvasAssetId?: string | null;
 
   canvasTextLabels: Record<string, CanvasTextLabel>;
 
@@ -84,6 +94,8 @@ export function captureGraphSnapshot(state: GraphSnapshotSource): GraphSnapshot 
 
     sessionArtifacts: state.sessionArtifacts,
 
+    canvasAssets: state.canvasAssets ?? {},
+
     openSessionArtifactId: state.openSessionArtifactId,
 
     openSessionArtifactVersionId: state.openSessionArtifactVersionId,
@@ -93,6 +105,12 @@ export function captureGraphSnapshot(state: GraphSnapshotSource): GraphSnapshot 
     canvasArtifactOrder: state.canvasArtifactOrder,
 
     selectedCanvasArtifactId: state.selectedCanvasArtifactId,
+
+    canvasAssetNodes: state.canvasAssetNodes ?? {},
+
+    canvasAssetOrder: state.canvasAssetOrder ?? [],
+
+    selectedCanvasAssetId: state.selectedCanvasAssetId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 
@@ -132,6 +150,8 @@ export function graphSnapshotFromState<T extends GraphSnapshotSource>(
 
     sessionArtifacts: state.sessionArtifacts,
 
+    canvasAssets: state.canvasAssets ?? {},
+
     openSessionArtifactId: state.openSessionArtifactId,
 
     openSessionArtifactVersionId: state.openSessionArtifactVersionId,
@@ -141,6 +161,12 @@ export function graphSnapshotFromState<T extends GraphSnapshotSource>(
     canvasArtifactOrder: state.canvasArtifactOrder,
 
     selectedCanvasArtifactId: state.selectedCanvasArtifactId,
+
+    canvasAssetNodes: state.canvasAssetNodes ?? {},
+
+    canvasAssetOrder: state.canvasAssetOrder ?? [],
+
+    selectedCanvasAssetId: state.selectedCanvasAssetId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 

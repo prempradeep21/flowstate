@@ -1,4 +1,9 @@
 export { MotionProvider } from "./MotionProvider";
+export {
+  buildCanvasLoadRevealPlan,
+  canvasLoadRevealTotalMs,
+  CANVAS_LOAD_REVEAL_DURATION_MS,
+} from "./canvasLoadReveal";
 export * from "./tokens";
 export * from "./transitions";
 export * from "./variants";

@@ -356,6 +356,9 @@ export async function POST(req: Request) {
                   data = normalized as unknown as Record<string, unknown>;
                 }
 
+                if (type === "table") {
+                  emit({ pendingArtifact: { type: "table" } });
+                }
                 emit({ thinking: `Building ${type}…` });
                 emit({
                   artifact: { type, title, description, data },

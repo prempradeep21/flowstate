@@ -64,7 +64,9 @@ export function ArtifactShell({
 
   const isLatest = versionId === sessionArtifact.latestVersionId;
   const isTodo = sessionArtifact.kind === "todo";
+  const isMap = sessionArtifact.kind === "map";
   const canEditTodo = isTodo && isLatest && !canvasReadOnly;
+  const canEditMap = isMap && isLatest && !canvasReadOnly;
 
   useEffect(() => {
     setCodeTitleOverride(null);
@@ -117,6 +119,7 @@ export function ArtifactShell({
         <ArtifactPanelHeader
           kind={sessionArtifact.kind}
           title={title}
+          artifactId={sessionArtifact.id}
           versions={sessionArtifact.versions}
           activeVersionId={activeVersion.id}
           onVersionChange={handleVersionChange}
@@ -146,13 +149,17 @@ export function ArtifactShell({
       <div
         className={
           isCanvasLayout
-            ? "mt-4 flex min-h-0 flex-1 flex-col"
-            : "mt-4"
+            ? `mt-[22px] flex min-h-0 flex-1 flex-col overflow-hidden rounded-canvas ${
+                sessionArtifact.kind === "table" ? "bg-white" : ""
+              }`
+            : "mt-[22px]"
         }
       >
         <ArtifactContent
           layout={layout}
           payload={activeVersion.payload}
+          artifactId={sessionArtifact.id}
+          versionId={activeVersion.id}
           onCodeActiveFileChange={
             sessionArtifact.kind === "code" ? setCodeTitleOverride : undefined
           }
@@ -171,6 +178,7 @@ export function ArtifactShell({
                 }
               : undefined
           }
+          mapCanEdit={canEditMap}
         />
       </div>
     </div>

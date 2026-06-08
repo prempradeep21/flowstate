@@ -1,6 +1,7 @@
 import type { MapArtifactData, MapPlace } from "@/lib/artifactTypes";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
 const USER_AGENT = "BranchAI/1.0 (flowstate travel maps)";
 
 let lastRequestAt = 0;
@@ -50,6 +51,81 @@ function placeNameFromData(data: Record<string, unknown>): string | null {
   if (!place || typeof place !== "object") return null;
   const name = (place as MapPlace).name;
   return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
+export interface MapSearchResult {
+  label: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+export interface ReverseGeocodeResult {
+  label: string;
+  lat: number;
+  lng: number;
+  type?: string;
+}
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<ReverseGeocodeResult | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const url = new URL(NOMINATIM_REVERSE_URL);
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lng));
+  url.searchParams.set("format", "json");
+
+  const res = await rateLimitedFetch(url.toString());
+  if (!res.ok) return null;
+
+  const hit = (await res.json()) as NominatimResult;
+  if (!hit?.display_name) return null;
+
+  const resultLat = parseFloat(hit.lat);
+  const resultLng = parseFloat(hit.lon);
+  if (!Number.isFinite(resultLat) || !Number.isFinite(resultLng)) return null;
+
+  return {
+    label: hit.display_name,
+    lat: resultLat,
+    lng: resultLng,
+    type: hit.type,
+  };
+}
+
+export async function searchPlaces(
+  query: string,
+  limit = 6,
+): Promise<MapSearchResult[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  const url = new URL(NOMINATIM_URL);
+  url.searchParams.set("q", q);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("limit", String(Math.min(limit, 10)));
+  url.searchParams.set("addressdetails", "0");
+
+  const res = await rateLimitedFetch(url.toString());
+  if (!res.ok) return [];
+
+  const results = (await res.json()) as NominatimResult[];
+  return results
+    .map((hit) => {
+      const lat = parseFloat(hit.lat);
+      const lng = parseFloat(hit.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return {
+        label: hit.display_name,
+        lat,
+        lng,
+        zoom: zoomFromNominatim(hit.type, hit.class),
+      };
+    })
+    .filter((r): r is MapSearchResult => r !== null);
 }
 
 export async function geocodeMapArtifact(

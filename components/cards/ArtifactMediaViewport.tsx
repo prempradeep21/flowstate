@@ -12,7 +12,7 @@ export function ArtifactMediaViewport({
 }) {
   return (
     <div
-      className={`relative aspect-[4/3] w-full overflow-hidden rounded-lg ${className}`}
+      className={`relative aspect-[4/3] w-full overflow-hidden rounded-canvas ${className}`}
     >
       {children}
     </div>
