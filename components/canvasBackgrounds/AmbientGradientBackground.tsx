@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { isViewportGesturing } from "@/lib/canvasViewportGuard";
 import { ProceduralSvgBackground } from "@/components/canvasBackgrounds/ProceduralSvgBackground";
 import type { BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import { useReducedMotion } from "@/components/canvasBackgrounds/useReducedMotion";
@@ -44,14 +45,16 @@ export function AmbientGradientBackground({
 
     const start = performance.now();
     const tick = (now: number) => {
-      const t = (now - start) / 1000;
-      setBlobs(
-        BLOBS.map((b, i) => ({
-          ...b,
-          cx: 0.5 + Math.sin(t * 0.15 + b.phase) * b.dx + (i % 2 === 0 ? -0.15 : 0.15),
-          cy: 0.5 + Math.cos(t * 0.12 + b.phase) * b.dy + (i < 2 ? -0.1 : 0.1),
-        })),
-      );
+      if (!isViewportGesturing()) {
+        const t = (now - start) / 1000;
+        setBlobs(
+          BLOBS.map((b, i) => ({
+            ...b,
+            cx: 0.5 + Math.sin(t * 0.15 + b.phase) * b.dx + (i % 2 === 0 ? -0.15 : 0.15),
+            cy: 0.5 + Math.cos(t * 0.12 + b.phase) * b.dy + (i < 2 ? -0.1 : 0.1),
+          })),
+        );
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);

@@ -517,13 +517,32 @@ export async function deleteCanvas(
   if (error) throw error;
 }
 
+function formatCollabError(error: unknown): string {
+  if (!error || typeof error !== "object") return String(error);
+  const e = error as { message?: string; code?: string };
+  return [e.message, e.code ? `code=${e.code}` : null].filter(Boolean).join(" | ");
+}
+
+/** Best-effort invite reconciliation; never blocks app load on network/RPC failures. */
 export async function processPendingInvitesForEmail(
   supabase: Supabase,
   _userId: string,
   _email: string,
 ): Promise<void> {
-  const { error } = await supabase.rpc("process_pending_canvas_invites");
-  if (error) throw error;
+  try {
+    const { error } = await supabase.rpc("process_pending_canvas_invites");
+    if (error) {
+      console.warn(
+        "[collab] process pending invites:",
+        formatCollabError(error),
+      );
+    }
+  } catch (err) {
+    console.warn(
+      "[collab] process pending invites failed:",
+      formatCollabError(err),
+    );
+  }
 }
 
 export function canEditCanvas(role: CanvasRole | null): boolean {

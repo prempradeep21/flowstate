@@ -25,7 +25,6 @@ export function CollaboratorCursors({
   channelRef: React.RefObject<RealtimeChannel | null>;
   currentUserId: string | undefined;
 }) {
-  const viewport = useCanvasStore((s) => s.viewport);
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
   const lastBroadcastRef = useRef({ worldX: 0, worldY: 0, at: 0 });
   const presencePayloadRef = useRef<CollaboratorPresence | null>(null);
@@ -40,6 +39,7 @@ export function CollaboratorCursors({
       const container = containerRef.current;
       if (!container) return;
 
+      const viewport = useCanvasStore.getState().viewport;
       const cursors: RemoteCursor[] = [];
       for (const key of Object.keys(state)) {
         if (key === currentUserId) continue;
@@ -68,7 +68,7 @@ export function CollaboratorCursors({
     return () => {
       clearInterval(interval);
     };
-  }, [channelRef, containerRef, currentUserId, viewport]);
+  }, [channelRef, containerRef, currentUserId]);
 
   const broadcastCursor = useCallback(
     (clientX: number, clientY: number) => {
@@ -78,6 +78,7 @@ export function CollaboratorCursors({
         return;
       }
 
+      const viewport = useCanvasStore.getState().viewport;
       const rect = container.getBoundingClientRect();
       const { worldX, worldY } = clientToWorld(
         clientX,
@@ -110,7 +111,7 @@ export function CollaboratorCursors({
 
       void channel.track(payload);
     },
-    [channelRef, containerRef, currentUserId, viewport],
+    [channelRef, containerRef, currentUserId],
   );
 
   useEffect(() => {

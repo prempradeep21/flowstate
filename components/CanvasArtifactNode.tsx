@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
+import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { CANVAS_TRANSLUCENT_FILL_CLASS } from "@/components/QaQuestionSection";
 import { Plug } from "@/components/plugs/Plug";
 import { clampArtifactSize, getArtifactBounds } from "@/lib/canvasNodeBounds";
@@ -266,6 +267,16 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         height: artifactHeight,
       }}
     >
+      <MotionCanvasNode
+        targetId={node.id}
+        targetKind="artifact"
+        bounds={{
+          x: node.position.x,
+          y: node.position.y,
+          w: width,
+          h: artifactHeight,
+        }}
+      >
       {!godView && (
         <>
           <div className="pointer-events-none absolute inset-y-0 left-0 z-30 opacity-0 transition-opacity group-hover/artifact:opacity-100 [&_button]:pointer-events-auto">
@@ -312,6 +323,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           onTodoEditingChange={setTodoEditing}
         />
       </div>
+      </MotionCanvasNode>
     </div>
   );
 }

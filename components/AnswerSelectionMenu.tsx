@@ -22,6 +22,25 @@ function HelpCircleIcon() {
   );
 }
 
+function TypeIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 16 16"
+      className="h-3.5 w-3.5 shrink-0"
+      fill="none"
+    >
+      <path
+        d="M4 4h8M8 4v8M6 12h4"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function BranchIcon() {
   return (
     <svg
@@ -78,13 +97,17 @@ export function AnswerSelectionMenu({
   rect,
   onQuickExplain,
   onAskQuestion,
+  onAddToCanvas,
   askDisabled,
+  addToCanvasDisabled,
   quickExplainLoading,
 }: {
   rect: DOMRect;
   onQuickExplain: () => void;
   onAskQuestion: () => void;
+  onAddToCanvas: () => void;
   askDisabled?: boolean;
+  addToCanvasDisabled?: boolean;
   quickExplainLoading?: boolean;
 }) {
   const left = rect.left + rect.width / 2;
@@ -93,7 +116,7 @@ export function AnswerSelectionMenu({
   return createPortal(
     <div
       data-answer-selection-menu
-      className="pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-xl bg-canvas-ink px-1 py-1 shadow-card"
+      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 rounded-xl bg-canvas-ink px-1 py-1 shadow-card"
       style={{ left, top }}
       onPointerDown={(e) => {
         e.preventDefault();
@@ -127,6 +150,20 @@ export function AnswerSelectionMenu({
       >
         <BranchIcon />
         Ask a question
+      </button>
+      <div className="mx-0.5 h-4 w-px bg-white/20" aria-hidden />
+      <button
+        type="button"
+        disabled={addToCanvasDisabled || quickExplainLoading}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddToCanvas();
+        }}
+        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <TypeIcon />
+        Add to Canvas
       </button>
     </div>,
     document.body,

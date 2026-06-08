@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { isViewportGesturing } from "@/lib/canvasViewportGuard";
 import { useReducedMotion } from "@/components/canvasBackgrounds/useReducedMotion";
 
 export interface CanvasDrawContext {
@@ -34,7 +35,7 @@ export function ProceduralCanvasBackground({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
     let rafId = 0;
@@ -72,8 +73,17 @@ export function ProceduralCanvasBackground({
         rafId = 0;
         return;
       }
-      const time = (now - startTime) / 1000;
-      drawRef.current({ ctx, width, height, dpr, time, animate: shouldAnimate });
+      if (!isViewportGesturing()) {
+        const time = (now - startTime) / 1000;
+        drawRef.current({
+          ctx,
+          width,
+          height,
+          dpr,
+          time,
+          animate: shouldAnimate,
+        });
+      }
       if (shouldAnimate) {
         rafId = requestAnimationFrame(render);
       } else {

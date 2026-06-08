@@ -3,6 +3,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   WheelEvent,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -15,11 +16,13 @@ import { ChatComposer } from "@/components/ChatComposer";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { Plug } from "@/components/plugs/Plug";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import {
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
 import { useAnswerTextSelection } from "@/hooks/useAnswerTextSelection";
+import { useLateralBranchesFromCard } from "@/hooks/useLateralBranchesFromCard";
 import {
   anchorYRelativeToCard,
   getExplainRangeRect,
@@ -46,7 +49,10 @@ import {
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
 import { plugAnchorAt } from "@/lib/plugConnector";
-import { isCardInSelectedFamilies } from "@/lib/chatThreads";
+import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
+import {
+  isCardInSelectedFamilies,
+} from "@/lib/chatThreads";
 import {
   AnswerExplain,
   Card as CardType,
@@ -88,7 +94,7 @@ function handleAnswerWheel(e: WheelEvent) {
   if (e.deltaX !== 0) e.preventDefault();
 }
 
-export function Card({ card }: CardProps) {
+function CardInner({ card }: CardProps) {
   const { user, members, accessInfo, stampContributor } = useAuth();
   const canEdit = useCanEditCanvas();
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
@@ -109,6 +115,15 @@ export function Card({ card }: CardProps) {
   const createBranchFromSelection = useCanvasStore(
     (s) => s.createBranchFromSelection,
   );
+  const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
+  const viewport = useCanvasStore((s) => s.viewport);
+  const collapsedBranchThreadIds = useCanvasStore(
+    (s) => s.collapsedBranchThreadIds,
+  );
+  const toggleBranchThreadCollapsed = useCanvasStore(
+    (s) => s.toggleBranchThreadCollapsed,
+  );
+  const lateralBranches = useLateralBranchesFromCard(card.id);
   const addAnswerExplain = useCanvasStore((s) => s.addAnswerExplain);
   const updateAnswerExplain = useCanvasStore((s) => s.updateAnswerExplain);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
@@ -387,6 +402,29 @@ export function Card({ card }: CardProps) {
     stampContributor,
   ]);
 
+  const handleAddToCanvas = useCallback(() => {
+    if (!selection || !canEdit || canvasReadOnly) return;
+    const cardEl = cardRef.current;
+    if (!cardEl) return;
+    const position = computeSelectionTextLabelPosition(
+      cardEl.getBoundingClientRect(),
+      selection.rect,
+      viewport,
+    );
+    if (!position) return;
+    recordUndo();
+    spawnCanvasTextLabel(position, selection.selectedText);
+    clearSelection();
+  }, [
+    selection,
+    canEdit,
+    canvasReadOnly,
+    viewport,
+    recordUndo,
+    spawnCanvasTextLabel,
+    clearSelection,
+  ]);
+
   useEffect(() => {
     return () => explainRunRef.current?.cancel();
   }, []);
@@ -659,9 +697,25 @@ export function Card({ card }: CardProps) {
       }}
       aria-hidden={hideForLanding || undefined}
     >
+      <MotionCanvasNode
+        targetId={card.id}
+        targetKind="card"
+        bounds={{
+          x: card.position.x,
+          y: card.position.y,
+          w: cardWidth,
+          h: pendingMinHeight ?? card.size?.h ?? tuning.fallbackCardHeight,
+        }}
+      >
       {showBranchPlugs && (
         <>
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-30 opacity-0 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto">
+          <div
+            className={`pointer-events-none absolute inset-y-0 left-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
+              lateralBranches.some((b) => b.side === "left")
+                ? "opacity-100"
+                : "opacity-0"
+            }`}
+          >
             <Plug
               side="left"
               accentColour={plugAccent}
@@ -669,9 +723,28 @@ export function Card({ card }: CardProps) {
               ariaLabel="Pull a new thread to the left"
               onPointerDown={handleBranchPlugPointerDown("left")}
             />
-            <BranchPlugHint side="left" scale={scale} />
+            {lateralBranches
+              .filter((b) => b.side === "left")
+              .map((b) => (
+                <BranchCollapseToggle
+                  key={b.threadId}
+                  side="left"
+                  scale={scale}
+                  collapsed={collapsedBranchThreadIds.includes(b.threadId)}
+                  onToggle={() => toggleBranchThreadCollapsed(b.threadId)}
+                />
+              ))}
+            {!lateralBranches.some((b) => b.side === "left") && (
+              <BranchPlugHint side="left" scale={scale} />
+            )}
           </div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-30 opacity-0 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto">
+          <div
+            className={`pointer-events-none absolute inset-y-0 right-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
+              lateralBranches.some((b) => b.side === "right")
+                ? "opacity-100"
+                : "opacity-0"
+            }`}
+          >
             <Plug
               side="right"
               accentColour={plugAccent}
@@ -679,12 +752,30 @@ export function Card({ card }: CardProps) {
               ariaLabel="Pull a new thread to the right"
               onPointerDown={handleBranchPlugPointerDown("right")}
             />
-            <BranchPlugHint side="right" scale={scale} />
+            {lateralBranches
+              .filter((b) => b.side === "right")
+              .map((b) => (
+                <BranchCollapseToggle
+                  key={b.threadId}
+                  side="right"
+                  scale={scale}
+                  collapsed={collapsedBranchThreadIds.includes(b.threadId)}
+                  onToggle={() => toggleBranchThreadCollapsed(b.threadId)}
+                />
+              ))}
+            {!lateralBranches.some((b) => b.side === "right") && (
+              <BranchPlugHint side="right" scale={scale} />
+            )}
           </div>
         </>
       )}
       {isEmptyComposer ? (
-        <div className="px-3 py-2.5">
+        <div className="relative px-3 py-2.5">
+          <CardQaMenu
+            cardId={card.id}
+            viewportScale={scale}
+            hideDelete={isLanding}
+          />
           <ChatComposer
             variant="canvas"
             cardId={card.id}
@@ -716,6 +807,12 @@ export function Card({ card }: CardProps) {
       >
         {card.status !== "empty" && (
           <CardQaMenu cardId={card.id} viewportScale={scale} />
+        )}
+        {card.status === "thinking" && (
+          <div
+            className="thinking-accent-bar pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-canvas-question"
+            aria-hidden
+          />
         )}
         {isPending && (
           <PendingStatusIndicator
@@ -804,12 +901,15 @@ export function Card({ card }: CardProps) {
         </div>
       </div>
       )}
+      </MotionCanvasNode>
       {(selection || quickExplainBusy) && menuAnchorRect && (
         <AnswerSelectionMenu
           rect={menuAnchorRect}
           onQuickExplain={handleQuickExplainFromMenu}
           onAskQuestion={handleAskQuestion}
+          onAddToCanvas={handleAddToCanvas}
           askDisabled={!canEdit || canvasReadOnly}
+          addToCanvasDisabled={!canEdit || canvasReadOnly}
           quickExplainLoading={quickExplainBusy}
         />
       )}
@@ -828,10 +928,55 @@ export function Card({ card }: CardProps) {
   );
 }
 
+export const Card = memo(
+  CardInner,
+  (prev, next) => prev.card === next.card,
+);
+
 const BRANCH_PLUG_SIZE_PX = 10;
 const BRANCH_PLUG_HINT_GAP_PX = 8;
 const BRANCH_PLUG_HINT_OFFSET_PX =
   BRANCH_PLUG_SIZE_PX / 2 + BRANCH_PLUG_HINT_GAP_PX;
+
+function BranchCollapseToggle({
+  side,
+  scale,
+  collapsed,
+  onToggle,
+}: {
+  side: "left" | "right";
+  scale: number;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const isLeft = side === "left";
+  const counterScale = counterScaleFactor(scale);
+
+  return (
+    <button
+      type="button"
+      aria-label={collapsed ? "Expand branch" : "Collapse branch"}
+      title={collapsed ? "Expand branch" : "Collapse branch"}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={`pointer-events-auto absolute top-1/2 z-40 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-[13px] font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+        isLeft ? "right-full" : "left-full"
+      }`}
+      style={{
+        ...(isLeft
+          ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
+          : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
+        transform: `translateY(-50%) scale(${counterScale})`,
+        transformOrigin: isLeft ? "right center" : "left center",
+      }}
+    >
+      {collapsed ? "+" : "−"}
+    </button>
+  );
+}
 
 function BranchPlugHint({
   side,

@@ -66,7 +66,6 @@ function minimapToWorld(
 }
 
 export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
-  const viewport = useCanvasStore((s) => s.viewport);
   const setViewport = useCanvasStore((s) => s.setViewport);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
@@ -77,6 +76,31 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
 
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const [displayViewport, setDisplayViewport] = useState(
+    () => useCanvasStore.getState().viewport,
+  );
+
+  useEffect(() => {
+    let rafId = 0;
+    let pending = useCanvasStore.getState().viewport;
+
+    const flush = () => {
+      rafId = 0;
+      setDisplayViewport(pending);
+    };
+
+    const unsubscribe = useCanvasStore.subscribe((state) => {
+      pending = state.viewport;
+      if (!rafId) {
+        rafId = requestAnimationFrame(flush);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -160,10 +184,10 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
 
   const viewportRect = useMemo(() => {
     if (containerSize.w <= 0 || containerSize.h <= 0) return null;
-    const worldX = -viewport.x / viewport.scale;
-    const worldY = -viewport.y / viewport.scale;
-    const worldW = containerSize.w / viewport.scale;
-    const worldH = containerSize.h / viewport.scale;
+    const worldX = -displayViewport.x / displayViewport.scale;
+    const worldY = -displayViewport.y / displayViewport.scale;
+    const worldW = containerSize.w / displayViewport.scale;
+    const worldH = containerSize.h / displayViewport.scale;
 
     const topLeft = worldToMinimap(worldX, worldY, bounds, transform);
     const bottomRight = worldToMinimap(
@@ -179,7 +203,7 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
       width: bottomRight.x - topLeft.x,
       height: bottomRight.y - topLeft.y,
     };
-  }, [containerSize, viewport, bounds, transform]);
+  }, [containerSize, displayViewport, bounds, transform]);
 
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -193,17 +217,18 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
         transform,
       );
       markUserViewportInteraction();
+      const { scale } = useCanvasStore.getState().viewport;
       setViewport(
         viewportCenteredOnWorldPoint(
           worldX,
           worldY,
           containerSize.w,
           containerSize.h,
-          viewport.scale,
+          scale,
         ),
       );
     },
-    [bounds, transform, containerSize, viewport.scale, setViewport],
+    [bounds, transform, containerSize, setViewport],
   );
 
   return (

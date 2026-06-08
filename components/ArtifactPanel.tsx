@@ -11,6 +11,10 @@ import {
   downloadGroupMarkdown,
   refreshGroupSummary,
 } from "@/lib/summarizeGroup";
+import {
+  MotionBackdrop,
+  MotionOverlaySlide,
+} from "@/components/motion/MotionOverlay";
 import { useCanvasStore } from "@/lib/store";
 
 const PANEL_WIDTH = 480;
@@ -96,23 +100,17 @@ export function ArtifactPanel() {
 
   return (
     <>
-      <div
-        aria-hidden={!isOpen}
+      <MotionBackdrop
+        isOpen={isOpen}
         onClick={closeArtifact}
-        className={`fixed inset-0 z-40 bg-canvas-ink/15 transition-opacity duration-200 ${
-          isOpen
-            ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0"
-        }`}
+        className="fixed inset-0 z-40 cursor-default bg-canvas-ink/15"
       />
-      <aside
+      <MotionOverlaySlide
+        isOpen={isOpen}
         role="dialog"
         aria-label={structuredOpen ? "Artifact" : "Attached document"}
-        aria-hidden={!isOpen}
+        className="fixed right-0 top-0 z-50 flex h-full flex-col border-l border-canvas-border bg-canvas-bg shadow-cardHover"
         style={{ width: PANEL_WIDTH }}
-        className={`fixed right-0 top-0 z-50 flex h-full flex-col border-l border-canvas-border bg-canvas-bg shadow-cardHover transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
       >
         {structuredOpen && sessionArtifact && activeVersion ? (
           <div className="flex h-full flex-col overflow-hidden p-5">
@@ -201,7 +199,7 @@ export function ArtifactPanel() {
             </div>
           </>
         )}
-      </aside>
+      </MotionOverlaySlide>
     </>
   );
 }

@@ -7,6 +7,9 @@ import { useCanvasStore } from "@/lib/store";
 const DISMISS_IGNORE =
   "[data-answer-selection-menu], [data-quick-explain-popup], [data-explain-overlay]";
 
+/** Debounced clear after viewport settles (matches viewportSettledScale timing). */
+const VIEWPORT_SELECTION_CLEAR_MS = 150;
+
 export interface AnswerSelectionState {
   selectedText: string;
   occurrenceIndex: number;
@@ -30,11 +33,30 @@ export function useAnswerTextSelection({
   const [selection, setSelection] = useState<AnswerSelectionState | null>(null);
   const dismissRef = useRef(onDismiss);
   dismissRef.current = onDismiss;
-  const viewport = useCanvasStore((s) => s.viewport);
 
   useEffect(() => {
-    setSelection(null);
-  }, [viewport.x, viewport.y, viewport.scale]);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let prevViewport = useCanvasStore.getState().viewport;
+
+    const unsubscribe = useCanvasStore.subscribe((state) => {
+      const v = state.viewport;
+      if (
+        v.x === prevViewport.x &&
+        v.y === prevViewport.y &&
+        v.scale === prevViewport.scale
+      ) {
+        return;
+      }
+      prevViewport = v;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setSelection(null), VIEWPORT_SELECTION_CLEAR_MS);
+    });
+
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   const clearSelection = useCallback(() => {
     setSelection(null);

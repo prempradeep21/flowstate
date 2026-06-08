@@ -1,6 +1,12 @@
 import { getCardBounds } from "@/lib/canvasNodeBounds";
+import { animateViewportTo } from "@/lib/motion/animateViewport";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import { useCanvasStore } from "@/lib/store";
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 /** Pan the viewport so a question card sits near the container center. */
 export function focusCanvasCard(cardId: string): boolean {
@@ -22,6 +28,6 @@ export function focusCanvasCard(cardId: string): boolean {
     rect.height,
     state.viewport.scale,
   );
-  state.setViewport(vp);
+  animateViewportTo(vp, { reducedMotion: prefersReducedMotion() });
   return true;
 }

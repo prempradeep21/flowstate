@@ -19,6 +19,7 @@ import {
   defaultBranchSlotX,
   computeFollowUpPositionFromDom,
 } from "@/lib/canvasLayout";
+import type { SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
 import {
   CANVAS_ARTIFACT_WIDTH,
@@ -193,19 +194,11 @@ export interface Viewport {
 export type ConnectorStyle = "curvy" | "orthogonal";
 export type AppViewMode = "canvas" | "chat";
 
-export type CanvasBackgroundStyle =
-  | "grid"
-  | "ambient-gradient"
-  | "blueprint"
-  | "clouds"
-  | "smoke";
+export type CanvasBackgroundStyle = "grid" | "ambient-gradient";
 
 export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "grid",
   "ambient-gradient",
-  "blueprint",
-  "clouds",
-  "smoke",
 ] as const;
 
 export interface BranchGroup {
@@ -293,14 +286,25 @@ interface CanvasState {
   globalOrigin: GlobalOrigin | null;
   undoPast: GraphSnapshot[];
 
+  /** Active spawn animation target (single concurrent spawn). */
+  spawnMeta: SpawnMeta | null;
+  setSpawnMeta: (meta: SpawnMeta) => void;
+  clearSpawnMeta: () => void;
+  clearRecentConnection: () => void;
+  /** Connection id to play draw-in animation (cleared after draw). */
+  recentConnectionId: string | null;
+
   plugDrag: PlugDragState | null;
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
 
   selectedFamilyRootIds: string[];
+  /** Branch thread ids collapsed on the canvas (session UI only, not persisted). */
+  collapsedBranchThreadIds: string[];
   groups: Record<string, BranchGroup>;
   activeGroupId: string | null;
 
   setSelectedFamilyRootIds: (rootThreadIds: string[]) => void;
+  toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   clearSelection: () => void;
   createGroupFromSelection: (label?: string) => string | null;
   setGroupSummary: (groupId: string, markdown: string) => void;
@@ -708,15 +712,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   globalOrigin: null,
   undoPast: [],
 
+  spawnMeta: null,
+  setSpawnMeta: (meta) => set({ spawnMeta: meta }),
+  clearSpawnMeta: () => set({ spawnMeta: null }),
+  clearRecentConnection: () => set({ recentConnectionId: null }),
+  recentConnectionId: null,
+
   plugDrag: null,
   plugComposerAttachments: {},
 
   selectedFamilyRootIds: [],
+  collapsedBranchThreadIds: [],
   groups: {},
   activeGroupId: null,
 
   setSelectedFamilyRootIds: (rootThreadIds) =>
     set({ selectedFamilyRootIds: rootThreadIds }),
+
+  toggleBranchThreadCollapsed: (branchThreadId) =>
+    set((state) => {
+      const collapsed = state.collapsedBranchThreadIds.includes(branchThreadId);
+      return {
+        collapsedBranchThreadIds: collapsed
+          ? state.collapsedBranchThreadIds.filter((id) => id !== branchThreadId)
+          : [...state.collapsedBranchThreadIds, branchThreadId],
+      };
+    }),
 
   clearSelection: () => set({ selectedFamilyRootIds: [] }),
 
@@ -1067,6 +1088,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           : state.globalOrigin,
       };
     });
+    get().setSpawnMeta({
+      targetId: cardId,
+      targetKind: "card",
+      kind: "drop",
+      createdAt: Date.now(),
+    });
     return cardId;
   },
 
@@ -1154,6 +1181,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   spawnCanvasArtifact: (artifactId, versionId, opts) => {
     let nodeId: string | null = null;
+    let isNewNode = false;
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
       if (!art) return state;
@@ -1166,6 +1194,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       );
       if (existing) {
         nodeId = existing.id;
+        isNewNode = false;
         const nextNode: CanvasArtifactNode = {
           ...existing,
           versionId: ver.id,
@@ -1185,6 +1214,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const id = newCanvasArtifactNodeId();
       nodeId = id;
+      isNewNode = true;
       const position =
         opts?.position ??
         computeDefaultSpawnPosition(
@@ -1211,6 +1241,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedCanvasArtifactId: opts?.focus ? id : state.selectedCanvasArtifactId,
       };
     });
+    if (nodeId && isNewNode) {
+      get().setSpawnMeta({
+        targetId: nodeId,
+        targetKind: "artifact",
+        kind: "popUp",
+        createdAt: Date.now(),
+      });
+    }
     return nodeId;
   },
 
@@ -1390,8 +1428,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         images: options?.pendingImages,
         pendingFiles: options?.pendingFiles,
       };
+      const connId = `conn_${parentId}_${id}`;
       const conn: Connection = {
-        id: `conn_${parentId}_${id}`,
+        id: connId,
         from: parentId,
         to: id,
         fromSide: "bottom",
@@ -1402,8 +1441,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         cards: { ...state.cards, [id]: child },
         cardOrder: [...state.cardOrder, id],
         connections: [...state.connections, conn],
+        recentConnectionId: connId,
       };
     });
+    if (childId) {
+      get().setSpawnMeta({
+        targetId: childId,
+        targetKind: "card",
+        kind: "popUp",
+        createdAt: Date.now(),
+      });
+    }
     return childId;
   },
 
@@ -1462,6 +1510,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         },
       };
     });
+    get().setSpawnMeta({
+      targetId: cardId,
+      targetKind: "card",
+      kind: "drop",
+      createdAt: Date.now(),
+    });
     return cardId;
   },
 
@@ -1504,8 +1558,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         quotedSelection: options?.quotedSelection,
       };
 
+      const connId = `conn_${sourceId}_${id}`;
       const conn: Connection = {
-        id: `conn_${sourceId}_${id}`,
+        id: connId,
         from: sourceId,
         to: id,
         fromSide: side,
@@ -1519,8 +1574,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         cards: { ...state.cards, [id]: card },
         cardOrder: [...state.cardOrder, id],
         connections: [...state.connections, conn],
+        recentConnectionId: connId,
       };
     });
+    if (branchId) {
+      get().setSpawnMeta({
+        targetId: branchId,
+        targetKind: "card",
+        kind: "popUp",
+        createdAt: Date.now(),
+      });
+    }
     return branchId;
   },
 
@@ -1564,8 +1628,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         quotedSelection: options?.quotedSelection,
       };
 
+      const connId = `conn_${sourceId}_${id}`;
       const conn: Connection = {
-        id: `conn_${sourceId}_${id}`,
+        id: connId,
         from: sourceId,
         to: id,
         fromSide: side,
@@ -1579,8 +1644,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         cards: { ...state.cards, [id]: card },
         cardOrder: [...state.cardOrder, id],
         connections: [...state.connections, conn],
+        recentConnectionId: connId,
       };
     });
+    if (branchId) {
+      get().setSpawnMeta({
+        targetId: branchId,
+        targetKind: "card",
+        kind: "popUp",
+        createdAt: Date.now(),
+      });
+    }
     return branchId;
   },
 

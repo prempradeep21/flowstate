@@ -10,6 +10,7 @@ import {
   type CanvasArtifactNode,
   type Card,
 } from "@/lib/store";
+import { animateViewportTo } from "@/lib/motion/animateViewport";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
@@ -87,6 +88,9 @@ export function focusCanvasArtifact(artifactId: string): boolean {
     rect.height,
     state.viewport.scale,
   );
-  state.setViewport(vp);
+  const reduced =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  animateViewportTo(vp, { reducedMotion: reduced });
   return true;
 }

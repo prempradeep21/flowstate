@@ -85,10 +85,47 @@ export function isContentEditChange(
   return false;
 }
 
+function viewportChanged(
+  prev: CanvasPersistSlice["viewport"],
+  next: CanvasPersistSlice["viewport"],
+): boolean {
+  return (
+    prev.x !== next.x || prev.y !== next.y || prev.scale !== next.scale
+  );
+}
+
+/** Fast path: only viewport fields differ (common during pan/zoom). */
+export function isViewportOnlyChange(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  if (!viewportChanged(prev.viewport, next.viewport)) return false;
+  return (
+    prev.cards === next.cards &&
+    prev.cardOrder === next.cardOrder &&
+    prev.connections === next.connections &&
+    prev.threads === next.threads &&
+    prev.threadOrder === next.threadOrder &&
+    prev.groups === next.groups &&
+    prev.connectorStyle === next.connectorStyle &&
+    prev.canvasBackgroundStyle === next.canvasBackgroundStyle &&
+    prev.selectedModel === next.selectedModel &&
+    prev.viewMode === next.viewMode &&
+    prev.sessionArtifacts === next.sessionArtifacts &&
+    prev.canvasArtifactNodes === next.canvasArtifactNodes &&
+    prev.canvasArtifactOrder === next.canvasArtifactOrder &&
+    prev.canvasTextLabels === next.canvasTextLabels &&
+    prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
+    prev.uploadedAttachments === next.uploadedAttachments &&
+    prev.collaborationHasEdits === next.collaborationHasEdits
+  );
+}
+
 export function isPersistableChange(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
 ): boolean {
+  if (isViewportOnlyChange(prev, next)) return true;
   return (
     JSON.stringify(pickCanvasPersistSlice(prev)) !==
     JSON.stringify(pickCanvasPersistSlice(next))

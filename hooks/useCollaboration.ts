@@ -89,15 +89,21 @@ export function useCollaboration({
       user.email ?? "",
     );
 
-    const [shared, pending] = await Promise.all([
-      fetchSharedCanvasList(supabase, user.id),
-      user.email
-        ? fetchPendingInvitesForUser(supabase, user.email)
-        : Promise.resolve([]),
-    ]);
+    try {
+      const [shared, pending] = await Promise.all([
+        fetchSharedCanvasList(supabase, user.id),
+        user.email
+          ? fetchPendingInvitesForUser(supabase, user.email)
+          : Promise.resolve([]),
+      ]);
 
-    setSharedCanvases(shared);
-    setPendingInvites(pending);
+      setSharedCanvases(shared);
+      setPendingInvites(pending);
+    } catch (err) {
+      console.warn("[collab] refresh shared canvases failed:", err);
+      setSharedCanvases([]);
+      setPendingInvites([]);
+    }
   }, [supabaseConfigured, user]);
 
   const refreshActiveCanvasCollaboration = useCallback(async () => {
@@ -159,7 +165,21 @@ export function useCollaboration({
   }, [refreshActiveCanvasCollaboration]);
 
   useEffect(() => {
-    if (!user || !supabaseConfigured || !activeCanvasId || !accessInfo) return;
+    const tearDownChannels = () => {
+      void presenceChannelRef.current?.unsubscribe();
+      void realtimeChannelRef.current?.unsubscribe();
+      presenceChannelRef.current = null;
+      realtimeChannelRef.current = null;
+      setOnlineUserIds(new Set());
+    };
+
+    if (!user || !supabaseConfigured || !activeCanvasId || !accessInfo) {
+      tearDownChannels();
+      return;
+    }
+
+    // Eager cleanup before async setup — prevents listener buildup on rapid switches.
+    tearDownChannels();
 
     let cancelled = false;
     let presenceChannel: RealtimeChannel | null = null;
@@ -173,6 +193,8 @@ export function useCollaboration({
       if (session?.access_token) {
         supabase.realtime.setAuth(session.access_token);
       }
+
+      if (cancelled) return;
 
       presenceChannel = supabase.channel(
         `canvas:${activeCanvasId}:presence`,

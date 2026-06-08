@@ -83,7 +83,7 @@ function normalizeAnswerExplains(
 }
 
 function normalizeCardForPersist(card: Card): Card {
-  return {
+  const normalized: Card = {
     ...card,
     status: normalizeCardStatus(card.status),
     thinkingLabel: undefined,
@@ -91,6 +91,11 @@ function normalizeCardForPersist(card: Card): Card {
     quotedSelection: undefined,
     answerExplains: normalizeAnswerExplains(card.answerExplains),
   };
+  // Artifact body lives in sessionArtifacts once materialized — drop duplicate blob.
+  if (normalized.outputArtifactId && normalized.artifactPayload) {
+    return { ...normalized, artifactPayload: undefined };
+  }
+  return normalized;
 }
 
 export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapshot {
@@ -170,9 +175,6 @@ export function buildEmptyCanvasSnapshot(
 const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
   "grid",
   "ambient-gradient",
-  "blueprint",
-  "clouds",
-  "smoke",
 ]);
 
 function normalizeCanvasBackgroundStyle(

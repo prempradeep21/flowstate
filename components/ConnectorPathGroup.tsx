@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { CardSide } from "@/lib/store";
 import type { PlugAnchor } from "@/lib/plugConnector";
 import {
@@ -25,6 +26,8 @@ export function ConnectorPathGroup({
   hitWidth,
   onPointerEnter,
   onPointerLeave,
+  drawIn = false,
+  onDrawComplete,
 }: {
   d: string;
   stroke: string;
@@ -40,8 +43,30 @@ export function ConnectorPathGroup({
   hitWidth?: number;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  drawIn?: boolean;
+  onDrawComplete?: () => void;
 }) {
+  const pathRef = useRef<SVGPathElement>(null);
   const { plugRadius, arrowSize } = connectorMarkerSizes(viewportScale);
+
+  useEffect(() => {
+    if (!drawIn || !pathRef.current) return;
+    const path = pathRef.current;
+    const length = path.getTotalLength();
+    path.style.setProperty("--connection-length", String(length));
+    path.style.strokeDasharray = String(length);
+    path.style.strokeDashoffset = String(length);
+
+    const onEnd = () => {
+      path.classList.remove("connection-draw-in");
+      path.style.strokeDasharray = "";
+      path.style.strokeDashoffset = "";
+      onDrawComplete?.();
+    };
+
+    path.addEventListener("animationend", onEnd, { once: true });
+    return () => path.removeEventListener("animationend", onEnd);
+  }, [drawIn, d, onDrawComplete]);
 
   return (
     <>
@@ -58,6 +83,7 @@ export function ConnectorPathGroup({
         />
       )}
       <path
+        ref={pathRef}
         d={d}
         fill="none"
         stroke={stroke}
@@ -66,6 +92,8 @@ export function ConnectorPathGroup({
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={dashed ? "6 5" : undefined}
+        vectorEffect="non-scaling-stroke"
+        className={drawIn ? "connection-draw-in" : undefined}
         pointerEvents="none"
       />
       {showSourcePlug && (
@@ -78,7 +106,8 @@ export function ConnectorPathGroup({
           pointerEvents="none"
         />
       )}
-      {showTargetArrow && (
+      {showTargetArrow &&
+        (toSide === "left" || toSide === "right") && (
         <path
           d={connectorArrowPath(toAnchor.px, toAnchor.py, toSide, arrowSize)}
           fill={stroke}

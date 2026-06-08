@@ -29,6 +29,8 @@ interface AuthContextValue extends CollaborationContextValue {
   activeCanvasId: string | null;
   canvases: CanvasMeta[];
   isSwitchingCanvas: boolean;
+  switchingCanvasId: string | null;
+  switchingCanvasTitle: string | null;
   switchCanvas: (canvasId: string) => Promise<void>;
   createNewCanvas: () => Promise<string | null>;
   renameCanvas: (canvasId: string, title: string) => Promise<void>;
@@ -58,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createNewCanvas,
     renameCanvas,
     isSwitching: isSwitchingCanvas,
+    switchingCanvasId,
+    switchingCanvasTitle,
     loadCanvasRow,
     refreshOwnedCanvasList,
   } = useCanvasPersistence({
@@ -168,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeCanvasId,
       canvases,
       isSwitchingCanvas,
+      switchingCanvasId,
+      switchingCanvasTitle,
       switchCanvas,
       createNewCanvas,
       renameCanvas,
@@ -183,6 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       collaboration,
       createNewCanvas,
       isSwitchingCanvas,
+      switchingCanvasId,
+      switchingCanvasTitle,
       persistenceStatus,
       renameCanvas,
       saveStatus,

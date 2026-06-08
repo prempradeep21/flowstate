@@ -13,6 +13,8 @@ interface CardQaMenuProps {
   cardId: string;
   /** Counter-scale the trigger on zoomed canvas cards. Omit in chat view. */
   viewportScale?: number;
+  /** Hide delete on the landing/home empty card. */
+  hideDelete?: boolean;
 }
 
 function DotsIcon() {
@@ -30,7 +32,11 @@ function DotsIcon() {
   );
 }
 
-export function CardQaMenu({ cardId, viewportScale }: CardQaMenuProps) {
+export function CardQaMenu({
+  cardId,
+  viewportScale,
+  hideDelete = false,
+}: CardQaMenuProps) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const deleteFromCard = useCanvasStore((s) => s.deleteFromCard);
@@ -55,8 +61,10 @@ export function CardQaMenu({ cardId, viewportScale }: CardQaMenuProps) {
     };
   }, [open]);
 
-  if (!card || card.status === "empty") return null;
+  if (!card) return null;
 
+  const isEmpty = card.status === "empty";
+  if (isEmpty && hideDelete) return null;
   const canBranch = card.status === "done";
   const counterScale =
     viewportScale != null ? counterScaleFactor(viewportScale) : 1;
@@ -94,27 +102,42 @@ export function CardQaMenu({ cardId, viewportScale }: CardQaMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
+          className="motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg border border-canvas-border bg-canvas-card py-1 shadow-card"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <ContextMenuItem
-            icon={<BranchForkIcon />}
-            label="Pull branch"
-            disabled={!canBranch}
-            onClick={() => {
-              if (!canBranch) return;
-              createBranch(cardId, "left");
-              setOpen(false);
-            }}
-          />
-          <ContextMenuItem
-            icon={<TrashIcon />}
-            label="Delete from below"
-            onClick={() => {
-              deleteFromCard(cardId);
-              setOpen(false);
-            }}
-          />
+          {isEmpty ? (
+            !hideDelete && (
+              <ContextMenuItem
+                icon={<TrashIcon />}
+                label="Delete"
+                onClick={() => {
+                  deleteFromCard(cardId);
+                  setOpen(false);
+                }}
+              />
+            )
+          ) : (
+            <>
+              <ContextMenuItem
+                icon={<BranchForkIcon />}
+                label="Pull branch"
+                disabled={!canBranch}
+                onClick={() => {
+                  if (!canBranch) return;
+                  createBranch(cardId, "left");
+                  setOpen(false);
+                }}
+              />
+              <ContextMenuItem
+                icon={<TrashIcon />}
+                label="Delete from below"
+                onClick={() => {
+                  deleteFromCard(cardId);
+                  setOpen(false);
+                }}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

@@ -14,6 +14,7 @@ export function CanvasesSection() {
     sharedCanvases,
     pendingInvites,
     isSwitchingCanvas,
+    switchingCanvasId,
     switchCanvas,
     createNewCanvas,
     renameCanvas,
@@ -149,6 +150,7 @@ export function CanvasesSection() {
               active={canvas.id === activeCanvasId}
               isShared={false}
               isSwitching={isSwitchingCanvas}
+              isPendingSwitch={switchingCanvasId === canvas.id}
               isEditing={editingId === canvas.id}
               menuOpen={menuOpenId === canvas.id}
               editTitle={editTitle}
@@ -185,6 +187,7 @@ export function CanvasesSection() {
                 active={canvas.id === activeCanvasId}
                 isShared={true}
                 isSwitching={isSwitchingCanvas}
+              isPendingSwitch={switchingCanvasId === canvas.id}
                 isEditing={false}
                 menuOpen={false}
                 editTitle=""
@@ -211,6 +214,7 @@ function CanvasListRow({
   active,
   isShared,
   isSwitching,
+  isPendingSwitch,
   isEditing,
   menuOpen,
   editTitle,
@@ -228,6 +232,7 @@ function CanvasListRow({
   active: boolean;
   isShared: boolean;
   isSwitching: boolean;
+  isPendingSwitch?: boolean;
   isEditing: boolean;
   menuOpen: boolean;
   editTitle: string;
@@ -256,6 +261,12 @@ function CanvasListRow({
           ].join(" ")}
           aria-hidden
         />
+        {isPendingSwitch && (
+          <span
+            className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent"
+            aria-label="Opening canvas"
+          />
+        )}
         {isShared && <SharedIcon />}
         {isEditing ? (
           <input

@@ -4,6 +4,16 @@
 
 :root {
   --dot-color: #8b8a86;
+  /* Flowstate motion tokens (mirror lib/motion/tokens.ts) */
+  --motion-ease-light: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-medium: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-heavy: cubic-bezier(0.12, 0.84, 0.27, 1);
+  --motion-ease-settle: cubic-bezier(0.34, 1.25, 0.64, 1);
+  --motion-duration-fast: 200ms;
+  --motion-duration-standard: 320ms;
+  --motion-duration-panel: 380ms;
+  --motion-duration-slow: 480ms;
+  --motion-shift-lg: 40px;
 }
 
 html,
@@ -63,36 +73,6 @@ body {
   @apply right-3;
 }
 
-@keyframes panel-expand-in {
-  from {
-    opacity: 0;
-    transform: translateX(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.panel-expand-in {
-  animation: panel-expand-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.floating-panel-right .panel-expand-in {
-  animation-name: panel-expand-in-right;
-}
-
-@keyframes panel-expand-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @keyframes summary-pulse-stroke {
   0%,
   100% {
@@ -117,5 +97,191 @@ body {
 }
 
 .todo-row-animate {
-  animation: todo-row-in 0.35s ease-out both;
+  animation: todo-row-in var(--motion-duration-standard) var(--motion-ease-medium)
+    both;
+}
+
+@keyframes switch-node-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes switch-connect {
+  0%,
+  100% {
+    stroke-dashoffset: 8;
+    opacity: 0.35;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 0.7;
+  }
+}
+
+@keyframes switch-artifact {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translateX(-50%) scale(0.95) rotate(-2deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.05) rotate(2deg);
+  }
+}
+
+@keyframes switch-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.switch-node-in {
+  animation: switch-node-in 0.6s ease-out both;
+}
+
+.switch-connect {
+  animation: switch-connect 1.2s ease-in-out infinite;
+}
+
+.switch-artifact {
+  animation: switch-artifact 2s ease-in-out infinite;
+}
+
+.switch-dot {
+  animation: switch-dot 1s ease-in-out infinite;
+}
+
+/* --- Flowstate motion language --- */
+
+[data-canvas-viewport].viewport-focusing {
+  transition: transform var(--motion-duration-slow) var(--motion-ease-heavy);
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-shift-lg));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-landing-rise {
+  animation: landing-rise 280ms var(--motion-ease-medium) both;
+}
+
+.motion-landing-skip .motion-landing-rise {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes thinking-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.thinking-accent-bar {
+  animation: thinking-pulse 1.2s var(--motion-ease-light) infinite;
+}
+
+@keyframes answer-reveal-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.answer-reveal-in {
+  animation: answer-reveal-in var(--motion-duration-standard) var(--motion-ease-medium)
+    both;
+}
+
+@keyframes motion-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-popover-in {
+  animation: motion-popover-in var(--motion-duration-fast) var(--motion-ease-light) both;
+}
+
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.motion-fade-in {
+  animation: motion-fade-in var(--motion-duration-fast) var(--motion-ease-light) both;
+}
+
+@keyframes connection-draw-in {
+  from {
+    stroke-dashoffset: var(--connection-length, 100);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.connection-draw-in {
+  animation: connection-draw-in var(--motion-duration-fast) linear both;
+  animation-delay: 80ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-canvas-viewport].viewport-focusing {
+    transition: none;
+  }
+
+  .motion-landing-rise,
+  .thinking-accent-bar,
+  .answer-reveal-in,
+  .connection-draw-in,
+  .motion-popover-in,
+  .motion-fade-in {
+    animation: none;
+  }
+
+  .motion-landing-rise {
+    opacity: 1;
+    transform: none;
+  }
+
+  .connection-draw-in {
+    stroke-dashoffset: 0;
+  }
 }

@@ -134,4 +134,13 @@ describe("classifyCanvasPersistChange", () => {
     const slice = emptySlice({ viewport: { x: 1, y: 2, scale: 1 } });
     expect(pickCanvasPersistSlice(slice)).toEqual(slice);
   });
+
+  it("detects viewport-only changes without full JSON compare", () => {
+    const prev = emptySlice();
+    const next = emptySlice({ viewport: { x: 50, y: 50, scale: 1.2 } });
+    expect(classifyCanvasPersistChange(prev, next)).toEqual({
+      persist: true,
+      contentEdit: false,
+    });
+  });
 });

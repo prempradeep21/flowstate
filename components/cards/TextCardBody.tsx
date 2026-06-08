@@ -136,6 +136,11 @@ export function TextCardBody({
 
   if (!card.answer) return null;
 
+  const [answerRevealed, setAnswerRevealed] = useState(false);
+  useEffect(() => {
+    if (isStreaming && card.answer) setAnswerRevealed(true);
+  }, [isStreaming, card.answer]);
+
   const bodyClass =
     plainClamp
       ? "min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-[15px] leading-relaxed text-canvas-ink"
@@ -154,7 +159,9 @@ export function TextCardBody({
   );
 
   return (
-    <div className="relative min-w-0">
+    <div
+      className={`relative min-w-0 ${answerRevealed ? "answer-reveal-in" : ""}`}
+    >
       <div
         ref={setRef}
         data-selectable-text

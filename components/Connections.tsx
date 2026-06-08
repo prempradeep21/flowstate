@@ -1,15 +1,21 @@
 "use client";
 
 import { ReactNode, useCallback, useRef, useState } from "react";
+import { isConnectionHidden } from "@/lib/chatThreads";
+import { useHiddenCardIds } from "@/hooks/useHiddenCardIds";
 import {
   ConnectorStyle,
   useCanvasStore,
 } from "@/lib/store";
+import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import {
   buildPlugConnectorPath,
   connectorMarkerSizes,
+  isLateralBranchConnection,
+  plugAnchorAt,
+  plugAnchorAtWorldPoint,
   resolveConnectionAnchors,
 } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
@@ -215,11 +221,14 @@ interface HoverState {
 
 
 
+const COLLAPSED_STUB_LENGTH = 48;
+
 export function Connections() {
 
   const cards = useCanvasStore((s) => s.cards);
 
   const connections = useCanvasStore((s) => s.connections);
+  const hiddenCardIds = useHiddenCardIds();
 
   const threads = useCanvasStore((s) => s.threads);
 
@@ -228,6 +237,8 @@ export function Connections() {
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
 
   const setConnectorStyle = useCanvasStore((s) => s.setConnectorStyle);
+  const recentConnectionId = useCanvasStore((s) => s.recentConnectionId);
+  const clearRecentConnection = useCanvasStore((s) => s.clearRecentConnection);
 
   const tuning = RESOLVED_CANVAS_TUNING;
 
@@ -331,7 +342,58 @@ export function Connections() {
 
           if (!from || !to) return null;
 
-
+          if (isConnectionHidden(useCanvasStore.getState(), conn)) {
+            if (
+              isLateralBranchConnection(conn.fromSide) &&
+              hiddenCardIds.has(conn.to) &&
+              !hiddenCardIds.has(conn.from)
+            ) {
+              const { w, h } = getConnectionCardBounds(from, tuning);
+              const fromSide = (conn.fromSide ?? "right") as "left" | "right";
+              const toSide = fromSide === "left" ? "right" : "left";
+              const fromAnchor = plugAnchorAt(
+                from.position.x,
+                from.position.y,
+                w,
+                h,
+                fromSide,
+              );
+              const stubEnd = plugAnchorAtWorldPoint(
+                fromAnchor.px +
+                  (fromSide === "left"
+                    ? -COLLAPSED_STUB_LENGTH
+                    : COLLAPSED_STUB_LENGTH),
+                fromAnchor.py,
+                fromSide,
+              );
+              const { d } = buildPlugConnectorPath(
+                fromAnchor,
+                stubEnd,
+                fromSide,
+                toSide,
+                connectorStyle,
+              );
+              const stroke =
+                threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
+              return (
+                <g key={conn.id}>
+                  <ConnectorPathGroup
+                    d={d}
+                    stroke={stroke}
+                    strokeWidth={strokeWidth}
+                    fromAnchor={fromAnchor}
+                    toAnchor={stubEnd}
+                    toSide={toSide}
+                    viewportScale={viewportSettledScale}
+                    dashed
+                    opacity={0.55}
+                    showTargetArrow={false}
+                  />
+                </g>
+              );
+            }
+            return null;
+          }
 
           const {
             fromAnchor: a,
@@ -376,6 +438,12 @@ export function Connections() {
                 viewportScale={viewportSettledScale}
                 opacity={isHovered ? 0.95 : 0.85}
                 hitWidth={hitWidth}
+                drawIn={conn.id === recentConnectionId}
+                onDrawComplete={
+                  conn.id === recentConnectionId
+                    ? clearRecentConnection
+                    : undefined
+                }
                 onPointerEnter={() =>
                   showPicker(conn.id, midPointX, midPointY)
                 }

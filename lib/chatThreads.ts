@@ -197,3 +197,92 @@ export function isCardInSelectedFamilies(
   const root = getFamilyRootThreadId(state, card.threadId);
   return selectedFamilyRootIds.includes(root);
 }
+
+export interface LateralBranchFromCard {
+  side: "left" | "right";
+  threadId: string;
+  branchRootCardId: string;
+}
+
+/** Lateral branches pulled directly from a card (left/right outgoing connections). */
+export function getLateralBranchesFromCard(
+  connections: readonly Connection[],
+  cards: Record<string, Card>,
+  cardId: string,
+): LateralBranchFromCard[] {
+  const branches: LateralBranchFromCard[] = [];
+  for (const conn of connections) {
+    if (conn.from !== cardId) continue;
+    if (conn.fromSide !== "left" && conn.fromSide !== "right") continue;
+    const branchRoot = cards[conn.to];
+    if (!branchRoot) continue;
+    branches.push({
+      side: conn.fromSide,
+      threadId: branchRoot.threadId,
+      branchRootCardId: branchRoot.id,
+    });
+  }
+  return branches;
+}
+
+function findSidebarNode(
+  nodes: SidebarNode[],
+  threadId: string,
+): SidebarNode | null {
+  for (const node of nodes) {
+    if (node.threadId === threadId) return node;
+    const nested = findSidebarNode(node.branches, threadId);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function collectSubtreeThreadIds(node: SidebarNode, out: string[]): void {
+  out.push(node.threadId);
+  for (const branch of node.branches) {
+    collectSubtreeThreadIds(branch, out);
+  }
+}
+
+/** Branch thread id plus all nested tributary branch thread ids under it. */
+export function getBranchSubtreeThreadIds(
+  state: ChatThreadState,
+  branchThreadId: string,
+): string[] {
+  const tree = buildSidebarTree(state);
+  const node = findSidebarNode(tree, branchThreadId);
+  if (!node) return [branchThreadId];
+  const ids: string[] = [];
+  collectSubtreeThreadIds(node, ids);
+  return ids;
+}
+
+export interface CollapseVisibilityState extends ChatThreadState {
+  collapsedBranchThreadIds: string[];
+}
+
+/** Card ids hidden because their branch thread subtree is collapsed on the canvas. */
+export function getHiddenCardIds(state: CollapseVisibilityState): Set<string> {
+  const hiddenThreadIds = new Set<string>();
+  for (const branchThreadId of state.collapsedBranchThreadIds) {
+    for (const tid of getBranchSubtreeThreadIds(state, branchThreadId)) {
+      hiddenThreadIds.add(tid);
+    }
+  }
+  const hidden = new Set<string>();
+  for (const id of state.cardOrder) {
+    const card = state.cards[id];
+    if (card && hiddenThreadIds.has(card.threadId)) {
+      hidden.add(id);
+    }
+  }
+  return hidden;
+}
+
+export function isConnectionHidden(
+  state: CollapseVisibilityState,
+  conn: Connection,
+): boolean {
+  const hidden = getHiddenCardIds(state);
+  return hidden.has(conn.from) || hidden.has(conn.to);
+}

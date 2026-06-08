@@ -26,7 +26,7 @@ import {
   CanvasContextMenu,
   ContextMenuState,
 } from "@/components/CanvasContextMenu";
-import { CanvasLanding } from "@/components/CanvasLanding";
+import { CanvasLandingOverlay } from "@/components/CanvasLandingOverlay";
 import { CanvasBackgroundLayer } from "@/components/canvasBackgrounds/CanvasBackgroundLayer";
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
@@ -35,7 +35,9 @@ import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
+import { useCanvasPan } from "@/hooks/useCanvasPan";
 import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
+import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { focusCanvasCard } from "@/lib/canvasFocus";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
@@ -47,9 +49,9 @@ import {
   resetViewportBootstrap,
 } from "@/lib/canvasViewportBootstrap";
 import {
-  markUserViewportInteraction,
   requestCanvasFocus,
 } from "@/lib/canvasViewportGuard";
+import { useHiddenCardIds } from "@/hooks/useHiddenCardIds";
 import {
   getLandingCardId,
   shouldShowCanvasLanding,
@@ -77,8 +79,6 @@ export function Canvas({
   const { user, presenceChannelRef } = useAuth();
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
-  const panBy = useCanvasStore((s) => s.panBy);
-  const viewport = useCanvasStore((s) => s.viewport);
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
@@ -101,11 +101,16 @@ export function Canvas({
   );
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
+  const hiddenCardIds = useHiddenCardIds();
 
   const showLanding = shouldShowCanvasLanding(cards, cardOrder);
   const landingCardId = getLandingCardId(cards, cardOrder);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { enabled: cullingEnabled, visible: visibleNodes } = useViewportCulling(
+    containerRef,
+    { landingCardId: showLanding ? landingCardId : null },
+  );
   const setContainerRef = (node: HTMLDivElement | null) => {
     containerRef.current = node;
     if (externalContainerRef) {
@@ -125,6 +130,7 @@ export function Canvas({
 
   usePlugDragSession(containerRef);
   useCanvasWheelZoom(containerRef);
+  const queuePan = useCanvasPan();
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
   );
@@ -516,12 +522,8 @@ export function Canvas({
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") {
-          const field = target as HTMLInputElement | HTMLTextAreaElement;
-          if (field.value.trim().length > 0) return;
-        } else if (target.isContentEditable) {
-          return;
-        }
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (target.isContentEditable) return;
       }
 
       if (placementRef.current || textPlacementRef.current) return;
@@ -718,8 +720,7 @@ export function Canvas({
     const dy = e.clientY - ps.lastY;
     ps.lastX = e.clientX;
     ps.lastY = e.clientY;
-    markUserViewportInteraction();
-    panBy(dx, dy);
+    queuePan(dx, dy);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -780,16 +781,30 @@ export function Canvas({
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
+          if (hiddenCardIds.has(id)) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.cards.has(id)) {
+            return null;
+          }
           return <Card key={id} card={card} />;
         })}
         {canvasArtifactOrder.map((id) => {
           const node = canvasArtifactNodes[id];
           if (!node) return null;
+          if (
+            cullingEnabled &&
+            visibleNodes &&
+            !visibleNodes.artifacts.has(id)
+          ) {
+            return null;
+          }
           return <CanvasArtifactNode key={id} node={node} />;
         })}
         {canvasTextLabelOrder.map((id) => {
           const label = canvasTextLabels[id];
           if (!label) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.labels.has(id)) {
+            return null;
+          }
           return (
             <CanvasTextLabelNode
               key={id}
@@ -808,14 +823,7 @@ export function Canvas({
         {textPlacement && <GhostTextLabel world={textPlacement} />}
       </CanvasViewport>
       {showLanding && !placement && landingCardId && (
-        <div
-          className="absolute left-0 top-0 z-40 origin-top-left will-change-transform"
-          style={{
-            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
-          }}
-        >
-          <CanvasLanding cardId={landingCardId} />
-        </div>
+        <CanvasLandingOverlay cardId={landingCardId} />
       )}
       <SelectionOverlay rect={marqueeRect} />
       <SelectionToolbar />

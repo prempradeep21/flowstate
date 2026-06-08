@@ -67,7 +67,7 @@ export function QuickExplainPopup({
       role="dialog"
       aria-label={`Quick explain: ${explain.selectedText}`}
       aria-busy={isLoading}
-      className="absolute z-40 w-[280px] overflow-hidden rounded-2xl border border-canvas-border/50 bg-white/30 shadow-card backdrop-blur-md"
+      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-2xl border border-canvas-border/50 bg-white/30 shadow-card backdrop-blur-md"
       style={{
         left: "calc(100% + 12px)",
         top: anchorY,

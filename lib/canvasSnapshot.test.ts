@@ -30,15 +30,17 @@ describe("normalizeCanvasSnapshot", () => {
   it("preserves valid canvasBackgroundStyle values", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,
+      canvasBackgroundStyle: "ambient-gradient",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("ambient-gradient");
+  });
+
+  it("falls back to grid for removed canvasBackgroundStyle values", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
       canvasBackgroundStyle: "blueprint",
     });
-    expect(snapshot.canvasBackgroundStyle).toBe("blueprint");
-
-    const smoke = normalizeCanvasSnapshot({
-      version: 1,
-      canvasBackgroundStyle: "smoke",
-    });
-    expect(smoke.canvasBackgroundStyle).toBe("smoke");
+    expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
   it("drops session artifacts missing versions", () => {

@@ -3,6 +3,10 @@
 import { useCallback, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import {
+  MotionBackdrop,
+  MotionOverlayModal,
+} from "@/components/motion/MotionOverlay";
+import {
   MAX_CANVAS_MEMBERS,
   isCanvasOwner,
 } from "@/lib/collaborationPersistence";
@@ -80,22 +84,27 @@ export function ShareModal() {
     }
   }, [close, duplicateActiveCanvas, switchCanvas]);
 
-  if (!shareModalOpen) return null;
-
   const canDuplicate =
     activeCanvasRole === "editor" ||
     (activeCanvasRole === "viewer" && accessInfo?.allowViewerDuplicate);
 
   return (
-    <div
-      className="pointer-events-auto fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="share-modal-title"
-      onClick={close}
-    >
+    <>
+      <MotionBackdrop
+        isOpen={shareModalOpen}
+        onClick={close}
+        className="pointer-events-auto fixed inset-0 z-[100] bg-black/40"
+      />
+      {shareModalOpen && (
+        <div className="pointer-events-none fixed inset-0 z-[101] flex items-center justify-center p-4">
+          <MotionOverlayModal
+            isOpen={shareModalOpen}
+            className="pointer-events-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-canvas-border bg-canvas-card p-5 shadow-card"
+          >
       <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-canvas-border bg-canvas-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-2">
@@ -297,6 +306,9 @@ export function ShareModal() {
           )}
         </div>
       </div>
-    </div>
+          </MotionOverlayModal>
+        </div>
+      )}
+    </>
   );
 }
