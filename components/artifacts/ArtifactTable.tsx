@@ -176,12 +176,12 @@ export function ArtifactTable({
   return (
     <div
       data-canvas-scroll
-      className={`overflow-y-auto overflow-x-hidden bg-white ${maxHeightClassName}`}
+      className={`overflow-y-auto overflow-x-hidden bg-canvas-card ${maxHeightClassName}`}
       style={tableAccentStyles(accentSeed)}
     >
       <table
         ref={tableRef}
-        className={`w-full table-fixed border-collapse bg-white text-left ${textSize}`}
+        className={`w-full table-fixed border-collapse bg-canvas-card text-left ${textSize}`}
       >
         <colgroup>
           {columns.map((col, index) => {
@@ -202,7 +202,7 @@ export function ArtifactTable({
         </colgroup>
         <thead>
           <tr
-            className="sticky top-0 z-10 border-b bg-white backdrop-blur-sm"
+            className="sticky top-0 z-10 border-b bg-canvas-card backdrop-blur-sm"
             style={{ borderColor: "var(--table-accent-border)" }}
           >
             {columns.map((col, colIndex) => (
@@ -233,7 +233,7 @@ export function ArtifactTable({
           {rows.map((row: TableRow, ri) => (
             <tr
               key={ri}
-              className="table-artifact-row border-b border-canvas-border/60 bg-white transition-colors duration-150 last:border-0"
+              className="table-artifact-row border-b border-canvas-border/60 bg-canvas-card transition-colors duration-150 last:border-0"
             >
               {columns.map((col, ci) => {
                 const spec = widthByKey.get(col.key);

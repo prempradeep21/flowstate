@@ -243,6 +243,10 @@ export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "ambient-gradient",
 ] as const;
 
+export type CanvasTheme = "light" | "dark";
+
+export const CANVAS_THEMES: readonly CanvasTheme[] = ["light", "dark"] as const;
+
 export interface BranchGroup {
   id: string;
   label: string;
@@ -347,6 +351,7 @@ interface CanvasState {
   selectedCanvasTextLabelId: string | null;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasTheme: CanvasTheme;
   /** Session-only font preview — body layer (not persisted). */
   canvasPreviewBodyFontId: string;
   /** Session-only font preview — display layer (not persisted). */
@@ -511,6 +516,7 @@ interface CanvasState {
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
   setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
+  setCanvasTheme: (theme: CanvasTheme) => void;
   setCanvasPreviewBodyFontId: (id: string) => void;
   setCanvasPreviewDisplayFontId: (id: string) => void;
   /** Re-measure cards from DOM at current zoom, then repair vertical chains. */
@@ -917,6 +923,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedCanvasTextLabelId: null,
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
+  canvasTheme: "light",
   canvasPreviewBodyFontId: DEFAULT_BODY_FONT_ID,
   canvasPreviewDisplayFontId: "denton",
   globalOrigin: null,
@@ -1082,6 +1089,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setCanvasBackgroundStyle: (style) =>
     set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
+
+  setCanvasTheme: (theme) =>
+    set({ canvasTheme: theme, collaborationHasEdits: true }),
 
   setCanvasPreviewBodyFontId: (id) => set({ canvasPreviewBodyFontId: id }),
   setCanvasPreviewDisplayFontId: (id) => set({ canvasPreviewDisplayFontId: id }),
@@ -2206,6 +2216,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       groups: state.groups,
       connectorStyle: state.connectorStyle,
       canvasBackgroundStyle: state.canvasBackgroundStyle,
+      canvasTheme: state.canvasTheme,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
       sessionArtifacts: state.sessionArtifacts,
@@ -2343,6 +2354,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
+        canvasTheme: snapshotNorm.canvasTheme,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
         sessionArtifacts: repaired.sessionArtifacts,

@@ -11,6 +11,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "supabase:check-env": "node scripts/check-supabase-env.js",
+    "supabase:migrations": "node scripts/print-supabase-migrations.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "benchmark:pan-zoom": "node scripts/benchmark-pan-zoom.mjs"

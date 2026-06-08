@@ -9,9 +9,8 @@ import {
   connectorPlugCirclePath,
 } from "@/lib/plugConnector";
 
-import { canvasColors } from "@/lib/design/tokens";
-
-const PLUG_FILL = canvasColors.plugFill;
+/** Resolves through the theme CSS variable so plugs follow light/dark. */
+const PLUG_FILL = "rgb(var(--canvas-plug-fill))";
 
 export function ConnectorPathGroup({
   d,
@@ -88,7 +87,7 @@ export function ConnectorPathGroup({
         ref={pathRef}
         d={d}
         fill="none"
-        stroke={stroke}
+        style={{ stroke }}
         strokeOpacity={opacity}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
@@ -101,8 +100,7 @@ export function ConnectorPathGroup({
       {showSourcePlug && (
         <path
           d={connectorPlugCirclePath(fromAnchor.px, fromAnchor.py, plugRadius)}
-          fill={PLUG_FILL}
-          stroke={stroke}
+          style={{ fill: PLUG_FILL, stroke }}
           strokeWidth={strokeWidth}
           strokeOpacity={opacity}
           pointerEvents="none"
@@ -112,7 +110,7 @@ export function ConnectorPathGroup({
         (toSide === "left" || toSide === "right") && (
         <path
           d={connectorArrowPath(toAnchor.px, toAnchor.py, toSide, arrowSize)}
-          fill={stroke}
+          style={{ fill: stroke }}
           fillOpacity={opacity}
           stroke="none"
           pointerEvents="none"

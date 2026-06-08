@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ContextMenuItem } from "@/components/MenuIcons";
+import { ContextMenuItem, TrashIcon } from "@/components/MenuIcons";
 
 interface CanvasRowMenuProps {
   onRename: () => void;
+  onDelete: () => void;
+  disabled?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
@@ -42,7 +44,12 @@ function RenameIcon() {
   );
 }
 
-export function CanvasRowMenu({ onRename, onOpenChange }: CanvasRowMenuProps) {
+export function CanvasRowMenu({
+  onRename,
+  onDelete,
+  disabled = false,
+  onOpenChange,
+}: CanvasRowMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,12 +82,13 @@ export function CanvasRowMenu({ onRename, onOpenChange }: CanvasRowMenuProps) {
         aria-label="Canvas actions"
         aria-expanded={open}
         aria-haspopup="menu"
+        disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+        className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40 ${
           open ? "bg-canvas-bg text-canvas-ink" : ""
         }`}
       >
@@ -96,8 +104,20 @@ export function CanvasRowMenu({ onRename, onOpenChange }: CanvasRowMenuProps) {
           <ContextMenuItem
             icon={<RenameIcon />}
             label="Rename"
+            disabled={disabled}
             onClick={() => {
               onRename();
+              setOpen(false);
+            }}
+          />
+          <div className="my-1 border-t border-canvas-border" role="separator" />
+          <ContextMenuItem
+            icon={<TrashIcon />}
+            label="Delete"
+            variant="danger"
+            disabled={disabled}
+            onClick={() => {
+              onDelete();
               setOpen(false);
             }}
           />

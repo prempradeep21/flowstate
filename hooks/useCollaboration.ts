@@ -44,6 +44,7 @@ interface UseCollaborationOptions {
   user: User | null;
   supabaseConfigured: boolean;
   activeCanvasId: string | null;
+  localReadOnly?: boolean;
   onCanvasJoined: (canvasId: string) => Promise<void>;
   onRefreshCanvasList: () => Promise<void>;
   isRemoteUpdateRef: React.MutableRefObject<boolean>;
@@ -55,6 +56,7 @@ export function useCollaboration({
   user,
   supabaseConfigured,
   activeCanvasId,
+  localReadOnly = false,
   onCanvasJoined,
   onRefreshCanvasList,
   isRemoteUpdateRef,
@@ -254,6 +256,8 @@ export function useCollaboration({
             filter: `id=eq.${activeCanvasId}`,
           },
           (payload) => {
+            if (localReadOnly) return;
+
             const newState = (payload.new as { state?: unknown })?.state;
             const parsed = parseCanvasSnapshot(newState);
             if (!parsed) return;
@@ -300,12 +304,14 @@ export function useCollaboration({
     isDirtyRef,
     isHydratingRef,
     isRemoteUpdateRef,
+    localReadOnly,
     supabaseConfigured,
     user,
   ]);
 
   const acceptInvite = useCallback(
     async (inviteId: string) => {
+      if (localReadOnly) return;
       if (!user?.email) return;
       const supabase = createClient();
       const canvasId = await acceptCanvasInvite(
@@ -318,20 +324,22 @@ export function useCollaboration({
       await onRefreshCanvasList();
       await onCanvasJoined(canvasId);
     },
-    [onCanvasJoined, onRefreshCanvasList, refreshSharedAndInvites, user],
+    [localReadOnly, onCanvasJoined, onRefreshCanvasList, refreshSharedAndInvites, user],
   );
 
   const declineInvite = useCallback(
     async (inviteId: string) => {
+      if (localReadOnly) return;
       const supabase = createClient();
       await declineCanvasInvite(supabase, inviteId);
       await refreshSharedAndInvites();
     },
-    [refreshSharedAndInvites],
+    [localReadOnly, refreshSharedAndInvites],
   );
 
   const sendInvite = useCallback(
     async (email: string, role: CollaboratorRole) => {
+      if (localReadOnly) return;
       if (!user || !activeCanvasId) return;
       const supabase = createClient();
       await inviteToCanvasByEmail(
@@ -343,31 +351,34 @@ export function useCollaboration({
       );
       await refreshActiveCanvasCollaboration();
     },
-    [activeCanvasId, refreshActiveCanvasCollaboration, user],
+    [activeCanvasId, localReadOnly, refreshActiveCanvasCollaboration, user],
   );
 
   const removeMember = useCallback(
     async (userId: string) => {
+      if (localReadOnly) return;
       if (!activeCanvasId) return;
       const supabase = createClient();
       await removeCanvasCollaborator(supabase, activeCanvasId, userId);
       await refreshActiveCanvasCollaboration();
     },
-    [activeCanvasId, refreshActiveCanvasCollaboration],
+    [activeCanvasId, localReadOnly, refreshActiveCanvasCollaboration],
   );
 
   const changeMemberRole = useCallback(
     async (userId: string, role: CollaboratorRole) => {
+      if (localReadOnly) return;
       if (!activeCanvasId) return;
       const supabase = createClient();
       await updateCollaboratorRole(supabase, activeCanvasId, userId, role);
       await refreshActiveCanvasCollaboration();
     },
-    [activeCanvasId, refreshActiveCanvasCollaboration],
+    [activeCanvasId, localReadOnly, refreshActiveCanvasCollaboration],
   );
 
   const toggleAllowViewerDuplicate = useCallback(
     async (allow: boolean) => {
+      if (localReadOnly) return;
       if (!activeCanvasId) return;
       const supabase = createClient();
       await setAllowViewerDuplicate(supabase, activeCanvasId, allow);
@@ -375,28 +386,31 @@ export function useCollaboration({
         prev ? { ...prev, allowViewerDuplicate: allow } : prev,
       );
     },
-    [activeCanvasId],
+    [activeCanvasId, localReadOnly],
   );
 
   const regenerateShareLink = useCallback(async () => {
+    if (localReadOnly) return null;
     if (!user || !activeCanvasId) return null;
     const supabase = createClient();
     await revokeShareLink(supabase, activeCanvasId);
     const link = await getOrCreateShareLink(supabase, activeCanvasId, user.id);
     setShareLink(link);
     return link;
-  }, [activeCanvasId, user]);
+  }, [activeCanvasId, localReadOnly, user]);
 
   const leaveCanvas = useCallback(async () => {
+    if (localReadOnly) return;
     if (!user || !activeCanvasId) return;
     const supabase = createClient();
     await leaveSharedCanvas(supabase, activeCanvasId, user.id);
     await refreshSharedAndInvites();
     await onRefreshCanvasList();
-  }, [activeCanvasId, onRefreshCanvasList, refreshSharedAndInvites, user]);
+  }, [activeCanvasId, localReadOnly, onRefreshCanvasList, refreshSharedAndInvites, user]);
 
   const transferOwnership = useCallback(
     async (newOwnerId: string) => {
+      if (localReadOnly) return;
       if (!user || !activeCanvasId) return;
       const supabase = createClient();
       await transferCanvasOwnership(
@@ -408,10 +422,11 @@ export function useCollaboration({
       await refreshActiveCanvasCollaboration();
       await onRefreshCanvasList();
     },
-    [activeCanvasId, onRefreshCanvasList, refreshActiveCanvasCollaboration, user],
+    [activeCanvasId, localReadOnly, onRefreshCanvasList, refreshActiveCanvasCollaboration, user],
   );
 
   const duplicateActiveCanvas = useCallback(async () => {
+    if (localReadOnly) return null;
     if (!user || !activeCanvasId || !accessInfo) return null;
     const supabase = createClient();
     const { data: canvas } = await supabase
@@ -428,10 +443,11 @@ export function useCollaboration({
     );
     await onRefreshCanvasList();
     return created.id;
-  }, [accessInfo, activeCanvasId, onRefreshCanvasList, user]);
+  }, [accessInfo, activeCanvasId, localReadOnly, onRefreshCanvasList, user]);
 
   const joinViaToken = useCallback(
     async (token: string) => {
+      if (localReadOnly) return null;
       if (!user) return null;
       const supabase = createClient();
       const canvasId = await joinCanvasViaShareLink(
@@ -445,7 +461,7 @@ export function useCollaboration({
       await onCanvasJoined(canvasId);
       return canvasId;
     },
-    [onCanvasJoined, onRefreshCanvasList, refreshSharedAndInvites, user],
+    [localReadOnly, onCanvasJoined, onRefreshCanvasList, refreshSharedAndInvites, user],
   );
 
   const stampContributor = useCallback(

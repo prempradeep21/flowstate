@@ -1,6 +1,7 @@
 import type { UploadedAttachment } from "@/lib/store";
 import type { CanvasAsset, CanvasAssetKind } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
+import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
 
 export type UploadCategory = "images" | "documents" | "code";
 
@@ -11,6 +12,28 @@ export const UPLOAD_CATEGORY_LABELS: Record<UploadCategory, string> = {
 };
 
 export const ASSET_STORAGE_BUCKET = "asset-files";
+
+/** Best-effort removal of uploaded assets for a deleted canvas. */
+export async function deleteCanvasStorageAssets(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  canvasId: string,
+): Promise<void> {
+  const prefix = `${userId}/${canvasId}`;
+  const { data: files, error } = await supabase.storage
+    .from(ASSET_STORAGE_BUCKET)
+    .list(prefix);
+
+  if (error || !files?.length) return;
+
+  const paths = files
+    .filter((file) => file.name)
+    .map((file) => `${prefix}/${file.name}`);
+
+  if (paths.length === 0) return;
+
+  await supabase.storage.from(ASSET_STORAGE_BUCKET).remove(paths);
+}
 export const ASSET_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const MAX_ASSET_BATCH_FILES = 20;
 export const IMAGE_ASSET_MAX_BYTES = 10 * 1024 * 1024;
@@ -255,6 +278,19 @@ export async function uploadAssetFiles(
         {
           code: "missing-context",
           message: "Sign in and open a canvas before uploading assets.",
+        },
+      ],
+    };
+  }
+
+  if (isLocalReadOnlyClient()) {
+    return {
+      assets: [],
+      errors: [
+        {
+          code: "read-only-local",
+          message:
+            "File uploads are disabled in local session mode. Changes reset on reload.",
         },
       ],
     };

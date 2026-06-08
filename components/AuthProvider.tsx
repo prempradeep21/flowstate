@@ -34,6 +34,8 @@ interface AuthContextValue extends CollaborationContextValue {
   switchCanvas: (canvasId: string) => Promise<void>;
   createNewCanvas: () => Promise<string | null>;
   renameCanvas: (canvasId: string, title: string) => Promise<void>;
+  deleteOwnedCanvas: (canvasId: string) => Promise<void>;
+  localReadOnly: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   shareModalOpen: boolean;
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchCanvas,
     createNewCanvas,
     renameCanvas,
+    deleteOwnedCanvas: deleteOwnedCanvasRaw,
     isSwitching: isSwitchingCanvas,
     switchingCanvasId,
     switchingCanvasTitle,
@@ -67,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flushSave,
     isDirtyRef,
     isHydratingRef,
+    localReadOnly,
   } = useCanvasPersistence({
     user,
     supabaseConfigured,
@@ -88,10 +92,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshOwnedCanvasList();
   }, [refreshOwnedCanvasList]);
 
+  const deleteOwnedCanvas = useCallback(
+    async (canvasId: string) => {
+      const wasActive = activeCanvasId === canvasId;
+      await deleteOwnedCanvasRaw(canvasId);
+      if (wasActive) setShareModalOpen(false);
+    },
+    [activeCanvasId, deleteOwnedCanvasRaw],
+  );
+
   const collaboration = useCollaboration({
     user,
     supabaseConfigured,
     activeCanvasId,
+    localReadOnly,
     onCanvasJoined,
     onRefreshCanvasList,
     isRemoteUpdateRef,
@@ -184,6 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchCanvas,
       createNewCanvas,
       renameCanvas,
+      deleteOwnedCanvas,
+      localReadOnly,
       signInWithGoogle,
       signOut,
       shareModalOpen,
@@ -200,6 +216,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchingCanvasTitle,
       persistenceStatus,
       renameCanvas,
+      deleteOwnedCanvas,
+      localReadOnly,
       saveStatus,
       shareModalOpen,
       signInWithGoogle,

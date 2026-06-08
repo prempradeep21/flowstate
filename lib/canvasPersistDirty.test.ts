@@ -17,6 +17,7 @@ function emptySlice(overrides: Partial<CanvasPersistSlice> = {}): CanvasPersistS
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
+    canvasTheme: "light",
     selectedModel: "claude-sonnet-4-6",
     viewMode: "canvas",
     sessionArtifacts: {},

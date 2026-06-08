@@ -47,10 +47,81 @@ export const canvasColors = {
   tagDangerRing: "#fecdd3",
 } as const;
 
-export const CANVAS_ACCENT = canvasColors.accent;
-export const CANVAS_CONNECTOR = canvasColors.connector;
-export const CANVAS_BG = canvasColors.bg;
-export const CANVAS_DOT = canvasColors.dot;
+/**
+ * Dark theme palette. Tuned against Material Design and Apple HIG dark-mode
+ * guidance: warm near-black surfaces (never pure black), off-white text
+ * (never pure white) to reduce halation, elevation via progressively lighter
+ * surfaces, and lightened/desaturated accents + status hues for AA contrast.
+ */
+export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
+  bg: "#181715",
+  dot: "#3A3833",
+  card: "#211F1C",
+  border: "#34322D",
+  ink: "#ECEAE3",
+  muted: "#A8A29A",
+  accent: "#8E78FF",
+  artifactIconBg: "#2C2541",
+  artifactStage: "#1E1D1A",
+  connector: "#4E4B45",
+  plugFill: "#1E1D1A",
+  stageDark: "#0F0F0E",
+  codeBg: "#1C1B1A",
+  syntaxComment: "#8B949E",
+  syntaxString: "#A5D6FF",
+  syntaxKeyword: "#FF7B72",
+  danger: "#F87171",
+  dangerSoft: "#2A1818",
+  dangerBorder: "#5C2A2A",
+  success: "#34D399",
+  successText: "#6EE7B7",
+  successSoft: "#11261F",
+  successRing: "#1F5C45",
+  warning: "#FBBF24",
+  warningSoft: "#2A2114",
+  warningRing: "#5C4A1F",
+  warningText: "#FCD34D",
+  info: "#38BDF8",
+  infoText: "#7DD3FC",
+  infoSoft: "#14222A",
+  infoRing: "#1F4A5C",
+  mapPrimary: "#8E78FF",
+  mapSaved: "#FBBF24",
+  tagDanger: "#FB7185",
+  tagDangerSoft: "#2A1620",
+  tagDangerRing: "#5C2A3A",
+};
+
+/** "#RRGGBB" -> "R G B" space-separated channels for `rgb(var(--x) / a)`. */
+export function hexToRgbChannels(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+/** Maps a palette to `--canvas-*` CSS variable channel strings. */
+function toThemeVars(palette: Record<string, string>): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(palette)) {
+    const name = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+    vars[`--canvas-${name}`] = hexToRgbChannels(value);
+  }
+  return vars;
+}
+
+export const lightThemeVars = toThemeVars(canvasColors);
+export const darkThemeVars = toThemeVars(darkCanvasColors);
+
+/**
+ * Runtime color constants resolve through CSS variables so JS-driven
+ * rendering (canvas backgrounds, SVG connectors) follows the active theme.
+ */
+export const CANVAS_ACCENT = "rgb(var(--canvas-accent))";
+export const CANVAS_CONNECTOR = "rgb(var(--canvas-connector))";
+export const CANVAS_BG = "rgb(var(--canvas-bg))";
+export const CANVAS_DOT = "rgb(var(--canvas-dot))";
 
 /** Thread accent palette — cycles per thread (OQ-01); first entry matches UI accent */
 export const THREAD_ACCENT_PALETTE = [
