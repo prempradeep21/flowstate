@@ -27,6 +27,7 @@ Include the table if you edited, created, or deleted any project source file, co
 | 3020 | `npm run dev:showcase` | Showcase | Next.js showcase build (`.next-showcase`) |
 | 3030 | `npm run dev:spec` | Spec viewer | Static spec viewer for `branch-ai.md` |
 | 3040 | `npm run dev:repo-explorer` | Repository Explorer | Dev prototype for GitHub repo dashboard widgets |
+| 3050 | `npm run dev:artifact-catalog` | Artifact catalog | Live artifact previews at `/dev/artifact-catalog` |
 
 Use the **actual URL** from terminal output when the port is not 3000 (e.g. `http://localhost:3001`).
 

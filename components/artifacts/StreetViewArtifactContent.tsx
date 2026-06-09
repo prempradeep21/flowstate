@@ -12,11 +12,13 @@ import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/streetViewArtifact";
 export function StreetViewArtifactContent({
   payload,
   layout = "panel",
+  forceInteractive = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "streetview" }>;
   layout?: "canvas" | "panel" | "sidebar";
+  forceInteractive?: boolean;
 }) {
-  const [interactive, setInteractive] = useState(false);
+  const [interactive, setInteractive] = useState(forceInteractive);
   const { place, heading, pitch, fov } = payload.data;
   const lat = place.lat;
   const lng = place.lng;

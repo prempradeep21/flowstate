@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArtifactTextSelection } from "@/components/ArtifactTextSelection";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
@@ -28,6 +29,8 @@ export function ArtifactShell({
   onExpand,
   onRemoveFromCanvas,
   onTodoEditingChange,
+  catalogPreview = false,
+  sourceCardId,
 }: {
   sessionArtifact: SessionArtifact;
   versionId: string;
@@ -37,14 +40,19 @@ export function ArtifactShell({
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   onTodoEditingChange?: (editing: boolean) => void;
+  /** Dev catalog: enable edits and interaction without canvas chrome. */
+  catalogPreview?: boolean;
+  /** Card that spawned this artifact — enables Ask a question from selection. */
+  sourceCardId?: string | null;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
-  const [isTodoEditing, setIsTodoEditing] = useState(false);
+  const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
   const [isTodoDirty, setIsTodoDirty] = useState(false);
   const todoActionsRef = useRef<TodoArtifactActions | null>(null);
   const { members, accessInfo } = useAuth();
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
+  const readOnly = catalogPreview ? false : canvasReadOnly;
 
   const contributorProfiles = useMemo(() => {
     if (members.length <= 1 || !collaborationHasEdits) return [];
@@ -75,16 +83,16 @@ export function ArtifactShell({
   const isVideo = activeVersion
     ? isVideoArtifactPayload(activeVersion.payload)
     : false;
-  const canEditTodo = isTodo && isLatest && !canvasReadOnly;
-  const canEditMap = isMap && isLatest && !canvasReadOnly;
-  const canEditCalendar = isCalendar && isLatest && !canvasReadOnly;
-  const canEditTimeline = isTimeline && isLatest && !canvasReadOnly;
+  const canEditTodo = isTodo && isLatest && !readOnly;
+  const canEditMap = isMap && isLatest && !readOnly;
+  const canEditCalendar = isCalendar && isLatest && !readOnly;
+  const canEditTimeline = isTimeline && isLatest && !readOnly;
 
   useEffect(() => {
     setCodeTitleOverride(null);
-    setIsTodoEditing(false);
+    setIsTodoEditing(catalogPreview && sessionArtifact.kind === "todo");
     setIsTodoDirty(false);
-  }, [sessionArtifact.id, versionId]);
+  }, [catalogPreview, sessionArtifact.id, sessionArtifact.kind, versionId]);
 
   useEffect(() => {
     onTodoEditingChange?.(isTodoEditing);
@@ -191,33 +199,76 @@ export function ArtifactShell({
         }
         {...(isCanvasLayout ? { [ARTIFACT_INTERACTIVE_SURFACE_ATTR]: "" } : {})}
       >
-        <ArtifactContent
-          layout={layout}
-          payload={activeVersion.payload}
-          artifactId={sessionArtifact.id}
-          versionId={activeVersion.id}
-          onCodeActiveFileChange={
-            sessionArtifact.kind === "code" ? setCodeTitleOverride : undefined
-          }
-          todoContext={
-            isTodo
-              ? {
-                  artifactId: sessionArtifact.id,
-                  versionId: activeVersion.id,
-                  latestVersionId: sessionArtifact.latestVersionId,
-                  isEditing: isTodoEditing,
-                  onDirtyChange: setIsTodoDirty,
-                  onActionsReady: (actions) => {
-                    todoActionsRef.current = actions;
-                  },
-                  onSaved: exitEditMode,
-                }
-              : undefined
-          }
-          mapCanEdit={canEditMap}
-          calendarCanEdit={canEditCalendar}
-          timelineCanEdit={canEditTimeline}
-        />
+        {catalogPreview ? (
+          <ArtifactContent
+            layout={layout}
+            payload={activeVersion.payload}
+            artifactId={sessionArtifact.id}
+            versionId={activeVersion.id}
+            onCodeActiveFileChange={
+              sessionArtifact.kind === "code" ? setCodeTitleOverride : undefined
+            }
+            todoContext={
+              isTodo
+                ? {
+                    artifactId: sessionArtifact.id,
+                    versionId: activeVersion.id,
+                    latestVersionId: sessionArtifact.latestVersionId,
+                    isEditing: isTodoEditing,
+                    onDirtyChange: setIsTodoDirty,
+                    onActionsReady: (actions) => {
+                      todoActionsRef.current = actions;
+                    },
+                    onSaved: exitEditMode,
+                  }
+                : undefined
+            }
+            mapCanEdit={canEditMap}
+            calendarCanEdit={canEditCalendar}
+            timelineCanEdit={canEditTimeline}
+            catalogPreview={catalogPreview}
+          />
+        ) : (
+          <ArtifactTextSelection
+            artifactId={sessionArtifact.id}
+            sourceCardId={sourceCardId}
+            enabled={!isTodoEditing}
+            className={
+              isCanvasLayout ? "flex min-h-0 flex-1 flex-col overflow-visible" : ""
+            }
+          >
+            <ArtifactContent
+              layout={layout}
+              payload={activeVersion.payload}
+              artifactId={sessionArtifact.id}
+              versionId={activeVersion.id}
+              onCodeActiveFileChange={
+                sessionArtifact.kind === "code"
+                  ? setCodeTitleOverride
+                  : undefined
+              }
+              todoContext={
+                isTodo
+                  ? {
+                      artifactId: sessionArtifact.id,
+                      versionId: activeVersion.id,
+                      latestVersionId: sessionArtifact.latestVersionId,
+                      isEditing: isTodoEditing,
+                      onDirtyChange: setIsTodoDirty,
+                      onActionsReady: (actions) => {
+                        todoActionsRef.current = actions;
+                      },
+                      onSaved: exitEditMode,
+                    }
+                  : undefined
+              }
+              mapCanEdit={canEditMap}
+              calendarCanEdit={canEditCalendar}
+              timelineCanEdit={canEditTimeline}
+              catalogPreview={catalogPreview}
+            />
+          </ArtifactTextSelection>
+        )}
       </div>
     </div>
   );

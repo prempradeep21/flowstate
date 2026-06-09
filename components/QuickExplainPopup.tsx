@@ -1,6 +1,7 @@
 "use client";
 
 import { m } from "framer-motion";
+import { createPortal } from "react-dom";
 import type { AnswerExplain } from "@/lib/store";
 import { framerTransition } from "@/lib/motion/transitions";
 import { useReducedMotion } from "@/lib/motion/useReducedMotion";
@@ -82,18 +83,21 @@ function LoadingSpinner() {
 export function QuickExplainPopup({
   explain,
   anchorY,
+  anchorRect,
   onClose,
 }: {
   explain: AnswerExplain;
   /** Y offset from card top — aligned to selected text */
-  anchorY: number;
+  anchorY?: number;
+  /** Viewport rect — portals beside selection (artifacts, panel) */
+  anchorRect?: DOMRect;
   onClose: () => void;
 }) {
   const reducedMotion = useReducedMotion();
   const isLoading = explain.status === "loading";
   const isError = explain.status === "error";
 
-  return (
+  const popup = (
     <m.div
       data-quick-explain-popup
       role="dialog"
@@ -103,12 +107,22 @@ export function QuickExplainPopup({
       animate={reducedMotion ? "reduced" : "animate"}
       exit={reducedMotion ? "reducedExit" : "exit"}
       variants={quickExplainVariants}
-      className="absolute z-40 w-[280px] origin-left overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm"
-      style={{
-        left: "calc(100% + 12px)",
-        top: anchorY,
-        y: "-50%",
-      }}
+      className={`${
+        anchorRect ? "fixed" : "absolute"
+      } z-[50001] w-[280px] origin-left overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm`}
+      style={
+        anchorRect
+          ? {
+              left: anchorRect.right + 12,
+              top: anchorRect.top + anchorRect.height / 2,
+              transform: "translateY(-50%)",
+            }
+          : {
+              left: "calc(100% + 12px)",
+              top: anchorY,
+              y: "-50%",
+            }
+      }
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
     >
@@ -176,4 +190,10 @@ export function QuickExplainPopup({
       </div>
     </m.div>
   );
+
+  if (anchorRect) {
+    return createPortal(popup, document.body);
+  }
+
+  return popup;
 }

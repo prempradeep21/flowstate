@@ -641,7 +641,7 @@ export function RepoArtifactContent({
 
   return (
     <div
-      className={`relative select-none ${fill ? "h-full w-full" : ""}`}
+      className={`relative ${fill ? "h-full w-full" : ""}`}
       style={{
         width: fill ? "100%" : REPO_ARTIFACT_WIDTH,
         height: fill ? "100%" : REPO_ARTIFACT_HEIGHT,

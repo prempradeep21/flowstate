@@ -36,8 +36,8 @@ import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 4;
 
-const INTERACTIVE =
-  "button, textarea, input, select, a, [role='menu'], [role='listbox'], [role='option'], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon";
+const TEXT_SELECTABLE =
+  'textarea, button, input, select, a, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], [role="menu"], [role="listbox"], [role="option"], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon';
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
@@ -203,11 +203,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest(INTERACTIVE)) return;
+    if (target.closest(TEXT_SELECTABLE)) return;
 
     e.stopPropagation();
-    e.preventDefault();
     selectCanvasArtifact(node.id);
+    e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragStateRef.current = {
       pointerId: e.pointerId,
@@ -418,6 +418,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             layout="canvas"
             sessionArtifact={art}
             versionId={node.versionId}
+            sourceCardId={node.sourceCardId}
             onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
             menuVariant="canvas"
             onExpand={() =>

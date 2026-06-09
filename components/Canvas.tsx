@@ -57,6 +57,11 @@ import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
+import {
+  getImageFilesFromDataTransfer,
+  isExternalImageDrag,
+  resolveImageFileFromDataTransfer,
+} from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { landingStackViewportCenter } from "@/lib/canvasOrigin";
@@ -797,44 +802,6 @@ export function Canvas({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, []);
 
-  // Paste URL on canvas → website or YouTube artifact at cursor.
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
-        if (target.isContentEditable) return;
-      }
-
-      const text = e.clipboardData?.getData("text/plain") ?? "";
-      if (!text.trim()) return;
-
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const canvasPtr = canvasPointerRef.current;
-      const cursor = cursorRef.current;
-      const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
-      const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
-      const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
-      const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
-      const world = computeWorldFromClient(clientX, clientY);
-      if (!world) return;
-
-      if (!createUrlArtifactFromText(text, world)) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      setContextMenu(null);
-      setPlacement(null);
-      setImagePlacement(null);
-      setGifPlacement(null);
-    };
-
-    window.addEventListener("paste", onPaste, true);
-    return () => window.removeEventListener("paste", onPaste, true);
-  }, []);
-
   // Window-level click handler that finalises placement and consumes the event
   // so it doesn't focus inputs or trigger pan on the underlying surface.
   useEffect(() => {
@@ -933,20 +900,116 @@ export function Canvas({
     });
   };
 
-  const handleNativeFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const world = computeWorldFromClient(e.clientX, e.clientY);
-    if (!world) return;
+  const importImagesAtWorld = async (
+    files: File[],
+    world: { x: number; y: number },
+  ) => {
+    if (!files.length) return false;
     const result = await uploadAssetFiles(
-      e.dataTransfer.files,
-      user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
+      files,
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null,
     );
     result.assets.forEach((asset, index) => {
       addCanvasAsset(asset);
       placeCanvasAsset(asset.id, world, index);
     });
-    setAssetDropErrors(result.errors);
+    if (result.errors.length > 0) {
+      setAssetDropErrors(result.errors);
+    }
+    return result.assets.length > 0;
+  };
+
+  // Paste images or URLs on canvas at cursor.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (target.isContentEditable) return;
+      }
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const canvasPtr = canvasPointerRef.current;
+      const cursor = cursorRef.current;
+      const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+      const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+      const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+      const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+      const world = computeWorldFromClient(clientX, clientY);
+      if (!world) return;
+
+      const imageFiles = getImageFilesFromDataTransfer(e.clipboardData);
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu(null);
+        setPlacement(null);
+        setImagePlacement(null);
+        setGifPlacement(null);
+        void importImagesAtWorld(imageFiles, world);
+        return;
+      }
+
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!text.trim()) return;
+
+      if (!createUrlArtifactFromText(text, world)) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setPlacement(null);
+      setImagePlacement(null);
+      setGifPlacement(null);
+    };
+
+    window.addEventListener("paste", onPaste, true);
+    return () => window.removeEventListener("paste", onPaste, true);
+  }, [user, activeCanvasId]);
+
+  const handleNativeFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const world = computeWorldFromClient(e.clientX, e.clientY);
+    if (!world) return;
+
+    const imageFiles = getImageFilesFromDataTransfer(e.dataTransfer);
+    if (imageFiles.length > 0) {
+      await importImagesAtWorld(imageFiles, world);
+      return;
+    }
+
+    const draggedImage = await resolveImageFileFromDataTransfer(e.dataTransfer);
+    if (draggedImage) {
+      const ok = await importImagesAtWorld([draggedImage], world);
+      if (ok) return;
+      setAssetDropErrors([
+        {
+          code: "upload-failed",
+          message:
+            "Could not import that image. Try saving it locally, then drag the file onto the canvas.",
+        },
+      ]);
+      return;
+    }
+
+    if (e.dataTransfer.files.length > 0) {
+      const result = await uploadAssetFiles(
+        e.dataTransfer.files,
+        user && activeCanvasId
+          ? { userId: user.id, canvasId: activeCanvasId }
+          : null,
+      );
+      result.assets.forEach((asset, index) => {
+        addCanvasAsset(asset);
+        placeCanvasAsset(asset.id, world, index);
+      });
+      setAssetDropErrors(result.errors);
+    }
   };
 
   const handleSidebarDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -1031,7 +1094,11 @@ export function Canvas({
   };
 
   const handleCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (e.dataTransfer.types.includes("Files")) {
+    if (e.dataTransfer.types.includes("application/x-flowstate-item")) {
+      allowSidebarDrop(e);
+      return;
+    }
+    if (isExternalImageDrag(e.dataTransfer.types)) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       return;
@@ -1040,7 +1107,14 @@ export function Canvas({
   };
 
   const handleCanvasDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    if (e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.types.includes("application/x-flowstate-item")) {
+      handleSidebarDrop(e);
+      return;
+    }
+    if (
+      e.dataTransfer.files.length > 0 ||
+      isExternalImageDrag(e.dataTransfer.types)
+    ) {
       await handleNativeFileDrop(e);
       return;
     }

@@ -8,7 +8,13 @@ import {
 } from "@/lib/artifactTypes";
 import { youtubeEmbedUrl } from "@/lib/youtube";
 
-function MediaCell({ item }: { item: ImagesMediaItem }) {
+function MediaCell({
+  item,
+  allowInteraction = false,
+}: {
+  item: ImagesMediaItem;
+  allowInteraction?: boolean;
+}) {
   if (item.kind === "youtube") {
     const embed = youtubeEmbedUrl(item.url);
     if (!embed) {
@@ -27,7 +33,7 @@ function MediaCell({ item }: { item: ImagesMediaItem }) {
       <iframe
         src={embed}
         title={item.title ?? "Video"}
-        className="pointer-events-none h-full w-full border-0"
+        className={`h-full w-full border-0 ${allowInteraction ? "pointer-events-auto" : "pointer-events-none"}`}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
       />
@@ -47,10 +53,12 @@ export function ImagesArtifactContent({
   payload,
   fill = false,
   sidebar = false,
+  allowMediaInteraction = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "images" }>;
   fill?: boolean;
   sidebar?: boolean;
+  allowMediaInteraction?: boolean;
 }) {
   const items = payload.data.items;
   const isVideo = isVideoArtifactPayload(payload);
@@ -66,7 +74,7 @@ export function ImagesArtifactContent({
         {items.slice(0, 6).map((item, i) => (
           <div key={i} className="relative min-h-0 overflow-hidden rounded-canvas bg-canvas-bg">
             <div className="absolute inset-0">
-              <MediaCell item={item} />
+              <MediaCell item={item} allowInteraction={allowMediaInteraction} />
             </div>
           </div>
         ))}
@@ -86,7 +94,7 @@ export function ImagesArtifactContent({
           key={i}
           className={`${aspectClass} overflow-hidden rounded-canvas bg-canvas-bg`}
         >
-          <MediaCell item={item} />
+          <MediaCell item={item} allowInteraction={allowMediaInteraction} />
         </div>
       ))}
     </div>

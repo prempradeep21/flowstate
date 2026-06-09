@@ -197,6 +197,7 @@ export function EmbedArtifactContent({
   layout = "panel",
   artifactId,
   versionId,
+  forceInteractive = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "embed" }>;
   fill?: boolean;
@@ -204,8 +205,9 @@ export function EmbedArtifactContent({
   layout?: "canvas" | "panel" | "sidebar";
   artifactId?: string;
   versionId?: string;
+  forceInteractive?: boolean;
 }) {
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(forceInteractive);
   const [retrying, setRetrying] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const { status, url } = payload.data;

@@ -46,6 +46,7 @@ export function ArtifactContent({
   mapCanEdit = false,
   calendarCanEdit = false,
   timelineCanEdit = false,
+  catalogPreview = false,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
@@ -64,6 +65,7 @@ export function ArtifactContent({
   mapCanEdit?: boolean;
   calendarCanEdit?: boolean;
   timelineCanEdit?: boolean;
+  catalogPreview?: boolean;
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
@@ -90,6 +92,7 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            allowMediaInteraction={catalogPreview || fill}
           />
         );
       }
@@ -151,6 +154,7 @@ export function ArtifactContent({
           <StreetViewArtifactContent
             payload={payload}
             layout={layout}
+            forceInteractive={catalogPreview}
           />
         );
       }
@@ -224,6 +228,7 @@ export function ArtifactContent({
             layout={layout}
             artifactId={artifactId}
             versionId={versionId}
+            forceInteractive={catalogPreview}
           />
         );
       }
