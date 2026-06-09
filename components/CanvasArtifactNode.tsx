@@ -141,6 +141,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const syncChromeHover = useCallback((target: EventTarget | null) => {
     setChromeHover(shouldShowArtifactChromeHover(target));
   }, []);
+  const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
   const dragStateRef = useRef<{
     pointerId: number;
@@ -316,7 +317,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const isTransparentCanvasChrome =
     art?.kind === "repo" || art?.kind === "table" || art?.kind === "todo";
   const isPermissionPreview = !!preview;
-  const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
   return (
     <div
