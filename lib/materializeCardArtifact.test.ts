@@ -82,6 +82,71 @@ describe("materializeCardArtifact", () => {
     expect(result?.versionId).toBe("aver_1");
     expect(result?.card.outputArtifactVersionId).toBe("aver_1");
   });
+
+  it("appends map updates to inherited thread artifact", () => {
+    const parent: Card = {
+      id: "card_1",
+      threadId: "thread_1",
+      question: "Show Bangalore on a map",
+      answer: "Here is Bangalore.",
+      status: "done",
+      position: { x: 0, y: 0 },
+      outputArtifactId: "art_map",
+    };
+    const child: Card = {
+      id: "card_2",
+      threadId: "thread_1",
+      question: "Add nurseries to the map",
+      answer: "Added markers.",
+      status: "done",
+      position: { x: 0, y: 400 },
+      parentCardId: "card_1",
+      inheritedArtifactId: "art_map",
+      artifactPayload: {
+        type: "map",
+        title: "Bangalore nurseries",
+        data: {
+          place: { name: "Bangalore, India" },
+          savedPlaces: [
+            { id: "p1", label: "Lalbagh", lat: 12.95, lng: 77.58 },
+          ],
+        },
+      },
+    };
+
+    const sessionArtifacts = {
+      art_map: {
+        id: "art_map",
+        title: "Bangalore",
+        kind: "map" as const,
+        latestVersionId: "aver_1",
+        versions: [
+          {
+            id: "aver_1",
+            number: 1,
+            createdAt: 1,
+            sourceCardId: "card_1",
+            payload: {
+              type: "map" as const,
+              title: "Bangalore",
+              data: { place: { name: "Bangalore, India" } },
+            },
+          },
+        ],
+      },
+    };
+
+    const result = materializeCardArtifact(child, sessionArtifacts, {
+      cards: { card_1: parent, card_2: child },
+      connections: [],
+      cardOrder: ["card_1", "card_2"],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.artifactId).toBe("art_map");
+    expect(result!.versionId).not.toBe("aver_1");
+    expect(result!.sessionArtifacts.art_map.versions).toHaveLength(2);
+  });
 });
 
 describe("resolveArtifactPreviewStatus", () => {

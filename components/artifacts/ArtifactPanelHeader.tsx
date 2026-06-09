@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
+import {
+  CanvasFloatingMenuPortal,
+  useCanvasFloatingMenuPosition,
+} from "@/components/CanvasFloatingMenu";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
@@ -70,33 +74,46 @@ export function ArtifactPanelHeader({
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const versionRef = useRef<HTMLDivElement>(null);
+  const versionButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const safeVersions = Array.isArray(versions) ? versions : [];
   const active =
     safeVersions.find((v) => v.id === activeVersionId) ??
     safeVersions[safeVersions.length - 1];
+  const isCanvas = menuVariant === "canvas";
+  const versionMenuPortal = useCanvasFloatingMenuPosition(
+    versionOpen && isCanvas,
+    versionButtonRef,
+  );
+  const actionMenuPortal = useCanvasFloatingMenuPosition(
+    menuOpen && isCanvas,
+    menuButtonRef,
+  );
 
   useEffect(() => {
     if (!versionOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (versionRef.current && !versionRef.current.contains(e.target as Node)) {
-        setVersionOpen(false);
-      }
+      const target = e.target as Node;
+      if (versionRef.current?.contains(target)) return;
+      if (versionMenuPortal.portalRef.current?.contains(target)) return;
+      setVersionOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [versionOpen]);
+  }, [versionOpen, versionMenuPortal.portalRef]);
 
   useEffect(() => {
     if (!menuOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (actionMenuPortal.portalRef.current?.contains(target)) return;
+      setMenuOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [menuOpen]);
+  }, [menuOpen, actionMenuPortal.portalRef]);
 
   const hasMenuActions =
     menuVariant === "canvas"
@@ -112,10 +129,13 @@ export function ArtifactPanelHeader({
 
   const ctaClass =
     "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
-  const isCanvas = menuVariant === "canvas";
   const chromeClass = isCanvas
     ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
     : "";
+  const menuDropdownClassName =
+    "min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+  const versionDropdownClassName =
+    "min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
 
   return (
     <div className="flex h-14 items-center gap-[11px]">
@@ -125,7 +145,7 @@ export function ArtifactPanelHeader({
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
           kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
-        } ${chromeClass}`}
+        }`}
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)
@@ -146,9 +166,7 @@ export function ArtifactPanelHeader({
           />
         </span>
       </span>
-      <h2
-        className={`min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink ${chromeClass}`}
-      >
+      <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
         {title}
       </h2>
 
@@ -204,8 +222,14 @@ export function ArtifactPanelHeader({
         </a>
       ) : (
         !isVideo && (
-          <div className={`relative shrink-0 ${chromeClass}`} ref={versionRef}>
+          <div
+            className={`relative shrink-0 ${chromeClass} ${
+              versionOpen ? "opacity-100" : ""
+            }`}
+            ref={versionRef}
+          >
             <button
+              ref={versionButtonRef}
               type="button"
               onClick={() => setVersionOpen((o) => !o)}
               className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
@@ -215,33 +239,67 @@ export function ArtifactPanelHeader({
                 ⌵
               </span>
             </button>
-            {versionOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
-                {[...safeVersions].reverse().map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => {
-                      onVersionChange(v.id);
-                      setVersionOpen(false);
-                    }}
-                    className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
-                      v.id === activeVersionId
-                        ? "bg-canvas-bg font-medium text-canvas-ink"
-                        : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                    }`}
-                  >
-                    Version {v.number}
-                  </button>
-                ))}
-              </div>
-            )}
+            {versionOpen &&
+              (isCanvas ? (
+                <CanvasFloatingMenuPortal
+                  open={versionOpen}
+                  style={versionMenuPortal.style}
+                  portalRef={versionMenuPortal.portalRef}
+                  className={versionDropdownClassName}
+                >
+                  {[...safeVersions].reverse().map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => {
+                        onVersionChange(v.id);
+                        setVersionOpen(false);
+                      }}
+                      className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
+                        v.id === activeVersionId
+                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                      }`}
+                    >
+                      Version {v.number}
+                    </button>
+                  ))}
+                </CanvasFloatingMenuPortal>
+              ) : (
+                <div
+                  className={`absolute right-0 top-full z-50 mt-1 ${versionDropdownClassName}`}
+                >
+                  {[...safeVersions].reverse().map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => {
+                        onVersionChange(v.id);
+                        setVersionOpen(false);
+                      }}
+                      className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
+                        v.id === activeVersionId
+                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                      }`}
+                    >
+                      Version {v.number}
+                    </button>
+                  ))}
+                </div>
+              ))}
           </div>
         )
       )}
       {hasMenuActions && (
-        <div className={`relative shrink-0 ${chromeClass}`} ref={menuRef}>
+        <div
+          className={`relative shrink-0 ${chromeClass} ${
+            menuOpen ? "opacity-100" : ""
+          }`}
+          ref={menuRef}
+        >
           <button
+            ref={menuButtonRef}
             type="button"
             aria-label="More options"
             aria-expanded={menuOpen}
@@ -254,34 +312,69 @@ export function ArtifactPanelHeader({
               <circle cx="8" cy="12.5" r="1.25" />
             </svg>
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card">
-              {onExpand && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onExpand();
-                  }}
-                  className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
-                >
-                  Expand
-                </button>
-              )}
-              {onRemoveFromCanvas && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onRemoveFromCanvas();
-                  }}
-                  className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                >
-                  Remove from canvas
-                </button>
-              )}
-            </div>
-          )}
+          {menuOpen &&
+            (isCanvas ? (
+              <CanvasFloatingMenuPortal
+                open={menuOpen}
+                style={actionMenuPortal.style}
+                portalRef={actionMenuPortal.portalRef}
+                className={menuDropdownClassName}
+              >
+                {onExpand && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onExpand();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
+                  >
+                    Expand
+                  </button>
+                )}
+                {onRemoveFromCanvas && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRemoveFromCanvas();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                  >
+                    Remove from canvas
+                  </button>
+                )}
+              </CanvasFloatingMenuPortal>
+            ) : (
+              <div
+                className={`absolute right-0 top-full z-50 mt-1 ${menuDropdownClassName}`}
+              >
+                {onExpand && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onExpand();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
+                  >
+                    Expand
+                  </button>
+                )}
+                {onRemoveFromCanvas && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRemoveFromCanvas();
+                    }}
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+                  >
+                    Remove from canvas
+                  </button>
+                )}
+              </div>
+            ))}
         </div>
       )}
     </div>

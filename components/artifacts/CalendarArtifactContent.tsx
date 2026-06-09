@@ -231,7 +231,7 @@ export function CalendarArtifactContent({
     >
       <div
         ref={rootRef}
-        className={`flex flex-col bg-white ${fill ? "min-h-0 flex-1" : ""}`}
+        className={`flex flex-col bg-canvas-card ${fill ? "min-h-0 flex-1" : ""}`}
         data-no-drag
       >
         <div className="flex shrink-0 items-center justify-between border-b border-canvas-border/60 px-4 py-3">
@@ -312,7 +312,7 @@ export function CalendarArtifactContent({
                         disabled={!iso || !editable}
                         onClick={() => iso && handleDayClick(iso)}
                         className={`relative min-h-[52px] border-r border-canvas-border/20 p-1.5 text-left transition-colors last:border-r-0 ${
-                          cell.inMonth ? "bg-white" : "bg-canvas-bg/40"
+                          cell.inMonth ? "bg-canvas-card" : "bg-canvas-bg/40"
                         } ${inSelection ? "bg-canvas-ink/5" : ""} ${
                           editable && iso
                             ? "cursor-pointer hover:bg-canvas-border/20"
@@ -397,7 +397,7 @@ export function CalendarArtifactContent({
 
         {editable && selectionReady && (
           <div
-            className="flex shrink-0 items-center gap-2 border-t border-canvas-border/60 bg-white px-3 py-2"
+            className="flex shrink-0 items-center gap-2 border-t border-canvas-border/60 bg-canvas-card px-3 py-2"
             data-no-drag
           >
             <input
@@ -409,13 +409,13 @@ export function CalendarArtifactContent({
                 if (e.key === "Enter") handleAddEvent();
               }}
               placeholder="Event title"
-              className="min-w-0 flex-1 rounded border border-canvas-border bg-white px-2 py-1.5 text-canvas-body-sm text-canvas-ink outline-none placeholder:text-canvas-muted focus:border-canvas-ink/40"
+              className="min-w-0 flex-1 rounded border border-canvas-border bg-canvas-card px-2 py-1.5 text-canvas-body-sm text-canvas-ink outline-none placeholder:text-canvas-muted focus:border-canvas-ink/40"
             />
             <button
               type="button"
               onClick={handleAddEvent}
               disabled={!newTitle.trim()}
-              className="shrink-0 rounded border border-canvas-ink bg-canvas-ink px-3 py-1.5 text-canvas-caption font-medium text-white transition-opacity disabled:opacity-40"
+              className="shrink-0 rounded border border-canvas-ink bg-canvas-ink px-3 py-1.5 text-canvas-caption font-medium text-canvas-card transition-opacity disabled:opacity-40"
             >
               Add
             </button>
@@ -424,7 +424,7 @@ export function CalendarArtifactContent({
 
         {editable && editingEventId && (
           <div
-            className="flex shrink-0 items-center gap-2 border-t border-canvas-border/60 bg-white px-3 py-2"
+            className="flex shrink-0 items-center gap-2 border-t border-canvas-border/60 bg-canvas-card px-3 py-2"
             data-no-drag
           >
             <input
@@ -434,7 +434,7 @@ export function CalendarArtifactContent({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleRenameEvent(editingEventId);
               }}
-              className="min-w-0 flex-1 rounded border border-canvas-border bg-white px-2 py-1.5 text-canvas-body-sm text-canvas-ink outline-none focus:border-canvas-ink/40"
+              className="min-w-0 flex-1 rounded border border-canvas-border bg-canvas-card px-2 py-1.5 text-canvas-body-sm text-canvas-ink outline-none focus:border-canvas-ink/40"
             />
             <button
               type="button"

@@ -316,6 +316,55 @@ export function canAppendArtifactVersion(
   return artifact.kind === payloadToArtifactKind(normalized);
 }
 
+/**
+ * Resolve which session artifact should receive a new payload version.
+ * Prefers attached/inherited/thread context so follow-ups update in place.
+ */
+export function resolveArtifactTargetId(
+  card: Card,
+  payload: ArtifactPayload,
+  sessionArtifacts: Record<string, SessionArtifact>,
+  cards: Record<string, Card>,
+  connections: Connection[],
+  cardOrder: string[],
+): string | null {
+  const editingId = resolveEditingArtifactId(
+    card,
+    cards,
+    connections,
+    cardOrder,
+  );
+  if (
+    editingId &&
+    canAppendArtifactVersion(sessionArtifacts[editingId], payload)
+  ) {
+    return editingId;
+  }
+
+  const kind = payloadToArtifactKind(normalizePayloadForRegistry(payload));
+  if (kind === "map" || kind === "streetview") {
+    const threadArtId = resolveThreadArtifactId(
+      cards,
+      connections,
+      cardOrder,
+      card.threadId,
+    );
+    const threadArt = threadArtId ? sessionArtifacts[threadArtId] : undefined;
+    if (threadArt && canAppendArtifactVersion(threadArt, payload)) {
+      return threadArtId;
+    }
+  }
+
+  if (
+    card.outputArtifactId &&
+    canAppendArtifactVersion(sessionArtifacts[card.outputArtifactId], payload)
+  ) {
+    return card.outputArtifactId;
+  }
+
+  return null;
+}
+
 export function listSessionArtifacts(
   artifacts: Record<string, SessionArtifact>,
 ): SessionArtifact[] {

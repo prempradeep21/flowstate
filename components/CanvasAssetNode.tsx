@@ -5,12 +5,18 @@ import {
   useRef,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
+import {
+  cornerResizeSigns,
+  NodeCornerResizeHandles,
+  type NodeResizeCorner,
+} from "@/components/canvas/NodeCornerResizeHandles";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import {
   getCanvasAssetBounds,
   resizeAssetMaintainingAspect,
 } from "@/lib/canvasAssetBounds";
+import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
@@ -41,32 +47,14 @@ function AssetKindIcon({ kind }: { kind: "document" | "code" }) {
   );
 }
 
-function AssetResizeHandle({
-  onPointerDown,
-}: {
-  onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-no-drag
-      data-resize-handle
-      aria-label="Resize asset"
-      onPointerDown={onPointerDown}
-      className="absolute bottom-0 right-0 z-40 flex h-6 w-6 cursor-nwse-resize items-end justify-end rounded-br-canvas p-1 opacity-0 transition-opacity group-hover/asset:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30"
-    >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden className="text-canvas-muted">
-        <path d="M11 5v6H5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M11 9V11H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    </button>
-  );
-}
-
 export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
   const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const selectedCanvasAssetId = useCanvasStore((s) => s.selectedCanvasAssetId);
+  const isSelected = useCanvasStore(
+    (s) =>
+      s.selectedCanvasAssetId === node.id ||
+      isCanvasItemSelected(s.canvasSelection, "asset", node.id),
+  );
   const moveCanvasAsset = useCanvasStore((s) => s.moveCanvasAsset);
   const selectCanvasAsset = useCanvasStore((s) => s.selectCanvasAsset);
   const setCanvasAssetSize = useCanvasStore((s) => s.setCanvasAssetSize);
@@ -77,7 +65,6 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
 
   const asset = assets[node.assetId];
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
-  const isSelected = selectedCanvasAssetId === node.id;
   const godView = isGodViewMode(scale);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -86,11 +73,22 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Alt held at drag start — first move duplicates and drags the copy. */
+    copyOnDrag: boolean;
+    /** Node actually being dragged (the duplicate when alt-dragging). */
+    targetId: string;
+    /** Whole multi-selection moves together when this node is part of it. */
+    moveSelection: boolean;
   } | null>(null);
   const resizeStateRef = useRef<{
     pointerId: number;
+    corner: NodeResizeCorner;
     startX: number;
+    startY: number;
     startW: number;
+    startH: number;
+    startPosX: number;
+    startPosY: number;
     didMove: boolean;
     recordedUndo: boolean;
   } | null>(null);
@@ -130,7 +128,15 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     if (target.closest(INTERACTIVE)) return;
     e.stopPropagation();
     e.preventDefault();
-    selectCanvasAsset(node.id);
+    const st = useCanvasStore.getState();
+    const inMultiSelection =
+      isCanvasItemSelected(st.canvasSelection, "asset", node.id) &&
+      st.selectedFamilyRootIds.length + st.canvasSelection.length > 1;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      st.toggleCanvasSelectionItem({ kind: "asset", id: node.id });
+      return;
+    }
+    if (!inMultiSelection) selectCanvasAsset(node.id);
     if (canvasReadOnly) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStateRef.current = {
@@ -139,6 +145,9 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
+      copyOnDrag: e.altKey,
+      targetId: node.id,
+      moveSelection: inMultiSelection && !e.altKey,
     };
   };
 
@@ -146,16 +155,30 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     const rs = resizeStateRef.current;
     if (rs && rs.pointerId === e.pointerId) {
       const screenDx = e.clientX - rs.startX;
-      if (!rs.didMove && Math.abs(screenDx) < DRAG_THRESHOLD_PX) return;
+      const screenDy = e.clientY - rs.startY;
+      if (!rs.didMove && Math.hypot(screenDx, screenDy) < DRAG_THRESHOLD_PX)
+        return;
       if (!rs.recordedUndo) {
         recordUndo();
         rs.recordedUndo = true;
       }
       rs.didMove = true;
       const vpScale = useCanvasStore.getState().viewport.scale;
-      setCanvasAssetSize(
+      const { sx, sy } = cornerResizeSigns(rs.corner);
+      const next = resizeAssetMaintainingAspect(
+        asset,
+        rs.startW + (sx * screenDx) / vpScale,
+      );
+      setCanvasAssetSize(node.id, next);
+      // Keep the corner opposite the grip anchored in place.
+      const targetX =
+        sx === -1 ? rs.startPosX + (rs.startW - next.w) : rs.startPosX;
+      const targetY =
+        sy === -1 ? rs.startPosY + (rs.startH - next.h) : rs.startPosY;
+      moveCanvasAsset(
         node.id,
-        resizeAssetMaintainingAspect(asset, rs.startW + screenDx / vpScale),
+        targetX - node.position.x,
+        targetY - node.position.y,
       );
       return;
     }
@@ -170,11 +193,20 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       recordUndo();
       ds.recordedUndo = true;
     }
+    if (!ds.didMove && ds.copyOnDrag) {
+      const copyId = useCanvasStore.getState().duplicateCanvasAssetNode(node.id);
+      if (copyId) ds.targetId = copyId;
+    }
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const vpScale = useCanvasStore.getState().viewport.scale;
-    moveCanvasAsset(node.id, screenDx / vpScale, screenDy / vpScale);
+    const st = useCanvasStore.getState();
+    const vpScale = st.viewport.scale;
+    if (ds.moveSelection) {
+      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
+    } else {
+      moveCanvasAsset(ds.targetId, screenDx / vpScale, screenDy / vpScale);
+    }
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -187,7 +219,10 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     dragStateRef.current = null;
   };
 
-  const handleResizePointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleResizePointerDown = (
+    corner: NodeResizeCorner,
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     if (e.button !== 0 || canvasReadOnly) return;
     e.stopPropagation();
     e.preventDefault();
@@ -195,8 +230,13 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     nodeRef.current?.setPointerCapture(e.pointerId);
     resizeStateRef.current = {
       pointerId: e.pointerId,
+      corner,
       startX: e.clientX,
+      startY: e.clientY,
       startW: width,
+      startH: height,
+      startPosX: node.position.x,
+      startPosY: node.position.y,
       didMove: false,
       recordedUndo: false,
     };
@@ -284,7 +324,13 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && <AssetResizeHandle onPointerDown={handleResizePointerDown} />}
+        {!canvasReadOnly && (
+          <NodeCornerResizeHandles
+            ariaLabel="Resize asset"
+            visibilityClass="opacity-0 group-hover/asset:opacity-100"
+            onCornerPointerDown={handleResizePointerDown}
+          />
+        )}
       </div>
     </MotionCanvasNode>
   );

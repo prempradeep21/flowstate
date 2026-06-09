@@ -10,6 +10,7 @@ import {
   getLatestVersion,
   getVersionById,
   resolveEditingArtifactId,
+  canAppendArtifactVersion,
 } from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
@@ -57,14 +58,7 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
 
   if (payload && targetArtifactId) {
     const art = state.sessionArtifacts[targetArtifactId];
-    if (
-      art &&
-      ((payload.type === "table" && art.kind === "table") ||
-        (payload.type === "custom" && art.kind === "custom") ||
-        (payload.type === "timeline" && art.kind === "timeline") ||
-        (payload.type === "calendar" && art.kind === "calendar") ||
-        (payload.type === "todo" && art.kind === "todo"))
-    ) {
+    if (art && canAppendArtifactVersion(art, payload)) {
       appendStreamedArtifactVersion(
         cardId,
         targetArtifactId,

@@ -134,7 +134,9 @@ function buildCurvyPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
   const dx = b.px - a.px;
   const dy = b.py - a.py;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const pull = clamp(dist * 0.45, 60, 200);
+  // Cap pull at half the distance so the curve's hull never overshoots
+  // past the target edge into the node when two cards sit close together.
+  const pull = Math.min(clamp(dist * 0.45, 60, 200), dist / 2);
 
   const cp1x = a.px + a.tx * pull;
   const cp1y = a.py + a.ty * pull;
@@ -297,7 +299,7 @@ export function buildPlugConnectorPath(
 export function connectorMarkerSizes(viewportScale: number) {
   const scale = viewportScale > 0 ? viewportScale : 1;
   return {
-    plugRadius: 5 / scale,
+    plugRadius: 2.5 / scale,
     arrowSize: 5 / scale,
   };
 }

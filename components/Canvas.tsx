@@ -9,7 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { collectFamiliesInWorldRect } from "@/lib/canvasSelection";
+import {
+  collectCanvasItemsInWorldRect,
+  mergeCanvasSelections,
+  type CanvasSelection,
+} from "@/lib/canvasSelection";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import {
   allowSidebarDrop,
@@ -146,13 +150,7 @@ export function Canvas({
   const createVideoArtifactFromUrl = useCanvasStore(
     (s) => s.createVideoArtifactFromUrl,
   );
-  const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
-  const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
-  const selectCanvasAsset = useCanvasStore((s) => s.selectCanvasAsset);
-  const setSelectedFamilyRootIds = useCanvasStore(
-    (s) => s.setSelectedFamilyRootIds,
-  );
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
   const hiddenCardIds = useHiddenCardIds();
@@ -225,6 +223,8 @@ export function Canvas({
     pointerId: number;
     startX: number;
     startY: number;
+    /** Selection at marquee start — preserved for Shift/Ctrl additive mode. */
+    baseSelection: CanvasSelection | null;
   } | null>(null);
   const spaceHeldRef = useRef(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -1167,13 +1167,18 @@ export function Canvas({
     const w2 = computeWorldFromClient(x2, y2);
     if (!w1 || !w2) return;
 
-    const roots = collectFamiliesInWorldRect(useCanvasStore.getState(), {
+    const state = useCanvasStore.getState();
+    const rectSelection = collectCanvasItemsInWorldRect(state, {
       x1: Math.min(w1.x, w2.x),
       y1: Math.min(w1.y, w2.y),
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
-    setSelectedFamilyRootIds(roots);
+    state.setCanvasSelection(
+      ms.baseSelection
+        ? mergeCanvasSelections(ms.baseSelection, rectSelection)
+        : rectSelection,
+    );
   };
 
   const isCanvasBackgroundTarget = (target: HTMLElement) =>
@@ -1212,15 +1217,22 @@ export function Canvas({
       return;
     }
 
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     marqueeState.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
+      baseSelection: additive
+        ? {
+            familyRootIds: [
+              ...useCanvasStore.getState().selectedFamilyRootIds,
+            ],
+            items: [...useCanvasStore.getState().canvasSelection],
+          }
+        : null,
     };
     setMarqueeRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
-    clearSelection();
-    selectCanvasArtifact(null);
-    selectCanvasTextLabel(null);
+    if (!additive) clearSelection();
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -1255,7 +1267,7 @@ export function Canvas({
       const h = Math.abs(e.clientY - ms.startY);
       if (w >= MARQUEE_MIN_DRAG_PX || h >= MARQUEE_MIN_DRAG_PX) {
         applyMarqueeAt(e.clientX, e.clientY);
-      } else {
+      } else if (!ms.baseSelection) {
         clearSelection();
       }
       marqueeState.current = null;
@@ -1380,7 +1392,8 @@ export function Canvas({
         <CanvasLandingOverlay cardId={landingCardId} />
       )}
       <SelectionOverlay rect={marqueeRect} />
-      <SelectionToolbar />
+      {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
+      {!marqueeRect && <SelectionToolbar />}
       {assetDropErrors.length > 0 && (
         <div className="pointer-events-auto absolute left-1/2 top-4 z-50 max-w-md -translate-x-1/2 rounded-canvas border border-red-300/60 bg-red-50 px-3 py-2 text-canvas-body-sm text-red-700 shadow-card">
           {assetDropErrors.slice(0, 3).map((error, index) => (

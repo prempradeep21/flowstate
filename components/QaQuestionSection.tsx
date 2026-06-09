@@ -71,7 +71,14 @@ interface QaQuestionSectionProps {
   style?: CSSProperties;
 }
 
-/** Question block with optional thread accent stroke (question height only). */
+/**
+ * Accent band height: question paddingTop (16) + header row (32). Fixed so the
+ * band only spans the icon header zone, never the question text below it.
+ */
+export const QA_QUESTION_ACCENT_BAND_HEIGHT_PX =
+  16 + QA_QUESTION_HEADER_ROW_HEIGHT_PX;
+
+/** Question block with a fixed-height diffused accent glow at the top left. */
 export function QaQuestionSection({
   children,
   accentColour,
@@ -79,6 +86,9 @@ export function QaQuestionSection({
   className = "",
   style,
 }: QaQuestionSectionProps) {
+  // Wide band, heavily blurred and only quarter-clipped by the card's
+  // overflow-hidden edge so most of the diffused colour sits on the card.
+  const bandWidth = accentWidth * 5;
   return (
     <div
       data-card-question
@@ -88,10 +98,14 @@ export function QaQuestionSection({
       {accentColour && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 rounded-l-canvas"
+          className="pointer-events-none absolute top-0 z-10"
           style={{
             background: accentColour,
-            width: accentWidth,
+            left: -bandWidth / 4,
+            width: bandWidth,
+            height: QA_QUESTION_ACCENT_BAND_HEIGHT_PX,
+            filter: "blur(20px)",
+            opacity: 0.425,
           }}
         />
       )}

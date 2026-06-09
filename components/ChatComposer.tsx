@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
@@ -42,6 +43,7 @@ export function ChatComposer({
   lockedPrefix,
   onSubmit,
   variant = "chat",
+  trailingControls,
 }: {
   placeholder?: string;
   disabled?: boolean;
@@ -57,6 +59,8 @@ export function ChatComposer({
   lockedPrefix?: string;
   onSubmit: (question: string, options?: FollowUpOptions) => void;
   variant?: "chat" | "canvas" | "landing";
+  /** Rendered after the send button inside the composer row (e.g. card menu). */
+  trailingControls?: ReactNode;
 }) {
   const listSessionArtifacts = useCanvasStore((s) => s.listSessionArtifacts);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
@@ -219,11 +223,10 @@ export function ChatComposer({
       reader.readAsDataURL(file);
     });
 
-  const onImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const addImageFiles = async (files: File[]) => {
     const next: CardImage[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) continue;
       const dataUrl = await new Promise<string>((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(r.result as string);
@@ -233,12 +236,33 @@ export function ChatComposer({
       next.push({
         url: dataUrl,
         thumb: dataUrl,
-        alt: file.name,
+        alt: file.name || "Pasted image",
       });
     }
+    if (next.length === 0) return;
     setPendingImages((prev) => [...prev, ...next]);
+  };
+
+  const onImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    await addImageFiles(Array.from(files));
     e.target.value = "";
     setMenuOpen(false);
+  };
+
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (const item of Array.from(items)) {
+      if (!item.type.startsWith("image/")) continue;
+      const file = item.getAsFile();
+      if (file) imageFiles.push(file);
+    }
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    void addImageFiles(imageFiles);
   };
 
   const onFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -521,6 +545,7 @@ export function ChatComposer({
                 textarea.resize();
               }}
               onKeyDown={onKeyDown}
+              onPaste={onPaste}
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
@@ -537,6 +562,7 @@ export function ChatComposer({
               isLanding ? "bg-canvas-accent hover:opacity-90" : undefined
             }
           />
+          {trailingControls}
         </div>
       </div>
 

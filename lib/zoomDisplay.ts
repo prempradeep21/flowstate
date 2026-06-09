@@ -1,6 +1,10 @@
 import type { CSSProperties } from "react";
 
-/** Matches `MIN_SCALE` in the canvas store. */
+/**
+ * Scale at which card content bottoms out at its simplest (one-line) form.
+ * Intentionally higher than the store's `MIN_SCALE` (0.1): zooming below
+ * this just shrinks cards geometrically without further simplification.
+ */
 export const MIN_VIEWPORT_SCALE = 0.25;
 
 /** Max height (px) for question + answer when fully zoomed in. */

@@ -61,7 +61,21 @@ import {
   type GlobalOrigin,
 } from "@/lib/canvasOrigin";
 import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
-import { pickDefaultThreadId } from "@/lib/chatThreads";
+import { getFamilyCardIds, pickDefaultThreadId } from "@/lib/chatThreads";
+import {
+  getSelectionUnits,
+  isCanvasItemSelected,
+  mergeCanvasSelections,
+  type CanvasSelection,
+  type CanvasSelectionItem,
+} from "@/lib/canvasSelection";
+import {
+  computeAlignDeltas,
+  computeArrangeDeltas,
+  type AlignMode,
+  type ArrangeMode,
+  type SelectionUnitDelta,
+} from "@/lib/canvasArrange";
 import { syncAllCardDomSizes } from "@/lib/canvasMeasure";
 import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
 import {
@@ -76,6 +90,7 @@ import {
   getLatestVersion,
   getVersionById,
   normalizePayloadForRegistry,
+  resolveArtifactTargetId,
   resolveThreadArtifactId,
   type AttachedArtifactRef,
   type SessionArtifact,
@@ -561,6 +576,8 @@ interface CanvasState {
   skillPlugConnections: SkillPlugConnection[];
 
   selectedFamilyRootIds: string[];
+  /** Unified multi-selection of non-card canvas nodes (cards select via families). */
+  canvasSelection: CanvasSelectionItem[];
   /** Branch thread ids collapsed on the canvas (session UI only, not persisted). */
   collapsedBranchThreadIds: string[];
   /** Card ids with answer + descendant subtree collapsed on canvas (session UI only). */
@@ -569,6 +586,19 @@ interface CanvasState {
   activeGroupId: string | null;
 
   setSelectedFamilyRootIds: (rootThreadIds: string[]) => void;
+  /** Replace the unified selection (marquee result). */
+  setCanvasSelection: (selection: CanvasSelection) => void;
+  /** Union the unified selection (Shift/Ctrl additive marquee). */
+  addCanvasSelection: (selection: CanvasSelection) => void;
+  /** Toggle one node in/out of the unified selection (Shift/Ctrl click). */
+  toggleCanvasSelectionItem: (item: CanvasSelectionItem) => void;
+  /** Move every selected unit (families + nodes) by a world-space delta. */
+  moveSelectedCanvasItems: (dx: number, dy: number) => void;
+  alignSelectedCanvasItems: (mode: AlignMode) => void;
+  arrangeSelectedCanvasItems: (mode: ArrangeMode) => void;
+  duplicateCanvasTextLabel: (nodeId: string) => string | null;
+  duplicateCanvasAssetNode: (nodeId: string) => string | null;
+  duplicateCanvasGifNode: (nodeId: string) => string | null;
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   toggleCardCollapsed: (cardId: string) => void;
   clearSelection: () => void;
@@ -824,7 +854,7 @@ interface CanvasState {
   resetCanvasState: () => void;
 }
 
-const MIN_SCALE = 0.25;
+const MIN_SCALE = 0.1;
 const MAX_SCALE = 3;
 const VIEWPORT_SETTLE_MS = 150;
 
@@ -1031,6 +1061,120 @@ function normalizeLoadedArtifactNodes(
   return next;
 }
 
+/**
+ * Selection patch shared by every selection writer: keeps the legacy single
+ * "focused" ids in sync with the unified multi-selection (single id is set
+ * only when exactly one node and no families are selected).
+ */
+function unifiedSelectionPatch(selection: CanvasSelection) {
+  const single =
+    selection.familyRootIds.length === 0 && selection.items.length === 1
+      ? selection.items[0]
+      : null;
+  return {
+    selectedFamilyRootIds: selection.familyRootIds,
+    canvasSelection: selection.items,
+    selectedCanvasArtifactId: single?.kind === "artifact" ? single.id : null,
+    selectedCanvasAssetId: single?.kind === "asset" ? single.id : null,
+    selectedCanvasGifId: single?.kind === "gif" ? single.id : null,
+    selectedCanvasSkillId: single?.kind === "skill" ? single.id : null,
+    selectedCanvasTextLabelId: single?.kind === "label" ? single.id : null,
+  };
+}
+
+/** Slice of CanvasState mutated when moving selection units. */
+interface SelectionMoveSlice {
+  cards: Record<string, Card>;
+  cardOrder: string[];
+  globalOrigin: GlobalOrigin | null;
+  connections: Connection[];
+  threads: Record<string, Thread>;
+  threadOrder: string[];
+  canvasArtifactNodes: Record<string, CanvasArtifactNode>;
+  canvasAssetNodes: Record<string, CanvasAssetNode>;
+  canvasGifNodes: Record<string, CanvasGifNode>;
+  canvasSkillNodes: Record<string, CanvasSkillNode>;
+  canvasTextLabels: Record<string, CanvasTextLabel>;
+}
+
+function moveNodeRecord<T extends { position: { x: number; y: number } }>(
+  records: Record<string, T>,
+  id: string,
+  dx: number,
+  dy: number,
+): Record<string, T> {
+  const node = records[id];
+  if (!node) return records;
+  return {
+    ...records,
+    [id]: {
+      ...node,
+      position: { x: node.position.x + dx, y: node.position.y + dy },
+    },
+  };
+}
+
+/** Apply per-unit deltas: families move all their cards, nodes move directly. */
+function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
+  state: S,
+  deltas: SelectionUnitDelta[],
+): Partial<SelectionMoveSlice> {
+  let cards = state.cards;
+  let artifacts = state.canvasArtifactNodes;
+  let assets = state.canvasAssetNodes;
+  let gifs = state.canvasGifNodes;
+  let skills = state.canvasSkillNodes;
+  let labels = state.canvasTextLabels;
+
+  for (const d of deltas) {
+    if (d.dx === 0 && d.dy === 0) continue;
+    switch (d.kind) {
+      case "family": {
+        const ids = getFamilyCardIds(state, d.id);
+        // Families anchored by the pinned origin card stay put.
+        const pinned = ids.some((id) =>
+          isOriginCardPinned(state.cards, state.cardOrder, id, state.globalOrigin),
+        );
+        if (pinned) break;
+        if (cards === state.cards) cards = { ...cards };
+        for (const id of ids) {
+          const c = cards[id];
+          if (!c) continue;
+          cards[id] = {
+            ...c,
+            position: { x: c.position.x + d.dx, y: c.position.y + d.dy },
+          };
+        }
+        break;
+      }
+      case "artifact":
+        artifacts = moveNodeRecord(artifacts, d.id, d.dx, d.dy);
+        break;
+      case "asset":
+        assets = moveNodeRecord(assets, d.id, d.dx, d.dy);
+        break;
+      case "gif":
+        gifs = moveNodeRecord(gifs, d.id, d.dx, d.dy);
+        break;
+      case "skill":
+        skills = moveNodeRecord(skills, d.id, d.dx, d.dy);
+        break;
+      case "label":
+        labels = moveNodeRecord(labels, d.id, d.dx, d.dy);
+        break;
+    }
+  }
+
+  return {
+    cards,
+    canvasArtifactNodes: artifacts,
+    canvasAssetNodes: assets,
+    canvasGifNodes: gifs,
+    canvasSkillNodes: skills,
+    canvasTextLabels: labels,
+  };
+}
+
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedModel: "claude-sonnet-4-6",
   sessionUsage: { inputTokens: 0, outputTokens: 0 },
@@ -1117,11 +1261,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         canvasAssetNodes: { ...state.canvasAssetNodes, [id]: node },
         canvasAssetOrder: [...state.canvasAssetOrder, id],
-        selectedCanvasAssetId: opts?.focus ? id : state.selectedCanvasAssetId,
-        selectedCanvasArtifactId: opts?.focus ? null : state.selectedCanvasArtifactId,
-        selectedCanvasSkillId: opts?.focus ? null : state.selectedCanvasSkillId,
-        selectedCanvasTextLabelId: opts?.focus ? null : state.selectedCanvasTextLabelId,
-        selectedFamilyRootIds: opts?.focus ? [] : state.selectedFamilyRootIds,
+        ...(opts?.focus
+          ? unifiedSelectionPatch({
+              familyRootIds: [],
+              items: [{ kind: "asset", id }],
+            })
+          : {}),
         collaborationHasEdits: true,
       };
     });
@@ -1161,14 +1306,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   selectCanvasAsset: (nodeId) =>
-    set({
-      selectedCanvasAssetId: nodeId,
-      selectedCanvasArtifactId: null,
-      selectedCanvasSkillId: null,
-      selectedCanvasTextLabelId: null,
-      selectedCanvasGifId: null,
-      selectedFamilyRootIds: [],
-    }),
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "asset", id: nodeId }] : [],
+      }),
+    ),
   removeCanvasAssetNode: (nodeId) =>
     set((state) => {
       if (!state.canvasAssetNodes[nodeId]) return state;
@@ -1181,6 +1324,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasAssetId === nodeId
             ? null
             : state.selectedCanvasAssetId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "asset" && i.id === nodeId),
+        ),
         collaborationHasEdits: true,
       };
     }),
@@ -1222,12 +1368,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         canvasGifNodes: { ...state.canvasGifNodes, [id]: node },
         canvasGifOrder: [...state.canvasGifOrder, id],
-        selectedCanvasGifId: opts?.focus ? id : state.selectedCanvasGifId,
-        selectedCanvasArtifactId: opts?.focus ? null : state.selectedCanvasArtifactId,
-        selectedCanvasAssetId: opts?.focus ? null : state.selectedCanvasAssetId,
-        selectedCanvasSkillId: opts?.focus ? null : state.selectedCanvasSkillId,
-        selectedCanvasTextLabelId: opts?.focus ? null : state.selectedCanvasTextLabelId,
-        selectedFamilyRootIds: opts?.focus ? [] : state.selectedFamilyRootIds,
+        ...(opts?.focus
+          ? unifiedSelectionPatch({
+              familyRootIds: [],
+              items: [{ kind: "gif", id }],
+            })
+          : {}),
         collaborationHasEdits: true,
       };
     });
@@ -1267,14 +1413,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   selectCanvasGif: (nodeId) =>
-    set({
-      selectedCanvasGifId: nodeId,
-      selectedCanvasArtifactId: null,
-      selectedCanvasAssetId: null,
-      selectedCanvasSkillId: null,
-      selectedCanvasTextLabelId: null,
-      selectedFamilyRootIds: [],
-    }),
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "gif", id: nodeId }] : [],
+      }),
+    ),
   removeCanvasGifNode: (nodeId) =>
     set((state) => {
       if (!state.canvasGifNodes[nodeId]) return state;
@@ -1287,6 +1431,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasGifId === nodeId
             ? null
             : state.selectedCanvasGifId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "gif" && i.id === nodeId),
+        ),
         collaborationHasEdits: true,
       };
     }),
@@ -1344,11 +1491,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         canvasSkillNodes: { ...state.canvasSkillNodes, [id]: node },
         canvasSkillOrder: [...state.canvasSkillOrder, id],
-        selectedCanvasSkillId: opts?.focus ? id : state.selectedCanvasSkillId,
-        selectedCanvasArtifactId: opts?.focus ? null : state.selectedCanvasArtifactId,
-        selectedCanvasAssetId: opts?.focus ? null : state.selectedCanvasAssetId,
-        selectedCanvasTextLabelId: opts?.focus ? null : state.selectedCanvasTextLabelId,
-        selectedFamilyRootIds: opts?.focus ? [] : state.selectedFamilyRootIds,
+        ...(opts?.focus
+          ? unifiedSelectionPatch({
+              familyRootIds: [],
+              items: [{ kind: "skill", id }],
+            })
+          : {}),
         collaborationHasEdits: true,
       };
     });
@@ -1374,14 +1522,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
   selectCanvasSkill: (nodeId) =>
-    set({
-      selectedCanvasSkillId: nodeId,
-      selectedCanvasArtifactId: null,
-      selectedCanvasAssetId: null,
-      selectedCanvasTextLabelId: null,
-      selectedCanvasGifId: null,
-      selectedFamilyRootIds: [],
-    }),
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "skill", id: nodeId }] : [],
+      }),
+    ),
   removeCanvasSkillNode: (nodeId) =>
     set((state) => {
       if (!state.canvasSkillNodes[nodeId]) return state;
@@ -1394,6 +1540,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasSkillId === nodeId
             ? null
             : state.selectedCanvasSkillId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "skill" && i.id === nodeId),
+        ),
         skillPlugConnections: state.skillPlugConnections.filter(
           (c) => c.skillNodeId !== nodeId,
         ),
@@ -1476,6 +1625,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   skillPlugConnections: [],
 
   selectedFamilyRootIds: [],
+  canvasSelection: [],
   collapsedBranchThreadIds: [],
   collapsedCardIds: [],
   groups: {},
@@ -1507,11 +1657,167 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clearSelection: () =>
     set({
       selectedFamilyRootIds: [],
+      canvasSelection: [],
       selectedCanvasArtifactId: null,
       selectedCanvasAssetId: null,
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
+      selectedCanvasSkillId: null,
     }),
+
+  setCanvasSelection: (selection) => set(unifiedSelectionPatch(selection)),
+
+  addCanvasSelection: (selection) =>
+    set((state) =>
+      unifiedSelectionPatch(
+        mergeCanvasSelections(
+          {
+            familyRootIds: state.selectedFamilyRootIds,
+            items: state.canvasSelection,
+          },
+          selection,
+        ),
+      ),
+    ),
+
+  toggleCanvasSelectionItem: (item) =>
+    set((state) => {
+      const selected = isCanvasItemSelected(
+        state.canvasSelection,
+        item.kind,
+        item.id,
+      );
+      const items = selected
+        ? state.canvasSelection.filter(
+            (i) => !(i.kind === item.kind && i.id === item.id),
+          )
+        : [...state.canvasSelection, item];
+      return unifiedSelectionPatch({
+        familyRootIds: state.selectedFamilyRootIds,
+        items,
+      });
+    }),
+
+  moveSelectedCanvasItems: (dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const deltas: SelectionUnitDelta[] = [
+        ...state.selectedFamilyRootIds.map((id) => ({
+          kind: "family" as const,
+          id,
+          dx,
+          dy,
+        })),
+        ...state.canvasSelection.map((item) => ({
+          kind: item.kind,
+          id: item.id,
+          dx,
+          dy,
+        })),
+      ];
+      if (deltas.length === 0) return state;
+      return {
+        ...applySelectionUnitDeltas(state, deltas),
+        collaborationHasEdits: true,
+      };
+    }),
+
+  alignSelectedCanvasItems: (mode) => {
+    const state = get();
+    const units = getSelectionUnits(state, {
+      familyRootIds: state.selectedFamilyRootIds,
+      items: state.canvasSelection,
+    });
+    const deltas = computeAlignDeltas(units, mode);
+    if (deltas.length === 0) return;
+    get().recordUndo();
+    set((s) => ({
+      ...applySelectionUnitDeltas(s, deltas),
+      collaborationHasEdits: true,
+    }));
+  },
+
+  arrangeSelectedCanvasItems: (mode) => {
+    const state = get();
+    const units = getSelectionUnits(state, {
+      familyRootIds: state.selectedFamilyRootIds,
+      items: state.canvasSelection,
+    });
+    const deltas = computeArrangeDeltas(units, mode);
+    if (deltas.length === 0) return;
+    get().recordUndo();
+    set((s) => ({
+      ...applySelectionUnitDeltas(s, deltas),
+      collaborationHasEdits: true,
+    }));
+  },
+
+  duplicateCanvasTextLabel: (nodeId) => {
+    const label = get().canvasTextLabels[nodeId];
+    if (!label) return null;
+    const id = newCanvasTextLabelId();
+    set((state) => ({
+      canvasTextLabels: {
+        ...state.canvasTextLabels,
+        [id]: { ...label, id, position: { ...label.position } },
+      },
+      canvasTextLabelOrder: [...state.canvasTextLabelOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "label", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvasAssetNode: (nodeId) => {
+    const node = get().canvasAssetNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvasAssetNodeId();
+    set((state) => ({
+      canvasAssetNodes: {
+        ...state.canvasAssetNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvasAssetOrder: [...state.canvasAssetOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "asset", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvasGifNode: (nodeId) => {
+    const node = get().canvasGifNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvasGifNodeId();
+    set((state) => ({
+      canvasGifNodes: {
+        ...state.canvasGifNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvasGifOrder: [...state.canvasGifOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "gif", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
 
   createGroupFromSelection: (label) => {
     const safeLabel =
@@ -1613,6 +1919,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const snap = state.undoPast[state.undoPast.length - 1];
       return {
         ...snap,
+        // Snapshots predate the unified selection; drop it rather than risk
+        // referencing nodes that the restore removed.
+        canvasSelection: [],
+        selectedFamilyRootIds: [],
         undoPast: state.undoPast.slice(0, -1),
       };
     }),
@@ -2502,14 +2812,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   selectCanvasArtifact: (nodeId) =>
-    set({
-      selectedCanvasArtifactId: nodeId,
-      selectedCanvasTextLabelId: null,
-      selectedCanvasAssetId: null,
-      selectedCanvasSkillId: null,
-      selectedCanvasGifId: null,
-      selectedFamilyRootIds: [],
-    }),
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "artifact", id: nodeId }] : [],
+      }),
+    ),
 
   setCanvasArtifactVersion: (nodeId, versionId) =>
     set((state) => {
@@ -2537,6 +2845,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasArtifactId === nodeId
             ? null
             : state.selectedCanvasArtifactId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "artifact" && i.id === nodeId),
+        ),
         artifactPlugConnections: state.artifactPlugConnections.filter(
           (c) => c.artifactNodeId !== nodeId,
         ),
@@ -2554,11 +2865,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => ({
       canvasTextLabels: { ...state.canvasTextLabels, [id]: label },
       canvasTextLabelOrder: [...state.canvasTextLabelOrder, id],
-      selectedCanvasTextLabelId: id,
-      selectedCanvasArtifactId: null,
-      selectedCanvasAssetId: null,
-      selectedCanvasGifId: null,
-      selectedFamilyRootIds: [],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "label", id }],
+      }),
     }));
     return id;
   },
@@ -2636,18 +2946,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasTextLabelId === nodeId
             ? null
             : state.selectedCanvasTextLabelId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "label" && i.id === nodeId),
+        ),
       };
     }),
 
   selectCanvasTextLabel: (nodeId) =>
-    set({
-      selectedCanvasTextLabelId: nodeId,
-      selectedCanvasArtifactId: null,
-      selectedCanvasAssetId: null,
-      selectedCanvasSkillId: null,
-      selectedCanvasGifId: null,
-      selectedFamilyRootIds: [],
-    }),
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "label", id: nodeId }] : [],
+      }),
+    ),
 
   listSessionArtifacts: (): SessionArtifact[] => {
     const state = get();
@@ -2878,23 +3189,52 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     const { payload } = node.permissionPreview;
     const cardId = node.sourceCardId;
+    const card = get().cards[cardId];
+    const state = get();
+    const targetId =
+      card &&
+      resolveArtifactTargetId(
+        card,
+        payload,
+        state.sessionArtifacts,
+        state.cards,
+        state.connections,
+        state.cardOrder,
+      );
     const { artifactId, versionId } = get().createArtifactVersion(
-      null,
+      targetId,
       payload,
       cardId,
     );
 
-    set((state) => ({
-      canvasArtifactNodes: {
-        ...state.canvasArtifactNodes,
-        [nodeId]: {
-          ...node,
-          artifactId,
-          versionId,
-          permissionPreview: undefined,
+    set((s) => {
+      const currentCard = s.cards[cardId];
+      return {
+        canvasArtifactNodes: {
+          ...s.canvasArtifactNodes,
+          [nodeId]: {
+            ...node,
+            artifactId,
+            versionId,
+            permissionPreview: undefined,
+          },
         },
-      },
-    }));
+        ...(currentCard
+          ? {
+              cards: {
+                ...s.cards,
+                [cardId]: {
+                  ...currentCard,
+                  outputArtifactId: artifactId,
+                  outputArtifactVersionId: versionId,
+                  responseType:
+                    payload.type === "video" ? "images" : payload.type,
+                },
+              },
+            }
+          : {}),
+      };
+    });
   },
 
   declinePermissionPreview: (nodeId) => {
@@ -3422,6 +3762,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
       selectedFamilyRootIds: [],
+      canvasSelection: [],
       activeGroupId: null,
       undoPast: [],
       plugDrag: null,
@@ -3555,6 +3896,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasGifOrder: [...(snapshotNorm.canvasGifOrder ?? [])],
         selectedCanvasTextLabelId: null,
         selectedFamilyRootIds: [],
+        canvasSelection: [],
         activeGroupId: null,
         undoPast: [],
         globalOrigin,

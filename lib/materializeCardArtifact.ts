@@ -2,10 +2,10 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 import {
   appendArtifactVersion,
   buildImagesArtifactFromCard,
-  canAppendArtifactVersion,
   createSessionArtifactFromPayload,
   getLatestVersion,
-  resolveEditingArtifactId,
+  getVersionById,
+  resolveArtifactTargetId,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
@@ -105,23 +105,14 @@ export function materializeCardArtifact(
     return null;
   }
 
-  const placeholderId =
-    card.outputArtifactId &&
-    canAppendArtifactVersion(sessionArtifacts[card.outputArtifactId], payload)
-      ? card.outputArtifactId
-      : null;
-  const resolvedId = resolveEditingArtifactId(
+  const existingId = resolveArtifactTargetId(
     card,
+    payload,
+    sessionArtifacts,
     context.cards,
     context.connections,
     context.cardOrder,
   );
-  const existingId =
-    placeholderId ??
-    (resolvedId &&
-    canAppendArtifactVersion(sessionArtifacts[resolvedId], payload)
-      ? resolvedId
-      : null);
 
   let artifactId: string;
   let versionId: string;

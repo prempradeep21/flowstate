@@ -5,6 +5,7 @@ import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { SkillBrainIcon } from "@/components/skills/SkillBrainIcon";
+import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
@@ -20,7 +21,11 @@ const INTERACTIVE =
 export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
   const skills = useCanvasStore((s) => s.canvasSkills);
   const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const selectedCanvasSkillId = useCanvasStore((s) => s.selectedCanvasSkillId);
+  const isSelected = useCanvasStore(
+    (s) =>
+      s.selectedCanvasSkillId === node.id ||
+      isCanvasItemSelected(s.canvasSelection, "skill", node.id),
+  );
   const moveCanvasSkill = useCanvasStore((s) => s.moveCanvasSkill);
   const selectCanvasSkill = useCanvasStore((s) => s.selectCanvasSkill);
   const removeCanvasSkillNode = useCanvasStore((s) => s.removeCanvasSkillNode);
@@ -30,7 +35,6 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
 
   const skill = skills[node.skillId];
   const { w: width, h: height } = getCanvasSkillBounds(node, skill);
-  const isSelected = selectedCanvasSkillId === node.id;
   const godView = isGodViewMode(scale);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -39,6 +43,8 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Whole multi-selection moves together when this node is part of it. */
+    moveSelection: boolean;
   } | null>(null);
 
   if (!skill) return null;
@@ -76,7 +82,15 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     if (target.closest(INTERACTIVE)) return;
     e.stopPropagation();
     e.preventDefault();
-    selectCanvasSkill(node.id);
+    const st = useCanvasStore.getState();
+    const inMultiSelection =
+      isCanvasItemSelected(st.canvasSelection, "skill", node.id) &&
+      st.selectedFamilyRootIds.length + st.canvasSelection.length > 1;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      st.toggleCanvasSelectionItem({ kind: "skill", id: node.id });
+      return;
+    }
+    if (!inMultiSelection) selectCanvasSkill(node.id);
     if (canvasReadOnly) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStateRef.current = {
@@ -85,6 +99,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
+      moveSelection: inMultiSelection,
     };
   };
 
@@ -102,8 +117,13 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const vpScale = useCanvasStore.getState().viewport.scale;
-    moveCanvasSkill(node.id, screenDx / vpScale, screenDy / vpScale);
+    const st = useCanvasStore.getState();
+    const vpScale = st.viewport.scale;
+    if (ds.moveSelection) {
+      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
+    } else {
+      moveCanvasSkill(node.id, screenDx / vpScale, screenDy / vpScale);
+    }
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {

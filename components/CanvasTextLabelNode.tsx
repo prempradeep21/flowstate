@@ -11,7 +11,9 @@ import {
   clampTextLabelFontSize,
   clampTextLabelWidth,
   getTextLabelWidth,
+  MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
+import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { classifyPastedText } from "@/lib/urlDetection";
 import {
@@ -96,8 +98,10 @@ export function CanvasTextLabelNode({
   label,
   startEditing = false,
 }: CanvasTextLabelNodeProps) {
-  const selectedCanvasTextLabelId = useCanvasStore(
-    (s) => s.selectedCanvasTextLabelId,
+  const isSelected = useCanvasStore(
+    (s) =>
+      s.selectedCanvasTextLabelId === label.id ||
+      isCanvasItemSelected(s.canvasSelection, "label", label.id),
   );
   const moveCanvasTextLabel = useCanvasStore((s) => s.moveCanvasTextLabel);
   const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
@@ -124,6 +128,12 @@ export function CanvasTextLabelNode({
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Alt held at drag start — first move duplicates and drags the copy. */
+    copyOnDrag: boolean;
+    /** Label actually being dragged (the duplicate when alt-dragging). */
+    targetId: string;
+    /** Whole multi-selection moves together when this label is part of it. */
+    moveSelection: boolean;
   } | null>(null);
   const resizeStateRef = useRef<{
     pointerId: number;
@@ -140,7 +150,6 @@ export function CanvasTextLabelNode({
     recordedUndo: boolean;
   } | null>(null);
 
-  const isSelected = selectedCanvasTextLabelId === label.id;
   const hasFixedWidth = label.width != null;
   const containerWidth = hasFixedWidth ? label.width : undefined;
 
@@ -249,7 +258,16 @@ export function CanvasTextLabelNode({
 
     e.stopPropagation();
     e.preventDefault();
-    selectCanvasTextLabel(label.id);
+    const st = useCanvasStore.getState();
+    const inMultiSelection =
+      isCanvasItemSelected(st.canvasSelection, "label", label.id) &&
+      st.selectedFamilyRootIds.length + st.canvasSelection.length > 1;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      st.toggleCanvasSelectionItem({ kind: "label", id: label.id });
+      return;
+    }
+    if (!inMultiSelection) selectCanvasTextLabel(label.id);
+    if (st.canvasReadOnly) return;
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragStateRef.current = {
       pointerId: e.pointerId,
@@ -257,6 +275,9 @@ export function CanvasTextLabelNode({
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
+      copyOnDrag: e.altKey,
+      targetId: label.id,
+      moveSelection: inMultiSelection && !e.altKey,
     };
   };
 
@@ -308,11 +329,22 @@ export function CanvasTextLabelNode({
       recordUndo();
       ds.recordedUndo = true;
     }
+    if (!ds.didMove && ds.copyOnDrag) {
+      const copyId = useCanvasStore
+        .getState()
+        .duplicateCanvasTextLabel(label.id);
+      if (copyId) ds.targetId = copyId;
+    }
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const vpScale = useCanvasStore.getState().viewport.scale;
-    moveCanvasTextLabel(label.id, screenDx / vpScale, screenDy / vpScale);
+    const st = useCanvasStore.getState();
+    const vpScale = st.viewport.scale;
+    if (ds.moveSelection) {
+      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
+    } else {
+      moveCanvasTextLabel(ds.targetId, screenDx / vpScale, screenDy / vpScale);
+    }
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -351,11 +383,14 @@ export function CanvasTextLabelNode({
       }}
       className={`group/textlabel absolute cursor-grab active:cursor-grabbing ${
         isSelected ? "z-30" : "z-20"
-      } ${hasFixedWidth ? "" : "w-max max-w-full"}`}
+      } ${hasFixedWidth ? "" : "w-max"}`}
       style={{
         left: label.position.x,
         top: label.position.y,
         width: containerWidth,
+        // The viewport wrapper has zero intrinsic size, so percentage-based
+        // max-widths collapse to 0 — cap with the absolute label maximum.
+        maxWidth: MAX_TEXT_LABEL_WIDTH,
       }}
     >
       <CanvasSharpContent

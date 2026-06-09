@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  CanvasFloatingMenuPortal,
+  useCanvasFloatingMenuPosition,
+} from "@/components/CanvasFloatingMenu";
+import {
   BranchForkIcon,
   ContextMenuItem,
   TrashIcon,
@@ -24,7 +28,7 @@ function DotsIcon() {
     <svg
       aria-hidden
       viewBox="0 0 16 16"
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="currentColor"
     >
       <circle cx="8" cy="3.25" r="1.25" />
@@ -39,7 +43,7 @@ function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
     <svg
       aria-hidden
       viewBox="0 0 16 16"
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -70,6 +74,13 @@ export function CardQaMenu({
   );
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isCanvas = viewportScale != null;
+  const menuPortal = useCanvasFloatingMenuPosition(
+    open && isCanvas,
+    menuButtonRef,
+    layout === "cta" ? "top-end" : "bottom-end",
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -77,8 +88,9 @@ export function CardQaMenu({
       if (e.key === "Escape") setOpen(false);
     };
     const onPointerDown = (e: PointerEvent) => {
-      const el = rootRef.current;
-      if (el && el.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (menuPortal.portalRef.current?.contains(target)) return;
       setOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -87,14 +99,13 @@ export function CardQaMenu({
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("pointerdown", onPointerDown, true);
     };
-  }, [open]);
+  }, [open, menuPortal.portalRef]);
 
   if (!card) return null;
 
   const isEmpty = card.status === "empty";
   if (isEmpty && hideDelete) return null;
   const canBranch = card.status === "done";
-  const isCanvas = viewportScale != null;
   const showCollapseToggle = isCanvas && !isEmpty;
 
   const rootClassName =
@@ -113,28 +124,52 @@ export function CardQaMenu({
       : undefined;
 
   const menuClassName =
-    layout === "cta"
-      ? "motion-popover-in absolute right-0 bottom-full z-50 mb-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
-      : "motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+    "motion-popover-in min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+
+  const menuContent = (
+    <MotionFlowSize
+      role="menu"
+      className={menuClassName}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {isEmpty ? (
+        !hideDelete && (
+          <ContextMenuItem
+            icon={<TrashIcon />}
+            label="Delete"
+            onClick={() => {
+              deleteFromCard(cardId);
+              setOpen(false);
+            }}
+          />
+        )
+      ) : (
+        <>
+          <ContextMenuItem
+            icon={<BranchForkIcon />}
+            label="Pull branch"
+            disabled={!canBranch}
+            onClick={() => {
+              if (!canBranch) return;
+              createBranch(cardId, "left");
+              setOpen(false);
+            }}
+          />
+          <ContextMenuItem
+            icon={<TrashIcon />}
+            label="Delete from below"
+            onClick={() => {
+              deleteFromCard(cardId);
+              setOpen(false);
+            }}
+          />
+        </>
+      )}
+    </MotionFlowSize>
+  );
 
   return (
     <div ref={rootRef} className={rootClassName} style={rootStyle}>
-      <button
-        type="button"
-        aria-label="Card actions"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
-          open ? "bg-canvas-bg text-canvas-ink" : ""
-        }`}
-      >
-        <DotsIcon />
-      </button>
       {showCollapseToggle && (
         <button
           type="button"
@@ -145,53 +180,47 @@ export function CardQaMenu({
             toggleCardCollapsed(cardId);
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="flex h-8 w-8 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
         >
           <ChatCollapseIcon collapsed={isChatCollapsed} />
         </button>
       )}
+      <button
+        ref={menuButtonRef}
+        type="button"
+        aria-label="Card actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className={`flex h-8 w-8 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+          open ? "bg-canvas-bg text-canvas-ink" : ""
+        }`}
+      >
+        <DotsIcon />
+      </button>
 
-      {open && (
-        <MotionFlowSize
-          role="menu"
-          className={menuClassName}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {isEmpty ? (
-            !hideDelete && (
-              <ContextMenuItem
-                icon={<TrashIcon />}
-                label="Delete"
-                onClick={() => {
-                  deleteFromCard(cardId);
-                  setOpen(false);
-                }}
-              />
-            )
-          ) : (
-            <>
-              <ContextMenuItem
-                icon={<BranchForkIcon />}
-                label="Pull branch"
-                disabled={!canBranch}
-                onClick={() => {
-                  if (!canBranch) return;
-                  createBranch(cardId, "left");
-                  setOpen(false);
-                }}
-              />
-              <ContextMenuItem
-                icon={<TrashIcon />}
-                label="Delete from below"
-                onClick={() => {
-                  deleteFromCard(cardId);
-                  setOpen(false);
-                }}
-              />
-            </>
-          )}
-        </MotionFlowSize>
-      )}
+      {open &&
+        (isCanvas ? (
+          <CanvasFloatingMenuPortal
+            open={open}
+            style={menuPortal.style}
+            portalRef={menuPortal.portalRef}
+          >
+            {menuContent}
+          </CanvasFloatingMenuPortal>
+        ) : (
+          <div
+            className={`absolute right-0 z-50 ${
+              layout === "cta" ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
+          >
+            {menuContent}
+          </div>
+        ))}
     </div>
   );
 }

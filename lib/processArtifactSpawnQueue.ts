@@ -17,7 +17,10 @@ import {
   getPermissionCopy,
   sortArtifactsByPriority,
 } from "@/lib/artifactSpawnPriority";
-import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import {
+  resolveArtifactTargetId,
+  type SessionArtifact,
+} from "@/lib/sessionArtifacts";
 import type { Card } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
 
@@ -224,6 +227,30 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
     ) {
       continue;
     }
+
+    const targetId = resolveArtifactTargetId(
+      card,
+      payload,
+      state.sessionArtifacts,
+      state.cards,
+      state.connections,
+      state.cardOrder,
+    );
+    if (targetId) {
+      const { versionId } = useCanvasStore
+        .getState()
+        .createArtifactVersion(targetId, payload, cardId);
+      useCanvasStore.getState().spawnCanvasArtifact(targetId, versionId, {
+        focus: false,
+      });
+      useCanvasStore.getState().updateCard(cardId, {
+        outputArtifactId: targetId,
+        outputArtifactVersionId: versionId,
+        responseType: payload.type === "video" ? "images" : payload.type,
+      });
+      continue;
+    }
+
     spawnPayloadWithPosition(cardId, payload);
   }
 

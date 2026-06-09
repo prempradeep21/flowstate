@@ -286,23 +286,26 @@ body::-webkit-scrollbar-corner {
   );
 }
 
-/** Canvas artifact — outer container fill and padding hide until hover/reveal; inner content keeps its own fills. */
+/** Canvas artifact — outer container fill hides until hover/reveal; padding stays fixed to avoid layout shift. */
 .artifact-canvas-container-fill,
+.artifact-canvas-surface-fill,
 .artifact-canvas-padding-chrome {
   transition:
     background 500ms ease-out,
-    background-color 500ms ease-out,
-    padding 500ms ease-out;
+    background-color 500ms ease-out;
 }
 
 .group\/artifact[data-chrome-hover] .artifact-canvas-container-fill,
 .group\/artifact[data-chrome-reveal] .artifact-canvas-container-fill,
+.group\/artifact[data-chrome-hover] .artifact-canvas-surface-fill,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-surface-fill,
 .group\/artifact[data-chrome-hover] .artifact-canvas-padding-chrome,
 .group\/artifact[data-chrome-reveal] .artifact-canvas-padding-chrome {
   transition-duration: 200ms;
 }
 
-.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill {
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill,
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-surface-fill {
   background: transparent !important;
 }
 
@@ -315,12 +318,12 @@ body::-webkit-scrollbar-corner {
   );
 }
 
-.artifact-canvas-padding-chrome {
-  padding: 0;
+.group\/artifact[data-chrome-hover] .artifact-canvas-surface-fill,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-card)) !important;
 }
 
-.group\/artifact[data-chrome-hover] .artifact-canvas-padding-chrome,
-.group\/artifact[data-chrome-reveal] .artifact-canvas-padding-chrome {
+.artifact-canvas-padding-chrome {
   padding: 1.25rem;
 }
 

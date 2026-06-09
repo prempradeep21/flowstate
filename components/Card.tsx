@@ -59,6 +59,7 @@ import {
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
+  getFamilyRootThreadId,
   isCardInSelectedFamilies,
 } from "@/lib/chatThreads";
 import {
@@ -99,6 +100,12 @@ const QA_SECTION_INSETS = {
     paddingRight: 16,
   },
 } as const;
+
+/**
+ * Long questions cap at 4 lines with internal scroll:
+ * 18px heading × 1.375 (leading-snug) × 4 lines.
+ */
+const QUESTION_MAX_HEIGHT = Math.ceil(18 * 1.375 * 4);
 
 function handleAnswerWheel(e: WheelEvent) {
   e.stopPropagation();
@@ -237,6 +244,7 @@ function CardInner({ card }: CardProps) {
     lastX: number;
     lastY: number;
     didMove: boolean;
+    moveSelection: boolean;
   } | null>(null);
   const DRAG_THRESHOLD_PX = 5;
 
@@ -650,6 +658,18 @@ function CardInner({ card }: CardProps) {
     if (target.closest("[data-plug]")) return;
 
     e.stopPropagation();
+
+    const st = useCanvasStore.getState();
+    const familyRootId = getFamilyRootThreadId(st, card.threadId);
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      const roots = st.selectedFamilyRootIds;
+      st.setSelectedFamilyRootIds(
+        roots.includes(familyRootId)
+          ? roots.filter((id) => id !== familyRootId)
+          : [...roots, familyRootId],
+      );
+      return;
+    }
     if (!isDraggable) return;
 
     e.preventDefault();
@@ -659,6 +679,10 @@ function CardInner({ card }: CardProps) {
       lastX: e.clientX,
       lastY: e.clientY,
       didMove: false,
+      // Drag the whole multi-selection when this card's family is part of it.
+      moveSelection:
+        st.selectedFamilyRootIds.includes(familyRootId) &&
+        st.selectedFamilyRootIds.length + st.canvasSelection.length > 1,
     };
   };
 
@@ -677,8 +701,13 @@ function CardInner({ card }: CardProps) {
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const vpScale = useCanvasStore.getState().viewport.scale;
-    moveSubtree(card.id, screenDx / vpScale, screenDy / vpScale);
+    const st = useCanvasStore.getState();
+    const vpScale = st.viewport.scale;
+    if (ds.moveSelection) {
+      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
+    } else {
+      moveSubtree(card.id, screenDx / vpScale, screenDy / vpScale);
+    }
   };
 
   const openExplain = openExplainId
@@ -809,12 +838,6 @@ function CardInner({ card }: CardProps) {
       )}
       {isEmptyComposer ? (
         <div className="relative min-w-0 overflow-hidden px-3 py-2.5">
-          <CardQaMenu
-            cardId={card.id}
-            viewportScale={scale}
-            hideDelete={isLanding}
-            layout="cta"
-          />
           <CanvasSharpContent className="w-full min-w-0">
             <ChatComposer
               variant="canvas"
@@ -829,6 +852,15 @@ function CardInner({ card }: CardProps) {
               autoFocus
               disabled={isPending}
               onSubmit={submitQuestion}
+              trailingControls={
+                !isLanding ? (
+                  <CardQaMenu
+                    cardId={card.id}
+                    viewportScale={scale}
+                    layout="embedded"
+                  />
+                ) : undefined
+              }
             />
           </CanvasSharpContent>
         </div>
@@ -885,7 +917,16 @@ function CardInner({ card }: CardProps) {
                 />
                 <div
                   data-selectable-text
-                  className="w-full min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-bold leading-snug text-canvas-ink"
+                  className={`w-full min-w-0 cursor-text break-words whitespace-pre-wrap leading-snug text-canvas-ink text-canvas-heading font-semibold ${
+                    isChatCollapsed
+                      ? "line-clamp-3 overflow-hidden"
+                      : "overflow-y-auto"
+                  }`}
+                  style={
+                    isChatCollapsed
+                      ? undefined
+                      : { maxHeight: QUESTION_MAX_HEIGHT }
+                  }
                 >
                   {card.question}
                 </div>

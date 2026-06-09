@@ -17,7 +17,10 @@
 /.next-playground/
 /.next-build-check/
 /.next-repo-explorer/
+/.next-artifact-catalog/
+/.next-vercel-check/
 /out/
+build-vercel-check.log
 
 # production
 /build

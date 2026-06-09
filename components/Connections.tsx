@@ -228,6 +228,7 @@ export function Connections() {
   const cards = useCanvasStore((s) => s.cards);
 
   const connections = useCanvasStore((s) => s.connections);
+  const collapsedCardIds = useCanvasStore((s) => s.collapsedCardIds);
   const hiddenCardIds = useHiddenCardIds();
 
   const threads = useCanvasStore((s) => s.threads);
@@ -401,6 +402,10 @@ export function Connections() {
               }
               const isBottomFollowUp =
                 conn.fromSide === "bottom" || conn.fromSide == null;
+              // A minimized card gets no plug/stub underneath it.
+              if (isBottomFollowUp && collapsedCardIds.includes(conn.from)) {
+                return null;
+              }
               if (isBottomFollowUp) {
                 const fromSide = "bottom" as const;
                 const toSide = "top" as const;

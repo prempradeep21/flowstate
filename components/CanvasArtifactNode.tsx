@@ -10,9 +10,15 @@ import {
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
+import {
+  cornerResizeSigns,
+  NodeCornerResizeHandles,
+  type NodeResizeCorner,
+} from "@/components/canvas/NodeCornerResizeHandles";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { clampArtifactSize, getArtifactBounds, MAX_TIMELINE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
@@ -41,45 +47,6 @@ const TEXT_SELECTABLE =
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
-}
-
-function ArtifactResizeHandle({
-  onPointerDown,
-}: {
-  onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-no-drag
-      data-resize-handle
-      aria-label="Resize artifact"
-      onPointerDown={onPointerDown}
-      className={`absolute bottom-0 right-0 z-[60] flex h-8 w-8 cursor-nwse-resize items-end justify-end rounded-br-canvas p-1 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30 ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        fill="none"
-        aria-hidden
-        className="text-canvas-muted"
-      >
-        <path
-          d="M11 5v6H5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M11 9V11H9"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-    </button>
-  );
 }
 
 function ArtifactChromeEdgeZones() {
@@ -114,8 +81,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
   const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const selectedCanvasArtifactId = useCanvasStore(
-    (s) => s.selectedCanvasArtifactId,
+  const isSelected = useCanvasStore(
+    (s) =>
+      s.selectedCanvasArtifactId === node.id ||
+      isCanvasItemSelected(s.canvasSelection, "artifact", node.id),
   );
   const moveCanvasArtifact = useCanvasStore((s) => s.moveCanvasArtifact);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
@@ -149,14 +118,19 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Whole multi-selection moves together when this node is part of it. */
+    moveSelection: boolean;
   } | null>(null);
 
   const resizeStateRef = useRef<{
     pointerId: number;
+    corner: NodeResizeCorner;
     startX: number;
     startY: number;
     startW: number;
     startH: number;
+    startPosX: number;
+    startPosY: number;
     didMove: boolean;
     recordedUndo: boolean;
   } | null>(null);
@@ -165,7 +139,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const art = node.artifactId
     ? sessionArtifacts[node.artifactId]
     : undefined;
-  const isSelected = selectedCanvasArtifactId === node.id;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
   const godView = isGodViewMode(scale);
   const sourceCard = cards[node.sourceCardId];
@@ -206,7 +179,15 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     if (target.closest(TEXT_SELECTABLE)) return;
 
     e.stopPropagation();
-    selectCanvasArtifact(node.id);
+    const st = useCanvasStore.getState();
+    const inMultiSelection =
+      isCanvasItemSelected(st.canvasSelection, "artifact", node.id) &&
+      st.selectedFamilyRootIds.length + st.canvasSelection.length > 1;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      st.toggleCanvasSelectionItem({ kind: "artifact", id: node.id });
+      return;
+    }
+    if (!inMultiSelection) selectCanvasArtifact(node.id);
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragStateRef.current = {
@@ -215,6 +196,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
+      moveSelection: inMultiSelection,
     };
   };
 
@@ -235,14 +217,25 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       rs.didMove = true;
 
       const vpScale = useCanvasStore.getState().viewport.scale;
+      const { sx, sy } = cornerResizeSigns(rs.corner);
       const next = clampArtifactSize(
-        rs.startW + screenDx / vpScale,
-        rs.startH + screenDy / vpScale,
+        rs.startW + (sx * screenDx) / vpScale,
+        rs.startH + (sy * screenDy) / vpScale,
         art?.kind === "timeline"
           ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
           : undefined,
       );
       setCanvasArtifactSize(node.id, next);
+      // Keep the corner opposite the grip anchored in place.
+      const targetX =
+        sx === -1 ? rs.startPosX + (rs.startW - next.w) : rs.startPosX;
+      const targetY =
+        sy === -1 ? rs.startPosY + (rs.startH - next.h) : rs.startPosY;
+      moveCanvasArtifact(
+        node.id,
+        targetX - node.position.x,
+        targetY - node.position.y,
+      );
       return;
     }
 
@@ -261,8 +254,13 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
-    const vpScale = useCanvasStore.getState().viewport.scale;
-    moveCanvasArtifact(node.id, screenDx / vpScale, screenDy / vpScale);
+    const st = useCanvasStore.getState();
+    const vpScale = st.viewport.scale;
+    if (ds.moveSelection) {
+      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
+    } else {
+      moveCanvasArtifact(node.id, screenDx / vpScale, screenDy / vpScale);
+    }
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -290,7 +288,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     dragStateRef.current = null;
   };
 
-  const handleResizePointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleResizePointerDown = (
+    corner: NodeResizeCorner,
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
@@ -299,10 +300,13 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     if (root) root.setPointerCapture(e.pointerId);
     resizeStateRef.current = {
       pointerId: e.pointerId,
+      corner,
       startX: e.clientX,
       startY: e.clientY,
       startW: width,
       startH: artifactHeight,
+      startPosX: node.position.x,
+      startPosY: node.position.y,
       didMove: false,
       recordedUndo: false,
     };
@@ -431,7 +435,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       </CanvasSharpContent>
 
       {!godView && !isPermissionPreview && (
-        <ArtifactResizeHandle onPointerDown={handleResizePointerDown} />
+        <NodeCornerResizeHandles
+          ariaLabel="Resize artifact"
+          zClass="z-[60]"
+          visibilityClass={ARTIFACT_CANVAS_CHROME_OPACITY}
+          onCornerPointerDown={handleResizePointerDown}
+        />
       )}
       </MotionCanvasNode>
     </div>
