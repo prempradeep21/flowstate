@@ -83,6 +83,23 @@ export function ArtifactTypeIcon({
           <path d="M2 8h12M8 2a10 10 0 0 1 3 6 10 10 0 0 1-3 6 10 10 0 0 1-3-6 10 10 0 0 1 3-6z" />
         </svg>
       );
+    case "repo":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <path
+            d="M8 1.2c-3.8 0-6.8 3-6.8 6.8 0 3 1.9 5.5 4.6 6.4.3.1.5-.1.5-.4v-1.4c-1.9.4-2.3-.9-2.3-.9-.3-.8-.8-1-0.8-1-.6-.4.1-.4.1-.4.7 0 1 .7 1 .7.6 1 1.6.7 2 .5.1-.4.2-.7.4-.9-1.5-.2-3.1-.8-3.1-3.4 0-.8.3-1.4.7-1.8-.1-.2-.3-.9.1-1.9 0 0 .6-.2 1.9.7.6-.2 1.2-.3 1.8-.3.6 0 1.2.1 1.8.3 1.3-.9 1.9-.7 1.9-.7.4 1 .2 1.7.1 1.9.4.4.7 1 .7 1.8 0 2.6-1.6 3.2-3.1 3.4.2.2.4.6.4 1.2v1.8c0 .3.2.5.5.4 2.7-.9 4.6-3.4 4.6-6.4 0-3.8-3-6.8-6.8-6.8z"
+            fill="currentColor"
+            stroke="none"
+          />
+        </svg>
+      );
+    case "embed":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <rect x="2" y="3" width="12" height="10" rx="1" />
+          <path d="M5 6.5h6M5 9.5h4" strokeLinecap="round" />
+        </svg>
+      );
     default:
       return null;
   }

@@ -1,0 +1,103 @@
+---
+description: Repository Explorer artifact — overview copy length and structure
+globs:
+  - lib/github/**
+  - lib/repoArtifactLayout.ts
+  - components/repo-explorer/**
+  - components/artifacts/RepoArtifactContent.tsx
+  - app/dev/repo-explorer/**
+  - app/api/github/**
+---
+
+# Repository Explorer artifact rules
+
+## Overview — "What it is" (required)
+
+The **What it is** block is the most important part of the repo artifact. It must always be **two short paragraphs** in plain language about **the GitHub repository** (not Flowstate or the design system).
+
+It should feel like a **human wrote a quick summary for a friend** — not like pasted README text.
+
+### Tone & style (strict)
+
+| Do | Don't |
+|----|--------|
+| Explain what the project is and what it does | Paste README sentences verbatim |
+| Use simple, conversational English | Include URLs, domains, or markdown link syntax |
+| Summarize purpose and capabilities | Use "Note:", "Important:", disclaimers, or legal/meta text |
+| Write original prose from README *meaning* | Say "see X for details" or reference external sites |
+| Strip noise before display | Show empty brackets `[]`, `(https://…)`, or broken link artifacts |
+
+Enforced in [`lib/github/overviewCopyLimits.ts`](lib/github/overviewCopyLimits.ts):
+
+- `sanitizeSummaryText()` — strips links, notes, markdown artifacts  
+- `whatItIsLooksLikeRawReadme()` — detects copy that still looks like raw README  
+- `polishWhatItIsCopy()` — sanitize + length limits; **always** run before returning from API  
+
+If AI or heuristic output still looks like raw README, fall back to `heuristicWhatItIs()` in [`lib/github/ensureRichOverview.ts`](lib/github/ensureRichOverview.ts).
+
+### Length (strict)
+
+| Rule | Value |
+|------|--------|
+| Paragraphs | Exactly **2** (when enough source material exists) |
+| Sentences per paragraph | **≤ 2** |
+| Words per paragraph | **≤ ~55** |
+| Total words (both paragraphs) | **≤ ~110** |
+
+Always run `polishWhatItIsCopy()` on `whatItIs` before returning from the API.
+
+### Content
+
+- Paragraph 1: what the project is and its core purpose  
+- Paragraph 2: how it works or its main capabilities  
+- No install steps, no author bio, no "star us on GitHub"  
+- Simple English; jargon only if the README uses it  
+
+## Overview — "Who it's for" (required)
+
+Three labeled rows (not long prose blocks):
+
+1. **Intended for** — who the repo is intended for  
+2. **Who should use it** — who runs/uses it day to day  
+3. **Who it helps** — who benefits and what problem it solves  
+
+Keep each row to **1–2 sentences**.
+
+## Do not
+
+- Use client-side placeholder copy when `overview.ai` is missing — fetch `/api/github/summary` instead  
+- Exceed the word/sentence caps in `WHAT_IT_IS_LIMITS`  
+- Put category/stats above the What it is / Who it's for sections in the UI  
+- Show links, notes, or README disclaimers in **What it is**  
+
+## Touch points
+
+When changing overview copy behavior, update:
+
+- `lib/github/overviewCopyLimits.ts` — limits + sanitization  
+- `lib/github/readmeSummary.ts` — heuristic extraction (skip notes/disclaimers)  
+- `lib/github/generateOverviewAi.ts` — Claude prompt schema  
+- `lib/github/ensureRichOverview.ts` — post-process + raw-README fallback  
+- `components/repo-explorer/OverviewWidget.tsx` — layout (summary first)
+
+## File structure widget
+
+- Data from GitHub recursive git tree (`lib/github/analyzeRepoTree.ts`), capped at 5000 entries  
+- Shows file count, folder count, top extensions (`.md`, `.ts`, etc.), and top-level folder names  
+- UI: `components/repo-explorer/FileStructureWidget.tsx`
+
+## Canvas integration (Flowstate product)
+
+- Paste a GitHub repo URL on the canvas → spawns a `repo` artifact (`lib/urlDetection.ts`, `lib/createUrlArtifact.ts`)
+- Hub-and-spoke UI: `components/artifacts/RepoArtifactContent.tsx` — center hub (GitHub logo + name, links to repo) + 6 connected widgets
+- Layout constants: `lib/repoArtifactLayout.ts` — **1080×760** canvas bounds; must match `spawnCanvasArtifact` repo size in `lib/store.ts`
+- **Animation sequence (strict):**
+  1. **Hub only** — bounce in immediately; full **bounds glow** (`ring-2`, pulsing accent)
+  2. **1s hold** (`REPO_HUB_HOLD_MS`) — fetch `/api/github/explore` + optional `/api/github/summary/stream` in background; hub shows “Fetching repository…”
+  3. **Connectors** — orthogonal lines draw from hub to spoke anchors (motion pathLength)
+  4. **Widgets** — stagger in with `sidebarTileEnterVariants`; **half bounds glow** (`ring-1`, 50% opacity pulse)
+  5. **Content** — overview streams live; other spokes populate when explore completes
+- Use **`m`** components (LazyMotion strict), not `motion`
+- **Widget information density:** canvas spokes show ~**2×** the dev-grid widgets (overview includes who-it’s-for + features + tags; tech shows stack + deps + install; etc.)
+- Stream failure must **not** fail the artifact — fall back to explore + `/api/github/summary`
+- Branch: `github-repo-artifact`

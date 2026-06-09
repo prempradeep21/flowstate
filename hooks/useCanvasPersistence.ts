@@ -42,6 +42,7 @@ import {
   markViewportRestoredFromSnapshot,
   resetViewportBootstrap,
 } from "@/lib/canvasViewportBootstrap";
+import { clearLandingAnimated } from "@/lib/motion/performance";
 import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
@@ -536,13 +537,14 @@ export function useCanvasPersistence({
       resetCanvasState();
       resetViewportBootstrap();
       closeArtifact();
+      clearLandingAnimated();
 
       const title = generateUntitledCanvasTitle(canvases.map((c) => c.title));
+      const empty = buildEmptyCanvasSnapshot();
 
       if (localReadOnlyRef.current) {
         const now = new Date().toISOString();
         const id = crypto.randomUUID();
-        const empty = buildEmptyCanvasSnapshot();
         sessionSnapshotsRef.current.set(id, empty);
         hydrateFromSnapshot(empty, {
           applyViewport: true,
@@ -571,6 +573,10 @@ export function useCanvasPersistence({
       const supabase = createClient();
       const created = await createCanvas(supabase, user.id, title);
 
+      hydrateFromSnapshot(empty, {
+        applyViewport: true,
+        canvasReveal: false,
+      });
       canvasIdRef.current = created.id;
       setActiveCanvasId(created.id);
       isDirtyRef.current = false;
@@ -758,6 +764,7 @@ export function useCanvasPersistence({
       contentEditDirtyRef.current = false;
       resetCanvasState();
       resetViewportBootstrap();
+      clearLandingAnimated();
       setPersistenceStatus("ready");
       setSaveStatus("idle");
       return;

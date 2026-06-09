@@ -48,6 +48,10 @@ function artifactContextNote(payload: ArtifactPayload): string {
     }
     case "website":
       return `[Card showed website: "${payload.title}" (${payload.data.url})]`;
+    case "repo":
+      return `[Card showed repository: "${payload.data.displayTitle}" (${payload.data.repoUrl})]`;
+    case "embed":
+      return `[Card showed ${payload.data.provider} embed: "${payload.title}" (${payload.data.url})]`;
   }
 }
 

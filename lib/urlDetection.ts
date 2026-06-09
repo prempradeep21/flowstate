@@ -1,3 +1,5 @@
+import { matchEmbedProvider } from "@/lib/embed/registry";
+import { parseGithubRepoUrl } from "@/lib/github/parseRepoUrl";
 import { isYoutubeUrl } from "@/lib/youtube";
 
 const URL_SCHEME_RE = /^https?:\/\//i;
@@ -45,13 +47,15 @@ export function domainDisplayLabel(url: string): string {
   }
 }
 
-export type PastedUrlKind = "youtube" | "website";
+export type PastedUrlKind = "youtube" | "website" | "repo" | "embed";
 
 /** Classify a normalized URL for artifact routing. */
 export function classifyPastedUrl(url: string): PastedUrlKind | null {
   const normalized = normalizeHttpUrl(url);
   if (!normalized) return null;
   if (isYoutubeUrl(normalized)) return "youtube";
+  if (parseGithubRepoUrl(normalized)) return "repo";
+  if (matchEmbedProvider(normalized)) return "embed";
   return "website";
 }
 

@@ -6,6 +6,7 @@ import { NetworkBackground } from "@/components/canvasBackgrounds/NetworkBackgro
 import { RisingSunBackground } from "@/components/canvasBackgrounds/RisingSunBackground";
 import { SkyBackground } from "@/components/canvasBackgrounds/SkyBackground";
 import type { BackgroundOption, BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
+import { isBackgroundAllowedForTheme } from "@/lib/canvasBackgroundTheme";
 import type { CanvasBackgroundStyle, CanvasTheme } from "@/lib/store";
 import type { ComponentType } from "react";
 
@@ -66,3 +67,11 @@ export const BACKGROUND_COMPONENTS: Record<
   network: NetworkBackground,
   "rising-sun": RisingSunBackground,
 };
+
+export function getBackgroundOptionsForTheme(
+  theme: CanvasTheme,
+): BackgroundOption[] {
+  return BACKGROUND_OPTIONS.filter((option) =>
+    isBackgroundAllowedForTheme(option.id, theme),
+  );
+}

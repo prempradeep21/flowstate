@@ -1,3 +1,7 @@
+import {
+  REPO_ARTIFACT_HEIGHT,
+  REPO_ARTIFACT_WIDTH,
+} from "@/lib/repoArtifactLayout";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -8,6 +12,7 @@ import {
 export const CARD_WIDTH = 420;
 export const CANVAS_ARTIFACT_WIDTH = 520;
 export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
+export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
@@ -67,8 +72,27 @@ export function getArtifactBounds(
   artifact?: SessionArtifact | null,
 ): { w: number; h: number } {
   const isTable = artifact?.kind === "table";
-  const defaultW = isTable ? CANVAS_TABLE_ARTIFACT_WIDTH : CANVAS_ARTIFACT_WIDTH;
-  const defaultH = isTable ? TABLE_ARTIFACT_HEIGHT : DEFAULT_ARTIFACT_HEIGHT;
+  const isRepo = artifact?.kind === "repo";
+  const isEmbed = artifact?.kind === "embed";
+  const latest = artifact?.versions.find(
+    (v) => v.id === artifact.latestVersionId,
+  );
+  const embedData =
+    isEmbed && latest?.payload.type === "embed" ? latest.payload.data : null;
+  const defaultW = isTable
+    ? CANVAS_TABLE_ARTIFACT_WIDTH
+    : isRepo
+      ? REPO_ARTIFACT_WIDTH
+      : isEmbed && embedData
+        ? embedData.embedWidth
+        : CANVAS_ARTIFACT_WIDTH;
+  const defaultH = isTable
+    ? TABLE_ARTIFACT_HEIGHT
+    : isRepo
+      ? REPO_ARTIFACT_HEIGHT
+      : isEmbed && embedData
+        ? embedData.embedHeight
+        : DEFAULT_ARTIFACT_HEIGHT;
   return {
     w: node.size?.w ?? defaultW,
     h: node.size?.h ?? defaultH,

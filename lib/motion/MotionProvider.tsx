@@ -1,6 +1,6 @@
 "use client";
 
-import { LazyMotion, MotionConfig, domAnimation } from "framer-motion";
+import { LazyMotion, LayoutGroup, MotionConfig, domAnimation } from "framer-motion";
 import type { ReactNode } from "react";
 import { durationSeconds } from "./tokens";
 
@@ -14,7 +14,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         reducedMotion="user"
         transition={{ duration: durationSeconds("standard") }}
       >
-        {children}
+        <LayoutGroup>{children}</LayoutGroup>
       </MotionConfig>
     </LazyMotion>
   );

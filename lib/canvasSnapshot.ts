@@ -1,4 +1,5 @@
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
+import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
   AnswerExplain,
@@ -179,7 +180,7 @@ export function buildEmptyCanvasSnapshot(
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
-    canvasTheme: "light",
+    canvasTheme: "dark",
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
@@ -320,9 +321,12 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.connectorStyle === "orthogonal"
         ? snapshot.connectorStyle
         : base.connectorStyle,
-    canvasBackgroundStyle: normalizeCanvasBackgroundStyle(
-      snapshot.canvasBackgroundStyle,
-      base.canvasBackgroundStyle,
+    canvasBackgroundStyle: resolveBackgroundForTheme(
+      normalizeCanvasBackgroundStyle(
+        snapshot.canvasBackgroundStyle,
+        base.canvasBackgroundStyle,
+      ),
+      normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     selectedModel:

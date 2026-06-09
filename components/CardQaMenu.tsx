@@ -6,6 +6,7 @@ import {
   ContextMenuItem,
   TrashIcon,
 } from "@/components/MenuIcons";
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { useCanvasStore } from "@/lib/store";
 
 interface CardQaMenuProps {
@@ -138,7 +139,7 @@ export function CardQaMenu({
       </button>
 
       {open && (
-        <div
+        <MotionFlowSize
           role="menu"
           className="motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
           onPointerDown={(e) => e.stopPropagation()}
@@ -176,7 +177,7 @@ export function CardQaMenu({
               />
             </>
           )}
-        </div>
+        </MotionFlowSize>
       )}
     </div>
   );

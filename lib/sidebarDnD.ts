@@ -10,7 +10,9 @@ export type SidebarArtifactCategory =
   | "image"
   | "map"
   | "todo"
-  | "website";
+  | "website"
+  | "repo"
+  | "embed";
 
 export type SidebarDragPayload =
   | {

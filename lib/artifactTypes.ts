@@ -1,4 +1,5 @@
 import { normalizeCustomArtifactData } from "@/lib/customArtifact";
+import type { RepoExplorerData } from "@/lib/github/types";
 import { normalizeMapArtifactData } from "@/lib/mapArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
@@ -18,7 +19,9 @@ export type ResponseType =
   | "images"
   | "todo"
   | "map"
-  | "website";
+  | "website"
+  | "repo"
+  | "embed";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -29,7 +32,9 @@ export type ArtifactKind =
   | "code"
   | "todo"
   | "map"
-  | "website";
+  | "website"
+  | "repo"
+  | "embed";
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -139,6 +144,33 @@ export interface WebsiteArtifactData {
   previewImageUrl?: string;
 }
 
+export type EmbedArtifactStatus = "loading" | "ready" | "failed";
+
+export interface EmbedArtifactData {
+  url: string;
+  provider: string;
+  title: string;
+  domainLabel: string;
+  embedWidth: number;
+  embedHeight: number;
+  iframeSrc?: string;
+  embedHtml?: string;
+  status: EmbedArtifactStatus;
+  fallback?: {
+    domainLabel: string;
+    faviconUrl?: string;
+    previewImageUrl?: string;
+  };
+}
+
+export interface RepoArtifactData {
+  repoUrl: string;
+  owner: string;
+  repo: string;
+  displayTitle: string;
+  explorer: RepoExplorerData;
+}
+
 export type ArtifactPayload =
   | { type: "table"; title: string; description?: string; data: TableArtifactData }
   | { type: "code"; title: string; description?: string; data: CodeArtifactData }
@@ -148,7 +180,9 @@ export type ArtifactPayload =
   | { type: "3d"; title: string; description?: string; data: ThreeDArtifactData }
   | { type: "todo"; title: string; description?: string; data: TodoArtifactData }
   | { type: "map"; title: string; description?: string; data: MapArtifactData }
-  | { type: "website"; title: string; description?: string; data: WebsiteArtifactData };
+  | { type: "website"; title: string; description?: string; data: WebsiteArtifactData }
+  | { type: "repo"; title: string; description?: string; data: RepoArtifactData }
+  | { type: "embed"; title: string; description?: string; data: EmbedArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {

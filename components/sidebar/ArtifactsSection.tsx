@@ -7,7 +7,7 @@ import { AnimatePresence } from "framer-motion";
 import { useMemo } from "react";
 
 import { ArtifactSidebarTile } from "@/components/sidebar/ArtifactSidebarTile";
-
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { MotionSidebarTile } from "@/components/sidebar/MotionSidebarTile";
 
 import { resolveSidebarTileLayout } from "@/lib/artifactSidebarLayout";
@@ -90,9 +90,9 @@ export function ArtifactsSection({
 
   return (
 
-    <section className="px-3 py-3">
+    <MotionFlowSize as="section" className="px-3 py-3">
 
-      <div className="grid grid-cols-2 gap-3">
+      <MotionFlowSize className="grid grid-cols-2 gap-3">
 
         <AnimatePresence mode="popLayout" initial={false}>
 
@@ -118,9 +118,9 @@ export function ArtifactsSection({
 
         </AnimatePresence>
 
-      </div>
+      </MotionFlowSize>
 
-    </section>
+    </MotionFlowSize>
 
   );
 

@@ -254,6 +254,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   if (!art) return null;
 
+  const isRepoArtifact = art.kind === "repo";
+
   return (
     <div
       ref={nodeRef}
@@ -309,13 +311,19 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
       <CanvasSharpContent
         worldWidth={width}
-        className={`flex h-full flex-col overflow-hidden rounded-canvas border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
-          todoEditing
-            ? "border-2 border-dashed border-canvas-accent"
-            : isSelected
-              ? "border-canvas-ink ring-2 ring-canvas-ink/25"
-              : "border-canvas-border"
-        }`}
+        className={
+          isRepoArtifact
+            ? `flex h-full flex-col overflow-visible bg-transparent p-0 ${
+                isSelected ? "ring-2 ring-canvas-ink/20 rounded-canvas" : ""
+              }`
+            : `flex h-full flex-col overflow-hidden rounded-canvas border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
+                todoEditing
+                  ? "border-2 border-dashed border-canvas-accent"
+                  : isSelected
+                    ? "border-canvas-ink ring-2 ring-canvas-ink/25"
+                    : "border-canvas-border"
+              }`
+        }
       >
         <ArtifactShell
           layout="canvas"

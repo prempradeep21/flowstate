@@ -5,6 +5,7 @@ import {
   MutableRefObject,
   RefObject,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -148,9 +149,11 @@ export function Canvas({
       (externalContainerRef as MutableRefObject<HTMLDivElement | null>).current =
         node;
     }
+    setContainerReady(node !== null);
   };
   const landingViewportCenteredRef = useRef(false);
   const seedingRef = useRef(false);
+  const [containerReady, setContainerReady] = useState(false);
 
   useEffect(() => {
     if (canvasLoadReveal?.phase !== "pending") return;
@@ -325,7 +328,8 @@ export function Canvas({
   };
 
   // Seed the home card as soon as the container has size (do not wait on cloud load).
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!containerReady) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -356,7 +360,12 @@ export function Canvas({
     const ro = new ResizeObserver(seedIfEmpty);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [cardOrder.length, createRootCard, setViewport]);
+  }, [
+    cardOrder.length,
+    containerReady,
+    createRootCard,
+    setViewport,
+  ]);
 
   // After persistence hydrates, center on the first card if we have not yet.
   useEffect(() => {

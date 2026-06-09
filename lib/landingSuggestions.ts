@@ -18,7 +18,7 @@ export const LANDING_ARTIFACT_SUGGESTIONS: {
   },
   {
     kind: "3d",
-    label: "3D preview",
+    label: "3D",
     prompt: "Generate a 3D preview of ",
   },
   {

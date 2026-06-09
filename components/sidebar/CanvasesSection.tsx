@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { CanvasRowMenu } from "@/components/sidebar/CanvasRowMenu";
 import { DeleteCanvasConfirmModal } from "@/components/sidebar/DeleteCanvasConfirmModal";
 import { LEFT_PANEL_SECTIONS } from "@/lib/motion/variants";
@@ -108,7 +109,10 @@ export function CanvasesSection({
   }, [deleteBusy, deleteOwnedCanvas, pendingDelete]);
 
   return (
-    <section className="border-b border-canvas-border px-3 py-3">
+    <MotionFlowSize
+      as="section"
+      className="border-b border-canvas-border px-3 py-3"
+    >
       <MotionPanelLine
         section={LEFT_PANEL_SECTIONS.canvases}
         item={0}
@@ -144,7 +148,7 @@ export function CanvasesSection({
       </MotionPanelLine>
 
       {pendingInvites.length > 0 && (
-        <div className="mb-3">
+        <MotionFlowSize className="mb-3">
           <MotionPanelLine
             section={LEFT_PANEL_SECTIONS.invitations}
             item={0}
@@ -205,10 +209,10 @@ export function CanvasesSection({
               </MotionPanelLine>
             ))}
           </ul>
-        </div>
+        </MotionFlowSize>
       )}
 
-      <ul className="space-y-1">
+      <MotionFlowSize as="ul" className="space-y-1">
         {canManage ? (
           canvases.map((canvas, index) => (
             <MotionPanelLine
@@ -253,10 +257,10 @@ export function CanvasesSection({
             Local canvas
           </MotionPanelLine>
         )}
-      </ul>
+      </MotionFlowSize>
 
       {sharedCanvases.length > 0 && (
-        <div className="mt-3">
+        <MotionFlowSize className="mt-3">
           <MotionPanelLine
             section={LEFT_PANEL_SECTIONS.shared}
             item={0}
@@ -299,7 +303,7 @@ export function CanvasesSection({
               </MotionPanelLine>
             ))}
           </ul>
-        </div>
+        </MotionFlowSize>
       )}
 
       <DeleteCanvasConfirmModal
@@ -310,7 +314,7 @@ export function CanvasesSection({
         onConfirm={() => void confirmDelete()}
         onCancel={cancelDelete}
       />
-    </section>
+    </MotionFlowSize>
   );
 }
 

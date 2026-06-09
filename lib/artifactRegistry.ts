@@ -27,6 +27,8 @@ const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   map: "Maps",
   todo: "To-do lists",
   website: "Websites",
+  repo: "Repositories",
+  embed: "Embeds",
 };
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
@@ -37,6 +39,8 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "map",
   "todo",
   "website",
+  "repo",
+  "embed",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -55,6 +59,10 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "todo";
     case "website":
       return "website";
+    case "repo":
+      return "repo";
+    case "embed":
+      return "embed";
     default:
       return null;
   }
@@ -111,6 +119,8 @@ export function buildArtifactRegistry(
     map: [],
     todo: [],
     website: [],
+    repo: [],
+    embed: [],
   };
 
   for (const art of artifacts) {
@@ -128,7 +138,7 @@ export function buildArtifactRegistry(
   }
 
   return (
-    ["table", "custom", "3d", "image", "map", "todo", "website"] as const
+    ["table", "custom", "3d", "image", "map", "todo", "website", "embed"] as const
   ).map(
     (category) => ({
       category,

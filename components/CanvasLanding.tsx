@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AuthButton } from "@/components/AuthButton";
+import { useAuth } from "@/components/AuthProvider";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { ChatComposer } from "@/components/ChatComposer";
 import { LandingTipCard } from "@/components/landing/LandingTipCard";
+import { RotatingLandingTitle } from "@/components/landing/RotatingLandingTitle";
 import { LandingQIcon, LandingZoomIcon } from "@/components/landing/LandingTipIcons";
 import { BranchForkIcon } from "@/components/MenuIcons";
 import {
@@ -13,17 +16,19 @@ import {
 import { LANDING_ARTIFACT_SUGGESTIONS } from "@/lib/landingSuggestions";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 
-const LANDING_WIDTH = 560;
+const LANDING_WIDTH = 680;
 
 const PILL_DELAYS = [280, 320, 360, 400, 440] as const;
 const TIP_DELAYS = [640, 675, 710] as const;
 
 export function CanvasLanding({ cardId }: { cardId: string }) {
+  const { user, authLoading } = useAuth();
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const card = useCanvasStore((s) => s.cards[cardId]);
   const [draft, setDraft] = useState("");
   const [skipMotion, setSkipMotion] = useState(false);
+  const showSignIn = !authLoading && !user;
 
   useEffect(() => {
     if (hasLandingAnimated()) {
@@ -82,13 +87,27 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       onPointerDown={(e) => e.stopPropagation()}
     >
       <h1
-        className={`text-center font-display text-canvas-display font-normal leading-[1.05] tracking-[-0.02em] text-canvas-ink sm:text-canvas-display ${riseProps(0).className ?? ""}`}
-        style={riseProps(0).style}
+        aria-live="polite"
+        className="min-h-[1.15em] text-center font-display text-canvas-display font-normal leading-[1.05] tracking-[-0.02em] text-canvas-ink sm:text-canvas-display"
       >
-        What&apos;s on your mind?
+        <span
+          className={riseProps(0).className}
+          style={riseProps(0).style}
+        >
+          <RotatingLandingTitle />
+        </span>
       </h1>
 
-      <div className="flex flex-wrap justify-center gap-2">
+      {showSignIn && (
+        <div
+          className={riseProps(120).className}
+          style={riseProps(120).style}
+        >
+          <AuthButton />
+        </div>
+      )}
+
+      <div className="flex w-full max-w-full flex-nowrap justify-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {LANDING_ARTIFACT_SUGGESTIONS.map((suggestion, i) => (
           <button
             key={suggestion.kind}
@@ -97,7 +116,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
               setDraft(suggestion.prompt);
               focusComposer();
             }}
-            className={`inline-flex items-center gap-1.5 rounded-full border border-canvas-ink/20 bg-canvas-card px-4 py-1.5 text-canvas-body-sm text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
             style={riseProps(PILL_DELAYS[i]).style}
           >
             <ArtifactTypeIcon

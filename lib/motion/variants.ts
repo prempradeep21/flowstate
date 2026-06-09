@@ -199,3 +199,6 @@ export const LEFT_PANEL_SECTIONS = {
 
 /** Max time for left-panel line stagger on expand (ms). */
 export const PANEL_LINE_STAGGER_MS = staggers.staggerCap + durations.standard;
+
+/** Smooth height when a container's child count or content changes (UI chrome only). */
+export const contentSizeTransition = framerTransition("standard", "easeMedium");

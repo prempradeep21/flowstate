@@ -7,6 +7,7 @@ import type {
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
 import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { collectSubtreeIds } from "@/lib/canvasSubtree";
 import {
@@ -28,7 +29,10 @@ import { isCardPending } from "@/lib/cardLayoutPolicy";
 import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TABLE_ARTIFACT_WIDTH,
+  clampArtifactSize,
   DEFAULT_ARTIFACT_HEIGHT,
+  REPO_ARTIFACT_HEIGHT,
+  REPO_ARTIFACT_WIDTH,
   TABLE_ARTIFACT_HEIGHT,
   emptyCardSize,
   getArtifactBounds,
@@ -73,9 +77,23 @@ import {
   MANUAL_TODO_SOURCE_CARD_ID,
 } from "@/lib/todoArtifact";
 import {
+  createRepoPayload,
+  MANUAL_REPO_SOURCE_CARD_ID,
+  mergeRepoExplorer,
+} from "@/lib/repoArtifact";
+import {
   createWebsitePayload,
   MANUAL_WEBSITE_SOURCE_CARD_ID,
 } from "@/lib/websiteArtifact";
+import {
+  createEmbedPayload,
+  EMBED_LOADING_HEIGHT,
+  EMBED_LOADING_WIDTH,
+  MANUAL_EMBED_SOURCE_CARD_ID,
+} from "@/lib/embedArtifact";
+import { matchEmbedProviderId } from "@/lib/embed/registry";
+import type { EmbedResolveResult } from "@/lib/embed/types";
+import type { RepoExplorerData } from "@/lib/github/types";
 import { domainDisplayLabel } from "@/lib/urlDetection";
 import {
   graphSnapshotFromState,
@@ -524,6 +542,25 @@ interface CanvasState {
     position?: { x: number; y: number },
     opts?: { recordUndo?: boolean },
   ) => { artifactId: string; versionId: string };
+  createRepoArtifactFromUrl: (
+    url: string,
+    opts?: {
+      position?: { x: number; y: number };
+      recordUndo?: boolean;
+    },
+  ) => { artifactId: string; versionId: string };
+  createEmbedArtifactFromUrl: (
+    url: string,
+    opts?: {
+      position?: { x: number; y: number };
+      size?: { w: number; h: number };
+      recordUndo?: boolean;
+    },
+  ) => { artifactId: string; versionId: string };
+  patchRepoArtifactExplorer: (
+    artifactId: string,
+    patch: Partial<RepoExplorerData>,
+  ) => void;
   patchWebsiteArtifactTitle: (
     artifactId: string,
     patch: { title: string; faviconUrl?: string; previewImageUrl?: string },
@@ -532,6 +569,11 @@ interface CanvasState {
     artifactId: string,
     versionId: string,
     patch: { title: string; thumb?: string },
+  ) => void;
+  patchEmbedArtifact: (
+    artifactId: string,
+    versionId: string,
+    patch: EmbedResolveResult | { status: "loading" },
   ) => void;
   ensurePendingTableArtifact: (
     cardId: string,
@@ -554,7 +596,11 @@ interface CanvasState {
   spawnCanvasArtifact: (
     artifactId: string,
     versionId: string,
-    opts?: { position?: { x: number; y: number }; focus?: boolean },
+    opts?: {
+      position?: { x: number; y: number };
+      size?: { w: number; h: number };
+      focus?: boolean;
+    },
   ) => string | null;
   ensureCanvasArtifactAt: (
     artifactId: string,
@@ -655,6 +701,26 @@ export const newCardId = () => newId("card");
 export const newExplainId = () => newId("explain");
 const newThreadId = () => newId("thread");
 const newGroupId = () => newId("group");
+
+/** Empty home card at the global origin — shared by hydrate + first canvas seed. */
+function createLandingSeedCard(tuning: ResolvedCanvasTuning, threadIndex: number) {
+  const cardId = newCardId();
+  const threadId = newThreadId();
+  const accent = PALETTE[threadIndex % PALETTE.length];
+  const thread: Thread = { id: threadId, accentColour: accent };
+  const card: Card = {
+    id: cardId,
+    threadId,
+    question: "",
+    answer: "",
+    status: "empty",
+    position: { x: CANVAS_ORIGIN.x, y: CANVAS_ORIGIN.y },
+    size: emptyCardSize(tuning),
+    parentCardId: null,
+    parentConversationId: null,
+  };
+  return { cardId, card, thread, threadId };
+}
 
 function layoutStateFrom(state: CanvasState): {
   cards: Record<string, Card>;
@@ -973,7 +1039,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedCanvasTextLabelId: null,
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
-  canvasTheme: "light",
+  canvasTheme: "dark",
   soundEnabled: true,
   soundVolume: 0.7,
   canvasPreviewBodyFontId: DEFAULT_BODY_FONT_ID,
@@ -1155,7 +1221,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
 
   setCanvasTheme: (theme) =>
-    set({ canvasTheme: theme, collaborationHasEdits: true }),
+    set((state) => ({
+      canvasTheme: theme,
+      canvasBackgroundStyle: resolveBackgroundForTheme(
+        state.canvasBackgroundStyle,
+        theme,
+      ),
+      collaborationHasEdits: true,
+    })),
 
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
 
@@ -1371,35 +1444,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   createRootCard: (position) => {
-    const cardId = newCardId();
+    const tuning = TUNING;
+    let cardId = "";
     set((state) => {
       const undoPast = pushUndoSnapshot(state);
-      const tuning = TUNING;
       const isSeed = state.cardOrder.length === 0;
-      const threadId = newThreadId();
-      const accent = PALETTE[state.threadOrder.length % PALETTE.length];
-      const thread: Thread = { id: threadId, accentColour: accent };
-      const card: Card = {
-        id: cardId,
-        threadId,
-        question: "",
-        answer: "",
-        status: "empty",
-        position: isSeed
-          ? { x: CANVAS_ORIGIN.x, y: CANVAS_ORIGIN.y }
-          : position,
-        size: emptyCardSize(tuning),
-        parentCardId: null,
-        parentConversationId: null,
-      };
+      const seed = createLandingSeedCard(tuning, state.threadOrder.length);
+      cardId = seed.cardId;
+      const placedCard = isSeed ? seed.card : { ...seed.card, position };
       return {
         undoPast,
-        threads: { ...state.threads, [threadId]: thread },
-        threadOrder: [...state.threadOrder, threadId],
-        cards: { ...state.cards, [cardId]: card },
-        cardOrder: [...state.cardOrder, cardId],
+        threads: { ...state.threads, [seed.threadId]: seed.thread },
+        threadOrder: [...state.threadOrder, seed.threadId],
+        cards: { ...state.cards, [seed.cardId]: placedCard },
+        cardOrder: [...state.cardOrder, seed.cardId],
         globalOrigin: isSeed
-          ? { cardId, x: CANVAS_ORIGIN.x, y: CANVAS_ORIGIN.y }
+          ? {
+              cardId: seed.cardId,
+              x: CANVAS_ORIGIN.x,
+              y: CANVAS_ORIGIN.y,
+            }
           : state.globalOrigin,
       };
     });
@@ -1519,6 +1583,91 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return { artifactId, versionId };
   },
 
+  createRepoArtifactFromUrl: (url, opts) => {
+    const payload = createRepoPayload(url);
+    if (!payload) {
+      throw new Error("Invalid GitHub repository URL");
+    }
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_REPO_SOURCE_CARD_ID,
+    );
+    if (opts?.position) {
+      get().spawnCanvasArtifact(artifactId, versionId, {
+        position: opts.position,
+        focus: true,
+      });
+    } else {
+      get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    }
+    return { artifactId, versionId };
+  },
+
+  createEmbedArtifactFromUrl: (url, opts) => {
+    const provider = matchEmbedProviderId(url) ?? "reddit";
+    const payload = createEmbedPayload(url, provider);
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_EMBED_SOURCE_CARD_ID,
+    );
+    const spawnOpts = {
+      position: opts?.position,
+      focus: true,
+      size: opts?.size ?? {
+        w: EMBED_LOADING_WIDTH,
+        h: EMBED_LOADING_HEIGHT,
+      },
+    };
+    get().spawnCanvasArtifact(artifactId, versionId, spawnOpts);
+    get().openSessionArtifact(artifactId, versionId);
+    return { artifactId, versionId };
+  },
+
+  patchRepoArtifactExplorer: (artifactId, patch) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "repo") return state;
+      const latest = getLatestVersion(art);
+      if (!latest || latest.payload.type !== "repo") return state;
+
+      const explorer = mergeRepoExplorer(latest.payload.data.explorer, patch);
+      const displayTitle =
+        explorer.overview.data?.name ??
+        explorer.overview.data?.fullName ??
+        latest.payload.data.displayTitle;
+      const updatedPayload: ArtifactPayload = {
+        ...latest.payload,
+        title: displayTitle,
+        data: {
+          ...latest.payload.data,
+          displayTitle,
+          explorer,
+        },
+      };
+      const versions = art.versions.map((v) =>
+        v.id === latest.id ? { ...v, payload: updatedPayload } : v,
+      );
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title: displayTitle,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
   patchWebsiteArtifactTitle: (artifactId, patch) => {
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -1588,6 +1737,73 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             versions,
           },
         },
+      };
+    });
+  },
+
+  patchEmbedArtifact: (artifactId, versionId, patch) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "embed") return state;
+      const version = art.versions.find((v) => v.id === versionId);
+      if (!version || version.payload.type !== "embed") return state;
+
+      const prev = version.payload.data;
+      const isLoading = patch.status === "loading";
+      const title =
+        !isLoading && "title" in patch && patch.title.trim()
+          ? patch.title.trim()
+          : prev.title;
+      const updatedPayload: ArtifactPayload = {
+        ...version.payload,
+        title,
+        data: isLoading
+          ? { ...prev, status: "loading" }
+          : {
+              url: patch.url,
+              provider: patch.provider,
+              title,
+              domainLabel: patch.fallback?.domainLabel ?? prev.domainLabel,
+              embedWidth: patch.embedWidth,
+              embedHeight: patch.embedHeight,
+              iframeSrc: patch.iframeSrc,
+              embedHtml: patch.embedHtml,
+              status: patch.status,
+              fallback: patch.fallback ?? prev.fallback,
+            },
+      };
+      const versions = art.versions.map((v) =>
+        v.id === versionId ? { ...v, payload: updatedPayload } : v,
+      );
+
+      let canvasArtifactNodes = state.canvasArtifactNodes;
+      if (!isLoading && patch.status === "ready") {
+        const node = findCanvasNodeByArtifactId(
+          state.canvasArtifactNodes,
+          artifactId,
+        );
+        if (node) {
+          const nextSize = clampArtifactSize(patch.embedWidth, patch.embedHeight);
+          canvasArtifactNodes = {
+            ...state.canvasArtifactNodes,
+            [node.id]: {
+              ...node,
+              size: nextSize,
+            },
+          };
+        }
+      }
+
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title,
+            versions,
+          },
+        },
+        canvasArtifactNodes,
       };
     });
   },
@@ -1770,9 +1986,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           TUNING,
         );
       const artifactSize =
-        art.kind === "table"
+        opts?.size ??
+        (art.kind === "table"
           ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
-          : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
+          : art.kind === "repo"
+            ? { w: REPO_ARTIFACT_WIDTH, h: REPO_ARTIFACT_HEIGHT }
+            : art.kind === "embed" && ver.payload.type === "embed"
+              ? clampArtifactSize(
+                  ver.payload.data.embedWidth,
+                  ver.payload.data.embedHeight,
+                )
+              : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT });
       const node: CanvasArtifactNode = {
         id,
         artifactId,
@@ -2568,17 +2792,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       // Re-snap vertical chains so any stale gap from older snapshots
       // collapses back to the canonical FOLLOW_UP_GAP. Lateral branches are
       // not touched (absolute-positions policy).
-      const cards = repairVerticalChainsOnly(
+      let cards = repairVerticalChainsOnly(
         repaired.cards,
         connections,
         cardOrder,
         defaultTuning,
       );
+      let threads = { ...snapshotNorm.threads };
+      let threadOrder = [...snapshotNorm.threadOrder];
+      let nextCardOrder = cardOrder;
+
+      if (nextCardOrder.length === 0) {
+        const seed = createLandingSeedCard(defaultTuning, threadOrder.length);
+        cards = { ...cards, [seed.cardId]: seed.card };
+        nextCardOrder = [seed.cardId];
+        threads = { ...threads, [seed.threadId]: seed.thread };
+        threadOrder = [...threadOrder, seed.threadId];
+      }
+
       const canvasArtifactNodes = normalizeLoadedArtifactNodes(
         { ...snapshotNorm.canvasArtifactNodes },
         repaired.sessionArtifacts,
       );
-      const firstCardId = cardOrder[0];
+      const firstCardId = nextCardOrder[0];
       const firstCard = firstCardId ? cards[firstCardId] : undefined;
       const globalOrigin =
         firstCardId && firstCard
@@ -2594,10 +2830,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (options?.canvasReveal) {
         const plan = buildCanvasLoadRevealPlan({
           cards,
-          cardOrder,
+          cardOrder: nextCardOrder,
           connections,
-          threads: snapshotNorm.threads,
-          threadOrder: snapshotNorm.threadOrder,
+          threads,
+          threadOrder,
           canvasArtifactNodes,
           canvasArtifactOrder,
         });
@@ -2615,10 +2851,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         viewport,
         viewportSettledScale: viewport.scale,
         cards,
-        cardOrder,
+        cardOrder: nextCardOrder,
         connections,
-        threads: { ...snapshotNorm.threads },
-        threadOrder: [...snapshotNorm.threadOrder],
+        threads,
+        threadOrder,
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
@@ -2632,7 +2868,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasAssetNodes: { ...snapshotNorm.canvasAssetNodes },
         canvasAssetOrder: [...(snapshotNorm.canvasAssetOrder ?? [])],
         canvasLoadReveal,
-        activeThreadId: snapshotNorm.threadOrder[0] ?? null,
+        activeThreadId: threadOrder[0] ?? null,
         openArtifactCardId: null,
         openGroupArtifactId: null,
         openSessionArtifactId: null,

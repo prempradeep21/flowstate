@@ -55,6 +55,13 @@ describe("classifyPastedUrl", () => {
 
   it("routes generic URLs to website", () => {
     expect(classifyPastedUrl("https://github.com")).toBe("website");
+    expect(classifyPastedUrl("https://example.com")).toBe("website");
+  });
+
+  it("routes social embed URLs to embed", () => {
+    expect(
+      classifyPastedUrl("https://www.reddit.com/r/test/comments/abc123/x/"),
+    ).toBe("embed");
   });
 });
 

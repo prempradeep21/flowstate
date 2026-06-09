@@ -11,6 +11,8 @@ import { ThreeDArtifactContent } from "@/components/artifacts/ThreeDArtifactCont
 import { TodoArtifactContent } from "@/components/artifacts/TodoArtifactContent";
 import { TodoSidebarPreview } from "@/components/artifacts/TodoSidebarPreview";
 import { WebsiteArtifactContent } from "@/components/artifacts/WebsiteArtifactContent";
+import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactContent";
+import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -156,6 +158,32 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+          />
+        );
+      }
+      break;
+    case "repo":
+      if (payload.type === "repo") {
+        return (
+          <RepoArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "embed":
+      if (payload.type === "embed") {
+        return (
+          <EmbedArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            layout={layout}
+            artifactId={artifactId}
+            versionId={versionId}
           />
         );
       }

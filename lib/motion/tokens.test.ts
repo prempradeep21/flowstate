@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canvasLoadDelays, durations, easings, landingDelays, scales } from "./tokens";
-import { dropVariants, popUpVariants } from "./variants";
+import { dropVariants, popUpVariants, contentSizeTransition } from "./variants";
 
 describe("motion tokens", () => {
   it("exports duration tiers", () => {
@@ -34,5 +34,9 @@ describe("motion variants", () => {
     expect(dropVariants.initial).toHaveProperty("y");
     expect(popUpVariants.initial).toHaveProperty("scale");
     expect(scales.scalePopStart).toBeLessThan(1);
+  });
+
+  it("exports content size transition for UI chrome layout", () => {
+    expect(contentSizeTransition.duration).toBe(0.32);
   });
 });

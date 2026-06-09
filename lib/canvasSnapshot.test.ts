@@ -67,6 +67,29 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
+  it("defaults canvasTheme to dark for new snapshots", () => {
+    const snapshot = normalizeCanvasSnapshot({ version: 1 });
+    expect(snapshot.canvasTheme).toBe("dark");
+  });
+
+  it("coerces dark-only backgrounds to grid when theme is light", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasTheme: "light",
+      canvasBackgroundStyle: "sky",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("grid");
+  });
+
+  it("preserves dark-only backgrounds when theme is dark", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasTheme: "dark",
+      canvasBackgroundStyle: "rising-sun",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("rising-sun");
+  });
+
   it("drops session artifacts missing versions", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,

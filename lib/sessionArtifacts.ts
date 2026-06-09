@@ -11,6 +11,8 @@ import {
   normalizeTodoPayload,
 } from "@/lib/todoArtifact";
 import { normalizeWebsitePayload } from "@/lib/websiteArtifact";
+import { normalizeEmbedPayload } from "@/lib/embedArtifact";
+import { normalizeRepoPayload } from "@/lib/repoArtifact";
 import type { Card, CardImage, Connection } from "@/lib/store";
 import { getThreadCardChain } from "@/lib/chatThreads";
 
@@ -136,6 +138,12 @@ export function normalizePayloadForRegistry(
   }
   if (payload.type === "website") {
     return normalizeWebsitePayload(payload);
+  }
+  if (payload.type === "embed") {
+    return normalizeEmbedPayload(payload);
+  }
+  if (payload.type === "repo") {
+    return normalizeRepoPayload(payload);
   }
   return payload;
 }

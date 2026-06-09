@@ -61,6 +61,11 @@
   --motion-shift-md: 24px;
   --motion-shift-lg: 40px;
   --motion-duration-canvas-load: 620ms;
+  /* Minimal scrollbars — thumb only; track stays transparent. */
+  --canvas-scrollbar-size: 6px;
+  --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.42);
+  --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.62);
+  --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.78);
 }
 
 /* Dark theme — warm near-black surfaces, off-white text, lightened accents.
@@ -107,6 +112,9 @@ html[data-theme="dark"] {
     0 4px 16px rgba(0, 0, 0, 0.5);
   --canvas-card-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
     0 10px 28px rgba(0, 0, 0, 0.6);
+  --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
+  --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
+  --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);
 }
 
 html,
@@ -121,6 +129,126 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+}
+
+/* Minimal scrollbars — transparent track, no arrows, theme-aware thumb. */
+*,
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--canvas-scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: var(--canvas-scrollbar-size);
+  height: var(--canvas-scrollbar-size);
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background-color: var(--canvas-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover,
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  background-color: var(--canvas-scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active,
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+  background-color: var(--canvas-scrollbar-thumb-active);
+}
+
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:vertical,
+*::-webkit-scrollbar-button:horizontal,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:double-button,
+*::-webkit-scrollbar-button:vertical:start:decrement,
+*::-webkit-scrollbar-button:vertical:end:increment,
+*::-webkit-scrollbar-button:horizontal:start:decrement,
+*::-webkit-scrollbar-button:horizontal:end:increment,
+*::-webkit-scrollbar-button:single-button:vertical:decrement,
+*::-webkit-scrollbar-button:single-button:vertical:increment,
+*::-webkit-scrollbar-button:single-button:horizontal:decrement,
+*::-webkit-scrollbar-button:single-button:horizontal:increment,
+*::-webkit-scrollbar-button:double-button:vertical:decrement,
+*::-webkit-scrollbar-button:double-button:vertical:increment,
+*::-webkit-scrollbar-button:double-button:horizontal:decrement,
+*::-webkit-scrollbar-button:double-button:horizontal:increment,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+}
+
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+}
+
+*::-webkit-scrollbar-button:vertical,
+html::-webkit-scrollbar-button:vertical,
+body::-webkit-scrollbar-button:vertical {
+  height: 0 !important;
+  max-height: 0 !important;
+}
+
+*::-webkit-scrollbar-button:horizontal,
+html::-webkit-scrollbar-button:horizontal,
+body::-webkit-scrollbar-button:horizontal {
+  width: 0 !important;
+  max-width: 0 !important;
+}
+
+*::-webkit-scrollbar-track-piece,
+*::-webkit-scrollbar-track-piece:start,
+*::-webkit-scrollbar-track-piece:end,
+html::-webkit-scrollbar-track-piece,
+body::-webkit-scrollbar-track-piece {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-corner,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @keyframes summary-shimmer {

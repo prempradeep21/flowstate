@@ -14,6 +14,20 @@ function newTodoItemId(): string {
   return `todo_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** Ensure every item has a unique id (AI sometimes emits duplicate slug ids). */
+export function ensureUniqueTodoItemIds(items: TodoItem[]): TodoItem[] {
+  const seen = new Set<string>();
+  return items.map((item) => {
+    if (item.id && !seen.has(item.id)) {
+      seen.add(item.id);
+      return item;
+    }
+    const id = newTodoItemId();
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 function normalizePriority(value: unknown): TodoPriority | undefined {
   if (typeof value !== "string") return undefined;
   const lower = value.toLowerCase() as TodoPriority;
@@ -50,7 +64,9 @@ export function normalizeTodoArtifactData(data: unknown): TodoArtifactData {
     data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const itemsRaw = Array.isArray(obj.items) ? obj.items : [];
   return {
-    items: itemsRaw.map((item) => normalizeTodoItem(item)),
+    items: ensureUniqueTodoItemIds(
+      itemsRaw.map((item) => normalizeTodoItem(item)),
+    ),
   };
 }
 
@@ -89,10 +105,12 @@ export function mergeTodoItemsFromAi(
   }
 
   const usedPrevIds = new Set<string>();
+  const usedIncomingIds = new Set<string>();
 
-  return incoming.map((raw, index) => {
+  const merged = incoming.map((raw, index) => {
     if (raw.id && prevById.has(raw.id) && !usedPrevIds.has(raw.id)) {
       usedPrevIds.add(raw.id);
+      usedIncomingIds.add(raw.id);
       return { ...raw, id: raw.id };
     }
 
@@ -100,17 +118,28 @@ export function mergeTodoItemsFromAi(
     const match = labelMatches.find((item) => !usedPrevIds.has(item.id));
     if (match) {
       usedPrevIds.add(match.id);
+      usedIncomingIds.add(match.id);
       return { ...raw, id: match.id };
+    }
+
+    if (raw.id && !usedIncomingIds.has(raw.id)) {
+      usedIncomingIds.add(raw.id);
+      return { ...raw, id: raw.id };
     }
 
     const positional = previous[index];
     if (positional && !usedPrevIds.has(positional.id)) {
       usedPrevIds.add(positional.id);
+      usedIncomingIds.add(positional.id);
       return { ...raw, id: positional.id };
     }
 
-    return { ...raw, id: raw.id || newTodoItemId() };
+    const id = newTodoItemId();
+    usedIncomingIds.add(id);
+    return { ...raw, id };
   });
+
+  return ensureUniqueTodoItemIds(merged);
 }
 
 export function todoCompletionStats(items: TodoItem[]): {

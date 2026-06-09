@@ -7,6 +7,7 @@ import { useCanvasStore } from "@/lib/store";
 import {
   cloneTodoPayload,
   createTodoItem,
+  ensureUniqueTodoItemIds,
   todoCompletionStats,
 } from "@/lib/todoArtifact";
 
@@ -347,7 +348,13 @@ export function TodoArtifactContent({
     onActionsReady?.({ save: handleSave, discard: handleDiscard });
   }, [handleSave, handleDiscard, onActionsReady]);
 
-  const displayItems = readOnly ? payload.data.items : draft.data.items;
+  const displayItems = useMemo(
+    () =>
+      ensureUniqueTodoItemIds(
+        readOnly ? payload.data.items : draft.data.items,
+      ),
+    [readOnly, payload.data.items, draft.data.items],
+  );
 
   return (
     <ArtifactContentStage fill={fill} className={fill ? "flex flex-col" : ""}>

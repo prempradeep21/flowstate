@@ -6,6 +6,7 @@ import {
   MotionBackdrop,
   MotionOverlayModal,
 } from "@/components/motion/MotionOverlay";
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import {
   MAX_CANVAS_MEMBERS,
   isCanvasOwner,
@@ -107,6 +108,7 @@ export function ShareModal() {
         aria-labelledby="share-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
+        <MotionFlowSize>
         <div className="mb-4 flex items-center justify-between gap-2">
           <h2 id="share-modal-title" className="text-canvas-heading font-semibold text-canvas-ink">
             Share canvas
@@ -305,6 +307,7 @@ export function ShareModal() {
             </button>
           )}
         </div>
+        </MotionFlowSize>
       </div>
           </MotionOverlayModal>
         </div>

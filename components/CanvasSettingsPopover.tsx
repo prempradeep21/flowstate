@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   BACKGROUND_COMPONENTS,
-  BACKGROUND_OPTIONS,
+  getBackgroundOptionsForTheme,
   THEME_OPTIONS,
 } from "@/components/canvasBackgrounds/registry";
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
 import { useCanvasStore, type CanvasTheme } from "@/lib/store";
 
@@ -61,8 +62,10 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
 
   if (!open) return null;
 
+  const backgroundOptions = getBackgroundOptionsForTheme(canvasTheme);
+
   return (
-    <div
+    <MotionFlowSize
       ref={popoverRef}
       role="dialog"
       aria-label="Canvas settings"
@@ -132,7 +135,7 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
         Background
       </h3>
       <div className="grid grid-cols-2 gap-2">
-        {BACKGROUND_OPTIONS.map((option) => {
+        {backgroundOptions.map((option) => {
           const Preview = BACKGROUND_COMPONENTS[option.id];
           const selected = canvasBackgroundStyle === option.id;
           return (
@@ -199,6 +202,6 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
           {Math.round(soundVolume * 100)}
         </span>
       </label>
-    </div>
+    </MotionFlowSize>
   );
 }

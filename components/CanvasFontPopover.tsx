@@ -7,6 +7,7 @@ import {
   type CanvasFontOption,
 } from "@/lib/canvasFonts/registry";
 import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
+import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { useCanvasStore } from "@/lib/store";
 
 interface Props {
@@ -116,7 +117,7 @@ export function CanvasFontPopover({ open, onClose, anchorRef }: Props) {
   if (!open) return null;
 
   return (
-    <div
+    <MotionFlowSize
       ref={popoverRef}
       role="dialog"
       aria-label="Font preview"
@@ -139,6 +140,6 @@ export function CanvasFontPopover({ open, onClose, anchorRef }: Props) {
           onSelect={setDisplayFontId}
         />
       </div>
-    </div>
+    </MotionFlowSize>
   );
 }

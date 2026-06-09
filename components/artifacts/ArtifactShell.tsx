@@ -112,6 +112,7 @@ export function ArtifactShell({
       : artifactDisplayTitle(sessionArtifact, activeVersion);
 
   const isCanvasLayout = layout === "canvas";
+  const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
 
   return (
     <div
@@ -119,6 +120,7 @@ export function ArtifactShell({
         isCanvasLayout ? "flex min-h-0 flex-1 flex-col" : undefined
       }
     >
+      {!isRepoCanvas ? (
       <div className={isCanvasLayout ? "shrink-0" : undefined}>
         <ArtifactPanelHeader
           kind={sessionArtifact.kind}
@@ -132,7 +134,13 @@ export function ArtifactShell({
             sessionArtifact.kind === "website" &&
             activeVersion.payload.type === "website"
               ? activeVersion.payload.data.url
-              : undefined
+              : sessionArtifact.kind === "embed" &&
+                  activeVersion.payload.type === "embed"
+                ? activeVersion.payload.data.url
+              : sessionArtifact.kind === "repo" &&
+                  activeVersion.payload.type === "repo"
+                ? activeVersion.payload.data.repoUrl
+                : undefined
           }
           menuVariant={menuVariant}
           onExpand={onExpand}
@@ -157,12 +165,17 @@ export function ArtifactShell({
           }
         />
       </div>
+      ) : null}
       <div
         className={
           isCanvasLayout
-            ? `mt-[22px] flex min-h-0 flex-1 flex-col overflow-hidden rounded-canvas ${
-                sessionArtifact.kind === "table" ? "bg-white" : ""
-              }`
+            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas ${
+                isRepoCanvas
+                  ? "bg-transparent"
+                  : sessionArtifact.kind === "table"
+                    ? "bg-white"
+                    : ""
+              } ${isRepoCanvas ? "" : "mt-[22px]"}`
             : "mt-[22px]"
         }
       >

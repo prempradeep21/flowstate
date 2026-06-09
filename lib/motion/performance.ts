@@ -77,3 +77,8 @@ export function markLandingAnimated(): void {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.setItem("flowstate-landing-animated", "1");
 }
+
+export function clearLandingAnimated(): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.removeItem("flowstate-landing-animated");
+}
