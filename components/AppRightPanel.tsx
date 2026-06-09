@@ -11,6 +11,7 @@ import { MotionPanelContent } from "@/components/motion/MotionPanel";
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
 
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
+import { SkillsSection } from "@/components/sidebar/SkillsSection";
 
 import { SIDEBAR_TILE_STAGGER_MS } from "@/lib/motion/variants";
 
@@ -24,9 +25,14 @@ export function AppRightPanel() {
 
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
 
-  const [activeTab, setActiveTab] = useState<"artifacts" | "assets">(
-    "artifacts",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "artifacts" | "assets" | "skills"
+  >("artifacts");
+  const tabLabels: Record<typeof activeTab, string> = {
+    artifacts: "Artifacts",
+    assets: "Assets",
+    skills: "Skills",
+  };
   const [tileStaggerActive, setTileStaggerActive] = useState(false);
   const [staggerKey, setStaggerKey] = useState(0);
   const prevCollapsedRef = useRef<boolean | null>(null);
@@ -89,7 +95,7 @@ export function AppRightPanel() {
             <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-accent" />
 
             <span className="text-canvas-body-sm font-medium text-canvas-ink">
-              {activeTab === "artifacts" ? "Artifacts" : "Assets"}
+              {tabLabels[activeTab]}
             </span>
 
           </button>
@@ -111,7 +117,7 @@ export function AppRightPanel() {
                   role="group"
                   aria-label="Right panel view"
                 >
-                  {(["artifacts", "assets"] as const).map((tab) => {
+                  {(["artifacts", "assets", "skills"] as const).map((tab) => {
                     const active = activeTab === tab;
                     return (
                       <button
@@ -160,8 +166,10 @@ export function AppRightPanel() {
                   key={staggerKey}
                   staggerActive={tileStaggerActive}
                 />
-              ) : (
+              ) : activeTab === "assets" ? (
                 <AttachmentsSection />
+              ) : (
+                <SkillsSection />
               )}
 
             </div>

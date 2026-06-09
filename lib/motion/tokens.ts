@@ -24,6 +24,12 @@ export const distances = {
   shiftMd: 24,
   shiftLg: 40,
   dropLift: 16,
+  /** Artifact rises from below the chat card. */
+  artifactPopRise: 52,
+  artifactPopOvershoot: -18,
+  artifactPopBounce: 7,
+  artifactPopSettle: -3,
+  artifactPopMicro: 1,
 } as const;
 
 export const staggers = {
@@ -37,7 +43,15 @@ export const scales = {
   scaleCompress: 0.96,
   scaleOvershoot: 1.02,
   scalePopStart: 0.92,
+  /** Artifact chat spawn — dramatic rise + bounce. */
+  artifactPopStart: 0.7,
+  artifactPopPeak: 1.14,
+  artifactPopCompress: 0.93,
+  artifactPopSettle: 1.05,
 } as const;
+
+/** Artifact pop-in from chat — full bounce sequence (ms). */
+export const ARTIFACT_SPAWN_ANIMATION_MS = 1200;
 
 /** Canvas load reveal — stagger left-to-right; nodes slide up from below. */
 export const canvasLoadDelays = {

@@ -29,14 +29,23 @@ export function usePlugDragSession(
   const createRootCardWithAssetAttachment = useCanvasStore(
     (s) => s.createRootCardWithAssetAttachment,
   );
+  const createRootCardWithSkillAttachment = useCanvasStore(
+    (s) => s.createRootCardWithSkillAttachment,
+  );
   const setCardComposerAttachment = useCanvasStore(
     (s) => s.setCardComposerAttachment,
   );
   const setCardComposerAssetAttachment = useCanvasStore(
     (s) => s.setCardComposerAssetAttachment,
   );
+  const setCardComposerSkillAttachment = useCanvasStore(
+    (s) => s.setCardComposerSkillAttachment,
+  );
   const addArtifactPlugConnection = useCanvasStore(
     (s) => s.addArtifactPlugConnection,
+  );
+  const addSkillPlugConnection = useCanvasStore(
+    (s) => s.addSkillPlugConnection,
   );
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -67,7 +76,11 @@ export function usePlugDragSession(
       const drag = useCanvasStore.getState().plugDrag;
       if (!drag) return;
 
-      if (drag.kind === "artifact" || drag.kind === "asset") {
+      if (
+        drag.kind === "artifact" ||
+        drag.kind === "asset" ||
+        drag.kind === "skill"
+      ) {
         const nearest = findNearestComposerTarget(
           world,
           container,
@@ -169,6 +182,46 @@ export function usePlugDragSession(
           );
           if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
         }
+      } else if (drag.kind === "skill") {
+        const nearest = findNearestComposerTarget(
+          world,
+          container,
+          viewport,
+          COMPOSER_PROXIMITY_PX,
+        );
+        const hit = nearest ? hitReceivePlug(world, nearest) : null;
+
+        if (hit) {
+          setCardComposerSkillAttachment(hit.cardId, {
+            skillId: drag.skillId,
+          });
+          addSkillPlugConnection({
+            skillNodeId: drag.skillNodeId,
+            cardId: hit.cardId,
+            fromSide: drag.fromSide,
+            toSide: hit.side,
+          });
+        } else if (drag.didDrag) {
+          const { cardWidth } = RESOLVED_CANVAS_TUNING;
+          const cardId = createRootCardWithSkillAttachment(
+            {
+              x: world.x - cardWidth / 2,
+              y: world.y - CARD_DROP_Y_OFFSET,
+            },
+            {
+              skillId: drag.skillId,
+            },
+          );
+          if (cardId) {
+            addSkillPlugConnection({
+              skillNodeId: drag.skillNodeId,
+              cardId,
+              fromSide: drag.fromSide,
+              toSide: drag.fromSide === "left" ? "right" : "left",
+            });
+            requestCanvasFocus(() => focusCanvasCard(cardId));
+          }
+        }
       }
 
       endPlugDrag();
@@ -199,8 +252,11 @@ export function usePlugDragSession(
     createBranchAt,
     createRootCardWithAttachment,
     createRootCardWithAssetAttachment,
+    createRootCardWithSkillAttachment,
     setCardComposerAttachment,
     setCardComposerAssetAttachment,
+    setCardComposerSkillAttachment,
     addArtifactPlugConnection,
+    addSkillPlugConnection,
   ]);
 }

@@ -211,7 +211,7 @@ export function EmbedArtifactContent({
   const { status, url } = payload.data;
   const pending = isEmbedTitlePending(payload);
   const isCanvas = layout === "canvas";
-  const interactive = !isCanvas || active;
+  const interactive = isCanvas && active;
 
   useEffect(() => {
     if (!active) return;

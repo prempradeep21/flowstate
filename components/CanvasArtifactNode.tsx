@@ -3,20 +3,33 @@
 import {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
+  useCallback,
   useRef,
   useState,
 } from "react";
+import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
-import { CANVAS_TRANSLUCENT_FILL_CLASS } from "@/components/QaQuestionSection";
 import { Plug } from "@/components/plugs/Plug";
-import { clampArtifactSize, getArtifactBounds } from "@/lib/canvasNodeBounds";
+import { clampArtifactSize, getArtifactBounds, MAX_TIMELINE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
   type CanvasArtifactNode as CanvasArtifactNodeType,
 } from "@/lib/store";
+import { useArtifactSpawnChromeReveal } from "@/hooks/useArtifactSpawnChromeReveal";
+import {
+  ARTIFACT_CANVAS_CASING_DEFAULT,
+  ARTIFACT_CANVAS_CASING_SELECTED,
+  ARTIFACT_CANVAS_CHROME_OPACITY,
+  ARTIFACT_CANVAS_CONTAINER_FILL,
+  ARTIFACT_CANVAS_PADDING_CHROME,
+} from "@/lib/artifactCanvasChrome";
+import {
+  ARTIFACT_CHROME_ZONE_ATTR,
+  shouldShowArtifactChromeHover,
+} from "@/lib/artifactChromeHover";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
@@ -42,7 +55,7 @@ function ArtifactResizeHandle({
       data-resize-handle
       aria-label="Resize artifact"
       onPointerDown={onPointerDown}
-      className="absolute bottom-0 right-0 z-40 flex h-6 w-6 cursor-nwse-resize items-end justify-end rounded-br-canvas p-1 opacity-0 transition-opacity group-hover/artifact:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30"
+      className={`absolute bottom-0 right-0 z-[60] flex h-8 w-8 cursor-nwse-resize items-end justify-end rounded-br-canvas p-1 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30 ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
     >
       <svg
         width="12"
@@ -69,6 +82,33 @@ function ArtifactResizeHandle({
   );
 }
 
+function ArtifactChromeEdgeZones() {
+  return (
+    <>
+      <div
+        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
+        className="pointer-events-auto absolute inset-x-0 top-0 z-50 h-3"
+        aria-hidden
+      />
+      <div
+        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-50 h-3"
+        aria-hidden
+      />
+      <div
+        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
+        className="pointer-events-auto absolute inset-y-0 left-0 z-50 w-3"
+        aria-hidden
+      />
+      <div
+        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
+        className="pointer-events-auto absolute inset-y-0 right-0 z-50 w-3"
+        aria-hidden
+      />
+    </>
+  );
+}
+
 export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
@@ -84,12 +124,23 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   );
   const openSessionArtifact = useCanvasStore((s) => s.openSessionArtifact);
   const removeCanvasArtifact = useCanvasStore((s) => s.removeCanvasArtifact);
+  const approvePermissionPreview = useCanvasStore(
+    (s) => s.approvePermissionPreview,
+  );
+  const declinePermissionPreview = useCanvasStore(
+    (s) => s.declinePermissionPreview,
+  );
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCanvasArtifactSize = useCanvasStore((s) => s.setCanvasArtifactSize);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
+  const [chromeHover, setChromeHover] = useState(false);
+
+  const syncChromeHover = useCallback((target: EventTarget | null) => {
+    setChromeHover(shouldShowArtifactChromeHover(target));
+  }, []);
 
   const dragStateRef = useRef<{
     pointerId: number;
@@ -109,7 +160,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     recordedUndo: boolean;
   } | null>(null);
 
-  const art = sessionArtifacts[node.artifactId];
+  const preview = node.permissionPreview;
+  const art = node.artifactId
+    ? sessionArtifacts[node.artifactId]
+    : undefined;
   const isSelected = selectedCanvasArtifactId === node.id;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
   const godView = isGodViewMode(scale);
@@ -164,6 +218,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    syncChromeHover(e.target);
+
     const rs = resizeStateRef.current;
     if (rs && rs.pointerId === e.pointerId) {
       const screenDx = e.clientX - rs.startX;
@@ -181,6 +237,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       const next = clampArtifactSize(
         rs.startW + screenDx / vpScale,
         rs.startH + screenDy / vpScale,
+        art?.kind === "timeline"
+          ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
+          : undefined,
       );
       setCanvasArtifactSize(node.id, next);
       return;
@@ -252,16 +311,23 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     e.stopPropagation();
   };
 
-  if (!art) return null;
+  if (!preview && !art) return null;
 
-  const isRepoArtifact = art.kind === "repo";
+  const isTransparentCanvasChrome =
+    art?.kind === "repo" || art?.kind === "table" || art?.kind === "todo";
+  const isPermissionPreview = !!preview;
+  const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
   return (
     <div
       ref={nodeRef}
       data-canvas-artifact
+      {...(chromeReveal ? { "data-chrome-reveal": "" } : {})}
+      {...(chromeHover ? { "data-chrome-hover": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerEnter={(e) => syncChromeHover(e.target)}
+      onPointerLeave={() => setChromeHover(false)}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
@@ -278,6 +344,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       <MotionCanvasNode
         targetId={node.id}
         targetKind="artifact"
+        isExiting={node.isExiting}
         bounds={{
           x: node.position.x,
           y: node.position.y,
@@ -285,9 +352,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           h: artifactHeight,
         }}
       >
-      {!godView && (
+      {!godView && !isPermissionPreview && (
         <>
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-30 opacity-0 transition-opacity group-hover/artifact:opacity-100 [&_button]:pointer-events-auto">
+          <ArtifactChromeEdgeZones />
+          <div
+            className={`pointer-events-none absolute inset-y-0 left-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+          >
             <Plug
               side="left"
               accentColour={plugAccent}
@@ -296,7 +366,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
               onPointerDown={handleArtifactPlugPointerDown("left")}
             />
           </div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-30 opacity-0 transition-opacity group-hover/artifact:opacity-100 [&_button]:pointer-events-auto">
+          <div
+            className={`pointer-events-none absolute inset-y-0 right-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+          >
             <Plug
               side="right"
               accentColour={plugAccent}
@@ -305,39 +377,61 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
               onPointerDown={handleArtifactPlugPointerDown("right")}
             />
           </div>
-          <ArtifactResizeHandle onPointerDown={handleResizePointerDown} />
         </>
       )}
 
       <CanvasSharpContent
         worldWidth={width}
         className={
-          isRepoArtifact
-            ? `flex h-full flex-col overflow-visible bg-transparent p-0 ${
-                isSelected ? "ring-2 ring-canvas-ink/20 rounded-canvas" : ""
+          isPermissionPreview
+            ? `flex h-full flex-col overflow-hidden rounded-canvas border p-5 ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
+                isSelected
+                  ? ARTIFACT_CANVAS_CASING_SELECTED
+                  : ARTIFACT_CANVAS_CASING_DEFAULT
               }`
-            : `flex h-full flex-col overflow-hidden rounded-canvas border ${CANVAS_TRANSLUCENT_FILL_CLASS} p-5 shadow-card transition-shadow hover:shadow-cardHover ${
-                todoEditing
-                  ? "border-2 border-dashed border-canvas-accent"
-                  : isSelected
-                    ? "border-canvas-ink ring-2 ring-canvas-ink/25"
-                    : "border-canvas-border"
-              }`
+            : isTransparentCanvasChrome
+              ? `flex h-full flex-col overflow-visible bg-transparent p-0 ${
+                  todoEditing
+                    ? "rounded-canvas border-2 border-dashed border-canvas-accent p-5"
+                    : isSelected
+                      ? `rounded-canvas ${ARTIFACT_CANVAS_CASING_SELECTED}`
+                      : ""
+                }`
+              : `flex h-full flex-col overflow-hidden rounded-canvas ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} transition-shadow ${
+                  isSelected
+                    ? ARTIFACT_CANVAS_CASING_SELECTED
+                    : ARTIFACT_CANVAS_CASING_DEFAULT
+                }`
         }
       >
-        <ArtifactShell
-          layout="canvas"
-          sessionArtifact={art}
-          versionId={node.versionId}
-          onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
-          menuVariant="canvas"
-          onExpand={() =>
-            openSessionArtifact(node.artifactId, node.versionId)
-          }
-          onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
-          onTodoEditingChange={setTodoEditing}
-        />
+        {isPermissionPreview && preview ? (
+          <ArtifactPermissionPrompt
+            kind={preview.kind}
+            title={preview.title}
+            copy={preview.copy}
+            busy={preview.status === "declining"}
+            onApprove={() => approvePermissionPreview(node.id)}
+            onDecline={() => declinePermissionPreview(node.id)}
+          />
+        ) : art ? (
+          <ArtifactShell
+            layout="canvas"
+            sessionArtifact={art}
+            versionId={node.versionId}
+            onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
+            menuVariant="canvas"
+            onExpand={() =>
+              openSessionArtifact(node.artifactId, node.versionId)
+            }
+            onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
+            onTodoEditingChange={setTodoEditing}
+          />
+        ) : null}
       </CanvasSharpContent>
+
+      {!godView && !isPermissionPreview && (
+        <ArtifactResizeHandle onPointerDown={handleResizePointerDown} />
+      )}
       </MotionCanvasNode>
     </div>
   );

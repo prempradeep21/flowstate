@@ -1,5 +1,14 @@
-import { distances, durations, easings, scales, staggers } from "./tokens";
+import {
+  ARTIFACT_SPAWN_ANIMATION_MS,
+  distances,
+  durations,
+  easings,
+  scales,
+  staggers,
+} from "./tokens";
 import { durationSeconds, framerTransition } from "./transitions";
+
+const artifactPopDurationSec = ARTIFACT_SPAWN_ANIMATION_MS / 1000;
 
 const standardTransition = framerTransition("standard", "easeMedium");
 const fastTransition = framerTransition("fast", "easeLight");
@@ -48,12 +57,93 @@ export const popUpVariants = {
     scale: 1,
     transition: standardTransition,
   },
+  exit: {
+    opacity: 0,
+    y: distances.shiftMd,
+    scale: scales.scalePopStart,
+    transition: fastTransition,
+  },
   reduced: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: { duration: durationSeconds("instant") },
   },
+  reducedExit: {
+    opacity: 0,
+    transition: { duration: durationSeconds("instant") },
+  },
+};
+
+/** Chat artifact spawn — scale up, slide up, overshoot, and decaying bounce into place. */
+export const artifactPopUpVariants = {
+  initial: {
+    opacity: 0,
+    y: distances.artifactPopRise,
+    scale: scales.artifactPopStart,
+  },
+  animate: {
+    opacity: 1,
+    y: [
+      distances.artifactPopRise,
+      distances.artifactPopOvershoot,
+      distances.artifactPopBounce,
+      distances.artifactPopSettle,
+      distances.artifactPopMicro,
+      0,
+    ],
+    scale: [
+      scales.artifactPopStart,
+      scales.artifactPopPeak,
+      scales.artifactPopCompress,
+      scales.artifactPopSettle,
+      1.01,
+      1,
+    ],
+    transition: {
+      opacity: {
+        duration: 0.22,
+        ease: [...easings.easeLight] as [number, number, number, number],
+      },
+      y: {
+        duration: artifactPopDurationSec,
+        times: [0, 0.32, 0.5, 0.66, 0.82, 1],
+        ease: [
+          [...easings.easeMedium],
+          [...easings.easeSettle],
+          [...easings.easeSettle],
+          [...easings.easeLight],
+          [...easings.easeLight],
+        ] as [
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+        ],
+      },
+      scale: {
+        duration: artifactPopDurationSec,
+        times: [0, 0.3, 0.48, 0.64, 0.82, 1],
+        ease: [
+          [...easings.easeMedium],
+          [...easings.easeSettle],
+          [...easings.easeSettle],
+          [...easings.easeLight],
+          [...easings.easeLight],
+        ] as [
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+          [number, number, number, number],
+        ],
+      },
+    },
+  },
+  exit: popUpVariants.exit,
+  reduced: popUpVariants.reduced,
+  reducedExit: popUpVariants.reducedExit,
 };
 
 export const panelContentVariants = {

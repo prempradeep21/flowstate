@@ -8,11 +8,13 @@ import { CustomArtifactContent } from "@/components/artifacts/CustomArtifactCont
 import { ImagesArtifactContent } from "@/components/artifacts/ImagesArtifactContent";
 import { TableArtifactContent } from "@/components/artifacts/TableArtifactContent";
 import { ThreeDArtifactContent } from "@/components/artifacts/ThreeDArtifactContent";
+import { CalendarArtifactContent } from "@/components/artifacts/CalendarArtifactContent";
 import { TodoArtifactContent } from "@/components/artifacts/TodoArtifactContent";
 import { TodoSidebarPreview } from "@/components/artifacts/TodoSidebarPreview";
 import { WebsiteArtifactContent } from "@/components/artifacts/WebsiteArtifactContent";
 import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactContent";
 import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
+import { TimelineArtifactContent } from "@/components/artifacts/TimelineArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -20,6 +22,14 @@ const MapArtifactContent = dynamic(
   () =>
     import("@/components/artifacts/MapArtifactContent").then(
       (m) => m.MapArtifactContent,
+    ),
+  { ssr: false },
+);
+
+const StreetViewArtifactContent = dynamic(
+  () =>
+    import("@/components/artifacts/StreetViewArtifactContent").then(
+      (m) => m.StreetViewArtifactContent,
     ),
   { ssr: false },
 );
@@ -34,6 +44,8 @@ export function ArtifactContent({
   onCodeActiveFileChange,
   todoContext,
   mapCanEdit = false,
+  calendarCanEdit = false,
+  timelineCanEdit = false,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
@@ -50,6 +62,8 @@ export function ArtifactContent({
     onSaved?: () => void;
   };
   mapCanEdit?: boolean;
+  calendarCanEdit?: boolean;
+  timelineCanEdit?: boolean;
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
@@ -98,6 +112,7 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            layout={layout}
           />
         );
       }
@@ -125,6 +140,31 @@ export function ArtifactContent({
             canEdit={mapCanEdit && !isSidebar}
             fill={fill}
             sidebar={isSidebar}
+            layout={layout}
+          />
+        );
+      }
+      break;
+    case "streetview":
+      if (payload.type === "streetview") {
+        return (
+          <StreetViewArtifactContent
+            payload={payload}
+            layout={layout}
+          />
+        );
+      }
+      break;
+    case "calendar":
+      if (payload.type === "calendar") {
+        return (
+          <CalendarArtifactContent
+            payload={payload}
+            artifactId={artifactId}
+            canEdit={calendarCanEdit && !isSidebar}
+            fill={fill}
+            sidebar={isSidebar}
+            layout={layout}
           />
         );
       }
@@ -184,6 +224,20 @@ export function ArtifactContent({
             layout={layout}
             artifactId={artifactId}
             versionId={versionId}
+          />
+        );
+      }
+      break;
+    case "timeline":
+      if (payload.type === "timeline") {
+        return (
+          <TimelineArtifactContent
+            payload={payload}
+            artifactId={artifactId}
+            canEdit={timelineCanEdit && !isSidebar}
+            fill={fill}
+            sidebar={isSidebar}
+            layout={layout}
           />
         );
       }

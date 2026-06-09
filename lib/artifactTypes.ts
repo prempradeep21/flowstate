@@ -1,7 +1,10 @@
+import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
 import { normalizeCustomArtifactData } from "@/lib/customArtifact";
 import type { RepoExplorerData } from "@/lib/github/types";
 import { normalizeMapArtifactData } from "@/lib/mapArtifact";
+import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
+import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { normalizeWebsiteArtifactData } from "@/lib/websiteArtifact";
 import { parseYoutubeId } from "@/lib/youtube";
@@ -18,10 +21,13 @@ export type ResponseType =
   | "3d"
   | "images"
   | "todo"
+  | "calendar"
   | "map"
+  | "streetview"
   | "website"
   | "repo"
-  | "embed";
+  | "embed"
+  | "timeline";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -31,10 +37,13 @@ export type ArtifactKind =
   | "custom"
   | "code"
   | "todo"
+  | "calendar"
   | "map"
+  | "streetview"
   | "website"
   | "repo"
-  | "embed";
+  | "embed"
+  | "timeline";
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -48,6 +57,20 @@ export interface TodoItem {
 
 export interface TodoArtifactData {
   items: TodoItem[];
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CalendarArtifactData {
+  viewYear: number;
+  viewMonth: number;
+  highlightedDates: string[];
+  events: CalendarEvent[];
 }
 
 export interface TableColumn {
@@ -136,6 +159,13 @@ export interface MapArtifactData {
   savedPlaces?: MapSavedPlace[];
 }
 
+export interface StreetViewArtifactData {
+  place: MapPlace;
+  heading?: number;
+  pitch?: number;
+  fov?: number;
+}
+
 export interface WebsiteArtifactData {
   url: string;
   title: string;
@@ -171,6 +201,27 @@ export interface RepoArtifactData {
   explorer: RepoExplorerData;
 }
 
+export type TimelineScale = "year" | "month" | "day";
+
+export interface TimelineEvent {
+  id: string;
+  /** ISO 8601 — canonical position on the axis */
+  at: string;
+  /** Short text label — max 10 words (enforced by normalizer) */
+  label: string;
+  side?: "above" | "below";
+  highlight?: boolean;
+}
+
+export interface TimelineArtifactData {
+  events: TimelineEvent[];
+  /** Tick granularity — default "year" */
+  scale: TimelineScale;
+  rangeStart?: string;
+  rangeEnd?: string;
+  view?: { scrollLeft: number; zoom: number };
+}
+
 export type ArtifactPayload =
   | { type: "table"; title: string; description?: string; data: TableArtifactData }
   | { type: "code"; title: string; description?: string; data: CodeArtifactData }
@@ -179,10 +230,13 @@ export type ArtifactPayload =
   | { type: "custom"; title: string; description?: string; data: CustomArtifactData }
   | { type: "3d"; title: string; description?: string; data: ThreeDArtifactData }
   | { type: "todo"; title: string; description?: string; data: TodoArtifactData }
+  | { type: "calendar"; title: string; description?: string; data: CalendarArtifactData }
   | { type: "map"; title: string; description?: string; data: MapArtifactData }
+  | { type: "streetview"; title: string; description?: string; data: StreetViewArtifactData }
   | { type: "website"; title: string; description?: string; data: WebsiteArtifactData }
   | { type: "repo"; title: string; description?: string; data: RepoArtifactData }
-  | { type: "embed"; title: string; description?: string; data: EmbedArtifactData };
+  | { type: "embed"; title: string; description?: string; data: EmbedArtifactData }
+  | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {
@@ -301,11 +355,29 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
         ...base,
         data: normalizeTodoArtifactData(artifact.data),
       };
+    case "calendar":
+      return {
+        type: "calendar",
+        ...base,
+        data: normalizeCalendarArtifactData(artifact.data),
+      };
     case "map":
       return {
         type: "map",
         ...base,
         data: normalizeMapArtifactData(artifact.data),
+      };
+    case "streetview":
+      return {
+        type: "streetview",
+        ...base,
+        data: normalizeStreetViewArtifactData(artifact.data),
+      };
+    case "timeline":
+      return {
+        type: "timeline",
+        ...base,
+        data: normalizeTimelineArtifactData(artifact.data),
       };
     default:
       return {

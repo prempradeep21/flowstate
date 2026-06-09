@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { canvasLoadDelays, durations, easings, landingDelays, scales } from "./tokens";
-import { dropVariants, popUpVariants, contentSizeTransition } from "./variants";
+import {
+  artifactPopUpVariants,
+  dropVariants,
+  popUpVariants,
+  contentSizeTransition,
+} from "./variants";
+import { ARTIFACT_SPAWN_ANIMATION_MS } from "./tokens";
 
 describe("motion tokens", () => {
   it("exports duration tiers", () => {
@@ -34,6 +40,13 @@ describe("motion variants", () => {
     expect(dropVariants.initial).toHaveProperty("y");
     expect(popUpVariants.initial).toHaveProperty("scale");
     expect(scales.scalePopStart).toBeLessThan(1);
+  });
+
+  it("artifact pop-in runs for 1.5 seconds with bounce keyframes", () => {
+    expect(ARTIFACT_SPAWN_ANIMATION_MS).toBe(1500);
+    expect(artifactPopUpVariants.animate.transition.y.duration).toBe(1.5);
+    expect(Array.isArray(artifactPopUpVariants.animate.y)).toBe(true);
+    expect(Array.isArray(artifactPopUpVariants.animate.scale)).toBe(true);
   });
 
   it("exports content size transition for UI chrome layout", () => {

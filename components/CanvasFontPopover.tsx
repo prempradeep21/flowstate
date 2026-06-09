@@ -7,6 +7,7 @@ import {
   type CanvasFontOption,
 } from "@/lib/canvasFonts/registry";
 import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
+import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { useCanvasStore } from "@/lib/store";
 
@@ -14,6 +15,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
+  containerRef: React.RefObject<HTMLElement | null>;
 }
 
 function FontSection({
@@ -77,8 +79,19 @@ function FontSection({
   );
 }
 
-export function CanvasFontPopover({ open, onClose, anchorRef }: Props) {
+export function CanvasFontPopover({
+  open,
+  onClose,
+  anchorRef,
+  containerRef,
+}: Props) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const anchorStyle = useToolbarPopoverAnchor(
+    anchorRef,
+    containerRef,
+    open,
+    popoverRef,
+  );
   const bodyFontId = useCanvasStore((s) => s.canvasPreviewBodyFontId);
   const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
   const setBodyFontId = useCanvasStore((s) => s.setCanvasPreviewBodyFontId);
@@ -121,7 +134,8 @@ export function CanvasFontPopover({ open, onClose, anchorRef }: Props) {
       ref={popoverRef}
       role="dialog"
       aria-label="Font preview"
-      className="absolute bottom-full left-1/2 z-[60] mb-3 max-h-[min(70vh,420px)] w-[min(calc(100vw-2rem),300px)] -translate-x-1/2 overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
+      className="absolute bottom-full z-[60] mb-3 max-h-[min(70vh,420px)] w-[min(calc(100vw-2rem),300px)] -translate-x-1/2 overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
+      style={anchorStyle}
     >
       <div className="flex flex-col gap-4">
         <FontSection

@@ -50,7 +50,7 @@ export function TableArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="flex-1 !bg-canvas-card p-0">
+      <ArtifactContentStage fill className="flex-1 bg-canvas-card p-0">
         {isLoading ? (
           <TableShaderSkeleton
             accentSeed={accentSeed}

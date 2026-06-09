@@ -2,6 +2,11 @@ import {
   REPO_ARTIFACT_HEIGHT,
   REPO_ARTIFACT_WIDTH,
 } from "@/lib/repoArtifactLayout";
+import {
+  MAX_TIMELINE_ARTIFACT_WIDTH,
+  TIMELINE_ARTIFACT_HEIGHT,
+  TIMELINE_ARTIFACT_WIDTH,
+} from "@/lib/timelineArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -13,6 +18,7 @@ export const CARD_WIDTH = 420;
 export const CANVAS_ARTIFACT_WIDTH = 520;
 export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
 export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
+export { TIMELINE_ARTIFACT_HEIGHT, TIMELINE_ARTIFACT_WIDTH, MAX_TIMELINE_ARTIFACT_WIDTH };
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
@@ -23,10 +29,16 @@ export const MAX_ARTIFACT_WIDTH = 1200;
 export const MIN_ARTIFACT_HEIGHT = 160;
 export const MAX_ARTIFACT_HEIGHT = 900;
 
-export function clampArtifactSize(w: number, h: number): { w: number; h: number } {
+export function clampArtifactSize(
+  w: number,
+  h: number,
+  opts?: { maxW?: number; maxH?: number },
+): { w: number; h: number } {
+  const maxW = opts?.maxW ?? MAX_ARTIFACT_WIDTH;
+  const maxH = opts?.maxH ?? MAX_ARTIFACT_HEIGHT;
   return {
-    w: Math.min(MAX_ARTIFACT_WIDTH, Math.max(MIN_ARTIFACT_WIDTH, w)),
-    h: Math.min(MAX_ARTIFACT_HEIGHT, Math.max(MIN_ARTIFACT_HEIGHT, h)),
+    w: Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w)),
+    h: Math.min(maxH, Math.max(MIN_ARTIFACT_HEIGHT, h)),
   };
 }
 
@@ -73,6 +85,7 @@ export function getArtifactBounds(
 ): { w: number; h: number } {
   const isTable = artifact?.kind === "table";
   const isRepo = artifact?.kind === "repo";
+  const isTimeline = artifact?.kind === "timeline";
   const isEmbed = artifact?.kind === "embed";
   const latest = artifact?.versions.find(
     (v) => v.id === artifact.latestVersionId,
@@ -83,16 +96,20 @@ export function getArtifactBounds(
     ? CANVAS_TABLE_ARTIFACT_WIDTH
     : isRepo
       ? REPO_ARTIFACT_WIDTH
-      : isEmbed && embedData
-        ? embedData.embedWidth
-        : CANVAS_ARTIFACT_WIDTH;
+      : isTimeline
+        ? TIMELINE_ARTIFACT_WIDTH
+        : isEmbed && embedData
+          ? embedData.embedWidth
+          : CANVAS_ARTIFACT_WIDTH;
   const defaultH = isTable
     ? TABLE_ARTIFACT_HEIGHT
     : isRepo
       ? REPO_ARTIFACT_HEIGHT
-      : isEmbed && embedData
-        ? embedData.embedHeight
-        : DEFAULT_ARTIFACT_HEIGHT;
+      : isTimeline
+        ? TIMELINE_ARTIFACT_HEIGHT
+        : isEmbed && embedData
+          ? embedData.embedHeight
+          : DEFAULT_ARTIFACT_HEIGHT;
   return {
     w: node.size?.w ?? defaultW,
     h: node.size?.h ?? defaultH,

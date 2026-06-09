@@ -16,6 +16,11 @@ import {
   type RepoSpokeId,
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
+import {
+  ARTIFACT_CANVAS_CASING_DEFAULT,
+  ARTIFACT_CANVAS_CHROME_OPACITY,
+  ARTIFACT_CANVAS_SURFACE_FILL,
+} from "@/lib/artifactCanvasChrome";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
@@ -34,11 +39,19 @@ function GitHubLogo({ className = "h-10 w-10" }: { className?: string }) {
   );
 }
 
-function BoundsGlow({ intensity }: { intensity: "full" | "half" }) {
+function BoundsGlow({
+  intensity,
+  canvasChrome = false,
+}: {
+  intensity: "full" | "half";
+  canvasChrome?: boolean;
+}) {
   const isFull = intensity === "full";
   return (
     <m.div
       className={`pointer-events-none absolute inset-0 rounded-canvas ${
+        canvasChrome ? ARTIFACT_CANVAS_CHROME_OPACITY : ""
+      } ${
         isFull
           ? "ring-2 ring-canvas-accent/55 shadow-[0_0_0_1px_rgb(var(--canvas-accent)/0.25)]"
           : "ring-1 ring-canvas-accent/30 shadow-[0_0_0_1px_rgb(var(--canvas-accent)/0.12)]"
@@ -377,6 +390,7 @@ function RepoSpokeCard({
   streamingOverview,
   dataReady,
   onDismiss,
+  canvasChrome = false,
 }: {
   spoke: RepoSpokeLayout;
   visible: boolean;
@@ -385,19 +399,24 @@ function RepoSpokeCard({
   streamingOverview: string;
   dataReady: boolean;
   onDismiss: () => void;
+  canvasChrome?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
 
   return (
     <m.div
-      className="absolute flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className={`absolute flex flex-col overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} ${
+        canvasChrome
+          ? ARTIFACT_CANVAS_CASING_DEFAULT
+          : "border-canvas-border shadow-card"
+      }`}
       style={{ left: spoke.x, top: spoke.y, width: spoke.w, height: spoke.h }}
       custom={index}
       variants={sidebarTileEnterVariants}
       initial={reduceMotion ? "reduced" : "initial"}
       animate={visible ? "animate" : "initial"}
     >
-      <BoundsGlow intensity="half" />
+      <BoundsGlow intensity="half" canvasChrome={canvasChrome} />
       <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-canvas-border px-3 py-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-compact text-canvas-accent">
           ?
@@ -676,7 +695,11 @@ export function RepoArtifactContent({
         target="_blank"
         rel="noopener noreferrer"
         data-no-drag
-        className="absolute z-20 flex flex-col items-center justify-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card px-4 py-5 text-center shadow-card transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+        className={`absolute z-20 flex flex-col items-center justify-center overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} px-4 py-5 text-center transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40 ${
+          fill
+            ? ARTIFACT_CANVAS_CASING_DEFAULT
+            : "border-canvas-border shadow-card"
+        }`}
         style={{
           left: REPO_HUB.cx - REPO_HUB.w / 2,
           top: REPO_HUB.cy - REPO_HUB.h / 2,
@@ -687,7 +710,7 @@ export function RepoArtifactContent({
         initial="initial"
         animate="animate"
       >
-        <BoundsGlow intensity="full" />
+        <BoundsGlow intensity="full" canvasChrome={fill} />
         <div className="relative z-10 flex flex-col items-center">
           <GitHubLogo className="h-10 w-10 text-canvas-ink" />
           <p className="mt-2 line-clamp-3 text-canvas-body-sm font-medium leading-snug text-canvas-ink">
@@ -720,6 +743,7 @@ export function RepoArtifactContent({
           streamingOverview={streamingOverview}
           dataReady={dataReady}
           onDismiss={() => dismissSpoke(spoke.id)}
+          canvasChrome={fill}
         />
       ))}
     </div>

@@ -12,6 +12,10 @@ import {
   getVersionById,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
+import {
+  ARTIFACT_CHROME_ZONE_ATTR,
+  ARTIFACT_INTERACTIVE_SURFACE_ATTR,
+} from "@/lib/artifactChromeHover";
 import { isVideoArtifactPayload } from "@/lib/artifactTypes";
 import { useCanvasStore } from "@/lib/store";
 
@@ -66,11 +70,15 @@ export function ArtifactShell({
   const isLatest = versionId === sessionArtifact.latestVersionId;
   const isTodo = sessionArtifact.kind === "todo";
   const isMap = sessionArtifact.kind === "map";
+  const isCalendar = sessionArtifact.kind === "calendar";
+  const isTimeline = sessionArtifact.kind === "timeline";
   const isVideo = activeVersion
     ? isVideoArtifactPayload(activeVersion.payload)
     : false;
   const canEditTodo = isTodo && isLatest && !canvasReadOnly;
   const canEditMap = isMap && isLatest && !canvasReadOnly;
+  const canEditCalendar = isCalendar && isLatest && !canvasReadOnly;
+  const canEditTimeline = isTimeline && isLatest && !canvasReadOnly;
 
   useEffect(() => {
     setCodeTitleOverride(null);
@@ -121,7 +129,10 @@ export function ArtifactShell({
       }
     >
       {!isRepoCanvas ? (
-      <div className={isCanvasLayout ? "shrink-0" : undefined}>
+      <div
+        className={isCanvasLayout ? "pointer-events-auto shrink-0" : undefined}
+        {...(isCanvasLayout ? { [ARTIFACT_CHROME_ZONE_ATTR]: "" } : {})}
+      >
         <ArtifactPanelHeader
           kind={sessionArtifact.kind}
           isVideo={isVideo}
@@ -178,6 +189,7 @@ export function ArtifactShell({
               } ${isRepoCanvas ? "" : "mt-[22px]"}`
             : "mt-[22px]"
         }
+        {...(isCanvasLayout ? { [ARTIFACT_INTERACTIVE_SURFACE_ATTR]: "" } : {})}
       >
         <ArtifactContent
           layout={layout}
@@ -203,6 +215,8 @@ export function ArtifactShell({
               : undefined
           }
           mapCanEdit={canEditMap}
+          calendarCanEdit={canEditCalendar}
+          timelineCanEdit={canEditTimeline}
         />
       </div>
     </div>

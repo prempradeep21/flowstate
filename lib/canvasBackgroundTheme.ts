@@ -11,6 +11,8 @@ export const DARK_THEME_ONLY_BACKGROUNDS: readonly CanvasBackgroundStyle[] = [
   "sky",
   "network",
   "rising-sun",
+  "gradient-grid",
+  "neat-gradient",
 ] as const;
 
 export function isBackgroundAllowedForTheme(

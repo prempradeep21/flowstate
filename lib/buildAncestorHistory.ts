@@ -42,6 +42,11 @@ function artifactContextNote(payload: ArtifactPayload): string {
       const savedNote = saved > 0 ? ` with ${saved} saved place(s)` : "";
       return `[Card showed map: "${payload.title}" centered on ${place}${savedNote}]`;
     }
+    case "streetview": {
+      const place =
+        payload.data.place?.label ?? payload.data.place?.name ?? "unknown";
+      return `[Card showed Street View: "${payload.title}" at ${place}]`;
+    }
     case "todo": {
       const n = payload.data.items?.length ?? 0;
       return `[Card showed to-do list: "${payload.title}" with ${n} item(s)]`;

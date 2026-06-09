@@ -13,15 +13,18 @@ export interface SidebarTileLayout {
 
 const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   map: { span: 1, aspectClass: "aspect-square" },
+  streetview: { span: 1, aspectClass: "aspect-[4/3]" },
   images: { span: 1, aspectClass: "aspect-square" },
   table: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 200 },
   "3d": { span: 1, aspectClass: "aspect-square" },
   custom: { span: 2, aspectClass: "aspect-square" },
   todo: { span: 2, aspectClass: null, minHeight: 80, maxHeight: 180 },
+  calendar: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
   code: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 140 },
   website: { span: 1, aspectClass: null, minHeight: 100, maxHeight: 140 },
   repo: { span: 2, aspectClass: null, minHeight: 200, maxHeight: 280 },
   embed: { span: 1, aspectClass: null, minHeight: 100, maxHeight: 140 },
+  timeline: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
 };
 
 /** Wide map every 3rd map (1-indexed: 3rd, 6th, …). */

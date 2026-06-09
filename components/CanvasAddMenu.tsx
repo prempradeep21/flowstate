@@ -1,0 +1,112 @@
+"use client";
+
+import { useCallback, useEffect, useRef } from "react";
+import { GifIcon, ImageIcon, TypeIcon } from "@/components/MenuIcons";
+import { MotionOverlayPopover } from "@/components/motion/MotionOverlay";
+import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  containerRef: React.RefObject<HTMLElement | null>;
+  onAddText: () => void;
+  onAddImage: () => void;
+  onAddGifs: () => void;
+  disabled?: boolean;
+}
+
+const menuBtn =
+  "flex w-full items-center gap-2.5 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+
+export function CanvasAddMenu({
+  open,
+  onClose,
+  anchorRef,
+  containerRef,
+  onAddText,
+  onAddImage,
+  onAddGifs,
+  disabled,
+}: Props) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const anchorStyle = useToolbarPopoverAnchor(
+    anchorRef,
+    containerRef,
+    open,
+    popoverRef,
+  );
+
+  const handlePointerDown = useCallback(
+    (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (popoverRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onClose();
+    },
+    [anchorRef, onClose],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [open, handlePointerDown]);
+
+  return (
+    <MotionOverlayPopover
+      isOpen={open}
+      className="pointer-events-auto absolute bottom-full z-[60] mb-2 min-w-[160px] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+      style={{ transformOrigin: "bottom center", ...anchorStyle }}
+    >
+      <div ref={popoverRef} role="menu" aria-label="Add to canvas">
+        <button
+          type="button"
+          role="menuitem"
+          disabled={disabled}
+          className={menuBtn}
+          onClick={() => {
+            onAddText();
+            onClose();
+          }}
+        >
+          <span className="text-canvas-muted">
+            <TypeIcon />
+          </span>
+          Text
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={disabled}
+          className={menuBtn}
+          onClick={() => {
+            onAddImage();
+            onClose();
+          }}
+        >
+          <span className="text-canvas-muted">
+            <ImageIcon />
+          </span>
+          Image
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={disabled}
+          className={menuBtn}
+          onClick={() => {
+            onAddGifs();
+            onClose();
+          }}
+        >
+          <span className="text-canvas-muted">
+            <GifIcon />
+          </span>
+          GIFs
+        </button>
+      </div>
+    </MotionOverlayPopover>
+  );
+}

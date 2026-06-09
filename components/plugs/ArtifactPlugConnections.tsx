@@ -24,6 +24,8 @@ export function ArtifactPlugConnections() {
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
+  const recentArtifactPlugId = useCanvasStore((s) => s.recentArtifactPlugId);
+  const clearRecentArtifactPlug = useCanvasStore((s) => s.clearRecentArtifactPlug);
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const hideForLoadReveal =
     canvasLoadReveal?.phase === "pending" ||
@@ -54,7 +56,9 @@ export function ArtifactPlugConnections() {
         const card = cards[conn.cardId];
         if (!node || !card) return null;
 
-        const art = sessionArtifacts[node.artifactId];
+        const art = node.artifactId
+          ? sessionArtifacts[node.artifactId]
+          : undefined;
         const { w: artW, h: artH } = getArtifactBounds(node, art);
         const { w: cardW, h: cardH } = getConnectionCardBounds(card, tuning);
 
@@ -104,8 +108,14 @@ export function ArtifactPlugConnections() {
             toSide={conn.toSide}
             viewportScale={viewportSettledScale}
             dashed
-            opacity={0.85}
+            opacity={conn.id === recentArtifactPlugId ? 1 : 0.85}
             showTargetArrow={false}
+            drawIn={conn.id === recentArtifactPlugId}
+            onDrawComplete={
+              conn.id === recentArtifactPlugId
+                ? clearRecentArtifactPlug
+                : undefined
+            }
           />
         );
       })}

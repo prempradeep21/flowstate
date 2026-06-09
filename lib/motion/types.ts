@@ -25,7 +25,8 @@ export interface SpawnMeta {
   createdAt: number;
 }
 
-export const SPAWN_META_TTL_MS = 400;
+/** Must cover longest spawn animation (artifact pop-in). */
+export const SPAWN_META_TTL_MS = 2000;
 export const LANDING_ANIMATED_KEY = "flowstate-landing-animated";
 
 export type CanvasLoadRevealPhase = "pending" | "running";

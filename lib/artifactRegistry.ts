@@ -25,10 +25,13 @@ const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   "3d": "3D preview",
   image: "Images",
   map: "Maps",
+  streetview: "Street view",
   todo: "To-do lists",
+  calendar: "Calendars",
   website: "Websites",
   repo: "Repositories",
   embed: "Embeds",
+  timeline: "Timelines",
 };
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
@@ -37,10 +40,13 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "3d",
   "images",
   "map",
+  "streetview",
   "todo",
+  "calendar",
   "website",
   "repo",
   "embed",
+  "timeline",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -55,14 +61,20 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "image";
     case "map":
       return "map";
+    case "streetview":
+      return "streetview";
     case "todo":
       return "todo";
+    case "calendar":
+      return "calendar";
     case "website":
       return "website";
     case "repo":
       return "repo";
     case "embed":
       return "embed";
+    case "timeline":
+      return "timeline";
     default:
       return null;
   }
@@ -117,10 +129,13 @@ export function buildArtifactRegistry(
     "3d": [],
     image: [],
     map: [],
+    streetview: [],
     todo: [],
+    calendar: [],
     website: [],
     repo: [],
     embed: [],
+    timeline: [],
   };
 
   for (const art of artifacts) {
@@ -138,7 +153,7 @@ export function buildArtifactRegistry(
   }
 
   return (
-    ["table", "custom", "3d", "image", "map", "todo", "website", "embed"] as const
+    ["table", "custom", "3d", "image", "map", "todo", "timeline", "website", "embed"] as const
   ).map(
     (category) => ({
       category,

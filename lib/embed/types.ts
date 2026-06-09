@@ -1,4 +1,11 @@
-export type EmbedProviderId = "reddit" | "twitter" | "instagram" | "facebook";
+export type EmbedProviderId =
+  | "reddit"
+  | "twitter"
+  | "instagram"
+  | "facebook"
+  | "medium"
+  | "substack"
+  | "figma";
 
 export interface EmbedResolveResult {
   provider: EmbedProviderId;

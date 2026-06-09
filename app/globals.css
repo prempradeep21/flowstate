@@ -286,6 +286,44 @@ body::-webkit-scrollbar-corner {
   );
 }
 
+/** Canvas artifact — outer container fill and padding hide until hover/reveal; inner content keeps its own fills. */
+.artifact-canvas-container-fill,
+.artifact-canvas-padding-chrome {
+  transition:
+    background 500ms ease-out,
+    background-color 500ms ease-out,
+    padding 500ms ease-out;
+}
+
+.group\/artifact[data-chrome-hover] .artifact-canvas-container-fill,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-container-fill,
+.group\/artifact[data-chrome-hover] .artifact-canvas-padding-chrome,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-padding-chrome {
+  transition-duration: 200ms;
+}
+
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill {
+  background: transparent !important;
+}
+
+.group\/artifact[data-chrome-hover] .artifact-canvas-container-fill,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-container-fill {
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--canvas-card) / 0.1) 0%,
+    rgb(var(--canvas-card) / 0.3) 100%
+  );
+}
+
+.artifact-canvas-padding-chrome {
+  padding: 0;
+}
+
+.group\/artifact[data-chrome-hover] .artifact-canvas-padding-chrome,
+.group\/artifact[data-chrome-reveal] .artifact-canvas-padding-chrome {
+  padding: 1.25rem;
+}
+
 .floating-panel {
   @apply absolute top-3 z-40 rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel;
 }

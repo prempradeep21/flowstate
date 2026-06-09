@@ -22,6 +22,8 @@ export interface CanvasPersistSlice {
   canvasAssetOrder?: string[];
   canvasTextLabels: Record<string, unknown>;
   canvasTextLabelOrder: string[];
+  canvasGifNodes?: Record<string, unknown>;
+  canvasGifOrder?: string[];
   uploadedAttachments: unknown[];
   collaborationHasEdits: boolean;
 }
@@ -50,6 +52,8 @@ export function pickCanvasPersistSlice(
     canvasAssetOrder: state.canvasAssetOrder ?? [],
     canvasTextLabels: state.canvasTextLabels,
     canvasTextLabelOrder: state.canvasTextLabelOrder,
+    canvasGifNodes: state.canvasGifNodes ?? {},
+    canvasGifOrder: state.canvasGifOrder ?? [],
     uploadedAttachments: state.uploadedAttachments,
     collaborationHasEdits: state.collaborationHasEdits,
   };
@@ -128,6 +132,8 @@ export function isViewportOnlyChange(
     prev.canvasAssetOrder === next.canvasAssetOrder &&
     prev.canvasTextLabels === next.canvasTextLabels &&
     prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
+    prev.canvasGifNodes === next.canvasGifNodes &&
+    prev.canvasGifOrder === next.canvasGifOrder &&
     prev.uploadedAttachments === next.uploadedAttachments &&
     prev.collaborationHasEdits === next.collaborationHasEdits
   );

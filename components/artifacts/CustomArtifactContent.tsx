@@ -17,65 +17,42 @@ export function CustomArtifactContent({
   fill = false,
 
   sidebar = false,
-
+  layout = "panel",
 }: {
-
   payload: Extract<ArtifactPayload, { type: "custom" }>;
-
   fill?: boolean;
-
   sidebar?: boolean;
-
+  layout?: "canvas" | "panel" | "sidebar";
 }) {
+  const isCanvas = layout === "canvas";
+  const readOnlyShell = !isCanvas ? "pointer-events-none " : "";
 
   if (sidebar) {
-
     return (
-
       <div className="pointer-events-none h-full min-h-0 w-full overflow-hidden">
-
         <DynamicUiFrame data={payload.data} />
-
       </div>
-
     );
-
   }
 
 
 
   if (fill) {
-
     return (
-
       <ArtifactContentStage fill className="h-full min-h-0">
-
-        <div className="h-full min-h-0 w-full">
-
+        <div className={`${readOnlyShell}h-full min-h-0 w-full`}>
           <DynamicUiFrame data={payload.data} />
-
         </div>
-
       </ArtifactContentStage>
-
     );
-
   }
 
-
-
   return (
-
     <ArtifactContentStage className="aspect-[4/3] min-h-[280px]" minHeight="280px">
-
-      <div className="h-full w-full">
-
+      <div className={`${readOnlyShell}h-full w-full`}>
         <DynamicUiFrame data={payload.data} />
-
       </div>
-
     </ArtifactContentStage>
-
   );
 
 }

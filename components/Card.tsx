@@ -17,6 +17,7 @@ import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { Plug } from "@/components/plugs/Plug";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { AnimatePresence } from "framer-motion";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import {
   QaQuestionHeaderRow,
@@ -37,6 +38,7 @@ import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceh
 import {
   finalizeCardResponse,
   handleStreamArtifact,
+  shouldEarlySpawnArtifact,
 } from "@/lib/artifactGeneration";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
@@ -173,11 +175,15 @@ function CardInner({ card }: CardProps) {
   const plugAccent = accent ?? CANVAS_ACCENT;
   const showBranchPlugs = card.status === "done";
   const receivePlugsActive =
-    (plugDrag?.kind === "artifact" || plugDrag?.kind === "asset") &&
+    (plugDrag?.kind === "artifact" ||
+      plugDrag?.kind === "asset" ||
+      plugDrag?.kind === "skill") &&
     plugDrag.receiveTargetCardId === card.id;
   const receiveHighlightSide =
     receivePlugsActive &&
-    (plugDrag.kind === "artifact" || plugDrag.kind === "asset")
+    (plugDrag.kind === "artifact" ||
+      plugDrag.kind === "asset" ||
+      plugDrag.kind === "skill")
       ? plugDrag.hoveredReceiveSide
       : null;
 
@@ -563,9 +569,13 @@ function CardInner({ card }: CardProps) {
           thinkingLabel: label,
         });
         if (/building table/i.test(label)) {
-          useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+          if (shouldEarlySpawnArtifact(card.id, "table")) {
+            useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+          }
         } else if (/building custom/i.test(label)) {
-          useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
+          if (shouldEarlySpawnArtifact(card.id, "custom")) {
+            useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
+          }
         }
       },
       onToken: (next) => {
@@ -614,6 +624,7 @@ function CardInner({ card }: CardProps) {
       status: "thinking",
       responseType: "text",
       artifactPayload: undefined,
+      pendingEmittedArtifacts: undefined,
       images: options?.pendingImages,
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
@@ -802,6 +813,7 @@ function CardInner({ card }: CardProps) {
             cardId={card.id}
             viewportScale={scale}
             hideDelete={isLanding}
+            layout="cta"
           />
           <CanvasSharpContent className="w-full min-w-0">
             <ChatComposer
@@ -840,7 +852,7 @@ function CardInner({ card }: CardProps) {
             aria-hidden
           />
         )}
-        {isPending && !isChatCollapsed && (
+        {isPending && (
           <PendingStatusIndicator
             status={card.status}
             thinkingLabel={card.thinkingLabel}
@@ -944,17 +956,20 @@ function CardInner({ card }: CardProps) {
           quickExplainLoading={quickExplainBusy}
         />
       )}
-      {openExplain && explainAnchorY != null && (
-        <QuickExplainPopup
-          explain={openExplain}
-          anchorY={explainAnchorY}
-          onClose={() => {
-            setOpenExplainId(null);
-            setQuickExplainBusy(false);
-            setExplainAnchorY(null);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {openExplain && explainAnchorY != null && (
+          <QuickExplainPopup
+            key={openExplain.id}
+            explain={openExplain}
+            anchorY={explainAnchorY}
+            onClose={() => {
+              setOpenExplainId(null);
+              setQuickExplainBusy(false);
+              setExplainAnchorY(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1035,7 +1050,7 @@ function PendingStatusIndicator({
   );
   return (
     <div
-      className="absolute right-3 top-3 z-30 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
+      className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
       aria-live="polite"
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">

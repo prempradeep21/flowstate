@@ -1,17 +1,14 @@
 import type {
-
   CanvasArtifactNode,
   CanvasAsset,
   CanvasAssetNode,
-
+  CanvasGifNode,
+  CanvasSkill,
+  CanvasSkillNode,
   CanvasTextLabel,
-
   Card,
-
   Connection,
-
   Thread,
-
 } from "@/lib/store";
 
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
@@ -57,6 +54,20 @@ export interface GraphSnapshot {
   canvasAssetOrder?: string[];
 
   selectedCanvasAssetId?: string | null;
+
+  canvasSkills?: Record<string, CanvasSkill>;
+
+  canvasSkillNodes?: Record<string, CanvasSkillNode>;
+
+  canvasSkillOrder?: string[];
+
+  selectedCanvasSkillId?: string | null;
+
+  canvasGifNodes?: Record<string, CanvasGifNode>;
+
+  canvasGifOrder?: string[];
+
+  selectedCanvasGifId?: string | null;
 
   canvasTextLabels: Record<string, CanvasTextLabel>;
 
@@ -111,6 +122,20 @@ export function captureGraphSnapshot(state: GraphSnapshotSource): GraphSnapshot 
     canvasAssetOrder: state.canvasAssetOrder ?? [],
 
     selectedCanvasAssetId: state.selectedCanvasAssetId ?? null,
+
+    canvasSkills: state.canvasSkills ?? {},
+
+    canvasSkillNodes: state.canvasSkillNodes ?? {},
+
+    canvasSkillOrder: state.canvasSkillOrder ?? [],
+
+    selectedCanvasSkillId: state.selectedCanvasSkillId ?? null,
+
+    canvasGifNodes: state.canvasGifNodes ?? {},
+
+    canvasGifOrder: state.canvasGifOrder ?? [],
+
+    selectedCanvasGifId: state.selectedCanvasGifId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 
@@ -167,6 +192,20 @@ export function graphSnapshotFromState<T extends GraphSnapshotSource>(
     canvasAssetOrder: state.canvasAssetOrder ?? [],
 
     selectedCanvasAssetId: state.selectedCanvasAssetId ?? null,
+
+    canvasSkills: state.canvasSkills ?? {},
+
+    canvasSkillNodes: state.canvasSkillNodes ?? {},
+
+    canvasSkillOrder: state.canvasSkillOrder ?? [],
+
+    selectedCanvasSkillId: state.selectedCanvasSkillId ?? null,
+
+    canvasGifNodes: state.canvasGifNodes ?? {},
+
+    canvasGifOrder: state.canvasGifOrder ?? [],
+
+    selectedCanvasGifId: state.selectedCanvasGifId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 

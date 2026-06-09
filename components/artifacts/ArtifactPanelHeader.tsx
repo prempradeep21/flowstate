@@ -6,6 +6,7 @@ import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
+import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export interface TodoEditControls {
@@ -111,6 +112,10 @@ export function ArtifactPanelHeader({
 
   const ctaClass =
     "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
+  const isCanvas = menuVariant === "canvas";
+  const chromeClass = isCanvas
+    ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
+    : "";
 
   return (
     <div className="flex h-14 items-center gap-[11px]">
@@ -120,7 +125,7 @@ export function ArtifactPanelHeader({
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
           kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
-        }`}
+        } ${chromeClass}`}
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)
@@ -141,7 +146,9 @@ export function ArtifactPanelHeader({
           />
         </span>
       </span>
-      <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
+      <h2
+        className={`min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink ${chromeClass}`}
+      >
         {title}
       </h2>
 
@@ -197,7 +204,7 @@ export function ArtifactPanelHeader({
         </a>
       ) : (
         !isVideo && (
-          <div className="relative shrink-0" ref={versionRef}>
+          <div className={`relative shrink-0 ${chromeClass}`} ref={versionRef}>
             <button
               type="button"
               onClick={() => setVersionOpen((o) => !o)}
@@ -233,7 +240,7 @@ export function ArtifactPanelHeader({
         )
       )}
       {hasMenuActions && (
-        <div className="relative shrink-0" ref={menuRef}>
+        <div className={`relative shrink-0 ${chromeClass}`} ref={menuRef}>
           <button
             type="button"
             aria-label="More options"

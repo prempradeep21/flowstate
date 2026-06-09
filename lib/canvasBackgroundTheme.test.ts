@@ -10,10 +10,12 @@ describe("canvasBackgroundTheme", () => {
     expect(isBackgroundAllowedForTheme("ambient-gradient", "light")).toBe(true);
   });
 
-  it("blocks sky, network, and rising sun in light theme", () => {
+  it("blocks dark-only backgrounds in light theme", () => {
     expect(isBackgroundAllowedForTheme("sky", "light")).toBe(false);
     expect(isBackgroundAllowedForTheme("network", "light")).toBe(false);
     expect(isBackgroundAllowedForTheme("rising-sun", "light")).toBe(false);
+    expect(isBackgroundAllowedForTheme("gradient-grid", "light")).toBe(false);
+    expect(isBackgroundAllowedForTheme("neat-gradient", "light")).toBe(false);
   });
 
   it("allows all backgrounds in dark theme", () => {
@@ -21,6 +23,8 @@ describe("canvasBackgroundTheme", () => {
     expect(isBackgroundAllowedForTheme("sky", "dark")).toBe(true);
     expect(isBackgroundAllowedForTheme("network", "dark")).toBe(true);
     expect(isBackgroundAllowedForTheme("rising-sun", "dark")).toBe(true);
+    expect(isBackgroundAllowedForTheme("gradient-grid", "dark")).toBe(true);
+    expect(isBackgroundAllowedForTheme("neat-gradient", "dark")).toBe(true);
   });
 
   it("falls back to grid when background is invalid for theme", () => {

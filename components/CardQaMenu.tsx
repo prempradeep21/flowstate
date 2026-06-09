@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   BranchForkIcon,
   ContextMenuItem,
@@ -16,7 +16,7 @@ interface CardQaMenuProps {
   /** Hide delete on the landing/home empty card. */
   hideDelete?: boolean;
   /** Inline in the question header row instead of overlaying the card. */
-  layout?: "overlay" | "embedded";
+  layout?: "overlay" | "embedded" | "cta";
 }
 
 function DotsIcon() {
@@ -47,9 +47,9 @@ function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
       strokeLinejoin="round"
     >
       {collapsed ? (
-        <path d="M6 3l5 5-5 5" />
-      ) : (
         <path d="M4 6l4 4 4-4" />
+      ) : (
+        <path d="M4 10l4-4 4 4" />
       )}
     </svg>
   );
@@ -97,30 +97,28 @@ export function CardQaMenu({
   const isCanvas = viewportScale != null;
   const showCollapseToggle = isCanvas && !isEmpty;
 
+  const rootClassName =
+    layout === "embedded"
+      ? "relative z-30 flex flex-row items-center gap-0.5"
+      : layout === "cta"
+        ? "absolute right-3 z-30 flex flex-row items-center gap-0.5"
+        : "absolute right-2 top-2 z-30 flex flex-row items-center gap-0.5";
+
+  const rootStyle: CSSProperties | undefined =
+    layout === "cta"
+      ? {
+          // Sit above the send / expand CTA (composer row padding + button height).
+          bottom: "calc(0.625rem + 0.5rem + 2.25rem + 0.375rem)",
+        }
+      : undefined;
+
+  const menuClassName =
+    layout === "cta"
+      ? "motion-popover-in absolute right-0 bottom-full z-50 mb-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
+      : "motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+
   return (
-    <div
-      ref={rootRef}
-      className={
-        layout === "embedded"
-          ? "relative z-30 flex items-center gap-0.5"
-          : "absolute right-2 top-2 z-30 flex items-center gap-0.5"
-      }
-    >
-      {showCollapseToggle && (
-        <button
-          type="button"
-          aria-label={isChatCollapsed ? "Expand chat" : "Collapse chat"}
-          title={isChatCollapsed ? "Expand chat" : "Collapse chat"}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleCardCollapsed(cardId);
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
-        >
-          <ChatCollapseIcon collapsed={isChatCollapsed} />
-        </button>
-      )}
+    <div ref={rootRef} className={rootClassName} style={rootStyle}>
       <button
         type="button"
         aria-label="Card actions"
@@ -137,11 +135,26 @@ export function CardQaMenu({
       >
         <DotsIcon />
       </button>
+      {showCollapseToggle && (
+        <button
+          type="button"
+          aria-label={isChatCollapsed ? "Expand chat" : "Collapse chat"}
+          title={isChatCollapsed ? "Expand chat" : "Collapse chat"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleCardCollapsed(cardId);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        >
+          <ChatCollapseIcon collapsed={isChatCollapsed} />
+        </button>
+      )}
 
       {open && (
         <MotionFlowSize
           role="menu"
-          className="motion-popover-in absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
+          className={menuClassName}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {isEmpty ? (

@@ -1,18 +1,33 @@
-import type { ArtifactPayload, ArtifactKind } from "@/lib/artifactTypes";
+import type {
+  ArtifactPayload,
+  ArtifactKind,
+  CalendarEvent,
+} from "@/lib/artifactTypes";
 import {
   imagesPayloadFromCardImages,
   payloadToArtifactKind,
   videoPayloadToImages,
 } from "@/lib/artifactTypes";
+import {
+  mergeCalendarEventsFromAi,
+  normalizeCalendarEvent,
+  normalizeCalendarPayload,
+} from "@/lib/calendarArtifact";
 import { normalizeTablePayload } from "@/lib/tableArtifact";
 import {
   mergeTodoItemsFromAi,
   normalizeTodoItem,
   normalizeTodoPayload,
 } from "@/lib/todoArtifact";
+import { normalizeStreetViewPayload } from "@/lib/streetViewArtifact";
 import { normalizeWebsitePayload } from "@/lib/websiteArtifact";
 import { normalizeEmbedPayload } from "@/lib/embedArtifact";
 import { normalizeRepoPayload } from "@/lib/repoArtifact";
+import {
+  mergeTimelineEventsFromAi,
+  normalizeTimelineEvent,
+  normalizeTimelinePayload,
+} from "@/lib/timelineArtifact";
 import type { Card, CardImage, Connection } from "@/lib/store";
 import { getThreadCardChain } from "@/lib/chatThreads";
 
@@ -136,6 +151,28 @@ export function normalizePayloadForRegistry(
     }
     return normalized;
   }
+  if (payload.type === "calendar") {
+    const normalized = normalizeCalendarPayload(payload);
+    if (previousPayload?.type === "calendar") {
+      const incomingEvents = normalized.data.events
+        .map((event: CalendarEvent) => normalizeCalendarEvent(event))
+        .filter((e): e is CalendarEvent => e !== null);
+      return {
+        ...normalized,
+        data: {
+          ...normalized.data,
+          events: mergeCalendarEventsFromAi(
+            previousPayload.data.events,
+            incomingEvents,
+          ),
+        },
+      };
+    }
+    return normalized;
+  }
+  if (payload.type === "streetview") {
+    return normalizeStreetViewPayload(payload);
+  }
   if (payload.type === "website") {
     return normalizeWebsitePayload(payload);
   }
@@ -144,6 +181,25 @@ export function normalizePayloadForRegistry(
   }
   if (payload.type === "repo") {
     return normalizeRepoPayload(payload);
+  }
+  if (payload.type === "timeline") {
+    const normalized = normalizeTimelinePayload(payload);
+    if (previousPayload?.type === "timeline") {
+      const incomingEvents = normalized.data.events
+        .map((event) => normalizeTimelineEvent(event))
+        .filter((e): e is NonNullable<typeof e> => e !== null);
+      return {
+        ...normalized,
+        data: {
+          ...normalized.data,
+          events: mergeTimelineEventsFromAi(
+            previousPayload.data.events,
+            incomingEvents,
+          ),
+        },
+      };
+    }
+    return normalized;
   }
   return payload;
 }

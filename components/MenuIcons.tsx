@@ -126,6 +126,66 @@ export function TypeIcon() {
   );
 }
 
+export function PlusIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M8 3.5v9M3.5 8h9"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function ImageIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="2.5"
+        y="3.5"
+        width="11"
+        height="9"
+        rx="1.25"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <circle cx="5.75" cy="6.75" r="1.1" fill="currentColor" />
+      <path
+        d="M3.5 11.5 6.5 8.5l2 1.75L10.5 8l2 3.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function GifIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="2"
+        y="4"
+        width="12"
+        height="8"
+        rx="1.25"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <path
+        d="M4.5 7.25h1.1v1.5M6.2 7.25v1.5M6.2 7.25h.85a.55.55 0 0 1 0 1.1H6.2M8.4 8.75V7.25M8.4 7.25h.9a.55.55 0 0 1 0 1.1H8.4M10.5 8.75c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1Z"
+        stroke="currentColor"
+        strokeWidth="0.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ShareIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

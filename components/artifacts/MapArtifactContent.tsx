@@ -531,13 +531,16 @@ export function MapArtifactContent({
   canEdit = false,
   fill = false,
   sidebar = false,
+  layout = "panel",
 }: {
   payload: Extract<ArtifactPayload, { type: "map" }>;
   artifactId?: string;
   canEdit?: boolean;
   fill?: boolean;
   sidebar?: boolean;
+  layout?: "canvas" | "panel" | "sidebar";
 }) {
+  const isCanvas = layout === "canvas";
   const saveMapArtifactVersion = useCanvasStore((s) => s.saveMapArtifactVersion);
   const { place, zoom } = payload.data;
   const lat = place.lat;
@@ -578,7 +581,7 @@ export function MapArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full min-h-0 w-full">
+      <div className="pointer-events-none h-full min-h-0 w-full">
         <MapView
           primaryLat={lat}
           primaryLng={lng}
@@ -595,7 +598,11 @@ export function MapArtifactContent({
 
   return (
     <ArtifactContentStage fill={fill} className={fill ? undefined : "aspect-[4/3]"}>
-      <div className={fill ? "h-full min-h-0" : "min-h-[280px] h-full"}>
+      <div
+        className={`${fill ? "h-full min-h-0" : "min-h-[280px] h-full"} ${
+          isCanvas ? "" : "pointer-events-none"
+        }`}
+      >
         <MapView
           primaryLat={lat}
           primaryLng={lng}

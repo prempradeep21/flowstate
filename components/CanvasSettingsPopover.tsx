@@ -7,6 +7,7 @@ import {
   THEME_OPTIONS,
 } from "@/components/canvasBackgrounds/registry";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
 import { useCanvasStore, type CanvasTheme } from "@/lib/store";
 
@@ -14,6 +15,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
+  containerRef: React.RefObject<HTMLElement | null>;
 }
 
 const THEME_PREVIEW: Record<
@@ -24,8 +26,19 @@ const THEME_PREVIEW: Record<
   dark: darkCanvasColors,
 };
 
-export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
+export function CanvasSettingsPopover({
+  open,
+  onClose,
+  anchorRef,
+  containerRef,
+}: Props) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const anchorStyle = useToolbarPopoverAnchor(
+    anchorRef,
+    containerRef,
+    open,
+    popoverRef,
+  );
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
   const setCanvasTheme = useCanvasStore((s) => s.setCanvasTheme);
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
@@ -69,7 +82,8 @@ export function CanvasSettingsPopover({ open, onClose, anchorRef }: Props) {
       ref={popoverRef}
       role="dialog"
       aria-label="Canvas settings"
-      className="absolute bottom-full left-1/2 z-[60] mb-3 w-[min(calc(100vw-2rem),280px)] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
+      className="absolute bottom-full z-[60] mb-3 w-[min(calc(100vw-2rem),280px)] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
+      style={anchorStyle}
     >
       <h3 className="mb-2 text-canvas-body-sm font-semibold text-canvas-ink">
         Theme

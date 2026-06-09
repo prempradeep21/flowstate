@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
+import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
 import { SendIconButton } from "@/components/SendIconButton";
 import {
@@ -21,6 +22,7 @@ import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import {
   AttachedArtifactRef,
   AttachedAssetRef,
+  AttachedSkillRef,
   CardImage,
   FollowUpOptions,
   PendingFileAttachment,
@@ -59,11 +61,15 @@ export function ChatComposer({
   const listSessionArtifacts = useCanvasStore((s) => s.listSessionArtifacts);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
+  const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const plugAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerAttachments[cardId] : undefined,
   );
   const plugAssetAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerAssetAttachments[cardId] : undefined,
+  );
+  const plugSkillAttachment = useCanvasStore((s) =>
+    cardId ? s.plugComposerSkillAttachments[cardId] : undefined,
   );
 
   const [internalDraft, setInternalDraft] = useState("");
@@ -73,6 +79,7 @@ export function ChatComposer({
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
   const [attachedAssets, setAttachedAssets] = useState<AttachedAssetRef[]>([]);
+  const [attachedSkills, setAttachedSkills] = useState<AttachedSkillRef[]>([]);
   const [pendingImages, setPendingImages] = useState<CardImage[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +112,13 @@ export function ChatComposer({
     });
   };
 
+  const addSkillAttachment = (ref: AttachedSkillRef) => {
+    setAttachedSkills((prev) => {
+      if (prev.some((r) => r.skillId === ref.skillId)) return prev;
+      return [...prev, ref];
+    });
+  };
+
   useEffect(() => {
     if (plugAttachment) {
       addAttachment(plugAttachment);
@@ -116,6 +130,12 @@ export function ChatComposer({
       addAssetAttachment(plugAssetAttachment);
     }
   }, [plugAssetAttachment]);
+
+  useEffect(() => {
+    if (plugSkillAttachment) {
+      addSkillAttachment(plugSkillAttachment);
+    }
+  }, [plugSkillAttachment]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -163,6 +183,7 @@ export function ChatComposer({
     onSubmit(question, {
       attachedArtifacts: attached.length > 0 ? attached : undefined,
       attachedAssets: attachedAssets.length > 0 ? attachedAssets : undefined,
+      attachedSkills: attachedSkills.length > 0 ? attachedSkills : undefined,
       pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
       pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
     });
@@ -249,6 +270,9 @@ export function ChatComposer({
     onAsset: (ref) => {
       addAssetAttachment(ref);
     },
+    onSkill: (ref) => {
+      addSkillAttachment(ref);
+    },
     onUpload: (file) => {
       setPendingFiles((prev) => [...prev, file]);
     },
@@ -282,6 +306,7 @@ export function ChatComposer({
         )}
         {(attached.length > 0 ||
           attachedAssets.length > 0 ||
+          attachedSkills.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
           <div
@@ -341,6 +366,21 @@ export function ChatComposer({
                     x
                   </button>
                 </span>
+              );
+            })}
+            {attachedSkills.map((ref) => {
+              const skill = canvasSkills[ref.skillId];
+              if (!skill) return null;
+              return (
+                <SkillAttachmentPill
+                  key={ref.skillId}
+                  title={skill.title}
+                  onRemove={() =>
+                    setAttachedSkills((prev) =>
+                      prev.filter((r) => r.skillId !== ref.skillId),
+                    )
+                  }
+                />
               );
             })}
             {pendingImages.map((img, i) => (

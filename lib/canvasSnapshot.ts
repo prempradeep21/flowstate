@@ -8,6 +8,9 @@ import type {
   CanvasArtifactNode,
   CanvasAsset,
   CanvasAssetNode,
+  CanvasGifNode,
+  CanvasSkill,
+  CanvasSkillNode,
   CanvasBackgroundStyle,
   CanvasTheme,
   CanvasTextLabel,
@@ -43,8 +46,13 @@ export interface CanvasSnapshot {
   canvasArtifactOrder?: string[];
   canvasAssetNodes?: Record<string, CanvasAssetNode>;
   canvasAssetOrder?: string[];
+  canvasSkills?: Record<string, CanvasSkill>;
+  canvasSkillNodes?: Record<string, CanvasSkillNode>;
+  canvasSkillOrder?: string[];
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
+  canvasGifNodes?: Record<string, CanvasGifNode>;
+  canvasGifOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
   collaborationHasEdits?: boolean;
 }
@@ -68,8 +76,13 @@ export interface CanvasSnapshotSource {
   canvasArtifactOrder: string[];
   canvasAssetNodes?: Record<string, CanvasAssetNode>;
   canvasAssetOrder?: string[];
+  canvasSkills?: Record<string, CanvasSkill>;
+  canvasSkillNodes?: Record<string, CanvasSkillNode>;
+  canvasSkillOrder?: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
+  canvasGifNodes?: Record<string, CanvasGifNode>;
+  canvasGifOrder?: string[];
   uploadedAttachments: UploadedAttachment[];
   collaborationHasEdits: boolean;
 }
@@ -155,10 +168,21 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasAssetNodes ?? {}),
     ) as Record<string, CanvasAssetNode>,
     canvasAssetOrder: [...(source.canvasAssetOrder ?? [])],
+    canvasSkills: JSON.parse(
+      JSON.stringify(source.canvasSkills ?? {}),
+    ) as Record<string, CanvasSkill>,
+    canvasSkillNodes: JSON.parse(
+      JSON.stringify(source.canvasSkillNodes ?? {}),
+    ) as Record<string, CanvasSkillNode>,
+    canvasSkillOrder: [...(source.canvasSkillOrder ?? [])],
     canvasTextLabels: JSON.parse(
       JSON.stringify(source.canvasTextLabels),
     ) as Record<string, CanvasTextLabel>,
     canvasTextLabelOrder: [...source.canvasTextLabelOrder],
+    canvasGifNodes: JSON.parse(
+      JSON.stringify(source.canvasGifNodes ?? {}),
+    ) as Record<string, CanvasGifNode>,
+    canvasGifOrder: [...(source.canvasGifOrder ?? [])],
     uploadedAttachments: JSON.parse(
       JSON.stringify(source.uploadedAttachments),
     ) as UploadedAttachment[],
@@ -189,8 +213,13 @@ export function buildEmptyCanvasSnapshot(
     canvasArtifactOrder: [],
     canvasAssetNodes: {},
     canvasAssetOrder: [],
+    canvasSkills: {},
+    canvasSkillNodes: {},
+    canvasSkillOrder: [],
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
+    canvasGifNodes: {},
+    canvasGifOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
   };
@@ -202,6 +231,8 @@ const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
   "sky",
   "network",
   "rising-sun",
+  "gradient-grid",
+  "neat-gradient",
 ]);
 
 function normalizeCanvasBackgroundStyle(
@@ -344,10 +375,15 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.canvasAssetNodes,
     ),
     canvasAssetOrder: normalizeStringArray(snapshot.canvasAssetOrder),
+    canvasSkills: normalizeRecord<CanvasSkill>(snapshot.canvasSkills),
+    canvasSkillNodes: normalizeRecord<CanvasSkillNode>(snapshot.canvasSkillNodes),
+    canvasSkillOrder: normalizeStringArray(snapshot.canvasSkillOrder),
     canvasTextLabels: normalizeRecord<CanvasTextLabel>(
       snapshot.canvasTextLabels,
     ),
     canvasTextLabelOrder: normalizeStringArray(snapshot.canvasTextLabelOrder),
+    canvasGifNodes: normalizeRecord<CanvasGifNode>(snapshot.canvasGifNodes),
+    canvasGifOrder: normalizeStringArray(snapshot.canvasGifOrder),
     uploadedAttachments: Array.isArray(snapshot.uploadedAttachments)
       ? (JSON.parse(
           JSON.stringify(snapshot.uploadedAttachments),

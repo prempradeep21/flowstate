@@ -6,12 +6,24 @@ import {
   normalizeCustomArtifactData,
 } from "@/lib/customArtifact";
 import { geocodeMapArtifact } from "@/lib/geocoding";
+import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
+import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
 import {
+  CALENDAR_INTENT_SYSTEM_NOTE,
+  CALENDAR_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
+  detectCalendarIntent,
   detectCustomUiIntent,
+  detectTimelineIntent,
   detectTodoListIntent,
+  detectTravelMapIntent,
+  MAP_THINKING_LABEL,
+  TIMELINE_EDIT_SYSTEM_NOTE,
+  TIMELINE_INTENT_SYSTEM_NOTE,
+  TIMELINE_THINKING_LABEL,
   TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
+import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
@@ -45,13 +57,13 @@ const BASE_SYSTEM =
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
   description:
-    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, or to-do lists. Put brief context in your text reply; put structured content here.",
+    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, calendars, timelines, or to-do lists. Put brief context in your text reply; put structured content here.",
   input_schema: {
     type: "object" as const,
     properties: {
       type: {
         type: "string",
-        enum: ["table", "code", "video", "custom", "3d", "map", "todo"],
+        enum: ["table", "code", "video", "custom", "3d", "map", "streetview", "todo", "calendar", "timeline"],
         description: "Artifact type to render on the card",
       },
       title: { type: "string", description: "Card artifact title" },
@@ -200,10 +212,24 @@ export async function POST(req: Request) {
   userContent.push({ type: "text", text: question });
 
   const todoIntent = detectTodoListIntent(question);
+  const calendarIntent = detectCalendarIntent(question);
+  const timelineIntent = detectTimelineIntent(question);
   const customUiIntent = detectCustomUiIntent(question);
+  const travelMapIntent = detectTravelMapIntent(question);
+
+  const editingPayload =
+    editingArtifact?.payload &&
+    typeof editingArtifact.payload === "object" &&
+    "type" in (editingArtifact.payload as object)
+      ? (editingArtifact.payload as { type?: string })
+      : null;
 
   const editingNote = editingArtifact
-    ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}`
+    ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
+        editingPayload?.type === "timeline"
+          ? `\n\n${TIMELINE_EDIT_SYSTEM_NOTE}`
+          : ""
+      }`
     : "";
 
   let messages: Anthropic.MessageParam[] = [
@@ -227,9 +253,18 @@ export async function POST(req: Request) {
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       try {
-        if (customUiIntent) {
+        if (calendarIntent) {
+          emit({ thinking: CALENDAR_THINKING_LABEL });
+          emit({ pendingArtifact: { type: "calendar" } });
+        } else if (timelineIntent) {
+          emit({ thinking: TIMELINE_THINKING_LABEL });
+          emit({ pendingArtifact: { type: "timeline" } });
+        } else if (customUiIntent) {
           emit({ thinking: CUSTOM_UI_THINKING_LABEL });
           emit({ pendingArtifact: { type: "custom" } });
+        } else if (travelMapIntent) {
+          emit({ thinking: MAP_THINKING_LABEL });
+          emit({ pendingArtifact: { type: "map" } });
         }
 
         // Tool-use loop: Claude may call tools multiple times before a final reply.
@@ -240,6 +275,12 @@ export async function POST(req: Request) {
             BASE_SYSTEM,
             systemContext,
             todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
+            calendarIntent && !editingArtifact
+              ? CALENDAR_INTENT_SYSTEM_NOTE
+              : null,
+            timelineIntent && !editingArtifact
+              ? TIMELINE_INTENT_SYSTEM_NOTE
+              : null,
             editingNote || null,
           ]
             .filter(Boolean)
@@ -250,7 +291,7 @@ export async function POST(req: Request) {
             system: systemPrompt,
             messages,
             tools: allTools,
-            ...(todoIntent &&
+            ...((todoIntent || calendarIntent || timelineIntent) &&
             !editingArtifact &&
             !artifactEmitted &&
             turn === 0
@@ -334,11 +375,11 @@ export async function POST(req: Request) {
                   data = normalized as unknown as Record<string, unknown>;
                 }
 
-                if (type === "map") {
+                if (type === "map" || type === "streetview") {
                   const enriched = await geocodeMapArtifact(data);
                   if (!enriched) {
                     resultContent =
-                      "emit_artifact map requires data.place.name with a geocodable location (e.g. \"Paris, France\"). Could not geocode the place.";
+                      `emit_artifact ${type} requires data.place.name with a geocodable location (e.g. \"Paris, France\"). Could not geocode the place.`;
                     toolResults.push({
                       type: "tool_result" as const,
                       tool_use_id: block.id,
@@ -346,7 +387,15 @@ export async function POST(req: Request) {
                     });
                     continue;
                   }
-                  data = enriched as unknown as Record<string, unknown>;
+                  if (type === "streetview") {
+                    const sv = normalizeStreetViewArtifactData({
+                      ...data,
+                      place: enriched.place,
+                    });
+                    data = sv as unknown as Record<string, unknown>;
+                  } else {
+                    data = enriched as unknown as Record<string, unknown>;
+                  }
                 }
 
                 if (type === "todo") {
@@ -362,6 +411,18 @@ export async function POST(req: Request) {
                     continue;
                   }
                   data = normalized as unknown as Record<string, unknown>;
+                }
+
+                if (type === "calendar") {
+                  data = normalizeCalendarArtifactData(
+                    data,
+                  ) as unknown as Record<string, unknown>;
+                }
+
+                if (type === "timeline") {
+                  data = normalizeTimelineArtifactData(
+                    data,
+                  ) as unknown as Record<string, unknown>;
                 }
 
                 if (type === "table") {

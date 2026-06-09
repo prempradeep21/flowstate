@@ -3,6 +3,7 @@
 import { m } from "framer-motion";
 import {
   forwardRef,
+  type CSSProperties,
   type PointerEventHandler,
   type ReactNode,
 } from "react";
@@ -14,6 +15,7 @@ type MotionFlowSizeTag = "div" | "section" | "ul";
 type MotionFlowSizeProps = {
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
   as?: MotionFlowSizeTag;
   role?: string;
   "aria-label"?: string;
@@ -31,6 +33,7 @@ export const MotionFlowSize = forwardRef<HTMLElement, MotionFlowSizeProps>(
     {
       children,
       className = "",
+      style,
       as = "div",
       role,
       "aria-label": ariaLabel,
@@ -43,6 +46,7 @@ export const MotionFlowSize = forwardRef<HTMLElement, MotionFlowSizeProps>(
     const shared = {
       ref: ref as never,
       className,
+      style,
       role,
       "aria-label": ariaLabel,
       onPointerDown,

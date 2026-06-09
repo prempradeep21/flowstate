@@ -16,9 +16,9 @@ import {
   parseSidebarDragPayload,
   uploadedToPending,
 } from "@/lib/sidebarDnD";
-import {
-  getCanvasAssetBounds,
-} from "@/lib/canvasAssetBounds";
+import { DEFAULT_GIF_WIDTH } from "@/lib/canvasGifBounds";
+import { DEFAULT_ASSET_IMAGE_WIDTH, getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
+import { CANVAS_SKILL_SIZE } from "@/lib/canvasSkillBounds";
 import {
   uploadAssetFiles,
   type AssetUploadError,
@@ -28,6 +28,7 @@ import {
   CANVAS_TABLE_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
   useCanvasStore,
+  type SpawnCanvasGifInput,
 } from "@/lib/store";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
@@ -40,10 +41,13 @@ import { CanvasBackgroundLayer } from "@/components/canvasBackgrounds/CanvasBack
 import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
 import { CanvasAssetNode } from "@/components/CanvasAssetNode";
+import { CanvasGifNode } from "@/components/CanvasGifNode";
+import { CanvasSkillNode } from "@/components/CanvasSkillNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
+import { SkillPlugConnections } from "@/components/plugs/SkillPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
@@ -85,6 +89,14 @@ interface PlacementState {
   y: number;
 }
 
+interface ImagePlacementState extends PlacementState {
+  assetId: string;
+  previewUrl: string;
+  aspectRatio: number;
+}
+
+interface GifPlacementState extends SpawnCanvasGifInput, PlacementState {}
+
 export function Canvas({
   containerRef: externalContainerRef,
 }: {
@@ -107,15 +119,24 @@ export function Canvas({
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
   const spawnCanvasAsset = useCanvasStore((s) => s.spawnCanvasAsset);
+  const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
+  const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
+  const spawnCanvasSkill = useCanvasStore((s) => s.spawnCanvasSkill);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
+  const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
+  const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
   const selectedCanvasTextLabelId = useCanvasStore(
     (s) => s.selectedCanvasTextLabelId,
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
+  const spawnCanvasGif = useCanvasStore((s) => s.spawnCanvasGif);
+  const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
+  const imagePlacementAssetId = useCanvasStore((s) => s.imagePlacementAssetId);
+  const gifPlacementRequest = useCanvasStore((s) => s.gifPlacementRequest);
   const removeCanvasTextLabel = useCanvasStore((s) => s.removeCanvasTextLabel);
   const createVideoArtifactFromUrl = useCanvasStore(
     (s) => s.createVideoArtifactFromUrl,
@@ -221,16 +242,29 @@ export function Canvas({
   const [textPlacement, setTextPlacement] = useState<PlacementState | null>(
     null,
   );
+  const [imagePlacement, setImagePlacement] =
+    useState<ImagePlacementState | null>(null);
+  const [gifPlacement, setGifPlacement] = useState<GifPlacementState | null>(
+    null,
+  );
   const [autoEditLabelId, setAutoEditLabelId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
   const textPlacementRef = useRef<PlacementState | null>(null);
+  const imagePlacementRef = useRef<ImagePlacementState | null>(null);
+  const gifPlacementRef = useRef<GifPlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
   }, [placement]);
   useEffect(() => {
     textPlacementRef.current = textPlacement;
   }, [textPlacement]);
+  useEffect(() => {
+    imagePlacementRef.current = imagePlacement;
+  }, [imagePlacement]);
+  useEffect(() => {
+    gifPlacementRef.current = gifPlacement;
+  }, [gifPlacement]);
 
   const canvasPlacementRequest = useCanvasStore((s) => s.canvasPlacementRequest);
 
@@ -247,6 +281,8 @@ export function Canvas({
     if (!world) return;
     const pos = placementWorld(world);
     setContextMenu(null);
+    setImagePlacement(null);
+    setGifPlacement(null);
     if (tool === "question") {
       setTextPlacement(null);
       setPlacement(pos);
@@ -256,6 +292,53 @@ export function Canvas({
     }
   };
 
+  const beginImagePlacementAtCursor = (asset: {
+    id: string;
+    publicUrl: string;
+    aspectRatio?: number;
+  }) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const pos = placementWorld(world);
+    setContextMenu(null);
+    setPlacement(null);
+    setTextPlacement(null);
+    setGifPlacement(null);
+    setImagePlacement({
+      assetId: asset.id,
+      previewUrl: asset.publicUrl,
+      aspectRatio: asset.aspectRatio && asset.aspectRatio > 0 ? asset.aspectRatio : 1,
+      ...pos,
+    });
+  };
+
+  const beginGifPlacementAtCursor = (input: SpawnCanvasGifInput) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const pos = placementWorld(world);
+    setContextMenu(null);
+    setPlacement(null);
+    setTextPlacement(null);
+    setImagePlacement(null);
+    setGifPlacement({ ...input, ...pos });
+  };
+
   useEffect(() => {
     if (!canvasPlacementRequest) return;
     beginPlacementAtCursor(canvasPlacementRequest);
@@ -263,11 +346,30 @@ export function Canvas({
   }, [canvasPlacementRequest]);
 
   useEffect(() => {
-    const mode = placement ? "question" : textPlacement ? "text" : null;
+    if (!imagePlacementAssetId) return;
+    const asset = useCanvasStore.getState().canvasAssets[imagePlacementAssetId];
+    useCanvasStore.setState({ imagePlacementAssetId: null });
+    if (!asset) return;
+    beginImagePlacementAtCursor(asset);
+  }, [imagePlacementAssetId]);
+
+  useEffect(() => {
+    if (!gifPlacementRequest) return;
+    const input = gifPlacementRequest;
+    useCanvasStore.setState({ gifPlacementRequest: null });
+    beginGifPlacementAtCursor(input);
+  }, [gifPlacementRequest]);
+
+  useEffect(() => {
+    const mode = placement
+      ? "question"
+      : textPlacement || imagePlacement || gifPlacement
+        ? "text"
+        : null;
     if (useCanvasStore.getState().activeCanvasPlacement !== mode) {
       useCanvasStore.setState({ activeCanvasPlacement: mode });
     }
-  }, [placement, textPlacement]);
+  }, [placement, textPlacement, imagePlacement, gifPlacement]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -498,6 +600,22 @@ export function Canvas({
         const world = computeWorldFromClient(e.clientX, e.clientY);
         if (world) setTextPlacement(placementWorld(world));
       }
+      if (imagePlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) {
+          setImagePlacement((prev) =>
+            prev ? { ...prev, ...placementWorld(world) } : prev,
+          );
+        }
+      }
+      if (gifPlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) {
+          setGifPlacement((prev) =>
+            prev ? { ...prev, ...placementWorld(world) } : prev,
+          );
+        }
+      }
     };
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
@@ -563,6 +681,14 @@ export function Canvas({
           e.preventDefault();
           setTextPlacement(null);
         }
+        if (imagePlacementRef.current) {
+          e.preventDefault();
+          setImagePlacement(null);
+        }
+        if (gifPlacementRef.current) {
+          e.preventDefault();
+          setGifPlacement(null);
+        }
         setContextMenu(null);
         useCanvasStore.getState().clearSelection();
         useCanvasStore.getState().selectCanvasTextLabel(null);
@@ -603,7 +729,14 @@ export function Canvas({
         }
       }
 
-      if (placementRef.current || textPlacementRef.current) return;
+      if (
+        placementRef.current ||
+        textPlacementRef.current ||
+        imagePlacementRef.current ||
+        gifPlacementRef.current
+      ) {
+        return;
+      }
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -620,6 +753,8 @@ export function Canvas({
       e.stopPropagation();
       setContextMenu(null);
       setTextPlacement(null);
+      setImagePlacement(null);
+      setGifPlacement(null);
       target?.blur();
       setPlacement(placementWorld(world));
     };
@@ -641,7 +776,14 @@ export function Canvas({
         if (target.isContentEditable) return;
       }
 
-      if (placementRef.current || textPlacementRef.current) return;
+      if (
+        placementRef.current ||
+        textPlacementRef.current ||
+        imagePlacementRef.current ||
+        gifPlacementRef.current
+      ) {
+        return;
+      }
 
       e.preventDefault();
       e.stopPropagation();
@@ -685,7 +827,8 @@ export function Canvas({
       e.stopPropagation();
       setContextMenu(null);
       setPlacement(null);
-      setTextPlacement(null);
+      setImagePlacement(null);
+      setGifPlacement(null);
     };
 
     window.addEventListener("paste", onPaste, true);
@@ -697,6 +840,49 @@ export function Canvas({
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+
+      const gifPos = gifPlacementRef.current;
+      if (gifPos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const aspect = gifPos.aspectRatio > 0 ? gifPos.aspectRatio : 1;
+        const w = DEFAULT_GIF_WIDTH;
+        spawnCanvasGif(
+          {
+            url: gifPos.url,
+            previewUrl: gifPos.previewUrl,
+            title: gifPos.title,
+            category: gifPos.category,
+            aspectRatio: aspect,
+            sourceId: gifPos.sourceId,
+          },
+          {
+            position: { x: gifPos.x - w / 2, y: gifPos.y - w / aspect / 2 },
+            focus: true,
+          },
+        );
+        setGifPlacement(null);
+        return;
+      }
+
+      const imagePos = imagePlacementRef.current;
+      if (imagePos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const asset = useCanvasStore.getState().canvasAssets[imagePos.assetId];
+        if (asset) {
+          const bounds = getCanvasAssetBounds({}, asset);
+          spawnCanvasAsset(imagePos.assetId, {
+            position: {
+              x: imagePos.x - bounds.w / 2,
+              y: imagePos.y - bounds.h / 2,
+            },
+            focus: true,
+          });
+        }
+        setImagePlacement(null);
+        return;
+      }
 
       const textPos = textPlacementRef.current;
       if (textPos) {
@@ -727,7 +913,7 @@ export function Canvas({
     window.addEventListener("pointerdown", onPointerDown, true);
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
-  }, [createRootCard, spawnCanvasTextLabel]);
+  }, [createRootCard, spawnCanvasAsset, spawnCanvasGif, spawnCanvasTextLabel]);
 
   const placeCanvasAsset = (
     assetId: string,
@@ -796,6 +982,42 @@ export function Canvas({
       return;
     }
 
+    if (payload.kind === "skill") {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      spawnCanvasSkill(payload.skillId, {
+        position: {
+          x: world.x - CANVAS_SKILL_SIZE / 2,
+          y: world.y - CANVAS_SKILL_SIZE / 2,
+        },
+        focus: true,
+      });
+      return;
+    }
+
+    if (payload.kind === "gif") {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const aspect = payload.aspectRatio > 0 ? payload.aspectRatio : 1;
+      const w = DEFAULT_GIF_WIDTH;
+      spawnCanvasGif(
+        {
+          url: payload.url,
+          previewUrl: payload.previewUrl,
+          title: payload.title,
+          category: payload.category,
+          aspectRatio: aspect,
+          sourceId: payload.sourceId,
+        },
+        {
+          position: { x: world.x - w / 2, y: world.y - w / aspect / 2 },
+          focus: true,
+        },
+      );
+      setGifPickerOpen(false);
+      return;
+    }
+
     const world = computeWorldFromClient(e.clientX, e.clientY);
     if (!world) return;
     const att = uploadedAttachments.find((a) => a.id === payload.attachmentId);
@@ -827,10 +1049,19 @@ export function Canvas({
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (placementRef.current || textPlacementRef.current) return;
+    if (
+      placementRef.current ||
+      textPlacementRef.current ||
+      imagePlacementRef.current ||
+      gifPlacementRef.current
+    ) {
+      return;
+    }
     if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-artifact]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-asset]")) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-gif]")) return;
+    if ((e.target as HTMLElement).closest("[data-canvas-skill]")) return;
     if ((e.target as HTMLElement).closest("[data-canvas-text-label]")) return;
     setContextMenu({ screenX: e.clientX, screenY: e.clientY });
   };
@@ -874,12 +1105,21 @@ export function Canvas({
   const isCanvasBackgroundTarget = (target: HTMLElement) =>
     !target.closest("[data-canvas-card]") &&
     !target.closest("[data-canvas-artifact]") &&
+    !target.closest("[data-canvas-asset]") &&
+    !target.closest("[data-canvas-gif]") &&
     !target.closest("[data-canvas-text-label]") &&
     !target.closest("[data-canvas-landing]") &&
     !target.closest("[data-group-summary-icon]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (placementRef.current || textPlacementRef.current) return;
+    if (
+      placementRef.current ||
+      textPlacementRef.current ||
+      imagePlacementRef.current ||
+      gifPlacementRef.current
+    ) {
+      return;
+    }
     if (useCanvasStore.getState().plugDrag) return;
     const target = e.target as HTMLElement;
     if (!isCanvasBackgroundTarget(target)) return;
@@ -977,7 +1217,7 @@ export function Canvas({
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
       className={`absolute inset-0 overflow-hidden bg-canvas-bg font-sans select-none touch-none ${
-        placement || textPlacement
+        placement || textPlacement || imagePlacement || gifPlacement
           ? "cursor-crosshair"
           : spaceHeld
             ? "cursor-grab active:cursor-grabbing"
@@ -988,6 +1228,7 @@ export function Canvas({
       <CanvasViewport>
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
+        <SkillPlugConnections />
         {groupList.map((group) => (
           <GroupBounds key={group.id} group={group} />
         ))}
@@ -1020,6 +1261,22 @@ export function Canvas({
           }
           return <CanvasAssetNode key={id} node={node} />;
         })}
+        {canvasGifOrder.map((id) => {
+          const node = canvasGifNodes[id];
+          if (!node) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.gifs.has(id)) {
+            return null;
+          }
+          return <CanvasGifNode key={id} node={node} />;
+        })}
+        {canvasSkillOrder.map((id) => {
+          const node = canvasSkillNodes[id];
+          if (!node) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.skills.has(id)) {
+            return null;
+          }
+          return <CanvasSkillNode key={id} node={node} />;
+        })}
         {canvasTextLabelOrder.map((id) => {
           const label = canvasTextLabels[id];
           if (!label) return null;
@@ -1042,6 +1299,8 @@ export function Canvas({
         <Connections />
         {placement && <GhostCard world={placement} />}
         {textPlacement && <GhostTextLabel world={textPlacement} />}
+        {imagePlacement && <GhostImage world={imagePlacement} />}
+        {gifPlacement && <GhostGif world={gifPlacement} />}
       </CanvasViewport>
       {showLanding && !placement && landingCardId && (
         <CanvasLandingOverlay cardId={landingCardId} />
@@ -1095,6 +1354,56 @@ function GhostTextLabel({ world }: { world: PlacementState }) {
       }}
     >
       Text
+    </div>
+  );
+}
+
+function GhostImage({ world }: { world: ImagePlacementState }) {
+  const w = DEFAULT_ASSET_IMAGE_WIDTH;
+  const h = w / (world.aspectRatio > 0 ? world.aspectRatio : 1);
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-50 ring-1 ring-dashed ring-canvas-border"
+      style={{
+        left: world.x - w / 2,
+        top: world.y - h / 2,
+        width: w,
+        height: h,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={world.previewUrl}
+        alt=""
+        draggable={false}
+        className="h-full w-full object-contain"
+      />
+    </div>
+  );
+}
+
+function GhostGif({ world }: { world: GifPlacementState }) {
+  const w = DEFAULT_GIF_WIDTH;
+  const h = w / (world.aspectRatio > 0 ? world.aspectRatio : 1);
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
+      style={{
+        left: world.x - w / 2,
+        top: world.y - h / 2,
+        width: w,
+        height: h,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={world.previewUrl}
+        alt=""
+        draggable={false}
+        className="h-full w-full object-contain"
+      />
     </div>
   );
 }

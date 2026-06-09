@@ -1,7 +1,11 @@
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
-import { materializeCardArtifact } from "@/lib/materializeCardArtifact";
 import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
 import { applyEmittedArtifact } from "@/lib/dummyLLM";
+import {
+  appendPendingEmittedArtifact,
+  processArtifactSpawnQueue,
+} from "@/lib/processArtifactSpawnQueue";
+export { shouldEarlySpawnArtifact } from "@/lib/processArtifactSpawnQueue";
 import {
   getLatestVersion,
   getVersionById,
@@ -42,15 +46,28 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
   const card = state.cards[cardId];
   const payload = applied.artifactPayload;
 
-  if (payload && card?.outputArtifactId) {
-    const art = state.sessionArtifacts[card.outputArtifactId];
+  const targetArtifactId = card
+    ? (resolveEditingArtifactId(
+        card,
+        state.cards,
+        state.connections,
+        state.cardOrder,
+      ) ?? card.outputArtifactId)
+    : null;
+
+  if (payload && targetArtifactId) {
+    const art = state.sessionArtifacts[targetArtifactId];
     if (
-      (payload.type === "table" && art?.kind === "table") ||
-      (payload.type === "custom" && art?.kind === "custom")
+      art &&
+      ((payload.type === "table" && art.kind === "table") ||
+        (payload.type === "custom" && art.kind === "custom") ||
+        (payload.type === "timeline" && art.kind === "timeline") ||
+        (payload.type === "calendar" && art.kind === "calendar") ||
+        (payload.type === "todo" && art.kind === "todo"))
     ) {
       appendStreamedArtifactVersion(
         cardId,
-        card.outputArtifactId,
+        targetArtifactId,
         payload,
         applied.responseType,
       );
@@ -58,16 +75,11 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
     }
   }
 
-  state.updateCard(cardId, {
-    responseType: applied.responseType,
-    artifactPayload: payload,
-    thinkingLabel: payload ? `Building ${payload.type}…` : undefined,
-  });
+  appendPendingEmittedArtifact(cardId, emitted);
 }
 
 export function handleArtifactOnDone(cardId: string): string | null {
-  const result = finalizeCardResponse(cardId, {});
-  return result;
+  return finalizeCardResponse(cardId, {});
 }
 
 /** Commit artifacts and mark the card done in one store update. */
@@ -79,49 +91,38 @@ export function finalizeCardResponse(
   const card = state.cards[cardId];
   if (!card) return null;
 
-  const materialized = materializeCardArtifact(card, state.sessionArtifacts, {
-    cards: state.cards,
-    connections: state.connections,
-    cardOrder: state.cardOrder,
-  });
+  const hasQueue =
+    (card.pendingEmittedArtifacts?.length ?? 0) > 0 || !!card.artifactPayload;
 
-  let artifactId: string | null = null;
-  let versionId: string | null = null;
-
-  useCanvasStore.setState((current) => {
-    const baseCard = materialized
-      ? materialized.card
-      : current.cards[cardId];
-    if (!baseCard) return current;
-
-    artifactId = materialized?.artifactId ?? null;
-    versionId = materialized?.versionId ?? null;
-
-    return {
-      ...(materialized
-        ? { sessionArtifacts: materialized.sessionArtifacts }
-        : {}),
-      cards: {
-        ...current.cards,
-        [cardId]: {
-          ...baseCard,
-          status: "done",
-          thinkingLabel: undefined,
-          pendingFiles: undefined,
-          responseType:
-            opts.responseType ?? baseCard.responseType ?? "text",
+  if (!hasQueue) {
+    useCanvasStore.setState((current) => {
+      const base = current.cards[cardId];
+      if (!base) return current;
+      return {
+        cards: {
+          ...current.cards,
+          [cardId]: {
+            ...base,
+            status: "done",
+            thinkingLabel: undefined,
+            pendingFiles: undefined,
+            responseType: opts.responseType ?? base.responseType ?? "text",
+          },
         },
-      },
-    };
-  });
-
-  if (artifactId && versionId) {
-    useCanvasStore
-      .getState()
-      .spawnCanvasArtifact(artifactId, versionId, { focus: true });
-    return artifactId;
+      };
+    });
+    return null;
   }
-  return null;
+
+  const artifactId = processArtifactSpawnQueue(cardId);
+
+  if (opts.responseType) {
+    useCanvasStore.getState().updateCard(cardId, {
+      responseType: opts.responseType,
+    });
+  }
+
+  return artifactId;
 }
 
 export function resolveEditingPayloadForApi(cardId: string): {

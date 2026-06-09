@@ -1,7 +1,9 @@
 "use client";
 
 import { AmbientGradientBackground } from "@/components/canvasBackgrounds/AmbientGradientBackground";
+import { GradientGridBackground } from "@/components/canvasBackgrounds/GradientGridBackground";
 import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
+import { NeatGradientBackground } from "@/components/canvasBackgrounds/NeatGradientBackground";
 import { NetworkBackground } from "@/components/canvasBackgrounds/NetworkBackground";
 import { RisingSunBackground } from "@/components/canvasBackgrounds/RisingSunBackground";
 import { SkyBackground } from "@/components/canvasBackgrounds/SkyBackground";
@@ -55,6 +57,16 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
     label: "Rising Sun",
     description: "Warm animated sunrise from Unicorn Studio",
   },
+  {
+    id: "gradient-grid",
+    label: "Gradient grid",
+    description: "Line grid with a soft purple glow",
+  },
+  {
+    id: "neat-gradient",
+    label: "Neat gradient",
+    description: "Animated deep blue gradient from FireCMS Neat",
+  },
 ];
 
 export const BACKGROUND_COMPONENTS: Record<
@@ -66,6 +78,8 @@ export const BACKGROUND_COMPONENTS: Record<
   sky: SkyBackground,
   network: NetworkBackground,
   "rising-sun": RisingSunBackground,
+  "gradient-grid": GradientGridBackground,
+  "neat-gradient": NeatGradientBackground,
 };
 
 export function getBackgroundOptionsForTheme(

@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type {
   AttachedArtifactRef,
   AttachedAssetRef,
+  AttachedSkillRef,
   PendingFileAttachment,
 } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
@@ -17,6 +18,7 @@ import {
 export function useSidebarDropTarget(handlers: {
   onArtifact?: (ref: AttachedArtifactRef) => void;
   onAsset?: (ref: AttachedAssetRef) => void;
+  onSkill?: (ref: AttachedSkillRef) => void;
   onUpload?: (file: PendingFileAttachment) => void;
 }) {
   const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
@@ -39,6 +41,11 @@ export function useSidebarDropTarget(handlers: {
 
       if (payload.kind === "asset") {
         handlers.onAsset?.({ assetId: payload.assetId });
+        return;
+      }
+
+      if (payload.kind === "skill") {
+        handlers.onSkill?.({ skillId: payload.skillId });
         return;
       }
 

@@ -3,6 +3,7 @@
 import { useCanvasStore, type CardSide } from "@/lib/store";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
+import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
@@ -26,6 +27,8 @@ export function PlugConnectorLayer() {
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
   const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
+  const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
+  const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const tuning = RESOLVED_CANVAS_TUNING;
@@ -83,7 +86,7 @@ export function PlugConnectorLayer() {
       (artCard && threads[artCard.threadId]?.accentColour) ??
       STROKE_FALLBACK;
     dashed = true;
-  } else {
+  } else if (plugDrag.kind === "asset") {
     const node = canvasAssetNodes[plugDrag.assetNodeId];
     if (!node) return null;
     const asset = canvasAssets[node.assetId];
@@ -98,6 +101,22 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     stroke = "#7C9EFF";
+    dashed = true;
+  } else {
+    const node = canvasSkillNodes[plugDrag.skillNodeId];
+    if (!node) return null;
+    const skill = canvasSkills[node.skillId];
+    const { w, h } = getCanvasSkillBounds(node, skill);
+    fromSide = plugDrag.fromSide;
+    toSide = plugDrag.fromSide === "left" ? "right" : "left";
+    fromAnchor = plugAnchorAt(
+      node.position.x,
+      node.position.y,
+      w,
+      h,
+      fromSide,
+    );
+    stroke = STROKE_FALLBACK;
     dashed = true;
   }
 

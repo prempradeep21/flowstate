@@ -1,12 +1,17 @@
 import RBush from "rbush";
 import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
+import { getCanvasGifBounds } from "@/lib/canvasGifBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
+import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { estimateTextLabelBounds } from "@/lib/canvasTextLabelBounds";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import type {
   CanvasArtifactNode,
   CanvasAsset,
   CanvasAssetNode,
+  CanvasGifNode,
+  CanvasSkill,
+  CanvasSkillNode,
   CanvasTextLabel,
   Card,
   SessionArtifact,
@@ -23,6 +28,8 @@ export interface VisibleNodes {
   cards: Set<string>;
   artifacts: Set<string>;
   assets: Set<string>;
+  gifs: Set<string>;
+  skills: Set<string>;
   labels: Set<string>;
 }
 
@@ -31,7 +38,7 @@ interface SpatialEntry {
   minY: number;
   maxX: number;
   maxY: number;
-  kind: "card" | "artifact" | "asset" | "label";
+  kind: "card" | "artifact" | "asset" | "gif" | "skill" | "label";
   id: string;
 }
 
@@ -46,6 +53,11 @@ export interface CanvasSpatialInput {
   canvasAssets: Record<string, CanvasAsset>;
   canvasAssetNodes: Record<string, CanvasAssetNode>;
   canvasAssetOrder: string[];
+  canvasGifNodes: Record<string, CanvasGifNode>;
+  canvasGifOrder: string[];
+  canvasSkills: Record<string, CanvasSkill>;
+  canvasSkillNodes: Record<string, CanvasSkillNode>;
+  canvasSkillOrder: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -116,6 +128,35 @@ export function buildCanvasSpatialIndex(
     });
   }
 
+  for (const id of input.canvasGifOrder) {
+    const node = input.canvasGifNodes[id];
+    if (!node) continue;
+    const { w, h } = getCanvasGifBounds(node);
+    entries.push({
+      minX: node.position.x,
+      minY: node.position.y,
+      maxX: node.position.x + w,
+      maxY: node.position.y + h,
+      kind: "gif",
+      id,
+    });
+  }
+
+  for (const id of input.canvasSkillOrder) {
+    const node = input.canvasSkillNodes[id];
+    if (!node) continue;
+    const skill = input.canvasSkills[node.skillId];
+    const { w, h } = getCanvasSkillBounds(node, skill);
+    entries.push({
+      minX: node.position.x,
+      minY: node.position.y,
+      maxX: node.position.x + w,
+      maxY: node.position.y + h,
+      kind: "skill",
+      id,
+    });
+  }
+
   for (const id of input.canvasTextLabelOrder) {
     const label = input.canvasTextLabels[id];
     if (!label) continue;
@@ -141,6 +182,8 @@ export function queryVisibleNodes(
     cards?: Iterable<string>;
     artifacts?: Iterable<string>;
     assets?: Iterable<string>;
+    gifs?: Iterable<string>;
+    skills?: Iterable<string>;
     labels?: Iterable<string>;
   } = {},
 ): VisibleNodes {
@@ -155,16 +198,20 @@ export function queryVisibleNodes(
   const cards = new Set<string>(alwaysVisible.cards ?? []);
   const artifacts = new Set<string>(alwaysVisible.artifacts ?? []);
   const assets = new Set<string>(alwaysVisible.assets ?? []);
+  const gifs = new Set<string>(alwaysVisible.gifs ?? []);
+  const skills = new Set<string>(alwaysVisible.skills ?? []);
   const labels = new Set<string>(alwaysVisible.labels ?? []);
 
   for (const hit of hits) {
     if (hit.kind === "card") cards.add(hit.id);
     else if (hit.kind === "artifact") artifacts.add(hit.id);
     else if (hit.kind === "asset") assets.add(hit.id);
+    else if (hit.kind === "gif") gifs.add(hit.id);
+    else if (hit.kind === "skill") skills.add(hit.id);
     else labels.add(hit.id);
   }
 
-  return { cards, artifacts, assets, labels };
+  return { cards, artifacts, assets, gifs, skills, labels };
 }
 
 export function shouldEnableViewportCulling(nodeCount: number): boolean {

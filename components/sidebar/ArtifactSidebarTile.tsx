@@ -39,7 +39,7 @@ export function ArtifactSidebarTile({
         .join(" ")}
       style={sidebarTileStyle(layout)}
     >
-      <div className="h-full min-h-0 w-full">
+      <div className="pointer-events-none h-full min-h-0 w-full">
         <SidebarTileMount>
           <ArtifactContent payload={item.payload} layout="sidebar" />
         </SidebarTileMount>

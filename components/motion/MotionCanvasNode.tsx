@@ -1,6 +1,6 @@
 "use client";
 
-import { m } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import type { ReactNode } from "react";
 import { useRef } from "react";
 import {
@@ -15,7 +15,13 @@ import {
   clearWillChange,
 } from "@/lib/motion/performance";
 import { useReducedMotion } from "@/lib/motion/useReducedMotion";
-import { dropVariants, popUpVariants, SPAWN_ANIMATION_MS } from "@/lib/motion/variants";
+import { ARTIFACT_SPAWN_ANIMATION_MS } from "@/lib/motion/tokens";
+import {
+  artifactPopUpVariants,
+  dropVariants,
+  popUpVariants,
+  SPAWN_ANIMATION_MS,
+} from "@/lib/motion/variants";
 
 function CanvasLoadRevealWrapper({
   delay,
@@ -50,11 +56,13 @@ export function MotionCanvasNode({
   targetId,
   targetKind,
   bounds,
+  isExiting = false,
   children,
 }: {
   targetId: string;
   targetKind: SpawnTargetKind;
   bounds: { x: number; y: number; w: number; h: number };
+  isExiting?: boolean;
   children: ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -63,14 +71,39 @@ export function MotionCanvasNode({
   const loadRevealDelay = useCanvasLoadRevealDelay(targetId, targetKind);
   const reducedMotion = useReducedMotion();
 
-  useClearSpawnMetaAfterAnimation(targetId, targetKind, SPAWN_ANIMATION_MS);
+  const spawnAnimationMs =
+    targetKind === "artifact" ? ARTIFACT_SPAWN_ANIMATION_MS : SPAWN_ANIMATION_MS;
+  useClearSpawnMetaAfterAnimation(targetId, targetKind, spawnAnimationMs);
+
+  if (isExiting) {
+    const exitVariant = reducedMotion
+      ? popUpVariants.reducedExit
+      : popUpVariants.exit;
+    return (
+      <AnimatePresence mode="popLayout">
+        <m.div
+          key="exit"
+          ref={wrapperRef}
+          className="h-full w-full"
+          initial={false}
+          animate={exitVariant}
+          onAnimationStart={() => applyWillChange(wrapperRef.current)}
+          onAnimationComplete={() => clearWillChange(wrapperRef.current)}
+        >
+          {children}
+        </m.div>
+      </AnimatePresence>
+    );
+  }
 
   if (spawnKind && motionMode !== "none") {
     const variants =
       spawnKind === "drop"
         ? dropVariants
         : spawnKind === "popUp"
-          ? popUpVariants
+          ? targetKind === "artifact"
+            ? artifactPopUpVariants
+            : popUpVariants
           : null;
 
     if (variants) {

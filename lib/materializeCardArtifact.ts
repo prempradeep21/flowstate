@@ -10,7 +10,7 @@ import {
 } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
 
-export type ArtifactPreviewStatus = "generating" | "ready" | "failed";
+export type ArtifactPreviewStatus = "generating" | "ready" | "failed" | "pending";
 
 export interface MaterializeContext {
   cards: Record<string, Card>;

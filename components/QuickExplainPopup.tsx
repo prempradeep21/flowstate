@@ -1,6 +1,37 @@
 "use client";
 
+import { m } from "framer-motion";
 import type { AnswerExplain } from "@/lib/store";
+import { framerTransition } from "@/lib/motion/transitions";
+import { useReducedMotion } from "@/lib/motion/useReducedMotion";
+
+const quickExplainTransition = framerTransition("fast", "easeLight");
+
+const quickExplainVariants = {
+  initial: { opacity: 0, scale: 0.96, x: -6 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    x: 0,
+    transition: quickExplainTransition,
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.96,
+    x: -6,
+    transition: quickExplainTransition,
+  },
+  reduced: {
+    opacity: 1,
+    scale: 1,
+    x: 0,
+    transition: { duration: 0 },
+  },
+  reducedExit: {
+    opacity: 0,
+    transition: { duration: 0 },
+  },
+};
 
 function HelpCircleIcon({ className }: { className?: string }) {
   return (
@@ -58,20 +89,25 @@ export function QuickExplainPopup({
   anchorY: number;
   onClose: () => void;
 }) {
+  const reducedMotion = useReducedMotion();
   const isLoading = explain.status === "loading";
   const isError = explain.status === "error";
 
   return (
-    <div
+    <m.div
       data-quick-explain-popup
       role="dialog"
       aria-label={`Quick explain: ${explain.selectedText}`}
       aria-busy={isLoading}
-      className="motion-fade-in absolute z-40 w-[280px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm"
+      initial={reducedMotion ? "reduced" : "initial"}
+      animate={reducedMotion ? "reduced" : "animate"}
+      exit={reducedMotion ? "reducedExit" : "exit"}
+      variants={quickExplainVariants}
+      className="absolute z-40 w-[280px] origin-left overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm"
       style={{
         left: "calc(100% + 12px)",
         top: anchorY,
-        transform: "translateY(-50%)",
+        y: "-50%",
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
@@ -138,6 +174,6 @@ export function QuickExplainPopup({
           </p>
         )}
       </div>
-    </div>
+    </m.div>
   );
 }

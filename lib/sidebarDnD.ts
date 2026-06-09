@@ -1,5 +1,9 @@
-import type { AttachedArtifactRef, PendingFileAttachment } from "@/lib/store";
-import type { UploadedAttachment } from "@/lib/store";
+import type {
+  AttachedArtifactRef,
+  CanvasGifCategory,
+  PendingFileAttachment,
+  UploadedAttachment,
+} from "@/lib/store";
 
 export const SIDEBAR_DRAG_MIME = "application/x-flowstate-item";
 
@@ -9,10 +13,13 @@ export type SidebarArtifactCategory =
   | "3d"
   | "image"
   | "map"
+  | "streetview"
   | "todo"
+  | "calendar"
   | "website"
   | "repo"
-  | "embed";
+  | "embed"
+  | "timeline";
 
 export type SidebarDragPayload =
   | {
@@ -22,7 +29,17 @@ export type SidebarDragPayload =
       category: SidebarArtifactCategory;
     }
   | { kind: "upload"; attachmentId: string }
-  | { kind: "asset"; assetId: string };
+  | { kind: "asset"; assetId: string }
+  | { kind: "skill"; skillId: string }
+  | {
+      kind: "gif";
+      url: string;
+      previewUrl: string;
+      title: string;
+      category: CanvasGifCategory;
+      aspectRatio: number;
+      sourceId: string;
+    };
 
 export function setSidebarDragData(
   dataTransfer: DataTransfer,
@@ -50,6 +67,17 @@ export function parseSidebarDragPayload(
       return parsed;
     }
     if (parsed.kind === "asset" && parsed.assetId) {
+      return parsed;
+    }
+    if (parsed.kind === "skill" && parsed.skillId) {
+      return parsed;
+    }
+    if (
+      parsed.kind === "gif" &&
+      parsed.url &&
+      parsed.sourceId &&
+      (parsed.category === "gif" || parsed.category === "sticker")
+    ) {
       return parsed;
     }
   } catch {

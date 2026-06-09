@@ -9,8 +9,12 @@ import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import {
+  CALENDAR_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
+  detectCalendarIntent,
   detectCustomUiIntent,
+  detectTimelineIntent,
+  TIMELINE_THINKING_LABEL,
 } from "@/lib/artifactIntent";
 import {
   ClaudeModel,
@@ -67,9 +71,13 @@ export function askClaude(
 
   const run = async () => {
     cb.onThinking(
-      detectCustomUiIntent(question)
-        ? CUSTOM_UI_THINKING_LABEL
-        : "Thinking",
+      detectCalendarIntent(question)
+        ? CALENDAR_THINKING_LABEL
+        : detectTimelineIntent(question)
+          ? TIMELINE_THINKING_LABEL
+          : detectCustomUiIntent(question)
+            ? CUSTOM_UI_THINKING_LABEL
+            : "Thinking",
     );
     try {
       const state = useCanvasStore.getState();
@@ -87,6 +95,7 @@ export function askClaude(
 
       const files: PendingFileAttachment[] = [...(card?.pendingFiles ?? [])];
       const assetTextContexts: string[] = [];
+      const skillTextContexts: string[] = [];
       if (card?.images?.length) {
         for (const img of card.images) {
           if (img.url.startsWith("data:")) {
@@ -134,12 +143,44 @@ export function askClaude(
         }
       }
 
+      for (const ref of card?.attachedSkills ?? []) {
+        const skill = state.canvasSkills[ref.skillId];
+        if (!skill?.publicUrl) continue;
+        try {
+          const response = await fetch(skill.publicUrl);
+          if (!response.ok) continue;
+          const raw = await response.text();
+          const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
+          const text = truncated
+            ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
+            : raw;
+          skillTextContexts.push(
+            `Skill: ${skill.title}\n${text}${
+              truncated ? "\n[Skill truncated due to size limit]" : ""
+            }`,
+          );
+        } catch {
+          skillTextContexts.push(
+            `Skill: ${skill.title} could not be loaded.`,
+          );
+        }
+      }
+
       await registerConversation(cardId, parentConversationId);
+      const contextBlocks: string[] = [];
+      if (assetTextContexts.length > 0) {
+        contextBlocks.push(
+          `Attached asset context:\n\n${assetTextContexts.join("\n\n---\n\n")}`,
+        );
+      }
+      if (skillTextContexts.length > 0) {
+        contextBlocks.push(
+          `Attached skill context:\n\n${skillTextContexts.join("\n\n---\n\n")}`,
+        );
+      }
       const questionWithAssetContext =
-        assetTextContexts.length > 0
-          ? `${question}\n\nAttached asset context:\n\n${assetTextContexts.join(
-              "\n\n---\n\n",
-            )}`
+        contextBlocks.length > 0
+          ? `${question}\n\n${contextBlocks.join("\n\n")}`
           : question;
 
       const res = await fetch("/api/chat", {
@@ -201,7 +242,10 @@ export function askClaude(
                 "custom",
                 "3d",
                 "map",
+                "streetview",
                 "todo",
+                "calendar",
+                "timeline",
               ] as const;
               if (
                 !raw.type ||
@@ -223,8 +267,14 @@ export function askClaude(
               cb.onResponseType?.("image");
             } else if (parsed.pendingArtifact?.type === "table") {
               cb.onThinking?.("Building table…");
+            } else if (parsed.pendingArtifact?.type === "calendar") {
+              cb.onThinking?.(CALENDAR_THINKING_LABEL);
+            } else if (parsed.pendingArtifact?.type === "timeline") {
+              cb.onThinking?.(TIMELINE_THINKING_LABEL);
             } else if (parsed.pendingArtifact?.type === "custom") {
               cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
+            } else if (parsed.pendingArtifact?.type === "map") {
+              cb.onThinking?.("Preparing map…");
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {
