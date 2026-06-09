@@ -14,7 +14,7 @@ export function useArtifactSpawnChromeReveal(nodeId: string): boolean {
   const spawnMeta = useCanvasStore((s) => s.spawnMeta);
   const [revealActive, setRevealActive] = useState(false);
   const armedAtRef = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const isPopUp =

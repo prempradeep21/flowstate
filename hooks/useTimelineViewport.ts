@@ -7,11 +7,11 @@ import {
   useState,
 } from "react";
 import { durations } from "@/lib/motion/tokens";
+import type { TimelineScale } from "@/lib/artifactTypes";
 import {
   MAX_TIMELINE_ZOOM,
   MIN_TIMELINE_ZOOM,
   pxPerMsFor,
-  type TimelineScale,
 } from "@/lib/timelineLayout";
 
 const PAN_DRAG_THRESHOLD_PX = 4;

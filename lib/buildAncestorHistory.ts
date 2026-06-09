@@ -51,6 +51,14 @@ function artifactContextNote(payload: ArtifactPayload): string {
       const n = payload.data.items?.length ?? 0;
       return `[Card showed to-do list: "${payload.title}" with ${n} item(s)]`;
     }
+    case "calendar": {
+      const n = payload.data.events?.length ?? 0;
+      return `[Card showed calendar: "${payload.title}" with ${n} event(s)]`;
+    }
+    case "timeline": {
+      const n = payload.data.events?.length ?? 0;
+      return `[Card showed timeline: "${payload.title}" with ${n} event(s)]`;
+    }
     case "website":
       return `[Card showed website: "${payload.title}" (${payload.data.url})]`;
     case "repo":
