@@ -55,6 +55,7 @@ export function ArtifactContent({
   calendarCanEdit = false,
   timelineCanEdit = false,
   catalogPreview = false,
+  onImagesContentHeightChange,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
@@ -74,6 +75,8 @@ export function ArtifactContent({
   calendarCanEdit?: boolean;
   timelineCanEdit?: boolean;
   catalogPreview?: boolean;
+  /** Images-only: reports the gallery's natural height so canvas nodes can wrap it. */
+  onImagesContentHeightChange?: (heightPx: number) => void;
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
@@ -101,6 +104,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             allowMediaInteraction={catalogPreview || fill}
+            onContentHeightChange={onImagesContentHeightChange}
           />
         );
       }
@@ -158,12 +162,17 @@ export function ArtifactContent({
       break;
     case "streetview":
       if (payload.type === "streetview") {
-        return (
+        const streetView = (
           <StreetViewArtifactContent
             payload={payload}
             layout={layout}
             forceInteractive={catalogPreview}
           />
+        );
+        return layout === "canvas" ? (
+          <div className="flex min-h-0 w-full flex-1 flex-col">{streetView}</div>
+        ) : (
+          streetView
         );
       }
       break;

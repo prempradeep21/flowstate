@@ -1,4 +1,32 @@
+import type { ArtifactKind } from "@/lib/artifactTypes";
+
 /** Shared Tailwind classes for canvas artifact chrome (casing, header, plugs). */
+
+/**
+ * Always-on solid inner surface so naked artifacts stand against any theme or
+ * background. Input/media artifacts (images, websites, embeds — social posts,
+ * YouTube) are deliberately borderless with no inner fill of their own; street
+ * view stays naked too (its circular shape is the magic) and repo skips the
+ * fill because its hub-and-spoke widgets self-fill.
+ */
+const CANVAS_SURFACE_FILL_KINDS = new Set<ArtifactKind>([
+  "table",
+  "code",
+  "calendar",
+  "todo",
+  "chart",
+  "custom",
+  "timeline",
+  "3d",
+  "map",
+]);
+
+export function artifactKindUsesCanvasSurfaceFill(kind: ArtifactKind): boolean {
+  return CANVAS_SURFACE_FILL_KINDS.has(kind);
+}
+
+/** Vertical chrome overhead of a canvas artifact node: 16px padding ×2 + 56px header band + 22px header gap. */
+export const ARTIFACT_CANVAS_CHROME_HEIGHT_PX = 110;
 
 const CHROME_VISIBLE =
   "group-data-[chrome-hover]/artifact:opacity-100 group-data-[chrome-hover]/artifact:duration-200 group-data-[chrome-reveal]/artifact:opacity-100";

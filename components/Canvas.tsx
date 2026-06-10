@@ -29,11 +29,11 @@ import {
 } from "@/lib/attachments";
 import {
   CANVAS_ARTIFACT_WIDTH,
-  CANVAS_TABLE_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
   useCanvasStore,
   type SpawnCanvasGifInput,
 } from "@/lib/store";
+import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 import {
@@ -1023,9 +1023,7 @@ export function Canvas({
       if (!art) return;
       const world = computeWorldFromClient(e.clientX, e.clientY);
       if (!world) return;
-      const artWidth =
-        art.kind === "table" ? CANVAS_TABLE_ARTIFACT_WIDTH : CANVAS_ARTIFACT_WIDTH;
-      const artHeight = art.kind === "table" ? 480 : 280;
+      const { w: artWidth, h: artHeight } = getArtifactBounds({}, art);
       useCanvasStore.getState().ensureCanvasArtifactAt(
         payload.artifactId,
         payload.versionId,

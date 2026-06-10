@@ -148,7 +148,7 @@ export function WebsiteArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full">
+      <ArtifactContentStage fill className="h-full !bg-transparent">
         <div className="flex h-full min-h-0 flex-col overflow-auto">{card}</div>
       </ArtifactContentStage>
     );

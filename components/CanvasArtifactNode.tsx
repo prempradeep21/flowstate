@@ -30,14 +30,11 @@ import { useArtifactSpawnChromeReveal } from "@/hooks/useArtifactSpawnChromeReve
 import {
   ARTIFACT_CANVAS_CASING_DEFAULT,
   ARTIFACT_CANVAS_CASING_SELECTED,
+  ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
   ARTIFACT_CANVAS_CHROME_OPACITY,
   ARTIFACT_CANVAS_CONTAINER_FILL,
   ARTIFACT_CANVAS_PADDING_CHROME,
 } from "@/lib/artifactCanvasChrome";
-import {
-  ARTIFACT_CHROME_ZONE_ATTR,
-  shouldShowArtifactChromeHover,
-} from "@/lib/artifactChromeHover";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
@@ -49,33 +46,6 @@ const TEXT_SELECTABLE =
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
-}
-
-function ArtifactChromeEdgeZones() {
-  return (
-    <>
-      <div
-        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
-        className="pointer-events-auto absolute inset-x-0 top-0 z-50 h-3"
-        aria-hidden
-      />
-      <div
-        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
-        className="pointer-events-auto absolute inset-x-0 bottom-0 z-50 h-3"
-        aria-hidden
-      />
-      <div
-        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
-        className="pointer-events-auto absolute inset-y-0 left-0 z-50 w-3"
-        aria-hidden
-      />
-      <div
-        {...{ [ARTIFACT_CHROME_ZONE_ATTR]: "" }}
-        className="pointer-events-auto absolute inset-y-0 right-0 z-50 w-3"
-        aria-hidden
-      />
-    </>
-  );
 }
 
 export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
@@ -109,8 +79,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const [todoEditing, setTodoEditing] = useState(false);
   const [chromeHover, setChromeHover] = useState(false);
 
-  const syncChromeHover = useCallback((target: EventTarget | null) => {
-    setChromeHover(shouldShowArtifactChromeHover(target));
+  /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
+  const syncChromeHover = useCallback(() => {
+    setChromeHover(true);
   }, []);
   const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
@@ -144,6 +115,27 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     : undefined;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
   const godView = isGodViewMode(scale);
+
+  /** Image galleries wrap the node around the grid's natural height (no cropping). */
+  const handleImagesContentHeight = useCallback(
+    (contentHeightPx: number) => {
+      const st = useCanvasStore.getState();
+      const current = st.canvasArtifactNodes[node.id];
+      if (!current) return;
+      const bounds = getArtifactBounds(
+        current,
+        current.artifactId ? st.sessionArtifacts[current.artifactId] : undefined,
+      );
+      const next = clampArtifactSize(
+        bounds.w,
+        contentHeightPx + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+      );
+      if (Math.abs(next.h - bounds.h) > 1) {
+        st.setCanvasArtifactSize(node.id, { w: bounds.w, h: next.h });
+      }
+    },
+    [node.id],
+  );
   const sourceCard = cards[node.sourceCardId];
   const plugAccent =
     (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
@@ -211,7 +203,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    syncChromeHover(e.target);
+    syncChromeHover();
 
     const rs = resizeStateRef.current;
     if (rs && rs.pointerId === e.pointerId) {
@@ -328,8 +320,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   if (!preview && !art) return null;
 
-  const isTransparentCanvasChrome =
-    art?.kind === "repo" || art?.kind === "table" || art?.kind === "todo";
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
 
@@ -341,7 +331,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {...(chromeHover ? { "data-chrome-hover": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerEnter={(e) => syncChromeHover(e.target)}
+      onPointerEnter={syncChromeHover}
       onPointerLeave={() => setChromeHover(false)}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
@@ -372,7 +362,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       >
       {!godView && !isPermissionPreview && (
         <>
-          <ArtifactChromeEdgeZones />
           <div
             className={`pointer-events-none absolute inset-y-0 left-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
           >
@@ -407,18 +396,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
                   ? ARTIFACT_CANVAS_CASING_SELECTED
                   : ARTIFACT_CANVAS_CASING_DEFAULT
               }`
-            : isTransparentCanvasChrome
-              ? `flex h-full flex-col overflow-visible bg-transparent p-0 ${
+            : `flex h-full flex-col rounded-canvas ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} transition-shadow ${
+                  isRepoArtifact ? "overflow-visible" : "overflow-hidden"
+                } ${
                   todoEditing
-                    ? "rounded-canvas border-2 border-dashed border-canvas-accent p-5"
+                    ? "border-2 border-dashed border-canvas-accent"
                     : isSelected
-                      ? `rounded-canvas ${ARTIFACT_CANVAS_CASING_SELECTED}`
-                      : ""
-                }`
-              : `flex h-full flex-col overflow-hidden rounded-canvas ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} transition-shadow ${
-                  isSelected
-                    ? ARTIFACT_CANVAS_CASING_SELECTED
-                    : ARTIFACT_CANVAS_CASING_DEFAULT
+                      ? ARTIFACT_CANVAS_CASING_SELECTED
+                      : ARTIFACT_CANVAS_CASING_DEFAULT
                 }`
         }
       >
@@ -450,6 +435,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
+            onImagesContentHeightChange={
+              art.kind === "images" ? handleImagesContentHeight : undefined
+            }
           />
         ) : null}
       </CanvasSharpContent>

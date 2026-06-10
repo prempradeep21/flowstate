@@ -292,26 +292,22 @@ body::-webkit-scrollbar-corner {
   );
 }
 
-/** Canvas artifact — outer container fill hides until hover/reveal; padding stays fixed to avoid layout shift. */
-.artifact-canvas-container-fill,
-.artifact-canvas-surface-fill,
-.artifact-canvas-padding-chrome {
+/** Canvas artifact — outer container fill hides until hover/reveal; padding stays
+   fixed to avoid layout shift. The inner surface fill is ALWAYS visible and
+   theme-dependent so a naked artifact (container chrome hidden) still stands
+   against any canvas theme or background. Street view opts out by kind. */
+.artifact-canvas-container-fill {
   transition:
     background 500ms ease-out,
     background-color 500ms ease-out;
 }
 
 .group\/artifact[data-chrome-hover] .artifact-canvas-container-fill,
-.group\/artifact[data-chrome-reveal] .artifact-canvas-container-fill,
-.group\/artifact[data-chrome-hover] .artifact-canvas-surface-fill,
-.group\/artifact[data-chrome-reveal] .artifact-canvas-surface-fill,
-.group\/artifact[data-chrome-hover] .artifact-canvas-padding-chrome,
-.group\/artifact[data-chrome-reveal] .artifact-canvas-padding-chrome {
+.group\/artifact[data-chrome-reveal] .artifact-canvas-container-fill {
   transition-duration: 200ms;
 }
 
-.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill,
-.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-surface-fill {
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill {
   background: transparent !important;
 }
 
@@ -324,9 +320,9 @@ body::-webkit-scrollbar-corner {
   );
 }
 
-.group\/artifact[data-chrome-hover] .artifact-canvas-surface-fill,
-.group\/artifact[data-chrome-reveal] .artifact-canvas-surface-fill {
-  background-color: rgb(var(--canvas-card)) !important;
+/** Permanent solid artifact fill (theme token flips with html[data-theme]). */
+.artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-card));
 }
 
 /** Matches canvasSpacing.section (16px) — artifact chrome reveal inset. */

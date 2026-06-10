@@ -57,7 +57,7 @@ export function ChartArtifactContent({
 
   return (
     <div
-      className={`flex flex-col overflow-hidden bg-canvas-artifactStage ${
+      className={`flex flex-col overflow-hidden rounded-canvas-sm bg-canvas-artifactStage ${
         fill ? "h-full min-h-0" : ""
       }`}
     >

@@ -260,10 +260,14 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className={`group/asset absolute rounded-canvas border bg-canvas-card shadow-card transition-shadow ${
-          isSelected
-            ? "border-canvas-ink shadow-cardHover"
-            : "border-canvas-border hover:shadow-cardHover"
+        className={`group/asset absolute rounded-canvas border transition-shadow ${
+          asset.kind === "image"
+            ? isSelected
+              ? "border-canvas-ink bg-transparent shadow-none"
+              : "border-transparent bg-transparent shadow-none hover:border-canvas-border/60"
+            : isSelected
+              ? "border-canvas-ink bg-canvas-card shadow-cardHover"
+              : "border-canvas-border bg-canvas-card shadow-card hover:shadow-cardHover"
         }`}
         style={{
           left: node.position.x,
@@ -289,7 +293,8 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
 
         <CanvasSharpContent worldWidth={width} className="h-full w-full">
           {asset.kind === "image" ? (
-            <div className="h-full w-full overflow-hidden rounded-canvas bg-canvas-bg">
+            // No backdrop fill — transparent PNGs float directly on the canvas.
+            <div className="h-full w-full overflow-hidden rounded-canvas">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={asset.publicUrl}

@@ -22,6 +22,7 @@ import {
   formatRichTextForDisplay,
   RICH_TEXT_CLASS,
 } from "@/lib/richTextDisplay";
+import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
 
 const MAX_ENTRANCE_MS = 3000;
 
@@ -50,6 +51,7 @@ export function ArtifactTable({
   maxHeightClassName = "max-h-[420px]",
   compact = false,
   animate = true,
+  canvasSurface = false,
 }: {
   columns: TableColumn[];
   rows: TableRow[];
@@ -58,7 +60,12 @@ export function ArtifactTable({
   maxHeightClassName?: string;
   compact?: boolean;
   animate?: boolean;
+  /** Canvas: defer opaque surface until artifact chrome hover. */
+  canvasSurface?: boolean;
 }) {
+  const surfaceBg = canvasSurface
+    ? ARTIFACT_CANVAS_SURFACE_FILL
+    : "bg-canvas-card";
   const textSize = compact ? "text-canvas-caption" : "text-canvas-body-sm";
   const cellPad = compact ? "px-2 py-1.5" : "px-3 py-2.5";
   const headPad = compact ? "px-2 py-1.5" : "px-3 py-2";
@@ -180,12 +187,12 @@ export function ArtifactTable({
   return (
     <div
       data-canvas-scroll
-      className={`overflow-y-auto overflow-x-hidden bg-canvas-card ${maxHeightClassName}`}
+      className={`overflow-y-auto overflow-x-hidden ${surfaceBg} ${maxHeightClassName}`}
       style={tableAccentStyles(accentSeed)}
     >
       <table
         ref={tableRef}
-        className={`w-full table-fixed border-collapse bg-canvas-card text-left ${textSize}`}
+        className={`w-full table-fixed border-collapse text-left ${textSize} ${surfaceBg}`}
       >
         <colgroup>
           {columns.map((col, colIndex) => {
@@ -206,7 +213,7 @@ export function ArtifactTable({
         </colgroup>
         <thead>
           <tr
-            className="sticky top-0 z-10 border-b bg-canvas-card backdrop-blur-sm"
+            className={`sticky top-0 z-10 border-b backdrop-blur-sm ${surfaceBg}`}
             style={{ borderColor: "var(--table-accent-border)" }}
           >
             {columns.map((col, colIndex) => (
@@ -239,7 +246,7 @@ export function ArtifactTable({
           {rows.map((row: TableRow, ri) => (
             <tr
               key={ri}
-              className="table-artifact-row border-b border-canvas-border/60 bg-canvas-card transition-colors duration-150 last:border-0"
+              className={`table-artifact-row border-b border-canvas-border/60 transition-colors duration-150 last:border-0 ${surfaceBg}`}
             >
               {columns.map((col, ci) => {
                 const spec = widthByKey.get(col.key);

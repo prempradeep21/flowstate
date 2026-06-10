@@ -5,9 +5,11 @@ import { AnswerTextScrollRegion } from "@/components/cards/AnswerTextScrollRegio
 import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import { TextCardBody } from "@/components/cards/TextCardBody";
 import {
+  isQaResponseMissing,
   shouldShowQaAnswerText,
   shouldShowQaArtifactPreview,
 } from "@/lib/qaStreamDisplay";
+import { MissingResponsePlaceholder } from "@/components/cards/MissingResponsePlaceholder";
 import type { AnswerExplain, Card } from "@/lib/store";
 
 interface CardAnswerBodyProps {
@@ -36,6 +38,7 @@ export function CardAnswerBody({
 }: CardAnswerBodyProps) {
   const showPreview = shouldShowQaArtifactPreview(card);
   const showText = shouldShowQaAnswerText(card);
+  const showMissing = isQaResponseMissing(card);
   const scrollKey = `${card.id}:${card.question}`;
   const answerContent = showText ? (
     <TextCardBody
@@ -47,6 +50,8 @@ export function CardAnswerBody({
       textRootRef={textRootRef}
       onExplainClick={onExplainClick}
     />
+  ) : showMissing ? (
+    <MissingResponsePlaceholder />
   ) : showPendingPlaceholder ? (
     <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
   ) : null;

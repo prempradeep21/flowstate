@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import {
   isVideoArtifactPayload,
@@ -11,9 +12,12 @@ import { youtubeEmbedUrl } from "@/lib/youtube";
 function MediaCell({
   item,
   allowInteraction = false,
+  natural = false,
 }: {
   item: ImagesMediaItem;
   allowInteraction?: boolean;
+  /** Render the image at its intrinsic aspect ratio (no cropping). */
+  natural?: boolean;
 }) {
   if (item.kind === "youtube") {
     const embed = youtubeEmbedUrl(item.url);
@@ -44,7 +48,7 @@ function MediaCell({
     <img
       src={item.thumb || item.url}
       alt={item.alt ?? ""}
-      className="h-full w-full object-cover"
+      className={natural ? "block h-auto w-full" : "h-full w-full object-cover"}
     />
   );
 }
@@ -54,25 +58,35 @@ export function ImagesArtifactContent({
   fill = false,
   sidebar = false,
   allowMediaInteraction = false,
+  onContentHeightChange,
 }: {
   payload: Extract<ArtifactPayload, { type: "images" }>;
   fill?: boolean;
   sidebar?: boolean;
   allowMediaInteraction?: boolean;
+  /** Reports the grid's natural height so the canvas node can wrap around it. */
+  onContentHeightChange?: (heightPx: number) => void;
 }) {
   const items = payload.data.items;
   const isVideo = isVideoArtifactPayload(payload);
-  // Videos stay 16:9; image thumbnails use a 4:3 frame.
-  const aspectClass = isVideo ? "aspect-video" : "aspect-[4/3]";
-  // auto-fit (not auto-fill) collapses empty tracks so a single item grows to
-  // fill the available width and scales with the resizable artifact node.
-  const minColWidth = isVideo ? 220 : 140;
+  const measureRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!fill || !onContentHeightChange) return;
+    const el = measureRef.current;
+    if (!el) return;
+    const report = () => onContentHeightChange(el.offsetHeight);
+    const observer = new ResizeObserver(report);
+    observer.observe(el);
+    report();
+    return () => observer.disconnect();
+  }, [fill, onContentHeightChange]);
 
   if (sidebar) {
     return (
       <div className="grid h-full min-h-0 w-full grid-cols-3 grid-rows-2 gap-1 p-1.5">
         {items.slice(0, 6).map((item, i) => (
-          <div key={i} className="relative min-h-0 overflow-hidden rounded-canvas bg-canvas-bg">
+          <div key={i} className="relative min-h-0 overflow-hidden rounded-canvas-sm bg-canvas-bg">
             <div className="absolute inset-0">
               <MediaCell item={item} allowInteraction={allowMediaInteraction} />
             </div>
@@ -82,19 +96,38 @@ export function ImagesArtifactContent({
     );
   }
 
-  const grid = (
+  // Videos keep fixed 16:9 frames (iframes have no intrinsic size); images
+  // flow as borderless masonry columns at their original aspect ratios.
+  const grid = isVideo ? (
     <div
       className="grid gap-2"
       style={{
-        gridTemplateColumns: `repeat(auto-fit, minmax(${minColWidth}px, 1fr))`,
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+      }}
+    >
+      {items.map((item, i) => (
+        <div key={i} className="aspect-video overflow-hidden rounded-canvas-sm">
+          <MediaCell item={item} allowInteraction={allowMediaInteraction} />
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div
+      style={{
+        columnCount: items.length <= 1 ? 1 : items.length <= 4 ? 2 : 3,
+        columnGap: "8px",
       }}
     >
       {items.map((item, i) => (
         <div
           key={i}
-          className={`${aspectClass} overflow-hidden rounded-canvas bg-canvas-bg`}
+          className="mb-2 break-inside-avoid overflow-hidden rounded-canvas-sm last:mb-0"
         >
-          <MediaCell item={item} allowInteraction={allowMediaInteraction} />
+          <MediaCell
+            item={item}
+            allowInteraction={allowMediaInteraction}
+            natural
+          />
         </div>
       ))}
     </div>
@@ -102,14 +135,18 @@ export function ImagesArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full">
-        <div className="h-full overflow-auto p-3">{grid}</div>
+      <ArtifactContentStage fill className="h-full !bg-transparent">
+        <div className="h-full overflow-auto">
+          <div ref={measureRef} className="p-3">
+            {grid}
+          </div>
+        </div>
       </ArtifactContentStage>
     );
   }
 
   return (
-    <ArtifactContentStage>
+    <ArtifactContentStage className="!bg-transparent">
       <div className="p-3">{grid}</div>
     </ArtifactContentStage>
   );

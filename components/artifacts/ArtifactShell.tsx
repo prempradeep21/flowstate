@@ -14,9 +14,9 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import {
-  ARTIFACT_CHROME_ZONE_ATTR,
-  ARTIFACT_INTERACTIVE_SURFACE_ATTR,
-} from "@/lib/artifactChromeHover";
+  ARTIFACT_CANVAS_SURFACE_FILL,
+  artifactKindUsesCanvasSurfaceFill,
+} from "@/lib/artifactCanvasChrome";
 import {
   isVideoArtifactPayload,
   payloadToArtifactKind,
@@ -34,6 +34,7 @@ export function ArtifactShell({
   onTodoEditingChange,
   catalogPreview = false,
   sourceCardId,
+  onImagesContentHeightChange,
 }: {
   sessionArtifact: SessionArtifact;
   versionId: string;
@@ -47,6 +48,8 @@ export function ArtifactShell({
   catalogPreview?: boolean;
   /** Card that spawned this artifact — enables Ask a question from selection. */
   sourceCardId?: string | null;
+  /** Images-only: reports the gallery's natural height so the canvas node wraps it. */
+  onImagesContentHeightChange?: (heightPx: number) => void;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
@@ -162,7 +165,6 @@ export function ArtifactShell({
       {!isRepoCanvas ? (
       <div
         className={isCanvasLayout ? "pointer-events-auto shrink-0" : undefined}
-        {...(isCanvasLayout ? { [ARTIFACT_CHROME_ZONE_ATTR]: "" } : {})}
       >
         <ArtifactPanelHeader
           kind={sessionArtifact.kind}
@@ -211,16 +213,21 @@ export function ArtifactShell({
       <div
         className={
           isCanvasLayout
-            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas ${
+            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas-sm ${
                 isRepoCanvas
                   ? "bg-transparent"
-                  : sessionArtifact.kind === "table"
-                    ? "bg-white"
+                  : artifactKindUsesCanvasSurfaceFill(sessionArtifact.kind)
+                    ? ARTIFACT_CANVAS_SURFACE_FILL
                     : ""
-              } ${isRepoCanvas ? "" : "mt-[22px]"}`
+              } ${
+                isRepoCanvas
+                  ? ""
+                  : sessionArtifact.kind === "streetview"
+                    ? "mt-0 min-h-0 flex-1"
+                    : "mt-[22px]"
+              }`
             : "mt-[22px]"
         }
-        {...(isCanvasLayout ? { [ARTIFACT_INTERACTIVE_SURFACE_ATTR]: "" } : {})}
       >
         {catalogPreview ? (
           <ArtifactContent
@@ -250,6 +257,7 @@ export function ArtifactShell({
             calendarCanEdit={canEditCalendar}
             timelineCanEdit={canEditTimeline}
             catalogPreview={catalogPreview}
+            onImagesContentHeightChange={onImagesContentHeightChange}
           />
         ) : (
           <ArtifactTextSelection
@@ -289,6 +297,7 @@ export function ArtifactShell({
               calendarCanEdit={canEditCalendar}
               timelineCanEdit={canEditTimeline}
               catalogPreview={catalogPreview}
+              onImagesContentHeightChange={onImagesContentHeightChange}
             />
           </ArtifactTextSelection>
         )}

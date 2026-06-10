@@ -166,6 +166,9 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
+/** Allow long tool-use turns (tables, charts) on serverless hosts. */
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {

@@ -629,6 +629,7 @@ function CardInner({ card }: CardProps) {
     if (!q || turnInProgress || !canEdit) return;
     recordUndo();
     if (user?.id) stampContributor(user.id, card.id);
+    startedFor.current = null;
     updateCard(card.id, {
       question: q,
       answer: "",

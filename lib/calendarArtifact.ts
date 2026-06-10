@@ -7,7 +7,8 @@ import type {
 /** Source card id for user-initiated calendar saves (no chat turn). */
 export const MANUAL_CALENDAR_SOURCE_CARD_ID = "__manual__";
 
-export const CALENDAR_ARTIFACT_HEIGHT = 400;
+/** Fits month nav + weekday row + six 52px week rows inside canvas chrome (110px overhead). */
+export const CALENDAR_ARTIFACT_HEIGHT = 500;
 
 function newCalendarEventId(): string {
   return `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;

@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
 import type { ArtifactPayload, CalendarEvent } from "@/lib/artifactTypes";
 import {
   buildMonthWeeks,
@@ -233,7 +234,7 @@ export function CalendarArtifactContent({
     >
       <div
         ref={rootRef}
-        className={`flex flex-col bg-canvas-card ${fill ? "min-h-0 flex-1" : ""}`}
+        className={`flex flex-col ${fill ? `${ARTIFACT_CANVAS_SURFACE_FILL} min-h-0 flex-1` : "bg-canvas-card"}`}
         data-no-drag
       >
         <div className="flex shrink-0 items-center justify-between border-b border-canvas-border/60 px-4 py-3">

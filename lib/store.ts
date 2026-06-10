@@ -8,7 +8,6 @@ import type {
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import { getPermissionCopy } from "@/lib/artifactSpawnPriority";
 import { SPAWN_ANIMATION_MS } from "@/lib/motion/variants";
-import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/streetViewArtifact";
 import type {
   CanvasSnapshot,
   CanvasSnapshotSource,
@@ -35,14 +34,10 @@ import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
 import {
   CANVAS_ARTIFACT_WIDTH,
-  CANVAS_TABLE_ARTIFACT_WIDTH,
   clampArtifactSize,
-  DEFAULT_ARTIFACT_HEIGHT,
-  REPO_ARTIFACT_HEIGHT,
-  REPO_ARTIFACT_WIDTH,
-  TABLE_ARTIFACT_HEIGHT,
   emptyCardSize,
   getArtifactBounds,
+  getDefaultArtifactSize,
 } from "@/lib/canvasNodeBounds";
 import {
   clampTextLabelFontSize,
@@ -98,16 +93,9 @@ import {
   type AttachedArtifactRef,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
-import {
-  CALENDAR_ARTIFACT_HEIGHT,
-  MANUAL_CALENDAR_SOURCE_CARD_ID,
-} from "@/lib/calendarArtifact";
+import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
-import {
-  MANUAL_TIMELINE_SOURCE_CARD_ID,
-  TIMELINE_ARTIFACT_HEIGHT,
-  TIMELINE_ARTIFACT_WIDTH,
-} from "@/lib/timelineArtifact";
+import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
 import {
   createEmptyTodoPayload,
   MANUAL_TODO_SOURCE_CARD_ID,
@@ -2638,10 +2626,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       versionId: "",
       sourceCardId: cardId,
       position,
-      size:
-        kind === "table"
-          ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
-          : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT },
+      size: getDefaultArtifactSize(kind),
       generatingPreview: { kind, title },
     };
 
@@ -2829,32 +2814,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           TUNING,
         );
       const artifactSize =
-        opts?.size ??
-        (art.kind === "table"
-          ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
-          : art.kind === "repo"
-            ? { w: REPO_ARTIFACT_WIDTH, h: REPO_ARTIFACT_HEIGHT }
-            : art.kind === "embed" && ver.payload.type === "embed"
-              ? clampArtifactSize(
-                  ver.payload.data.embedWidth,
-                  ver.payload.data.embedHeight,
-                )
-              : art.kind === "streetview"
-                ? {
-                    w: CANVAS_ARTIFACT_WIDTH,
-                    h: STREET_VIEW_ARTIFACT_HEIGHT,
-                  }
-                : art.kind === "calendar"
-                  ? {
-                      w: CANVAS_ARTIFACT_WIDTH,
-                      h: CALENDAR_ARTIFACT_HEIGHT,
-                    }
-                  : art.kind === "timeline"
-                    ? {
-                        w: TIMELINE_ARTIFACT_WIDTH,
-                        h: TIMELINE_ARTIFACT_HEIGHT,
-                      }
-                    : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT });
+        opts?.size ?? getDefaultArtifactSize(art.kind, ver.payload);
       const node: CanvasArtifactNode = {
         id,
         artifactId,
@@ -3248,10 +3208,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       versionId: "",
       sourceCardId: cardId,
       position,
-      size:
-        kind === "table"
-          ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
-          : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT },
+      size: getDefaultArtifactSize(kind, payload),
       permissionPreview: {
         payload,
         copy,

@@ -285,7 +285,7 @@ export function EmbedArtifactContent({
     );
     if (fill) {
       return (
-        <ArtifactContentStage fill className="h-full">
+        <ArtifactContentStage fill className="h-full !bg-transparent">
           {loading}
         </ArtifactContentStage>
       );
@@ -299,7 +299,7 @@ export function EmbedArtifactContent({
     );
     if (fill) {
       return (
-        <ArtifactContentStage fill className="h-full">
+        <ArtifactContentStage fill className="h-full !bg-transparent">
           <div className="flex h-full min-h-0 flex-col overflow-auto">{failed}</div>
         </ArtifactContentStage>
       );
@@ -319,7 +319,7 @@ export function EmbedArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full min-h-0">
+      <ArtifactContentStage fill className="h-full min-h-0 !bg-transparent">
         {ready}
       </ArtifactContentStage>
     );

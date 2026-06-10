@@ -1,5 +1,6 @@
 "use client";
 
+import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export function TableShaderSkeleton({
@@ -8,13 +9,18 @@ export function TableShaderSkeleton({
   rowCount = 7,
   compact = false,
   maxHeightClassName = "max-h-[420px]",
+  canvasSurface = false,
 }: {
   accentSeed: string;
   columnCount?: number;
   rowCount?: number;
   compact?: boolean;
   maxHeightClassName?: string;
+  canvasSurface?: boolean;
 }) {
+  const surfaceBg = canvasSurface
+    ? ARTIFACT_CANVAS_SURFACE_FILL
+    : "bg-canvas-card";
   const cols = Math.max(3, Math.min(columnCount || 5, 8));
   const rows = Math.max(4, Math.min(rowCount, 10));
   const headPad = compact ? "px-2 py-1.5" : "px-3 py-2";
@@ -23,11 +29,11 @@ export function TableShaderSkeleton({
 
   return (
     <div
-      className={`overflow-hidden bg-canvas-card ${maxHeightClassName}`}
+      className={`overflow-hidden ${surfaceBg} ${maxHeightClassName}`}
       style={tableAccentStyles(accentSeed)}
       aria-hidden
     >
-      <table className="w-full table-fixed border-collapse bg-canvas-card">
+      <table className={`w-full table-fixed border-collapse ${surfaceBg}`}>
         <thead>
           <tr
             className="border-b"

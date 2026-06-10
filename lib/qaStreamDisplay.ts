@@ -76,6 +76,23 @@ export function hasQaResponseError(
   return answer.startsWith("⚠️") || /^Error:/i.test(answer);
 }
 
+type QaResponseCard = Pick<
+  Card,
+  | "status"
+  | "answer"
+  | "artifactPayload"
+  | "outputArtifactId"
+  | "images"
+  | "responseType"
+>;
+
+/** Turn finished but nothing was rendered (timeout, dropped stream, or bad persist). */
+export function isQaResponseMissing(card: QaResponseCard): boolean {
+  if (card.status !== "done") return false;
+  if (hasQaResponseError(card)) return false;
+  return !shouldShowQaAnswerText(card) && !shouldShowQaArtifactPreview(card);
+}
+
 /** Show artifact/image preview once structured payload is parsed. */
 export function shouldShowQaArtifactPreview(
   card: Pick<
@@ -111,7 +128,11 @@ export function shouldShowQaAnswerSection(
     return shouldShowQaArtifactPreview(card);
   }
   if (card.status === "done") {
-    return shouldShowQaAnswerText(card) || shouldShowQaArtifactPreview(card);
+    return (
+      shouldShowQaAnswerText(card) ||
+      shouldShowQaArtifactPreview(card) ||
+      isQaResponseMissing(card)
+    );
   }
   return shouldShowQaArtifactPreview(card);
 }

@@ -382,18 +382,18 @@ export function checkLimit(count: number): boolean {
     chips: ["mood boards", "reference photos", "visual research", "travel inspiration"],
     payload: {
       type: "images",
-      title: "Kyoto references",
+      title: "Visual references",
       data: {
         items: [
           {
             kind: "image",
-            url: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Kinkaku-ji_in_Snow.jpg/640px-Kinkaku-ji_in_Snow.jpg",
-            alt: "Kinkaku-ji in snow",
+            url: "/catalog/potato-growth-stages.png",
+            alt: "Potato growth stages infographic",
           },
           {
             kind: "image",
-            url: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Gion_Kyoto_Japan.jpg/640px-Gion_Kyoto_Japan.jpg",
-            alt: "Gion district",
+            url: "/catalog/jathiratnalu-poster.png",
+            alt: "Jathiratnalu standup comedy show poster",
           },
         ],
       },
@@ -416,11 +416,6 @@ export function checkLimit(count: number): boolean {
             url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             thumb: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
             title: "Conference keynote",
-          },
-          {
-            url: "https://www.youtube.com/watch?v=ysz5S6PUM-U",
-            thumb: "https://img.youtube.com/vi/ysz5S6PUM-U/hqdefault.jpg",
-            title: "Design systems walkthrough",
           },
         ],
       },

@@ -1,11 +1,10 @@
 import { payloadToArtifactKind, type ArtifactPayload } from "@/lib/artifactTypes";
 import {
   CANVAS_ARTIFACT_WIDTH,
-  CANVAS_TABLE_ARTIFACT_WIDTH,
   DEFAULT_ARTIFACT_HEIGHT,
   getArtifactBounds,
   getCardBounds,
-  TABLE_ARTIFACT_HEIGHT,
+  getDefaultArtifactSize,
 } from "@/lib/canvasNodeBounds";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -59,10 +58,10 @@ export function findGeneratingPreviewNode(
 }
 
 function payloadSpawnSize(payload?: ArtifactPayload): { w: number; h: number } {
-  if (payload?.type === "table") {
-    return { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT };
+  if (!payload) {
+    return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   }
-  return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
+  return getDefaultArtifactSize(payloadToArtifactKind(payload), payload);
 }
 
 function nodeWorldRect(

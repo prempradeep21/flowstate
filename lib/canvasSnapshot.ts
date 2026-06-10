@@ -87,9 +87,21 @@ export interface CanvasSnapshotSource {
   collaborationHasEdits: boolean;
 }
 
-function normalizeCardStatus(status: CardStatus): CardStatus {
-  if (status === "streaming" || status === "thinking") return "done";
-  return status;
+function cardHasPersistableResponse(card: Card): boolean {
+  return !!(
+    card.answer?.trim() ||
+    card.outputArtifactId ||
+    card.artifactPayload ||
+    (card.pendingEmittedArtifacts?.length ?? 0) > 0 ||
+    (card.images?.length ?? 0) > 0
+  );
+}
+
+function normalizeCardStatus(card: Card): CardStatus {
+  if (card.status === "streaming" || card.status === "thinking") {
+    return cardHasPersistableResponse(card) ? "done" : "thinking";
+  }
+  return card.status;
 }
 
 function normalizeAnswerExplains(
@@ -110,7 +122,7 @@ function normalizeAnswerExplains(
 function normalizeCardForPersist(card: Card): Card {
   const normalized: Card = {
     ...card,
-    status: normalizeCardStatus(card.status),
+    status: normalizeCardStatus(card),
     thinkingLabel: undefined,
     pendingFiles: undefined,
     quotedSelection: undefined,

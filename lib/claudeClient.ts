@@ -69,6 +69,7 @@ export function askClaude(
   let cancelled = false;
   const controller = new AbortController();
   let responseType: ResponseType = "text";
+  let receivedContent = false;
 
   const run = async () => {
     cb.onThinking(
@@ -202,6 +203,7 @@ export function askClaude(
       });
 
       if (!res.ok) {
+        receivedContent = true;
         cb.onThinking?.(`Request failed (${res.status})`);
         cb.onToken(`Error: HTTP ${res.status}`);
         cb.onDone({ artifactId: null, responseType: "text" });
@@ -227,10 +229,12 @@ export function askClaude(
           try {
             const parsed = JSON.parse(raw);
             if (parsed.images) {
+              receivedContent = true;
               responseType = "image";
               cb.onResponseType?.("image");
               cb.onImages?.(parsed.images as CardImage[]);
             } else if (parsed.artifact) {
+              receivedContent = true;
               const raw = parsed.artifact as {
                 type?: string;
                 title?: string;
@@ -287,10 +291,12 @@ export function askClaude(
                 .getState()
                 .addUsage(parsed.usage.inputTokens, parsed.usage.outputTokens);
             } else if (parsed.error) {
+              receivedContent = true;
               cb.onThinking?.("Request failed");
               acc = acc ? `${acc}\n\n⚠️ ${parsed.error}` : `⚠️ ${parsed.error}`;
               cb.onToken(acc);
             } else if (parsed.text) {
+              receivedContent = true;
               acc += parsed.text;
               cb.onToken(acc);
             }
@@ -301,12 +307,19 @@ export function askClaude(
       }
     } catch (err) {
       if (!cancelled) {
+        receivedContent = true;
         const msg = err instanceof Error ? err.message : String(err);
         cb.onThinking?.("Request failed");
         cb.onToken(`⚠️ ${msg}`);
       }
     } finally {
       if (!cancelled) {
+        if (!receivedContent) {
+          cb.onThinking?.("Request failed");
+          cb.onToken(
+            "⚠️ No response received. The connection may have timed out — try again.",
+          );
+        }
         cb.onDone({ artifactId: null, responseType });
       }
     }

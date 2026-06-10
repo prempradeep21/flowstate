@@ -26,7 +26,7 @@ export function TableArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full overflow-hidden rounded-canvas bg-canvas-card m-1.5">
+      <div className="h-full overflow-hidden rounded-canvas-sm bg-canvas-card m-1.5">
         {isLoading ? (
           <TableShaderSkeleton
             accentSeed={accentSeed}
@@ -50,12 +50,13 @@ export function TableArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="flex-1 bg-canvas-card p-0">
+      <ArtifactContentStage fill className="flex-1 !bg-transparent p-0">
         {isLoading ? (
           <TableShaderSkeleton
             accentSeed={accentSeed}
             columnCount={columnCount}
             maxHeightClassName="h-full max-h-none"
+            canvasSurface
           />
         ) : (
           <ArtifactTable
@@ -64,6 +65,7 @@ export function TableArtifactContent({
             accentSeed={accentSeed}
             versionId={versionId}
             maxHeightClassName="h-full max-h-none"
+            canvasSurface
           />
         )}
       </ArtifactContentStage>

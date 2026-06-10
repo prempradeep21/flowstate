@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasQaResponseError,
+  isQaResponseMissing,
   isQaTurnInProgress,
   resolveQaStatusLabel,
   shouldShowQaAnswerSection,
@@ -75,6 +76,12 @@ describe("qaStreamDisplay", () => {
     };
     expect(isQaTurnInProgress(card, nodes)).toBe(true);
     expect(resolveQaStatusLabel(card, nodes)).toBe("Building artifact…");
+  });
+
+  it("detects empty done cards with no artifact", () => {
+    const card = baseCard({ status: "done", answer: "" });
+    expect(isQaResponseMissing(card)).toBe(true);
+    expect(shouldShowQaAnswerSection(card)).toBe(true);
   });
 
   it("detects surfaced API errors in answer text", () => {

@@ -45,6 +45,7 @@ import {
 import { clearLandingAnimated } from "@/lib/motion/performance";
 import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
+import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
@@ -206,7 +207,10 @@ export function useCanvasPersistence({
       return;
     }
 
-    if (useCanvasStore.getState().canvasReadOnly) {
+    if (
+      isArtifactCatalogSessionActive() ||
+      useCanvasStore.getState().canvasReadOnly
+    ) {
       return;
     }
 
@@ -799,6 +803,7 @@ export function useCanvasPersistence({
     let prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
 
     const scheduleSave = () => {
+      if (isArtifactCatalogSessionActive()) return;
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||

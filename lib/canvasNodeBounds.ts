@@ -1,3 +1,5 @@
+import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
+import { CALENDAR_ARTIFACT_HEIGHT } from "@/lib/calendarArtifact";
 import {
   REPO_ARTIFACT_HEIGHT,
   REPO_ARTIFACT_WIDTH,
@@ -7,6 +9,7 @@ import {
   TIMELINE_ARTIFACT_HEIGHT,
   TIMELINE_ARTIFACT_WIDTH,
 } from "@/lib/timelineArtifact";
+import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/streetViewArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -24,6 +27,20 @@ export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
 export const DEFAULT_ARTIFACT_HEIGHT = 280;
 export const TABLE_ARTIFACT_HEIGHT = 480;
+/* Per-kind intended heights — sized so default nodes reveal the full content
+   without cropping. Canvas chrome overhead is ~110px (16px padding ×2,
+   56px header band, 22px header gap); content components budget the rest. */
+/** Chart toolbar (33) + canvas chart height (280) + stage padding (16). */
+export const CHART_ARTIFACT_HEIGHT = 440;
+/** Progress header plus ~6 task rows before the list scrolls. */
+export const TODO_ARTIFACT_HEIGHT = 440;
+/** File tabs plus ~12 code lines before the pane scrolls. */
+export const CODE_ARTIFACT_HEIGHT = 420;
+/** Author-defined widgets get a taller stage than the generic default. */
+export const CUSTOM_ARTIFACT_HEIGHT = 380;
+/** Image / video grids and website previews. */
+export const MEDIA_ARTIFACT_HEIGHT = 400;
+export const MAP_ARTIFACT_HEIGHT = 380;
 export const MIN_ARTIFACT_WIDTH = 280;
 export const MAX_ARTIFACT_WIDTH = 1200;
 export const MIN_ARTIFACT_HEIGHT = 160;
@@ -79,40 +96,65 @@ export function getCardBounds(
   return { w, h: tuning.fallbackCardHeight };
 }
 
+/**
+ * Intended canvas dimensions per artifact kind — the single source of truth
+ * for spawn sizes, bounds fallbacks, and catalog layout. Default containers
+ * must reveal the artifact's full content at these sizes (no cropping).
+ */
+export function getDefaultArtifactSize(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  switch (kind) {
+    case "table":
+      return { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT };
+    case "repo":
+      return { w: REPO_ARTIFACT_WIDTH, h: REPO_ARTIFACT_HEIGHT };
+    case "timeline":
+      return { w: TIMELINE_ARTIFACT_WIDTH, h: TIMELINE_ARTIFACT_HEIGHT };
+    case "streetview":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: STREET_VIEW_ARTIFACT_HEIGHT };
+    case "calendar":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: CALENDAR_ARTIFACT_HEIGHT };
+    case "embed":
+      if (payload?.type === "embed") {
+        return clampArtifactSize(
+          payload.data.embedWidth,
+          payload.data.embedHeight,
+        );
+      }
+      return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
+    case "chart":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: CHART_ARTIFACT_HEIGHT };
+    case "todo":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: TODO_ARTIFACT_HEIGHT };
+    case "code":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: CODE_ARTIFACT_HEIGHT };
+    case "custom":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: CUSTOM_ARTIFACT_HEIGHT };
+    case "images":
+    case "website":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
+    case "map":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: MAP_ARTIFACT_HEIGHT };
+    default:
+      return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
+  }
+}
+
 export function getArtifactBounds(
   node: ArtifactBoundsNode,
   artifact?: SessionArtifact | null,
 ): { w: number; h: number } {
-  const isTable = artifact?.kind === "table";
-  const isRepo = artifact?.kind === "repo";
-  const isTimeline = artifact?.kind === "timeline";
-  const isEmbed = artifact?.kind === "embed";
   const latest = artifact?.versions.find(
     (v) => v.id === artifact.latestVersionId,
   );
-  const embedData =
-    isEmbed && latest?.payload.type === "embed" ? latest.payload.data : null;
-  const defaultW = isTable
-    ? CANVAS_TABLE_ARTIFACT_WIDTH
-    : isRepo
-      ? REPO_ARTIFACT_WIDTH
-      : isTimeline
-        ? TIMELINE_ARTIFACT_WIDTH
-        : isEmbed && embedData
-          ? embedData.embedWidth
-          : CANVAS_ARTIFACT_WIDTH;
-  const defaultH = isTable
-    ? TABLE_ARTIFACT_HEIGHT
-    : isRepo
-      ? REPO_ARTIFACT_HEIGHT
-      : isTimeline
-        ? TIMELINE_ARTIFACT_HEIGHT
-        : isEmbed && embedData
-          ? embedData.embedHeight
-          : DEFAULT_ARTIFACT_HEIGHT;
+  const fallback = artifact
+    ? getDefaultArtifactSize(artifact.kind, latest?.payload)
+    : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   return {
-    w: node.size?.w ?? defaultW,
-    h: node.size?.h ?? defaultH,
+    w: node.size?.w ?? fallback.w,
+    h: node.size?.h ?? fallback.h,
   };
 }
 

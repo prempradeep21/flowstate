@@ -3,5 +3,5 @@ export default function ArtifactCatalogLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="h-full overflow-y-auto">{children}</div>;
+  return <div className="h-full overflow-hidden">{children}</div>;
 }

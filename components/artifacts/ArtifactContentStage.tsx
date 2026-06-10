@@ -14,8 +14,8 @@ export function ArtifactContentStage({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-canvas bg-canvas-artifactStage ${
-        fill ? "flex h-full min-h-0 flex-col" : ""
+      className={`artifact-content-stage overflow-hidden rounded-canvas-sm bg-canvas-artifactStage ${
+        fill ? "flex min-h-0 w-full flex-1 flex-col" : ""
       } ${className}`}
       style={minHeight && !fill ? { minHeight } : undefined}
     >
