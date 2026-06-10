@@ -323,7 +323,7 @@ export function resolveInheritedArtifactIdForParent(
 ): string | undefined {
   let pid: string | null | undefined = parentId;
   while (pid) {
-    const c = cards[pid];
+    const c: Card | undefined = cards[pid];
     if (!c) break;
     if (c.outputArtifactId) return c.outputArtifactId;
     if (c.inheritedArtifactId) return c.inheritedArtifactId;
