@@ -88,7 +88,13 @@ import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
-import { usePersistenceReady, useAuth } from "@/components/AuthProvider";
+import {
+  usePersistenceReady,
+  useAuth,
+  useCanEditCanvas,
+} from "@/components/AuthProvider";
+import { CanvasPieMenu } from "@/components/CanvasPieMenu";
+import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
 import { canvasLoadRevealTotalMs } from "@/lib/motion/canvasLoadReveal";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 const MARQUEE_MIN_DRAG_PX = 6;
@@ -296,6 +302,29 @@ export function Canvas({
       setTextPlacement(pos);
     }
   };
+
+  // Hold-Z pie menu — north fires question placement, west fires text
+  // placement (same code path as the Q/T shortcuts and toolbar buttons).
+  const canEditCanvas = useCanEditCanvas();
+  const { pieState, pieStateRef, closePie } = useCanvasPieMenu({
+    containerRef,
+    enabled: canEditCanvas,
+    isBlocked: () =>
+      Boolean(
+        placementRef.current ||
+          textPlacementRef.current ||
+          imagePlacementRef.current ||
+          gifPlacementRef.current ||
+          marqueeState.current ||
+          panState.current ||
+          useCanvasStore.getState().plugDrag,
+      ),
+    getCursor: () => canvasPointerRef.current ?? cursorRef.current,
+    onSelect: (sector) => {
+      if (sector === "north") beginPlacementAtCursor("question");
+      else if (sector === "west") beginPlacementAtCursor("text");
+    },
+  });
 
   const beginImagePlacementAtCursor = (asset: {
     id: string;
@@ -678,6 +707,13 @@ export function Canvas({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Closing the pie consumes the press — it must not also clear the
+        // canvas selection in the same keystroke.
+        if (pieStateRef.current) {
+          e.preventDefault();
+          closePie();
+          return;
+        }
         if (placementRef.current) {
           e.preventDefault();
           setPlacement(null);
@@ -723,6 +759,10 @@ export function Canvas({
       if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
 
+      // Pie accelerator — Q while the pie is held open fires the north
+      // sector through this same code path; just dismiss the pie first.
+      if (pieStateRef.current) closePie();
+
       const target = e.target as HTMLElement | null;
       if (target) {
         const tag = target.tagName;
@@ -766,13 +806,16 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [removeCanvasTextLabel, selectedCanvasTextLabelId]);
+  }, [closePie, pieStateRef, removeCanvasTextLabel, selectedCanvasTextLabelId]);
 
   // T (enter text placement) — same rules as Q for focused inputs.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "KeyT" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
+
+      // Pie accelerator — T fires the west sector via this same path.
+      if (pieStateRef.current) closePie();
 
       const target = e.target as HTMLElement | null;
       if (target) {
@@ -800,7 +843,7 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, []);
+  }, [closePie, pieStateRef]);
 
   // Window-level click handler that finalises placement and consumes the event
   // so it doesn't focus inputs or trigger pan on the underlying surface.
@@ -1122,6 +1165,7 @@ export function Canvas({
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (
+      pieStateRef.current ||
       placementRef.current ||
       textPlacementRef.current ||
       imagePlacementRef.current ||
@@ -1189,6 +1233,9 @@ export function Canvas({
     !target.closest("[data-group-summary-icon]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // While the pie is held open the gesture owns the pointer — no pan,
+    // marquee, or selection clearing underneath.
+    if (pieStateRef.current) return;
     if (
       placementRef.current ||
       textPlacementRef.current ||
@@ -1423,6 +1470,7 @@ export function Canvas({
         channelRef={presenceChannelRef}
         currentUserId={user?.id}
       />
+      <CanvasPieMenu state={pieState} />
     </div>
   );
 }

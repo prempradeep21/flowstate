@@ -3,6 +3,7 @@ import {
   distances,
   durations,
   easings,
+  pieDelays,
   scales,
   staggers,
 } from "./tokens";
@@ -292,3 +293,70 @@ export const PANEL_LINE_STAGGER_MS = staggers.staggerCap + durations.standard;
 
 /** Smooth height when a container's child count or content changes (UI chrome only). */
 export const contentSizeTransition = framerTransition("standard", "easeMedium");
+
+/** Pie menu center ring — anchors the eye before pills land. */
+export const pieRingVariants = {
+  initial: { opacity: 0, scale: 0.8 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: pieDelays.ringDuration / 1000,
+      ease: [...easings.easeLight] as [number, number, number, number],
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: scales.scaleCompress,
+    transition: { duration: pieDelays.exitDuration / 1000 },
+  },
+  reduced: { opacity: 1, scale: 1, transition: { duration: 0 } },
+  reducedExit: { opacity: 0, transition: { duration: 0 } },
+};
+
+export interface PiePillMotionSlot {
+  /** Clockwise stagger order from top (N=0, E=1, S=2, W=3). */
+  index: number;
+  /** Unit direction from menu center toward the pill's resting spot. */
+  dirX: number;
+  dirY: number;
+}
+
+/**
+ * Pie pill pop-in — slides 12px outward from center, slight easeSettle
+ * overshoot bounce, staggered clockwise from top. Exit fades the whole
+ * group at once (no stagger) so dismissal feels immediate.
+ */
+export const piePillVariants = {
+  initial: ({ dirX, dirY }: PiePillMotionSlot) => ({
+    opacity: 0,
+    scale: scales.scalePopStart,
+    x: -dirX * distances.shiftSm,
+    y: -dirY * distances.shiftSm,
+  }),
+  animate: ({ index }: PiePillMotionSlot) => ({
+    opacity: 1,
+    scale: [scales.scalePopStart, scales.scaleOvershoot, 1],
+    x: 0,
+    y: 0,
+    transition: {
+      delay: (index * pieDelays.stagger) / 1000,
+      duration: pieDelays.pillDuration / 1000,
+      ease: [...easings.easeSettle] as [number, number, number, number],
+      opacity: {
+        delay: (index * pieDelays.stagger) / 1000,
+        duration: durationSeconds("fast"),
+        ease: [...easings.easeLight] as [number, number, number, number],
+      },
+    },
+  }),
+  exit: {
+    opacity: 0,
+    scale: scales.scaleCompress,
+    x: 0,
+    y: 0,
+    transition: { duration: pieDelays.exitDuration / 1000 },
+  },
+  reduced: { opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: 0 } },
+  reducedExit: { opacity: 0, transition: { duration: 0 } },
+};

@@ -46,7 +46,8 @@ export const SOUND_EVENTS: SoundEventDefinition[] = [
   {
     id: "chat-collapse",
     label: "Chat subtree collapse",
-    description: "When a card's answer subtree is hidden or shown.",
+    description:
+      "When a card's answer subtree is hidden or shown via manual collapse toggle. Thread auto-collapse after inactivity is silent (no sound).",
     category: "branch",
     defaultPreset: "collapse",
     defaultVolume: DEFAULT_VOLUME,

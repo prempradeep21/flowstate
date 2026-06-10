@@ -72,11 +72,17 @@ function SpecimenDemo({
       );
     case "chat-collapse":
       return (
-        <CollapseSpecimen
-          label="Chat subtree"
-          eventId={eventId}
-          onTrigger={onTrigger}
-        />
+        <div className="flex flex-col gap-2">
+          <CollapseSpecimen
+            label="Chat subtree"
+            eventId={eventId}
+            onTrigger={onTrigger}
+          />
+          <p className="text-canvas-compact text-canvas-muted">
+            Auto-collapse after 5 minutes of thread inactivity does not play this
+            sound — only manual collapse toggles do.
+          </p>
+        </div>
       );
     case "branch-create":
       return <BranchCreateSpecimen onTrigger={onTrigger} />;

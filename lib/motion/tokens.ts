@@ -61,6 +61,18 @@ export const canvasLoadDelays = {
   buffer: 0,
 } as const;
 
+/** Pie menu (hold Z) — ring anchors first, pills pop clockwise from top. */
+export const pieDelays = {
+  /** Per-pill clockwise stagger offset. */
+  stagger: 40,
+  /** Pill settle duration (easeSettle bounce). */
+  pillDuration: 240,
+  /** Center ring fade/scale duration. */
+  ringDuration: 100,
+  /** Group exit fade — dismissal must feel immediate. */
+  exitDuration: 100,
+} as const;
+
 /** Landing stagger delays (ms) — total perceptual complete < 1000ms. */
 export const landingDelays = {
   title: 0,

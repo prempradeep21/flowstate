@@ -44,7 +44,7 @@ function isBranchThread(state: ChatThreadState, threadId: string): boolean {
   );
 }
 
-function getBranchParentThreadId(
+export function getBranchParentThreadId(
   state: ChatThreadState,
   branchThreadId: string,
 ): string | null {
