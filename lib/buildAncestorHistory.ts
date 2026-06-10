@@ -59,6 +59,10 @@ function artifactContextNote(payload: ArtifactPayload): string {
       const n = payload.data.events?.length ?? 0;
       return `[Card showed timeline: "${payload.title}" with ${n} event(s)]`;
     }
+    case "chart": {
+      const kind = payload.data.chartType;
+      return `[Card showed chart: "${payload.title}" (${kind})]`;
+    }
     case "website":
       return `[Card showed website: "${payload.title}" (${payload.data.url})]`;
     case "repo":
