@@ -4043,12 +4043,15 @@ function pickThreadInactivityState(state: CanvasState): ThreadInactivityState {
 }
 
 function touchThreadInactivity(threadId: string): void {
-  touchThreadActivity(threadId, () => pickThreadInactivityState(get()));
+  touchThreadActivity(threadId, () =>
+    pickThreadInactivityState(useCanvasStore.getState()),
+  );
 }
 
 registerThreadInactivityHandlers({
-  readState: () => pickThreadInactivityState(get()),
-  applyCollapse: (threadIds) => get().autoCollapseInactiveThreads(threadIds),
+  readState: () => pickThreadInactivityState(useCanvasStore.getState()),
+  applyCollapse: (threadIds) =>
+    useCanvasStore.getState().autoCollapseInactiveThreads(threadIds),
 });
 
 // Selector helpers.
