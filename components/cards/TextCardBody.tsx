@@ -10,6 +10,7 @@ import {
   getExplainOverlayBoxes,
 } from "@/lib/answerTextRange";
 import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
+import { RICH_TEXT_CLASS } from "@/lib/richTextDisplay";
 import type { AnswerExplain, Card } from "@/lib/store";
 
 interface TextCardBodyProps {
@@ -143,8 +144,8 @@ export function TextCardBody({
 
   const bodyClass =
     plainClamp
-      ? "min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-canvas-body-lg leading-relaxed text-canvas-ink"
-      : "min-w-0 cursor-text text-canvas-body-lg leading-relaxed text-canvas-ink";
+      ? `min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-canvas-body-lg leading-relaxed text-canvas-ink ${RICH_TEXT_CLASS}`
+      : `min-w-0 cursor-text text-canvas-body-lg leading-relaxed text-canvas-ink ${RICH_TEXT_CLASS}`;
 
   const content = plainClamp ? (
     <>

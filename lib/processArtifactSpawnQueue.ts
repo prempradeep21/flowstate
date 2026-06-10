@@ -21,8 +21,23 @@ import {
   resolveArtifactTargetId,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
+import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import type { Card } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
+
+function resolveDoneThinkingLabel(cardId: string, card: Card): string | undefined {
+  const nodes = useCanvasStore.getState().canvasArtifactNodes;
+  const doneCard = { ...card, status: "done" as const };
+  if (isQaTurnInProgress(doneCard, nodes)) {
+    if (card.thinkingLabel?.trim()) return card.thinkingLabel;
+    const payload = card.artifactPayload;
+    if (payload) return `Building ${payload.type}…`;
+    const pending = card.pendingEmittedArtifacts?.[0];
+    if (pending) return `Building ${pending.type}…`;
+    return "Building artifact…";
+  }
+  return undefined;
+}
 
 function payloadsForTurn(card: Card): ArtifactPayload[] {
   const fromEmitted = (card.pendingEmittedArtifacts ?? []).map(emittedToPayload);
@@ -125,7 +140,10 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
         [cardId]: {
           ...current.cards[cardId],
           status: "done",
-          thinkingLabel: undefined,
+          thinkingLabel: resolveDoneThinkingLabel(
+            cardId,
+            current.cards[cardId]!,
+          ),
           pendingFiles: undefined,
           pendingEmittedArtifacts: undefined,
           responseType,
@@ -176,7 +194,10 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
           [cardId]: {
             ...materialized.card,
             status: "done",
-            thinkingLabel: undefined,
+            thinkingLabel: resolveDoneThinkingLabel(cardId, {
+              ...materialized.card,
+              status: "done",
+            }),
             pendingFiles: undefined,
             pendingEmittedArtifacts: undefined,
             responseType,
@@ -187,8 +208,13 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
 
     if (artifactId && versionId) {
       const store = useCanvasStore.getState();
+      const alreadyOnCanvas = Boolean(
+        Object.values(store.canvasArtifactNodes).some(
+          (n) => n.artifactId === artifactId,
+        ),
+      );
       const side: ArtifactSpawnSide =
-        existingSpawnCount > 0
+        !alreadyOnCanvas && existingSpawnCount > 0
           ? pickAlternateSpawnSide(
               cardId,
               store.canvasArtifactNodes,
@@ -199,7 +225,7 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
       store.spawnCanvasArtifact(artifactId, versionId, {
         focus: true,
         payload: autoPayload,
-        side,
+        ...(alreadyOnCanvas ? {} : { side }),
       });
     }
   } else {
@@ -209,7 +235,10 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
         [cardId]: {
           ...current.cards[cardId],
           status: "done",
-          thinkingLabel: undefined,
+          thinkingLabel: resolveDoneThinkingLabel(
+            cardId,
+            current.cards[cardId]!,
+          ),
           pendingFiles: undefined,
           pendingEmittedArtifacts: undefined,
           responseType,

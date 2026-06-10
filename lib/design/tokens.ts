@@ -155,6 +155,16 @@ export const canvasFloatingChrome = {
   chipText: "body-sm" as const,
 } as const;
 
+/**
+ * Canvas inset scale (px). See lib/design/canvasInsets.ts for usage.
+ * - compact: asset chips, floating chrome
+ * - section: Q&A blocks, panel bodies, artifact chrome reveal
+ */
+export const canvasSpacing = {
+  compact: 12,
+  section: 16,
+} as const;
+
 /** Typography scale — [size, { lineHeight }] for Tailwind fontSize */
 export const canvasFontSize = {
   micro: ["10px", { lineHeight: "1.4" }] as [string, { lineHeight: string }],

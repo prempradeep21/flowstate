@@ -5,8 +5,10 @@ import {
   whatItIsLooksLikeRawReadme,
 } from "@/lib/github/overviewCopyLimits";
 import {
+  extractAudienceFromReadme,
   heuristicWhatItIs,
   heuristicWhoItsFor,
+  whoItsForLooksGeneric,
 } from "@/lib/github/readmeSummary";
 import { inferCategory } from "@/lib/github/stackDetect";
 import type { OverviewAi } from "@/lib/github/types";
@@ -58,10 +60,30 @@ export function ensureRichOverview(ai: OverviewAi, input: OverviewAiInput): Over
   whatItIs = polishWhatItIsCopy(whatItIs);
 
   const category = ai.category || inferCategory(input.description, input.deps);
-  const whoItsFor =
-    ai.whoItsFor?.intendedFor?.length > 60
-      ? ai.whoItsFor
-      : heuristicWhoItsFor(input.readme, category);
+  let whoItsFor = ai.whoItsFor;
+
+  const repoAudience = extractAudienceFromReadme(
+    input.readme,
+    input.name,
+    input.description,
+  );
+
+  if (
+    !whoItsFor?.intendedFor ||
+    whoItsFor.intendedFor.length < 40 ||
+    whoItsForLooksGeneric(whoItsFor)
+  ) {
+    whoItsFor = repoAudience;
+  }
+
+  if (whoItsForLooksGeneric(whoItsFor)) {
+    whoItsFor = heuristicWhoItsFor(
+      input.readme,
+      category,
+      input.name,
+      input.description,
+    );
+  }
 
   return { ...ai, whatItIs, whoItsFor };
 }

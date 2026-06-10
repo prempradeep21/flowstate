@@ -191,70 +191,189 @@ export function heuristicWhatItIs(
   );
 }
 
-/** Structured audience breakdown from README signals. */
-export function heuristicWhoItsFor(readme: string, category: string): WhoItsForDetail {
-  const team =
-    /company brain|team|federated|multi-user|organization|startup|y combinator/i.test(readme);
-  const agents =
-    /personal agent|your agent|openclaw|hermes|mcp|claude code|codex|cursor|ai agent/i.test(
-      readme,
-    );
-  const devs = /developer|engineer|npm install|pip install|cli|terminal/i.test(readme);
-  const library = /library|sdk|import \{|npm install|pip install/i.test(readme);
+function cleanAudienceLine(line: string): string {
+  return line
+    .replace(/^[-*•]\s+/, "")
+    .replace(/\*\*/g, "")
+    .replace(/`[^`]+`/g, "")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/https?:\/\/[^\s)\]>]+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  if (team && agents) {
-    return {
-      intendedFor:
-        "Organizations and teams that want a shared, queryable memory layer for AI — not separate note dumps per person.",
-      whoShouldUse:
-        "Engineering leads, founders, and developers who already run AI agents (OpenClaw, Hermes, Claude Code, Codex, Cursor) and want those agents to remember context across meetings, docs, and tools.",
-      whoItHelps:
-        "Anyone who would otherwise re-read dozens of pages before a meeting, lose thread between chat sessions, or miss connections across email, Slack, and internal docs. It helps teams prepare faster and agents answer with citations instead of guesses.",
-    };
+function extractReadmeSection(readme: string, headingPatterns: RegExp[]): string {
+  const lines = readme.split("\n");
+  let capturing = false;
+  const collected: string[] = [];
+
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (/^#{1,4}\s/.test(t)) {
+      const heading = t.replace(/^#+\s*/, "");
+      if (capturing) break;
+      if (headingPatterns.some((p) => p.test(heading))) {
+        capturing = true;
+        continue;
+      }
+    }
+    if (!capturing) continue;
+    if (!t || t.startsWith("```") || t.startsWith("![")) continue;
+    const cleaned = cleanAudienceLine(t);
+    if (cleaned.length < 16) continue;
+    if (/^note:/i.test(cleaned)) continue;
+    collected.push(cleaned.endsWith(".") ? cleaned : `${cleaned}.`);
+    if (collected.length >= 2) break;
   }
 
-  if (agents) {
-    return {
-      intendedFor:
-        "People building or operating autonomous AI agents that need durable memory beyond a single conversation.",
-      whoShouldUse:
-        "Developers and power users comfortable wiring MCP tools, running local services, and supplying API keys for embeddings and LLMs.",
-      whoItHelps:
-        "Users tired of copy-pasting context into every chat, re-explaining projects to their agent, or getting keyword search results instead of synthesized answers.",
-    };
-  }
+  return collected.join(" ").slice(0, 320);
+}
 
-  if (library) {
-    return {
-      intendedFor:
-        "Developers who want to integrate this project's functionality into an existing application or pipeline.",
-      whoShouldUse:
-        "Software engineers evaluating whether the API, SDK, or package fits their stack and license requirements.",
-      whoItHelps:
-        "Teams that would otherwise rebuild the same capability in-house — it offers a maintained open-source starting point they can adopt or fork.",
-    };
-  }
+function repoAudienceFallbacks(
+  name: string,
+  description: string | null,
+): WhoItsForDetail {
+  const desc = description?.trim().replace(/\.$/, "") ?? null;
+  return {
+    intendedFor: desc
+      ? `Anyone evaluating ${name} — ${desc}.`
+      : `People deciding whether ${name} fits their project or workflow.`,
+    whoShouldUse: desc
+      ? `Developers and technical users who would run, integrate, or contribute to ${name}.`
+      : `Developers who clone the repo, follow the README setup, and try it against their own use case.`,
+    whoItHelps: desc
+      ? `Teams that need ${desc.toLowerCase()} without building it from scratch.`
+      : `Anyone who wants a maintained open-source option in this space instead of a one-off script.`,
+  };
+}
 
-  if (devs || category === "CLI Tool") {
-    return {
-      intendedFor:
-        "Technical users who prefer scripts, terminals, and reproducible setup over GUI-only tools.",
-      whoShouldUse:
-        "Developers and DevOps-minded users who read the README, run install commands, and configure environment variables.",
-      whoItHelps:
-        "People who need automation, self-hosting, or fine-grained control that hosted SaaS products do not provide.",
-    };
-  }
+/** Pull audience hints from README headings and bullets — repo-specific when present. */
+export function extractAudienceFromReadme(
+  readme: string,
+  name: string,
+  description: string | null,
+): WhoItsForDetail {
+  const fromReadme = {
+    intendedFor: extractReadmeSection(readme, [
+      /^who\s+is\s+this\s+for\b/i,
+      /^intended\s+(for|audience)\b/i,
+      /^target\s+audience\b/i,
+      /^who\s+it'?s\s+for\b/i,
+      /^audience\b/i,
+      /^use\s+cases?\b/i,
+    ]),
+    whoShouldUse: extractReadmeSection(readme, [
+      /^who\s+should\s+use\b/i,
+      /^getting\s+started\b/i,
+      /^quick\s+start\b/i,
+      /^for\s+developers\b/i,
+      /^prerequisites\b/i,
+      /^requirements\b/i,
+    ]),
+    whoItHelps: extractReadmeSection(readme, [
+      /^why\s+use\b/i,
+      /^why\s+this\b/i,
+      /^benefits?\b/i,
+      /^problems?\s+(it\s+)?solves?\b/i,
+    ]),
+  };
+  const inferred = inferAudienceFromProse(readme, name, description);
+  const fallbacks = repoAudienceFallbacks(name, description);
+  return {
+    intendedFor:
+      fromReadme.intendedFor || inferred.intendedFor || fallbacks.intendedFor,
+    whoShouldUse:
+      fromReadme.whoShouldUse || inferred.whoShouldUse || fallbacks.whoShouldUse,
+    whoItHelps:
+      fromReadme.whoItHelps || inferred.intendedFor || fallbacks.whoItHelps,
+  };
+}
 
-  if (category === "AI Application") {
-    return {
-      intendedFor:
-        "Builders and early adopters exploring AI-powered workflows and tools.",
-      whoShouldUse:
-        "Developers, researchers, and product teams prototyping with LLMs who need to understand scope before committing.",
-      whoItHelps:
-        "Anyone deciding in minutes whether a repo is worth a deeper install — it surfaces purpose, audience, and stack without reading the full codebase.",
-    };
+export function readmeHasAudienceSections(readme: string): boolean {
+  return Boolean(
+    extractReadmeSection(readme, [/^who\s+is\s+this\s+for\b/i, /^intended\s+for\b/i, /^use\s+cases?\b/i]) ||
+      extractReadmeSection(readme, [/^who\s+should\s+use\b/i, /^getting\s+started\b/i]),
+  );
+}
+
+const GENERIC_AUDIENCE_SNIPPETS = [
+  "Open-source users looking for a maintained solution in this problem space",
+  "Developers and technical evaluators who clone, install, or fork GitHub projects",
+  "Builders and early adopters exploring AI-powered workflows",
+  "Technical users who prefer scripts, terminals, and reproducible setup",
+  "Developers who want to integrate this project's functionality",
+  "Software engineers evaluating whether the API, SDK, or package fits",
+  "Anyone deciding in minutes whether a repo is worth a deeper install",
+  "Organizations and teams that want a shared, queryable memory layer",
+  "People building or operating autonomous AI agents",
+];
+
+function inferAudienceFromProse(
+  readme: string,
+  name: string,
+  description: string | null,
+): Partial<WhoItsForDetail> {
+  const prose = extractReadmeProse(readme, 6000);
+  const sentences = toSentences(prose).map(cleanAudienceLine);
+
+  const audienceSentence = sentences.find((s) =>
+    /designed for|built for|intended for|perfect for|ideal for|aimed at|target(s|ing)?\s|for developers|for teams|for engineers|who need|who want|who are building/i.test(
+      s,
+    ),
+  );
+  const useSentence = sentences.find(
+    (s) =>
+      /use (this|it) (to|for)|you can use|getting started|install|npm install|yarn add|pip install/i.test(
+        s,
+      ) && s.length < 280,
+  );
+
+  const desc = description?.trim().replace(/\.$/, "") ?? null;
+  return {
+    intendedFor: audienceSentence
+      ? audienceSentence.endsWith(".")
+        ? audienceSentence
+        : `${audienceSentence}.`
+      : desc
+        ? `${name} is for teams and developers who need ${desc.toLowerCase()}.`
+        : undefined,
+    whoShouldUse: useSentence
+      ? useSentence.endsWith(".")
+        ? useSentence
+        : `${useSentence}.`
+      : desc
+        ? `Pick it up if you are evaluating ${desc.toLowerCase()} and want a maintained open-source option.`
+        : undefined,
+  };
+}
+
+/** One readable blurb for the audience widget. */
+export function mergeAudienceCopy(detail: WhoItsForDetail): string {
+  const intended = detail.intendedFor?.trim() ?? "";
+  const whoUse = detail.whoShouldUse?.trim() ?? "";
+  if (!intended && !whoUse) return "";
+  if (!whoUse || intended.includes(whoUse.slice(0, 48))) return intended;
+  if (!intended) return whoUse;
+  const lead = intended.endsWith(".") ? intended : `${intended}.`;
+  const tail = whoUse.endsWith(".") ? whoUse : `${whoUse}.`;
+  return `${lead} ${tail}`.replace(/\s+/g, " ").slice(0, 440);
+}
+
+export function whoItsForLooksGeneric(detail: WhoItsForDetail): boolean {
+  const combined = `${detail.intendedFor} ${detail.whoShouldUse} ${detail.whoItHelps}`;
+  return GENERIC_AUDIENCE_SNIPPETS.some((s) => combined.includes(s.slice(0, 48)));
+}
+
+/** Structured audience breakdown — always repo-specific when name is known. */
+export function heuristicWhoItsFor(
+  readme: string,
+  _category: string,
+  name?: string,
+  description?: string | null,
+): WhoItsForDetail {
+  if (name) {
+    return extractAudienceFromReadme(readme, name, description ?? null);
   }
 
   return {

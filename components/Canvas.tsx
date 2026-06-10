@@ -1511,12 +1511,12 @@ function GhostCard({ world }: { world: PlacementState }) {
         width: tuning.cardWidth,
       }}
     >
-      <div className="px-3 py-2.5">
-        <div className="flex items-end gap-0 rounded-canvas border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
-          <span className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-canvas-heading font-light text-canvas-muted">
+      <div className="floating-chrome-padding">
+        <div className="flex items-center gap-0 rounded-canvas border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-canvas-heading font-light text-canvas-muted">
             +
           </span>
-          <span className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+          <span className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
           <span className="min-w-0 flex-1 py-2 text-canvas-body text-canvas-muted/60">
             Ask anything
           </span>

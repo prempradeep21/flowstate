@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
-import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
@@ -12,9 +11,14 @@ import {
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
+import { qaInsetStyle } from "@/lib/design/canvasInsets";
 import { useAuth } from "@/components/AuthProvider";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
-import { shouldShowQaAnswerSection } from "@/lib/qaStreamDisplay";
+import {
+  isQaTurnInProgress,
+  resolveQaStatusLabel,
+  shouldShowQaAnswerText,
+} from "@/lib/qaStreamDisplay";
 import {
   artifactDisplayTitle,
   getLatestVersion,
@@ -85,6 +89,7 @@ function SidebarItem({
 function QnaTurnBlock({ cardId }: { cardId: string }) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
+  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
   const accent = useCanvasStore(
     (s) => s.threads[card?.threadId ?? ""]?.accentColour,
@@ -102,13 +107,32 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
 
   if (!card || card.status === "empty") return null;
 
-  const isPending = card.status === "thinking" || card.status === "streaming";
-  const showAnswer = isPending || shouldShowQaAnswerSection(card);
+  const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
+  const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
+  const showAnswer =
+    turnInProgress ||
+    shouldShowQaAnswerText(card) ||
+    card.artifactPayload != null ||
+    card.outputArtifactId != null;
 
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
+      {turnInProgress && (
+        <div
+          className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
+          aria-live="polite"
+        >
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-canvas-success" />
+          </span>
+          <span className="max-w-[160px] truncate text-canvas-caption font-medium capitalize text-canvas-muted">
+            {qaStatusLabel.replace(/…$/, "")}
+          </span>
+        </div>
+      )}
       <QaTranslucentSurface>
-        <QaQuestionSection accentColour={accent} className="px-5 py-4">
+        <QaQuestionSection accentColour={accent} style={qaInsetStyle("chatPanel")}>
           <QaQuestionHeaderRow
             collaborators={
               showContributors ? (
@@ -140,12 +164,15 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
         </QaQuestionSection>
 
         {showAnswer && (
-          <div className="px-5 pb-4">
-            {shouldShowQaAnswerSection(card) ? (
-              <CardAnswerBody card={card} isStreaming={false} />
-            ) : (
-              <PendingAnswerPlaceholder thinkingLabel={card.thinkingLabel} />
-            )}
+          <div style={qaInsetStyle("answer")}>
+            <CardAnswerBody
+              card={card}
+              isStreaming={card.status === "streaming"}
+              showPendingPlaceholder={
+                turnInProgress && !shouldShowQaAnswerText(card)
+              }
+              pendingLabel={qaStatusLabel}
+            />
           </div>
         )}
       </QaTranslucentSurface>

@@ -5,6 +5,7 @@ import {
   getBodyFontOption,
   getDisplayFontOption,
 } from "@/lib/canvasFonts/registry";
+import { withEmojiFontFamily } from "@/lib/richTextDisplay";
 
 export function getCanvasFontPreviewStyles(
   bodyId: string,
@@ -19,7 +20,7 @@ export function getCanvasFontPreviewStyles(
       style["--font-parkinsans"] = body.family;
       // …and set font-family on the container so inherited text updates
       // (body already resolved Parkinsans before this node).
-      style.fontFamily = body.family;
+      style.fontFamily = withEmojiFontFamily(body.family);
     }
   }
 

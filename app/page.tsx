@@ -59,7 +59,10 @@ export default function Page() {
         {viewMode === "canvas" && (
           <>
             <CanvasSoundMuteButton />
-            <CanvasMinimap containerRef={canvasContainerRef} />
+            <CanvasMinimap
+              containerRef={canvasContainerRef}
+              canvasKey={canvasKey}
+            />
           </>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">

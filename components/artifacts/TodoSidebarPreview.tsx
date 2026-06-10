@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArtifactPayload, TodoItem } from "@/lib/artifactTypes";
+import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 function SidebarCheckbox({ checked }: { checked: boolean }) {
   return (
@@ -26,13 +27,13 @@ function SidebarTodoRow({ item }: { item: TodoItem }) {
     <li className="flex items-start gap-2 border-b border-canvas-border/40 px-2.5 py-1.5 last:border-0">
       <SidebarCheckbox checked={item.checked} />
       <span
-        className={`min-w-0 flex-1 text-canvas-caption leading-snug ${
+        className={`rich-text min-w-0 flex-1 text-canvas-caption leading-snug ${
           item.checked
             ? "text-canvas-muted line-through"
             : "text-canvas-ink"
         }`}
       >
-        {item.label || "Untitled"}
+        {formatRichTextForDisplay(item.label || "Untitled")}
       </span>
     </li>
   );

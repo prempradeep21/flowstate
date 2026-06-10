@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { OverviewAi, OverviewData, WhoItsForDetail } from "@/lib/github/types";
+import type { OverviewAi, OverviewData } from "@/lib/github/types";
+import { mergeAudienceCopy } from "@/lib/github/readmeSummary";
 import { WHAT_IT_IS_LIMITS } from "@/lib/github/overviewCopyLimits";
 import { StatPill, TagChip, WidgetCard, WidgetSkeleton } from "@/components/repo-explorer/WidgetCard";
 
@@ -55,15 +56,6 @@ function SummarySection({
   );
 }
 
-function AudienceRow({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="border-t border-canvas-border/70 pt-3 first:border-t-0 first:pt-0">
-      <p className="text-canvas-compact font-medium text-canvas-ink">{title}</p>
-      <p className="mt-1 text-canvas-body-sm leading-relaxed text-canvas-muted">{body}</p>
-    </div>
-  );
-}
-
 export function OverviewWidget({
   data,
   ai,
@@ -79,7 +71,7 @@ export function OverviewWidget({
   return (
     <WidgetCard title="Overview" subtitle={data.fullName}>
       <div className="space-y-4">
-        <SummarySection label="What it is" prominent>
+        <SummarySection label="Overview" prominent>
           {hasSummary ? (
             <ProseBlock text={ai!.whatItIs} />
           ) : (
@@ -89,19 +81,17 @@ export function OverviewWidget({
           )}
         </SummarySection>
 
-        <SummarySection label="Who it's for">
-          {audience ? (
-            <div className="mt-2 space-y-0">
-              <AudienceRow title="Intended for" body={audience.intendedFor} />
-              <AudienceRow title="Who should use it" body={audience.whoShouldUse} />
-              <AudienceRow title="Who it helps" body={audience.whoItHelps} />
-            </div>
-          ) : (
-            <div className="mt-2">
-              <WidgetSkeleton lines={5} />
-            </div>
-          )}
-        </SummarySection>
+        {audience && mergeAudienceCopy(audience).length > 32 ? (
+          <SummarySection label="Who it's for">
+            <p className="mt-2 text-canvas-body-sm leading-relaxed text-canvas-ink">
+              {mergeAudienceCopy(audience)}
+            </p>
+          </SummarySection>
+        ) : (
+          <div className="rounded-canvas-sm border border-canvas-border bg-canvas-artifactStage px-4 py-3">
+            <WidgetSkeleton lines={2} />
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-canvas-caption uppercase tracking-wide text-canvas-muted">

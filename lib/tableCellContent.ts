@@ -1,4 +1,5 @@
 import type { TableCell, TableTag, TableTagTone } from "@/lib/artifactTypes";
+import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 export interface NormalizedTableCell {
   text: string;
@@ -16,16 +17,32 @@ export const TABLE_TAG_TONE_CLASSES: Record<TableTagTone, string> = {
   info: "bg-canvas-infoSoft text-canvas-infoText ring-1 ring-canvas-infoRing/80",
 };
 
+function formatTableTags(tags: TableTag[]): TableTag[] {
+  return tags.map((tag) => ({
+    ...tag,
+    label: formatRichTextForDisplay(tag.label),
+  }));
+}
+
 export function normalizeTableCell(
   cell: string | TableCell | undefined,
 ): NormalizedTableCell {
   if (cell == null) return { text: "", tags: [] };
-  if (typeof cell === "string") return { text: cell, tags: [] };
+  if (typeof cell === "string") {
+    return { text: formatRichTextForDisplay(cell), tags: [] };
+  }
 
-  const text = cell.value ?? "";
-  const tags: TableTag[] = [...(cell.tags ?? [])];
-  if (cell.badge && !tags.some((t) => t.label === cell.badge)) {
-    tags.push({ label: cell.badge, tone: "neutral" });
+  const text = formatRichTextForDisplay(cell.value ?? "");
+  const tags: TableTag[] = formatTableTags([...(cell.tags ?? [])]);
+  if (
+    cell.badge &&
+    !(cell.tags ?? []).some((t) => t.label === cell.badge) &&
+    !tags.some((t) => t.label === formatRichTextForDisplay(cell.badge!))
+  ) {
+    tags.push({
+      label: formatRichTextForDisplay(cell.badge),
+      tone: "neutral",
+    });
   }
   return { text, tags };
 }

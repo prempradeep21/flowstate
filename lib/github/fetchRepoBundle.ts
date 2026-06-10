@@ -7,6 +7,7 @@ import {
 } from "@/lib/github/githubClient";
 import { parseGithubRepoUrl } from "@/lib/github/parseRepoUrl";
 import { detectPreviewUrl } from "@/lib/github/previewDetect";
+import { filterDisplayableMedia } from "@/lib/github/mediaDimensions";
 import {
   countArchitectureImages,
   extractEnvVars,
@@ -117,6 +118,7 @@ export async function fetchRepoExplorer(url: string): Promise<RepoExplorerData> 
   }
 
   const mediaItems = extractReadmeMedia(readme, owner, repo, branch);
+  const displayableItems = await filterDisplayableMedia(mediaItems);
   const archCount = countArchitectureImages(mediaItems);
   const images = mediaItems.filter((i) => i.kind === "image");
   const videos = mediaItems.filter((i) => i.kind === "youtube" || i.kind === "video");
@@ -125,9 +127,10 @@ export async function fetchRepoExplorer(url: string): Promise<RepoExplorerData> 
     screenshotCount: images.length,
     videoCount: videos.length,
     architectureDiagramCount: archCount,
-    primaryScreenshot: images[0]?.url,
+    primaryScreenshot: displayableItems[0]?.url ?? images[0]?.url,
     primaryDemoVideo: videos[0]?.url,
     items: mediaItems.slice(0, 12),
+    displayableItems: displayableItems.slice(0, 6),
   };
 
   const preview = detectPreviewUrl(

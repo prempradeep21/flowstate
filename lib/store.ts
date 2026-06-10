@@ -81,6 +81,7 @@ import { buildSummaryContentFingerprint } from "@/lib/groupSummaryStaleness";
 import {
   computeArtifactSpawnPosition,
   findCanvasNodeByArtifactId,
+  findGeneratingPreviewNode,
   pickAlternateSpawnSide,
   type ArtifactSpawnSide,
 } from "@/lib/canvasArtifacts";
@@ -91,6 +92,8 @@ import {
   getVersionById,
   normalizePayloadForRegistry,
   resolveArtifactTargetId,
+  resolveEditingArtifactId,
+  resolveInheritedArtifactIdForParent,
   resolveThreadArtifactId,
   type AttachedArtifactRef,
   type SessionArtifact,
@@ -391,6 +394,11 @@ export interface ArtifactPermissionPreview {
   title: string;
 }
 
+export interface ArtifactGeneratingPreview {
+  kind: import("@/lib/artifactTypes").ArtifactKind;
+  title: string;
+}
+
 export interface CanvasArtifactNode {
   id: string;
   artifactId: string;
@@ -400,6 +408,8 @@ export interface CanvasArtifactNode {
   size?: CardSize;
   /** Permission gate — artifact not materialized until user approves. */
   permissionPreview?: ArtifactPermissionPreview;
+  /** Canvas placeholder while a version is still generating. */
+  generatingPreview?: ArtifactGeneratingPreview;
   /** Play exit animation before removing the node. */
   isExiting?: boolean;
 }
@@ -760,6 +770,12 @@ interface CanvasState {
   ensurePendingCustomArtifact: (
     cardId: string,
   ) => { artifactId: string; versionId: string } | null;
+  spawnGeneratingArtifactPreview: (
+    cardId: string,
+    kind: import("@/lib/artifactTypes").ArtifactKind,
+    title: string,
+  ) => string | null;
+  removeGeneratingArtifactPreview: (cardId: string) => void;
   saveTodoArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "todo" }>,
@@ -2524,83 +2540,130 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const card = get().cards[cardId];
     if (!card) return null;
 
-    if (card.outputArtifactId) {
-      const art = get().sessionArtifacts[card.outputArtifactId];
+    const state = get();
+    const targetId =
+      resolveEditingArtifactId(
+        card,
+        state.cards,
+        state.connections,
+        state.cardOrder,
+      ) ?? card.outputArtifactId;
+
+    if (targetId) {
+      const art = state.sessionArtifacts[targetId];
       if (art?.kind === "table") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(card.outputArtifactId, latest.id, {
-            focus: true,
-          });
-          return {
-            artifactId: card.outputArtifactId,
-            versionId: latest.id,
-          };
+          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().removeGeneratingArtifactPreview(cardId);
+          return { artifactId: targetId, versionId: latest.id };
         }
       }
     }
 
-    const title = card.question.slice(0, 48) || "Table";
-    const payload: ArtifactPayload = {
-      type: "table",
-      title,
-      data: { columns: [], rows: [] },
-    };
-    const { artifactId, versionId } = get().createArtifactVersion(
-      null,
-      payload,
+    const existingPreview = findGeneratingPreviewNode(
+      state.canvasArtifactNodes,
       cardId,
+      "table",
     );
-    get().updateCard(cardId, {
-      outputArtifactId: artifactId,
-      outputArtifactVersionId: versionId,
-      responseType: "table",
-    });
-    get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
-    return { artifactId, versionId };
+    if (existingPreview) {
+      set({ selectedCanvasArtifactId: existingPreview.id });
+      return null;
+    }
+
+    const editingArt = targetId ? state.sessionArtifacts[targetId] : undefined;
+    const title =
+      editingArt?.title || card.question.slice(0, 48) || "Table";
+    get().spawnGeneratingArtifactPreview(cardId, "table", title);
+    return null;
   },
 
   ensurePendingCustomArtifact: (cardId) => {
     const card = get().cards[cardId];
     if (!card) return null;
 
-    if (card.outputArtifactId) {
-      const art = get().sessionArtifacts[card.outputArtifactId];
+    const state = get();
+    const targetId =
+      resolveEditingArtifactId(
+        card,
+        state.cards,
+        state.connections,
+        state.cardOrder,
+      ) ?? card.outputArtifactId;
+
+    if (targetId) {
+      const art = state.sessionArtifacts[targetId];
       if (art?.kind === "custom") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(card.outputArtifactId, latest.id, {
-            focus: true,
-          });
-          return {
-            artifactId: card.outputArtifactId,
-            versionId: latest.id,
-          };
+          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().removeGeneratingArtifactPreview(cardId);
+          return { artifactId: targetId, versionId: latest.id };
         }
       }
     }
 
-    const title = card.question.slice(0, 48) || "Custom component";
-    const payload: ArtifactPayload = {
-      type: "custom",
-      title,
-      data: {
-        html: '<div class="pending">Preparing component…</div>',
-        css: ".pending { padding: 1rem; color: #6b7280; font: 14px/1.5 system-ui,sans-serif; }",
-      },
-    };
-    const { artifactId, versionId } = get().createArtifactVersion(
-      null,
-      payload,
+    const existingPreview = findGeneratingPreviewNode(
+      state.canvasArtifactNodes,
       cardId,
+      "custom",
     );
-    get().updateCard(cardId, {
-      outputArtifactId: artifactId,
-      outputArtifactVersionId: versionId,
-      responseType: "custom",
+    if (existingPreview) {
+      set({ selectedCanvasArtifactId: existingPreview.id });
+      return null;
+    }
+
+    const editingArt = targetId ? state.sessionArtifacts[targetId] : undefined;
+    const title =
+      editingArt?.title || card.question.slice(0, 48) || "Custom component";
+    get().spawnGeneratingArtifactPreview(cardId, "custom", title);
+    return null;
+  },
+
+  spawnGeneratingArtifactPreview: (cardId, kind, title) => {
+    const card = get().cards[cardId];
+    if (!card) return null;
+
+    const position = computeArtifactSpawnPosition(
+      cardId,
+      get().canvasArtifactNodes,
+      get().cards,
+      { sessionArtifacts: get().sessionArtifacts },
+    );
+
+    const nodeId = newCanvasArtifactNodeId();
+    const node: CanvasArtifactNode = {
+      id: nodeId,
+      artifactId: "",
+      versionId: "",
+      sourceCardId: cardId,
+      position,
+      size:
+        kind === "table"
+          ? { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT }
+          : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT },
+      generatingPreview: { kind, title },
+    };
+
+    set((state) => ({
+      canvasArtifactNodes: { ...state.canvasArtifactNodes, [nodeId]: node },
+      canvasArtifactOrder: [...state.canvasArtifactOrder, nodeId],
+      selectedCanvasArtifactId: nodeId,
+    }));
+
+    get().setSpawnMeta({
+      targetId: nodeId,
+      targetKind: "artifact",
+      kind: "popUp",
+      createdAt: Date.now(),
     });
-    get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
-    return { artifactId, versionId };
+    return nodeId;
+  },
+
+  removeGeneratingArtifactPreview: (cardId) => {
+    const preview = findGeneratingPreviewNode(get().canvasArtifactNodes, cardId);
+    if (!preview) return;
+    get().removeCanvasArtifact(preview.id);
   },
 
   saveTodoArtifactVersion: (artifactId, payload) => {
@@ -2690,11 +2753,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   spawnCanvasArtifact: (artifactId, versionId, opts) => {
     let nodeId: string | null = null;
     let isNewNode = false;
+    let sourceCardId = "";
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
       if (!art) return state;
       const ver = getVersionById(art, versionId) ?? getLatestVersion(art);
       if (!ver) return state;
+      sourceCardId = ver.sourceCardId;
 
       const existing = findCanvasNodeByArtifactId(
         state.canvasArtifactNodes,
@@ -2707,6 +2772,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ...existing,
           versionId: ver.id,
           sourceCardId: ver.sourceCardId,
+          generatingPreview: undefined,
           ...(opts?.position ? { position: opts.position } : {}),
         };
         return {
@@ -2716,6 +2782,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           },
           selectedCanvasArtifactId: opts?.focus
             ? existing.id
+            : state.selectedCanvasArtifactId,
+        };
+      }
+
+      const generatingNode = findGeneratingPreviewNode(
+        state.canvasArtifactNodes,
+        ver.sourceCardId,
+        art.kind,
+      );
+      if (generatingNode) {
+        nodeId = generatingNode.id;
+        isNewNode = false;
+        const nextNode: CanvasArtifactNode = {
+          ...generatingNode,
+          artifactId,
+          versionId: ver.id,
+          generatingPreview: undefined,
+          ...(opts?.position ? { position: opts.position } : {}),
+        };
+        return {
+          canvasArtifactNodes: {
+            ...state.canvasArtifactNodes,
+            [generatingNode.id]: nextNode,
+          },
+          selectedCanvasArtifactId: opts?.focus
+            ? generatingNode.id
             : state.selectedCanvasArtifactId,
         };
       }
@@ -2784,6 +2876,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         kind: "popUp",
         createdAt: Date.now(),
       });
+    }
+    if (sourceCardId) {
+      get().removeGeneratingArtifactPreview(sourceCardId);
     }
     return nodeId;
   },
@@ -2983,14 +3078,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const pos = computeFollowUpPositionFromDom(parentId, parent, tuning);
       const inheritedArtifactId =
         options?.attachedArtifacts?.[0]?.artifactId ??
-        parent.outputArtifactId ??
-        resolveThreadArtifactId(
+        resolveInheritedArtifactIdForParent(
+          parentId,
           state.cards,
           state.connections,
           state.cardOrder,
-          parent.threadId,
-        ) ??
-        undefined;
+        );
       const child: Card = {
         id,
         threadId: parent.threadId,

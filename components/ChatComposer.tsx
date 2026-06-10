@@ -446,13 +446,13 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="flex min-w-0 items-end gap-0 px-2 py-2">
+        <div className="flex min-w-0 items-center gap-0 px-2 py-2">
           <div className="relative shrink-0" ref={menuRef}>
             <button
               type="button"
               disabled={disabled}
               onClick={() => setMenuOpen((o) => !o)}
-              className="group/plus mb-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-canvas-bg text-canvas-ink transition-colors hover:bg-canvas-border/60 disabled:opacity-40"
+              className="group/plus flex h-9 w-9 items-center justify-center rounded-full bg-canvas-bg text-canvas-ink transition-colors hover:bg-canvas-border/60 disabled:opacity-40"
               aria-label="Add attachment"
             >
               <span className="text-canvas-heading font-light leading-none">+</span>
@@ -523,11 +523,11 @@ export function ChatComposer({
               )}
           </div>
 
-          <div className="mx-1 mb-2 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+          <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
 
           <div
             className={`flex min-w-0 flex-1 ${
-              lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-end"
+              lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-center"
             }`}
           >
             {lockedPrefix && (

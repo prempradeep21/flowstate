@@ -23,6 +23,16 @@ export function countWords(text: string): number {
 /** Remove URLs, markdown artifacts, notes, and disclaimer noise — keep human prose only. */
 export function sanitizeSummaryText(text: string): string {
   let out = text
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "and")
+    .replace(/&lt;/gi, "")
+    .replace(/&gt;/gi, "")
+    .replace(/&#\d+;/g, " ")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`]+`/g, " ")
     .replace(/\r\n/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, (_, label: string) => {
       const t = label.trim();
@@ -41,6 +51,9 @@ export function sanitizeSummaryText(text: string): string {
     .replace(/\s*,?\s*see\s+[a-z0-9.-]+\.[a-z]{2,}\b\.?/gi, "")
     .replace(/\bthis repository contains\b[^.!?]*[.!?]?/gi, "")
     .replace(/\bfor information about\b[^.!?]*[.!?]?/gi, "")
+    .replace(/\bimage that exists\b[^.!?]*[.!?]?/gi, "")
+    .replace(/\boverview widget\b[^.!?]*[.!?]?/gi, "")
+    .replace(/\bexists in the\b[^.!?]*widget[^.!?]*[.!?]?/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -65,7 +78,13 @@ export function whatItIsLooksLikeRawReadme(text: string): boolean {
     /\(\s*\)/.test(t) ||
     /for information about/i.test(t) ||
     /this repository contains/i.test(t) ||
-    /agentskills\.io/i.test(t)
+    /agentskills\.io/i.test(t) ||
+    /image that exists/i.test(t) ||
+    /overview widget/i.test(t) ||
+    /```/.test(t) ||
+    /<[a-z][\s\S]*>/i.test(t) ||
+    /align\s*=\s*"/i.test(t) ||
+    /src\s*=\s*"/i.test(t)
   );
 }
 
@@ -95,7 +114,7 @@ export function enforceWhatItIsLimits(text: string): string {
     .map((p) => sanitizeSummaryText(p.replace(/\n+/g, " ")))
     .filter((p) => p.length > 0);
 
-  if (paragraphs.length === 0) return text.trim();
+  if (paragraphs.length === 0) return "";
 
   let compact = paragraphs.slice(0, maxParagraphs).map((p) => {
     let out = truncateToSentenceLimit(p, sentencesPerParagraph);

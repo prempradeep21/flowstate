@@ -80,7 +80,7 @@ export const DEFAULT_CANVAS_TUNING: CanvasTuning = {
 
   branchCardWidth: 420,
 
-  emptyCardHeight: 88,
+  emptyCardHeight: 80,
 
   fallbackCardHeight: 240,
 

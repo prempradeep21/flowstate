@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasQaResponseError,
+  isQaTurnInProgress,
+  resolveQaStatusLabel,
   shouldShowQaAnswerSection,
   shouldShowQaAnswerText,
   shouldShowQaArtifactPreview,
@@ -55,5 +58,33 @@ describe("qaStreamDisplay", () => {
     });
     expect(shouldShowQaArtifactPreview(card)).toBe(true);
     expect(shouldShowQaAnswerSection(card)).toBe(true);
+  });
+
+  it("keeps turn in progress while generating preview nodes exist", () => {
+    const card = baseCard({ status: "done" });
+    const nodes = {
+      n1: {
+        id: "n1",
+        artifactId: "",
+        versionId: "",
+        sourceCardId: "c1",
+        position: { x: 0, y: 0 },
+        size: { w: 100, h: 100 },
+        generatingPreview: { kind: "table" as const, title: "Table" },
+      },
+    };
+    expect(isQaTurnInProgress(card, nodes)).toBe(true);
+    expect(resolveQaStatusLabel(card, nodes)).toBe("Building artifact…");
+  });
+
+  it("detects surfaced API errors in answer text", () => {
+    expect(
+      hasQaResponseError(baseCard({ answer: "⚠️ Network error" })),
+    ).toBe(true);
+    expect(
+      resolveQaStatusLabel(
+        baseCard({ status: "streaming", answer: "⚠️ Network error" }),
+      ),
+    ).toBe("Request failed");
   });
 });

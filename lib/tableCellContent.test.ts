@@ -8,6 +8,11 @@ describe("normalizeTableCell", () => {
     expect(result.tags).toEqual([{ label: "Pending", tone: "neutral" }]);
   });
 
+  it("formats country codes and flags in cell text", () => {
+    const result = normalizeTableCell("us USA");
+    expect(result.text).toBe("🇺🇸 USA");
+  });
+
   it("preserves explicit tags", () => {
     const result = normalizeTableCell({
       value: "Driver",

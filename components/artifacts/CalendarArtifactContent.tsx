@@ -18,14 +18,16 @@ import {
   todayIso,
 } from "@/lib/calendarArtifact";
 import { useCanvasStore } from "@/lib/store";
+import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const LANE_HEIGHT = 18;
 const MAX_VISIBLE_LANES = 3;
 
 function truncateTitle(title: string, max = 14): string {
-  if (title.length <= max) return title;
-  return `${title.slice(0, max - 1)}…`;
+  const formatted = formatRichTextForDisplay(title);
+  if (formatted.length <= max) return formatted;
+  return `${formatted.slice(0, max - 1)}…`;
 }
 
 function orderedRange(start: string, end: string): { start: string; end: string } {

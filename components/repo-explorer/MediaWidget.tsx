@@ -54,25 +54,31 @@ function MediaThumb({ item }: { item: MediaData["items"][number] }) {
   );
 }
 
+export function MediaGallery({ data }: { data?: MediaData }) {
+  const gallery = data?.displayableItems ?? [];
+  if (gallery.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {gallery.slice(0, 6).map((item) => (
+        <MediaThumb key={item.url} item={item} />
+      ))}
+    </div>
+  );
+}
+
 export function MediaWidget({ data }: { data?: MediaData }) {
   if (!data) return null;
+
+  const gallery = data.displayableItems ?? [];
+  if (gallery.length === 0) return null;
 
   return (
     <WidgetCard
       title="Media"
-      subtitle={`${data.screenshotCount} images · ${data.videoCount} videos · ${data.architectureDiagramCount} diagrams`}
+      subtitle={`${gallery.length} large screenshots from README`}
     >
-      {data.items.length === 0 ? (
-        <p className="text-canvas-body-sm text-canvas-muted">
-          No README media found. Social preview may still be available on GitHub.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {data.items.slice(0, 6).map((item) => (
-            <MediaThumb key={item.url} item={item} />
-          ))}
-        </div>
-      )}
+      <MediaGallery data={data} />
     </WidgetCard>
   );
 }

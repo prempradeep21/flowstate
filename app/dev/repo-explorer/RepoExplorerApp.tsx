@@ -147,17 +147,7 @@ export function RepoExplorerApp() {
               )}
             </div>
 
-            <div className="lg:col-span-7">
-              {loading ? (
-                <div className="rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card">
-                  <WidgetSkeleton lines={4} />
-                </div>
-              ) : (
-                <MediaWidget data={data?.media.data} />
-              )}
-            </div>
-
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-6">
               {loading ? (
                 <div className="rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card">
                   <WidgetSkeleton lines={6} />
@@ -166,6 +156,18 @@ export function RepoExplorerApp() {
                 <FileStructureWidget data={data?.fileStructure.data} />
               )}
             </div>
+
+            {(data?.media.data?.displayableItems?.length ?? 0) > 0 ? (
+              <div className="lg:col-span-6">
+                {loading ? (
+                  <div className="rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card">
+                    <WidgetSkeleton lines={4} />
+                  </div>
+                ) : (
+                  <MediaWidget data={data?.media.data} />
+                )}
+              </div>
+            ) : null}
 
             <div className="lg:col-span-12">
               {loading ? (

@@ -1,5 +1,6 @@
 import type { CustomArtifactData } from "@/lib/artifactTypes";
 import { canvasColors } from "@/lib/design/tokens";
+import { withEmojiFontFamily } from "@/lib/richTextDisplay";
 
 export const CUSTOM_ARTIFACT_MAX_BYTES = 50 * 1024;
 
@@ -7,7 +8,7 @@ const BASE_CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body {
-    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-family: ${withEmojiFontFamily("ui-sans-serif, system-ui, -apple-system, sans-serif")};
     font-size: 14px;
     line-height: 1.5;
     color: ${canvasColors.stageDark};

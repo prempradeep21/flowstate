@@ -131,6 +131,12 @@ body {
   overscroll-behavior: none;
 }
 
+/* Emoji, flags, and symbol fallbacks for custom canvas fonts */
+.rich-text {
+  font-variant-emoji: unicode;
+  text-rendering: optimizeLegibility;
+}
+
 /* Minimal scrollbars — transparent track, no arrows, theme-aware thumb. */
 *,
 html,
@@ -323,8 +329,9 @@ body::-webkit-scrollbar-corner {
   background-color: rgb(var(--canvas-card)) !important;
 }
 
+/** Matches canvasSpacing.section (16px) — artifact chrome reveal inset. */
 .artifact-canvas-padding-chrome {
-  padding: 1.25rem;
+  padding: 1rem;
 }
 
 .floating-panel {

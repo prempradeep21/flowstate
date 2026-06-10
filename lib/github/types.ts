@@ -48,6 +48,8 @@ export interface MediaItem {
   thumb?: string;
   alt?: string;
   title?: string;
+  /** Natural width in pixels when probed server-side. */
+  width?: number;
 }
 
 export interface MediaData {
@@ -57,6 +59,8 @@ export interface MediaData {
   primaryScreenshot?: string;
   primaryDemoVideo?: string;
   items: MediaItem[];
+  /** Images wider than 720px — empty means hide the media gallery. */
+  displayableItems: MediaItem[];
 }
 
 export type PreviewType =

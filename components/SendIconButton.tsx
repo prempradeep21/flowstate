@@ -34,7 +34,7 @@ export function SendIconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label="Send"
-      className={`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-ink text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-30 ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-ink text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-30 ${className}`}
     >
       <SendArrowIcon />
     </button>

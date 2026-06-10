@@ -1,11 +1,11 @@
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
-import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
 import { applyEmittedArtifact } from "@/lib/dummyLLM";
 import {
   appendPendingEmittedArtifact,
   processArtifactSpawnQueue,
 } from "@/lib/processArtifactSpawnQueue";
 export { shouldEarlySpawnArtifact } from "@/lib/processArtifactSpawnQueue";
+import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
   getLatestVersion,
   getVersionById,
@@ -14,29 +14,32 @@ import {
 } from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
-function appendStreamedArtifactVersion(
+function resolveDoneThinkingLabel(
   cardId: string,
-  outputArtifactId: string,
+  card: NonNullable<ReturnType<typeof useCanvasStore.getState>["cards"][string]>,
+): string | undefined {
+  const nodes = useCanvasStore.getState().canvasArtifactNodes;
+  const doneCard = { ...card, status: "done" as const };
+  if (isQaTurnInProgress(doneCard, nodes)) {
+    if (card.thinkingLabel?.trim()) return card.thinkingLabel;
+    const payload = card.artifactPayload;
+    if (payload) return `Building ${payload.type}…`;
+    const pending = card.pendingEmittedArtifacts?.[0];
+    if (pending) return `Building ${pending.type}…`;
+    return "Building artifact…";
+  }
+  return undefined;
+}
+
+/** Hold streamed payload on the card until the turn succeeds and materializes. */
+function updateStreamingArtifactPayload(
+  cardId: string,
   payload: NonNullable<ReturnType<typeof applyEmittedArtifact>["artifactPayload"]>,
   responseType: ResponseType,
 ) {
-  const state = useCanvasStore.getState();
-  const { versionId } = state.createArtifactVersion(
-    outputArtifactId,
-    payload,
-    cardId,
-  );
-  const node = findCanvasNodeByArtifactId(
-    state.canvasArtifactNodes,
-    outputArtifactId,
-  );
-  if (node) {
-    state.setCanvasArtifactVersion(node.id, versionId);
-  }
-  state.updateCard(cardId, {
+  useCanvasStore.getState().updateCard(cardId, {
     responseType,
     artifactPayload: payload,
-    outputArtifactVersionId: versionId,
     thinkingLabel: `Building ${payload.type}…`,
   });
 }
@@ -59,12 +62,7 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
   if (payload && targetArtifactId) {
     const art = state.sessionArtifacts[targetArtifactId];
     if (art && canAppendArtifactVersion(art, payload)) {
-      appendStreamedArtifactVersion(
-        cardId,
-        targetArtifactId,
-        payload,
-        applied.responseType,
-      );
+      updateStreamingArtifactPayload(cardId, payload, applied.responseType);
       return;
     }
   }
@@ -98,7 +96,10 @@ export function finalizeCardResponse(
           [cardId]: {
             ...base,
             status: "done",
-            thinkingLabel: undefined,
+            thinkingLabel: resolveDoneThinkingLabel(cardId, {
+              ...base,
+              status: "done",
+            }),
             pendingFiles: undefined,
             responseType: opts.responseType ?? base.responseType ?? "text",
           },
@@ -109,6 +110,8 @@ export function finalizeCardResponse(
   }
 
   const artifactId = processArtifactSpawnQueue(cardId);
+
+  useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
 
   if (opts.responseType) {
     useCanvasStore.getState().updateCard(cardId, {

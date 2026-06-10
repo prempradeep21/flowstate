@@ -4,14 +4,29 @@ import { m, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import type { RepoExplorerData, WidgetStatus } from "@/lib/github/types";
-import { WHAT_IT_IS_LIMITS } from "@/lib/github/overviewCopyLimits";
 import {
-  REPO_ARTIFACT_HEIGHT,
+  polishWhatItIsCopy,
+  WHAT_IT_IS_LIMITS,
+  whatItIsLooksLikeRawReadme,
+} from "@/lib/github/overviewCopyLimits";
+import { mergeAudienceCopy } from "@/lib/github/readmeSummary";
+import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
+import { getArtifactBounds } from "@/lib/canvasNodeBounds";
+import {
   REPO_ARTIFACT_WIDTH,
-  REPO_HUB,
+  REPO_COLLAPSED_HEIGHT,
+  REPO_COLLAPSED_WIDTH,
+  REPO_DRAG_HANDLE_ATTR,
+  REPO_SPOKE_BODY_MAX_HEIGHT,
+  REPO_SPOKE_MAX_HEIGHT,
+  computeRepoArtifactHeight,
+  getRepoSpokeDefinitions,
+  positionRepoSpokes,
   REPO_HUB_HOLD_MS,
-  REPO_SPOKES,
   REPO_WIDGETS_AFTER_CONNECTORS_MS,
+  repoCollapsePositionDelta,
+  repoHubForBounds,
+  type RepoHubLayout,
   type RepoRevealPhase,
   type RepoSpokeId,
   type RepoSpokeLayout,
@@ -75,10 +90,13 @@ function spokeAnchor(spoke: RepoSpokeLayout): { x: number; y: number } {
     : { x: spoke.x, y: cy };
 }
 
-function hubAnchor(side: RepoSpokeLayout["hubSide"]): { x: number; y: number } {
+function hubAnchor(
+  side: RepoSpokeLayout["hubSide"],
+  hub: RepoHubLayout,
+): { x: number; y: number } {
   return side === "left"
-    ? { x: REPO_HUB.cx - REPO_HUB.w / 2, y: REPO_HUB.cy }
-    : { x: REPO_HUB.cx + REPO_HUB.w / 2, y: REPO_HUB.cy };
+    ? { x: hub.cx - hub.w / 2, y: hub.cy }
+    : { x: hub.cx + hub.w / 2, y: hub.cy };
 }
 
 function orthogonalPath(
@@ -109,15 +127,100 @@ function SpokeSkeleton({ lines = 5 }: { lines?: number }) {
   );
 }
 
-function LabelRow({ label, value }: { label: string; value: string }) {
+function StackRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="border-t border-canvas-border/60 pt-2 first:border-t-0 first:pt-0">
-      <p className="text-canvas-caption font-medium uppercase tracking-wide text-canvas-muted">
-        {label}
-      </p>
-      <p className="mt-0.5 text-canvas-body-sm leading-relaxed text-canvas-ink">{value}</p>
+    <div className="flex items-start gap-2 rounded-canvas-sm bg-canvas-artifactStage/70 px-2 py-1.5">
+      <span className="mt-0.5 text-canvas-compact" aria-hidden>
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-canvas-micro uppercase tracking-wide text-canvas-muted">{label}</p>
+        <p className="text-canvas-body-sm font-medium leading-snug text-canvas-ink">{value}</p>
+      </div>
     </div>
   );
+}
+
+function StatChip({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-canvas-sm bg-canvas-artifactStage px-2 py-1.5 text-center">
+      <p className="text-canvas-micro" aria-hidden>
+        {icon}
+      </p>
+      <p className="mt-0.5 text-canvas-body-sm font-medium tabular-nums text-canvas-ink">
+        {value}
+      </p>
+      <p className="text-canvas-micro text-canvas-muted">{label}</p>
+    </div>
+  );
+}
+
+function spokeIcon(id: RepoSpokeId): string {
+  switch (id) {
+    case "overview":
+      return "◎";
+    case "audience":
+      return "◎";
+    case "fileStructure":
+      return "▤";
+    case "media":
+      return "▦";
+    case "preview":
+      return "↗";
+    case "techDetails":
+      return "⚙";
+    case "builtBy":
+      return "◉";
+    default:
+      return "•";
+  }
+}
+
+function resolveOverviewText(
+  streamingOverview: string,
+  explorer: RepoExplorerData,
+): string {
+  const candidates = [
+    streamingOverview,
+    explorer.overview.ai?.whatItIs ?? "",
+    explorer.overview.data?.description ?? "",
+  ];
+  for (const raw of candidates) {
+    if (!raw?.trim()) continue;
+    const polished = polishWhatItIsCopy(raw);
+    if (polished && !whatItIsLooksLikeRawReadme(polished)) {
+      return polished;
+    }
+  }
+  return "";
+}
+
+function spokeStatus(explorer: RepoExplorerData, spokeId: RepoSpokeId): WidgetStatus {
+  switch (spokeId) {
+    case "overview":
+    case "audience":
+      return explorer.overview.status;
+    case "fileStructure":
+      return explorer.fileStructure.status;
+    case "media":
+      return explorer.media.status;
+    case "preview":
+      return explorer.preview.status;
+    case "techDetails":
+      return explorer.techDetails.status;
+    case "builtBy":
+      return explorer.builtBy.status;
+    default:
+      return "loading";
+  }
 }
 
 function SpokeBody({
@@ -131,11 +234,13 @@ function SpokeBody({
   streamingOverview: string;
   loading: boolean;
 }) {
-  const slot = explorer[spokeId === "techDetails" ? "techDetails" : spokeId];
-  const status: WidgetStatus = slot?.status ?? "loading";
+  const status = spokeStatus(explorer, spokeId);
 
-  if (loading || (status === "loading" && spokeId !== "overview")) {
-    return <SpokeSkeleton lines={spokeId === "overview" ? 7 : 5} />;
+  if (
+    loading ||
+    (status === "loading" && spokeId !== "overview" && spokeId !== "audience")
+  ) {
+    return <SpokeSkeleton lines={spokeId === "overview" ? 5 : 4} />;
   }
 
   if (status === "error") {
@@ -148,40 +253,22 @@ function SpokeBody({
 
   switch (spokeId) {
     case "overview": {
-      const text =
-        streamingOverview ||
-        explorer.overview.ai?.whatItIs ||
-        explorer.overview.data?.description ||
-        "";
-      const audience = explorer.overview.ai?.whoItsFor;
-      if (!text && !audience?.intendedFor) return <SpokeSkeleton lines={7} />;
+      const text = resolveOverviewText(streamingOverview, explorer);
+      if (!text) return <SpokeSkeleton lines={5} />;
       const paragraphs = text.split(/\n\n+/).filter(Boolean);
-      const tags = explorer.overview.ai?.tags?.slice(0, 6) ?? [];
+      const tags = explorer.overview.ai?.tags?.slice(0, 4) ?? [];
       return (
-        <div className="space-y-3">
-          {paragraphs.length ? (
-            <div className="space-y-2 text-canvas-body-sm leading-relaxed text-canvas-ink">
-              {paragraphs.map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          ) : null}
-          {audience?.intendedFor ? (
-            <div className="space-y-0 rounded-canvas-sm bg-canvas-artifactStage/80 p-2.5">
-              <LabelRow label="Intended for" value={audience.intendedFor} />
-              {audience.whoShouldUse ? (
-                <LabelRow label="Who should use it" value={audience.whoShouldUse} />
-              ) : null}
-              {audience.whoItHelps ? (
-                <LabelRow label="Who it helps" value={audience.whoItHelps} />
-              ) : null}
-            </div>
-          ) : null}
+        <div className="space-y-2">
+          <div className="space-y-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
+            {paragraphs.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
           {explorer.overview.ai?.keyFeatures?.length ? (
-            <ul className="space-y-1 text-canvas-body-sm text-canvas-ink">
-              {explorer.overview.ai.keyFeatures.map((f) => (
-                <li key={f} className="flex gap-2">
-                  <span className="text-canvas-accent">•</span>
+            <ul className="space-y-1 border-t border-canvas-border/50 pt-2 text-canvas-compact text-canvas-ink">
+              {explorer.overview.ai.keyFeatures.slice(0, 3).map((f) => (
+                <li key={f} className="flex gap-1.5">
+                  <span className="text-canvas-accent">✓</span>
                   <span>{f}</span>
                 </li>
               ))}
@@ -192,7 +279,7 @@ function SpokeBody({
               {tags.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full bg-canvas-artifactIconBg px-2 py-0.5 text-canvas-compact text-canvas-accent"
+                  className="rounded-full bg-canvas-artifactIconBg px-2 py-0.5 text-canvas-micro text-canvas-accent"
                 >
                   {t}
                 </span>
@@ -202,35 +289,84 @@ function SpokeBody({
         </div>
       );
     }
-    case "media": {
-      const media = explorer.media.data;
-      if (!media) return <SpokeSkeleton />;
-      const thumbs = media.items.filter((i) => i.kind === "image").slice(0, 3);
+    case "audience": {
+      const audience = explorer.overview.ai?.whoItsFor;
+      const text = audience ? mergeAudienceCopy(audience) : "";
+      if (!text || text.length < 32) return <SpokeSkeleton lines={3} />;
       return (
-        <div className="space-y-2 text-canvas-body-sm text-canvas-ink">
-          <p>
-            {media.screenshotCount} screenshots · {media.videoCount} videos ·{" "}
-            {media.architectureDiagramCount} diagrams
-          </p>
-          {media.primaryDemoVideo ? (
-            <p className="text-canvas-compact text-canvas-muted">
-              Demo video detected in README
-            </p>
+        <p className="text-canvas-body-sm leading-relaxed text-canvas-ink">{text}</p>
+      );
+    }
+    case "fileStructure": {
+      const f = explorer.fileStructure.data;
+      if (!f) return <SpokeSkeleton />;
+      const top = f.extensionCounts.slice(0, 6);
+      const maxCount = top[0]?.count ?? 1;
+      return (
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            <StatChip icon="📄" label="Files" value={f.totalFiles.toLocaleString()} />
+            <StatChip icon="📂" label="Folders" value={f.totalFolders.toLocaleString()} />
+            <StatChip icon="Σ" label="Entries" value={f.totalEntries.toLocaleString()} />
+          </div>
+          {top.length ? (
+            <ul className="space-y-1">
+              {top.map((e) => (
+                <li key={e.extension} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 truncate text-canvas-micro font-medium text-canvas-ink">
+                    {e.label}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="h-1.5 rounded-full bg-canvas-accent/75"
+                      style={{
+                        width: `${Math.max(10, (e.count / maxCount) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-canvas-micro tabular-nums text-canvas-muted">
+                    {e.count}
+                  </span>
+                </li>
+              ))}
+            </ul>
           ) : null}
-          {thumbs.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {thumbs.map((item) => (
-                <img
-                  key={item.url}
-                  src={item.thumb ?? item.url}
-                  alt={item.alt ?? ""}
-                  className="h-14 w-20 rounded-canvas-sm border border-canvas-border object-cover"
-                />
+          {f.topLevelFolders.length ? (
+            <div className="flex flex-wrap gap-1">
+              {f.topLevelFolders.slice(0, 5).map((d) => (
+                <span
+                  key={d}
+                  className="rounded-canvas-xs bg-canvas-artifactStage px-1.5 py-0.5 font-mono text-canvas-micro text-canvas-muted"
+                >
+                  {d}/
+                </span>
               ))}
             </div>
-          ) : (
-            <p className="text-canvas-compact text-canvas-muted">No media in README.</p>
-          )}
+          ) : null}
+        </div>
+      );
+    }
+    case "media": {
+      const gallery = explorer.media.data?.displayableItems ?? [];
+      if (!gallery.length) return null;
+      return (
+        <div className="grid grid-cols-2 gap-1.5">
+          {gallery.slice(0, 4).map((item) => (
+            <a
+              key={item.url}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-no-drag
+              className="block overflow-hidden rounded-canvas-sm border border-canvas-border bg-canvas-artifactStage"
+            >
+              <img
+                src={item.url}
+                alt={item.alt ?? "README screenshot"}
+                className="aspect-video w-full object-cover object-top"
+              />
+            </a>
+          ))}
         </div>
       );
     }
@@ -271,38 +407,62 @@ function SpokeBody({
     case "techDetails": {
       const t = explorer.techDetails.data;
       if (!t) return <SpokeSkeleton lines={6} />;
-      const langs = t.programmingLanguages.slice(0, 5);
+      const langs = t.programmingLanguages.slice(0, 4);
       return (
-        <div className="space-y-2 text-canvas-body-sm text-canvas-ink">
-          {t.frontendFramework ? <p>Frontend: {t.frontendFramework}</p> : null}
-          {t.backendFramework ? <p>Backend: {t.backendFramework}</p> : null}
-          {t.database ? <p>Database: {t.database}</p> : null}
-          {t.hostingPlatform ? <p>Hosting: {t.hostingPlatform}</p> : null}
-          {t.aiProviders.length ? <p>AI: {t.aiProviders.join(", ")}</p> : null}
-          {langs.length ? (
-            <p className="text-canvas-compact text-canvas-muted">
-              {langs.map((l) => `${l.name} ${Math.round(l.percent)}%`).join(" · ")}
-            </p>
-          ) : null}
-          {t.dependencies.length ? (
-            <p className="line-clamp-2 text-canvas-compact text-canvas-muted">
-              Key deps: {t.dependencies.slice(0, 8).join(", ")}
-            </p>
-          ) : null}
-          {t.installationCommands.length ? (
-            <p className="line-clamp-2 font-mono text-canvas-compact text-canvas-muted">
-              {t.installationCommands[0]}
-            </p>
-          ) : null}
+        <div className="space-y-2">
           {explorer.techDetails.ai?.architectureSummary ? (
-            <p className="line-clamp-4 text-canvas-compact leading-relaxed text-canvas-muted">
+            <p className="rounded-canvas-sm border border-canvas-border/60 bg-canvas-artifactStage/80 px-2 py-1.5 text-canvas-compact leading-relaxed text-canvas-ink">
               {explorer.techDetails.ai.architectureSummary}
             </p>
           ) : null}
-          {explorer.techDetails.ai?.estimatedSetupTime ? (
-            <p className="text-canvas-compact text-canvas-muted">
-              Setup: {explorer.techDetails.ai.estimatedSetupTime}
-            </p>
+          <div className="space-y-1">
+            {t.frontendFramework ? (
+              <StackRow icon="🖥" label="Frontend" value={t.frontendFramework} />
+            ) : null}
+            {t.backendFramework ? (
+              <StackRow icon="⚡" label="Backend" value={t.backendFramework} />
+            ) : null}
+            {t.database ? <StackRow icon="🗄" label="Database" value={t.database} /> : null}
+            {t.hostingPlatform ? (
+              <StackRow icon="☁" label="Hosting" value={t.hostingPlatform} />
+            ) : null}
+            {t.aiProviders.length ? (
+              <StackRow icon="✦" label="AI" value={t.aiProviders.join(", ")} />
+            ) : null}
+            {explorer.techDetails.ai?.estimatedSetupTime ? (
+              <StackRow
+                icon="⏱"
+                label="Setup time"
+                value={explorer.techDetails.ai.estimatedSetupTime}
+              />
+            ) : null}
+          </div>
+          {langs.length ? (
+            <div className="flex flex-wrap gap-1">
+              {langs.map((l) => (
+                <span
+                  key={l.name}
+                  className="rounded-full bg-canvas-artifactIconBg px-2 py-0.5 text-canvas-micro font-medium text-canvas-accent"
+                >
+                  {l.name} {Math.round(l.percent)}%
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {t.dependencies.length ? (
+            <div className="rounded-canvas-sm bg-canvas-artifactStage/70 px-2 py-1.5">
+              <p className="text-canvas-micro uppercase tracking-wide text-canvas-muted">
+                Key dependencies
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-canvas-compact text-canvas-ink">
+                {t.dependencies.slice(0, 8).join(" · ")}
+              </p>
+            </div>
+          ) : null}
+          {t.installationCommands.length ? (
+            <pre className="overflow-x-auto rounded-canvas-sm bg-canvas-codeBg px-2 py-1.5 font-mono text-canvas-micro text-canvas-ink">
+              {t.installationCommands[0]}
+            </pre>
           ) : null}
         </div>
       );
@@ -311,68 +471,63 @@ function SpokeBody({
       const b = explorer.builtBy.data;
       if (!b) return <SpokeSkeleton />;
       return (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2.5">
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2.5 rounded-canvas-sm border border-canvas-border/60 bg-canvas-artifactStage/70 p-2">
             <img
               src={b.avatarUrl}
               alt=""
-              className="h-11 w-11 rounded-full border border-canvas-border"
+              className="h-12 w-12 shrink-0 rounded-full border-2 border-canvas-border"
             />
             <div className="min-w-0">
               <p className="truncate text-canvas-body-sm font-medium text-canvas-ink">
                 {b.name ?? b.login}
               </p>
               <p className="text-canvas-compact text-canvas-muted">@{b.login}</p>
+              {b.company ? (
+                <p className="truncate text-canvas-micro text-canvas-muted">🏢 {b.company}</p>
+              ) : null}
             </div>
           </div>
           {b.bio ? (
-            <p className="line-clamp-3 text-canvas-body-sm leading-relaxed text-canvas-muted">
+            <p className="line-clamp-3 rounded-canvas-sm bg-canvas-artifactStage/50 px-2 py-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
               {b.bio}
             </p>
           ) : null}
-          <p className="text-canvas-compact text-canvas-muted">
-            {formatCount(b.followers)} followers · {b.publicRepos} public repos ·{" "}
-            {b.yearsActive}y on GitHub
-          </p>
-          {b.company ? (
-            <p className="text-canvas-compact text-canvas-muted">{b.company}</p>
-          ) : null}
+          <div className="grid grid-cols-3 gap-1.5">
+            <StatChip icon="👥" label="Followers" value={formatCount(b.followers)} />
+            <StatChip icon="📦" label="Repos" value={b.publicRepos} />
+            <StatChip icon="📅" label="Years" value={b.yearsActive} />
+          </div>
+          <a
+            href={b.htmlUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-no-drag
+            className="inline-flex items-center gap-1 rounded-canvas-sm bg-canvas-artifactIconBg px-2 py-1 text-canvas-compact font-medium text-canvas-accent hover:underline"
+          >
+            View on GitHub ↗
+          </a>
           {b.topRepos.length ? (
-            <ul className="space-y-1 text-canvas-compact text-canvas-muted">
+            <ul className="space-y-1 border-t border-canvas-border/50 pt-2">
               {b.topRepos.slice(0, 3).map((r) => (
-                <li key={r.htmlUrl} className="truncate">
-                  ★ {formatCount(r.stars)} {r.name}
+                <li key={r.htmlUrl}>
+                  <a
+                    href={r.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-no-drag
+                    className="flex items-center justify-between gap-2 rounded-canvas-xs px-1 py-0.5 hover:bg-canvas-artifactStage"
+                  >
+                    <span className="truncate text-canvas-compact text-canvas-accent">
+                      ★ {r.name}
+                    </span>
+                    <span className="shrink-0 text-canvas-micro tabular-nums text-canvas-muted">
+                      {formatCount(r.stars)}
+                    </span>
+                  </a>
                 </li>
               ))}
             </ul>
-          ) : null}
-        </div>
-      );
-    }
-    case "fileStructure": {
-      const f = explorer.fileStructure.data;
-      if (!f) return <SpokeSkeleton />;
-      const top = f.extensionCounts.slice(0, 8);
-      return (
-        <div className="space-y-2 text-canvas-body-sm text-canvas-ink">
-          <p>
-            {f.totalFiles.toLocaleString()} files · {f.totalFolders.toLocaleString()} folders
-            {f.truncated ? " (partial tree)" : ""}
-          </p>
-          {top.length ? (
-            <ul className="space-y-1">
-              {top.map((e) => (
-                <li key={e.extension} className="flex justify-between gap-2 text-canvas-compact">
-                  <span>{e.label}</span>
-                  <span className="tabular-nums text-canvas-muted">{e.count}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {f.topLevelFolders.length ? (
-            <p className="line-clamp-2 font-mono text-canvas-compact text-canvas-muted">
-              {f.topLevelFolders.slice(0, 6).map((d) => `${d}/`).join(" ")}
-            </p>
           ) : null}
         </div>
       );
@@ -390,6 +545,7 @@ function RepoSpokeCard({
   streamingOverview,
   dataReady,
   onDismiss,
+  onHeightChange,
   canvasChrome = false,
 }: {
   spoke: RepoSpokeLayout;
@@ -399,18 +555,42 @@ function RepoSpokeCard({
   streamingOverview: string;
   dataReady: boolean;
   onDismiss: () => void;
+  onHeightChange: (id: RepoSpokeId, height: number) => void;
   canvasChrome?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const report = () => {
+      const next = Math.min(REPO_SPOKE_MAX_HEIGHT, Math.ceil(el.getBoundingClientRect().height));
+      onHeightChange(spoke.id, next);
+    };
+
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [spoke.id, spoke.y, onHeightChange, explorer, streamingOverview, dataReady]);
 
   return (
     <m.div
-      className={`absolute flex flex-col overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} ${
+      ref={cardRef}
+      data-no-drag
+      className={`absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} ${
         canvasChrome
           ? ARTIFACT_CANVAS_CASING_DEFAULT
           : "border-canvas-border shadow-card"
       }`}
-      style={{ left: spoke.x, top: spoke.y, width: spoke.w, height: spoke.h }}
+      style={{
+        left: spoke.x,
+        top: spoke.y,
+        width: spoke.w,
+        transition: "top 0.22s ease, left 0.22s ease",
+      }}
       custom={index}
       variants={sidebarTileEnterVariants}
       initial={reduceMotion ? "reduced" : "initial"}
@@ -419,7 +599,7 @@ function RepoSpokeCard({
       <BoundsGlow intensity="half" canvasChrome={canvasChrome} />
       <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-canvas-border px-3 py-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-compact text-canvas-accent">
-          ?
+          {spokeIcon(spoke.id)}
         </span>
         <h3 className="min-w-0 flex-1 truncate text-canvas-body-sm font-medium text-canvas-ink">
           {spoke.title}
@@ -435,16 +615,23 @@ function RepoSpokeCard({
         </button>
       </header>
       <m.div
-        className="relative z-10 min-h-0 flex-1 overflow-y-auto p-3"
+        data-canvas-scroll
+        className="relative z-10 overflow-y-auto p-3"
+        style={{ maxHeight: REPO_SPOKE_BODY_MAX_HEIGHT }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: visible && (dataReady || spoke.id === "overview") ? 1 : 0.35 }}
+        animate={{
+          opacity:
+            visible && (dataReady || spoke.id === "overview" || spoke.id === "audience")
+              ? 1
+              : 0.35,
+        }}
         transition={{ duration: 0.35, delay: visible ? 0.12 + index * 0.05 : 0 }}
       >
         <SpokeBody
           spokeId={spoke.id}
           explorer={explorer}
           streamingOverview={streamingOverview}
-          loading={!dataReady && spoke.id !== "overview"}
+          loading={!dataReady && spoke.id !== "overview" && spoke.id !== "audience"}
         />
       </m.div>
     </m.div>
@@ -498,7 +685,10 @@ function useRepoEnrichment(
         const res = await fetch(streamUrl, { cache: "no-store" });
         if (!res.ok) return;
         streamAcc = await readStreamText(res);
-        if (streamAcc.trim()) setStreamingOverview(streamAcc);
+        const streamed = polishWhatItIsCopy(streamAcc.trim());
+        if (streamed && !whatItIsLooksLikeRawReadme(streamed)) {
+          setStreamingOverview(streamed);
+        }
       } catch {
         /* optional stream */
       }
@@ -511,47 +701,52 @@ function useRepoEnrichment(
         const data = (await res.json()) as RepoExplorerData;
 
         await streamTask;
-        const streamed = streamAcc.trim();
-        if (streamed && data.overview) {
-          const ai = data.overview.ai;
+        const streamed = polishWhatItIsCopy(streamAcc.trim());
+        if (
+          streamed &&
+          !whatItIsLooksLikeRawReadme(streamed) &&
+          data.overview?.ai
+        ) {
           data.overview = {
             ...data.overview,
             status: "ready",
-            ai: ai
-              ? { ...ai, whatItIs: streamed }
-              : {
-                  category: "Open Source",
-                  tags: [],
-                  whatItIs: streamed,
-                  whoItsFor: {
-                    intendedFor: "",
-                    whoShouldUse: "",
-                    whoItHelps: "",
-                  },
-                  keyFeatures: [],
-                },
+            ai: { ...data.overview.ai, whatItIs: streamed },
           };
           setStreamingOverview(streamed);
         } else if (
           data.overview.ai?.whatItIs &&
           data.overview.ai.whatItIs.length >= WHAT_IT_IS_LIMITS.minChars
         ) {
-          setStreamingOverview(data.overview.ai.whatItIs);
-        } else {
+          setStreamingOverview(polishWhatItIsCopy(data.overview.ai.whatItIs));
+        }
+
+        const audienceMerged = data.overview.ai?.whoItsFor
+          ? mergeAudienceCopy(data.overview.ai.whoItsFor)
+          : "";
+        const audienceThin = audienceMerged.length < 48;
+        const summaryThin =
+          !data.overview.ai?.whatItIs ||
+          data.overview.ai.whatItIs.length < WHAT_IT_IS_LIMITS.minChars;
+
+        if (audienceThin || summaryThin) {
           try {
             const sumRes = await fetch(summaryUrl, { cache: "no-store" });
             if (sumRes.ok) {
               const { ai } = (await sumRes.json()) as {
                 ai: NonNullable<RepoExplorerData["overview"]["ai"]>;
               };
-              if (ai?.whatItIs) {
+              if (ai) {
                 data.overview = { ...data.overview, ai, status: "ready" };
-                setStreamingOverview(ai.whatItIs);
+                if (ai.whatItIs) {
+                  setStreamingOverview(polishWhatItIsCopy(ai.whatItIs));
+                }
               }
             }
           } catch {
             /* keep explore overview */
           }
+        } else if (streamed && !data.overview.ai) {
+          setStreamingOverview(streamed);
         }
 
         patchRepoArtifactExplorer(artifactId, {
@@ -594,7 +789,9 @@ export function RepoArtifactContent({
     displayTitle;
 
   const [phase, setPhase] = useState<RepoRevealPhase>("hub");
+  const [collapsed, setCollapsed] = useState(false);
   const [hiddenSpokes, setHiddenSpokes] = useState<Set<RepoSpokeId>>(() => new Set());
+  const [spokeHeights, setSpokeHeights] = useState<Partial<Record<RepoSpokeId, number>>>({});
   const { streamingOverview, dataReady } = useRepoEnrichment(
     artifactId,
     repoUrl,
@@ -617,38 +814,99 @@ export function RepoArtifactContent({
     };
   }, [reduceMotion]);
 
-  const visibleSpokes = useMemo(
-    () => REPO_SPOKES.filter((s) => !hiddenSpokes.has(s.id)),
-    [hiddenSpokes],
+  const hasDisplayableMedia =
+    (explorer.media.data?.displayableItems?.length ?? 0) > 0;
+
+  const spokeDefinitions = useMemo(
+    () => getRepoSpokeDefinitions(hasDisplayableMedia),
+    [hasDisplayableMedia],
   );
+
+  const visibleSpokes = useMemo(
+    () =>
+      positionRepoSpokes(
+        spokeDefinitions.filter((s) => !hiddenSpokes.has(s.id)),
+        spokeHeights,
+      ),
+    [hiddenSpokes, spokeDefinitions, spokeHeights],
+  );
+
+  const handleSpokeHeightChange = useCallback((id: RepoSpokeId, height: number) => {
+    setSpokeHeights((prev) => (prev[id] === height ? prev : { ...prev, [id]: height }));
+  }, []);
 
   const dismissSpoke = useCallback((id: RepoSpokeId) => {
     setHiddenSpokes((prev) => new Set(prev).add(id));
   }, []);
 
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => !prev);
+  }, []);
+
+  const layoutW = collapsed ? REPO_COLLAPSED_WIDTH : REPO_ARTIFACT_WIDTH;
+  const activeDefinitions = useMemo(
+    () => spokeDefinitions.filter((s) => !hiddenSpokes.has(s.id)),
+    [hiddenSpokes, spokeDefinitions],
+  );
+
+  const expandedH = useMemo(
+    () => computeRepoArtifactHeight(activeDefinitions, spokeHeights),
+    [activeDefinitions, spokeHeights],
+  );
+  const layoutH = collapsed ? REPO_COLLAPSED_HEIGHT : expandedH;
+  const hub = useMemo(
+    () => repoHubForBounds(layoutW, layoutH, collapsed),
+    [collapsed, layoutH, layoutW],
+  );
+
+  useEffect(() => {
+    if (!fill || !artifactId) return;
+    const st = useCanvasStore.getState();
+    const node = findCanvasNodeByArtifactId(st.canvasArtifactNodes, artifactId);
+    if (!node) return;
+
+    const art = st.sessionArtifacts[artifactId];
+    const bounds = getArtifactBounds(node, art);
+    const { dx, dy } = repoCollapsePositionDelta(
+      collapsed,
+      bounds.w,
+      bounds.h,
+      expandedH,
+    );
+    if (dx !== 0 || dy !== 0) {
+      st.moveCanvasArtifact(node.id, dx, dy);
+    }
+    st.setCanvasArtifactSize(
+      node.id,
+      collapsed
+        ? { w: REPO_COLLAPSED_WIDTH, h: REPO_COLLAPSED_HEIGHT }
+        : { w: REPO_ARTIFACT_WIDTH, h: expandedH },
+    );
+  }, [artifactId, collapsed, expandedH, fill]);
+
   const connectors = useMemo(
     () =>
       visibleSpokes.map((spoke) => {
-        const from = hubAnchor(spoke.hubSide);
+        const from = hubAnchor(spoke.hubSide, hub);
         const to = spokeAnchor(spoke);
         return { id: spoke.id, d: orthogonalPath(from, to) };
       }),
-    [visibleSpokes],
+    [hub, visibleSpokes],
   );
 
-  const showConnectors = phase !== "hub" || Boolean(reduceMotion);
-  const showWidgets = phase === "widgets" || Boolean(reduceMotion);
+  const spokesRevealed = phase === "widgets" || Boolean(reduceMotion);
+  const showConnectors = (phase !== "hub" || Boolean(reduceMotion)) && !collapsed;
+  const showWidgets = spokesRevealed && !collapsed;
 
   return (
     <div
-      className={`relative ${fill ? "h-full w-full" : ""}`}
+      className="relative"
       style={{
-        width: fill ? "100%" : REPO_ARTIFACT_WIDTH,
-        height: fill ? "100%" : REPO_ARTIFACT_HEIGHT,
-        minWidth: REPO_ARTIFACT_WIDTH,
-        minHeight: REPO_ARTIFACT_HEIGHT,
+        width: fill ? "100%" : layoutW,
+        height: layoutH,
+        minWidth: layoutW,
+        minHeight: layoutH,
       }}
-      data-no-drag
     >
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -678,7 +936,7 @@ export function RepoArtifactContent({
         {showConnectors
           ? connectors.map((c) => {
               const spoke = visibleSpokes.find((s) => s.id === c.id)!;
-              const from = hubAnchor(spoke.hubSide);
+              const from = hubAnchor(spoke.hubSide, hub);
               const to = spokeAnchor(spoke);
               return (
                 <g key={`${c.id}-dots`}>
@@ -690,32 +948,46 @@ export function RepoArtifactContent({
           : null}
       </svg>
 
-      <m.a
-        href={repoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-no-drag
-        className={`absolute z-20 flex flex-col items-center justify-center overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} px-4 py-5 text-center transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40 ${
+      <m.div
+        {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
+        className={`absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} text-center ${
           fill
             ? ARTIFACT_CANVAS_CASING_DEFAULT
             : "border-canvas-border shadow-card"
         }`}
         style={{
-          left: REPO_HUB.cx - REPO_HUB.w / 2,
-          top: REPO_HUB.cy - REPO_HUB.h / 2,
-          width: REPO_HUB.w,
-          height: REPO_HUB.h,
+          left: hub.cx - hub.w / 2,
+          top: hub.cy - hub.h / 2,
+          width: hub.w,
+          height: hub.h,
         }}
         variants={dropVariants}
         initial="initial"
         animate="animate"
       >
         <BoundsGlow intensity="full" canvasChrome={fill} />
-        <div className="relative z-10 flex flex-col items-center">
-          <GitHubLogo className="h-10 w-10 text-canvas-ink" />
-          <p className="mt-2 line-clamp-3 text-canvas-body-sm font-medium leading-snug text-canvas-ink">
-            {title}
-          </p>
+        <div
+          className="relative z-10 flex w-full shrink-0 cursor-grab items-center justify-center gap-1.5 border-b border-canvas-border/40 bg-canvas-artifactStage/50 py-1 active:cursor-grabbing"
+          title="Drag here to move"
+        >
+          <span className="text-canvas-micro tracking-widest text-canvas-muted/80" aria-hidden>
+            ⋮⋮
+          </span>
+          <span className="text-canvas-micro font-medium text-canvas-muted/90">Drag</span>
+        </div>
+        <div className="relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
+          <a
+            href={repoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-no-drag
+            className="flex flex-col items-center rounded-canvas-sm px-2 py-1 transition-colors hover:bg-canvas-artifactStage/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+          >
+            <GitHubLogo className="h-9 w-9 text-canvas-ink" />
+            <p className="mt-1.5 line-clamp-2 text-canvas-body-sm font-medium leading-snug text-canvas-accent hover:underline">
+              {title}
+            </p>
+          </a>
           {explorer.overview.data ? (
             <p className="mt-1 text-canvas-compact tabular-nums text-canvas-muted">
               ★ {explorer.overview.data.stars.toLocaleString()} ·{" "}
@@ -731,21 +1003,36 @@ export function RepoArtifactContent({
             </m.p>
           ) : null}
         </div>
-      </m.a>
+        {(spokesRevealed || collapsed) && explorer.overview.data ? (
+          <button
+            type="button"
+            data-no-drag
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Open all branch widgets" : "Collapse all branch widgets"}
+            onClick={toggleCollapsed}
+            className="relative z-10 mb-2.5 rounded-canvas-xs border border-canvas-border/25 bg-canvas-card/30 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-muted/75 backdrop-blur-[2px] transition-colors hover:border-canvas-border/50 hover:bg-canvas-artifactStage/50 hover:text-canvas-ink"
+          >
+            {collapsed ? "Open all" : "Collapse all"}
+          </button>
+        ) : null}
+      </m.div>
 
-      {visibleSpokes.map((spoke, index) => (
-        <RepoSpokeCard
-          key={spoke.id}
-          spoke={spoke}
-          visible={showWidgets}
-          index={index}
-          explorer={explorer}
-          streamingOverview={streamingOverview}
-          dataReady={dataReady}
-          onDismiss={() => dismissSpoke(spoke.id)}
-          canvasChrome={fill}
-        />
-      ))}
+      {!collapsed
+        ? visibleSpokes.map((spoke, index) => (
+            <RepoSpokeCard
+              key={spoke.id}
+              spoke={spoke}
+              visible={showWidgets}
+              index={index}
+              explorer={explorer}
+              streamingOverview={streamingOverview}
+              dataReady={dataReady}
+              onDismiss={() => dismissSpoke(spoke.id)}
+              onHeightChange={handleSpokeHeightChange}
+              canvasChrome={fill}
+            />
+          ))
+        : null}
     </div>
   );
 }

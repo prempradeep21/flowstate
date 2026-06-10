@@ -18,6 +18,10 @@ import {
   normalizeTableCell,
   tableTagClassName,
 } from "@/lib/tableCellContent";
+import {
+  formatRichTextForDisplay,
+  RICH_TEXT_CLASS,
+} from "@/lib/richTextDisplay";
 
 const MAX_ENTRANCE_MS = 3000;
 
@@ -211,7 +215,9 @@ export function ArtifactTable({
                 className={`relative ${headPad} font-bold`}
                 style={{ color: "var(--table-accent)" }}
               >
-                <span className="block truncate pr-1">{col.label}</span>
+                <span className={`block truncate pr-1 ${RICH_TEXT_CLASS}`}>
+                  {formatRichTextForDisplay(col.label)}
+                </span>
                 {resizable && colIndex < columns.length - 1 ? (
                   <button
                     type="button"
@@ -242,7 +248,7 @@ export function ArtifactTable({
                 return (
                   <td
                     key={`${col.key}-${ci}`}
-                    className={`align-top text-canvas-ink ${cellPad} ${
+                    className={`align-top text-canvas-ink ${RICH_TEXT_CLASS} ${cellPad} ${
                       spec?.wrap ? "break-words whitespace-normal" : "break-words"
                     } ${shouldAnimate ? "table-cell-animate" : ""}`}
                     style={

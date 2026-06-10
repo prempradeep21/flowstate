@@ -62,7 +62,7 @@ function buildHeuristicOverview(input: OverviewAiInput): OverviewAi {
     category,
     tags: [...new Set(tags)].slice(0, 8),
     whatItIs: polishWhatItIsCopy(heuristicWhatItIs(input.name, input.description, readme)),
-    whoItsFor: heuristicWhoItsFor(readme, category),
+    whoItsFor: heuristicWhoItsFor(readme, category, input.name, input.description),
     keyFeatures: keyFeatures.slice(0, 3),
   };
 }

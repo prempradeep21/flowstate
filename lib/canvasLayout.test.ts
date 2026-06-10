@@ -331,7 +331,7 @@ describe("resolveBranchDropPosition", () => {
     cardWidth: 420,
     branchCardWidth: 420,
     branchHorizontalGap: 420,
-    emptyCardHeight: 88,
+    emptyCardHeight: 80,
     followUpGap: 40,
   } as import("@/lib/canvasTuning").ResolvedCanvasTuning;
 

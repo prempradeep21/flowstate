@@ -11,6 +11,7 @@ import {
   formatEventDate,
 } from "@/lib/timelineLayout";
 import { dropVariants } from "@/lib/motion/variants";
+import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 function labelEdgeOpacity(screenX: number, viewportWidth: number): number {
   if (viewportWidth <= 0) return 0;
@@ -36,8 +37,8 @@ function EventLabelBlock({
       className="flex shrink-0 flex-col items-center text-center transition-opacity duration-200"
       style={{ maxWidth: 160 }}
     >
-      <p className="line-clamp-3 text-xs font-semibold leading-snug text-canvas-ink">
-        {label}
+      <p className="rich-text line-clamp-3 text-xs font-semibold leading-snug text-canvas-ink">
+        {formatRichTextForDisplay(label)}
       </p>
       <p className="mt-0.5 whitespace-nowrap text-[10px] text-canvas-muted">
         {formatEventDate(at, scale)}

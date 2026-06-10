@@ -2,6 +2,8 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
+import { canvasSpacing } from "@/lib/design/tokens";
+
 /** Shared translucent radial fill: 10% white at center → 30% at edges. */
 export const CANVAS_TRANSLUCENT_FILL_CLASS = "canvas-translucent-fill";
 
@@ -67,6 +69,8 @@ interface QaQuestionSectionProps {
   children: ReactNode;
   accentColour?: string;
   accentWidth?: number;
+  /** `header` = expanded card with control row; `compact` = collapsed summary row. */
+  accentBandVariant?: "header" | "compact";
   className?: string;
   style?: CSSProperties;
 }
@@ -76,19 +80,28 @@ interface QaQuestionSectionProps {
  * band only spans the icon header zone, never the question text below it.
  */
 export const QA_QUESTION_ACCENT_BAND_HEIGHT_PX =
-  16 + QA_QUESTION_HEADER_ROW_HEIGHT_PX;
+  canvasSpacing.section + QA_QUESTION_HEADER_ROW_HEIGHT_PX;
+
+/** Collapsed summary — one text line + section inset (no separate header row). */
+export const QA_QUESTION_COMPACT_ACCENT_BAND_HEIGHT_PX =
+  canvasSpacing.section + 24;
 
 /** Question block with a fixed-height diffused accent glow at the top left. */
 export function QaQuestionSection({
   children,
   accentColour,
   accentWidth = 3,
+  accentBandVariant = "header",
   className = "",
   style,
 }: QaQuestionSectionProps) {
   // Wide band, heavily blurred and only quarter-clipped by the card's
   // overflow-hidden edge so most of the diffused colour sits on the card.
   const bandWidth = accentWidth * 5;
+  const accentBandHeightPx =
+    accentBandVariant === "compact"
+      ? QA_QUESTION_COMPACT_ACCENT_BAND_HEIGHT_PX
+      : QA_QUESTION_ACCENT_BAND_HEIGHT_PX;
   return (
     <div
       data-card-question
@@ -103,7 +116,7 @@ export function QaQuestionSection({
             background: accentColour,
             left: -bandWidth / 4,
             width: bandWidth,
-            height: QA_QUESTION_ACCENT_BAND_HEIGHT_PX,
+            height: accentBandHeightPx,
             filter: "blur(20px)",
             opacity: 0.425,
           }}

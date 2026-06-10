@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
+import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import {
   cornerResizeSigns,
@@ -18,6 +19,7 @@ import {
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { clampArtifactSize, getArtifactBounds, MAX_TIMELINE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
@@ -136,6 +138,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   } | null>(null);
 
   const preview = node.permissionPreview;
+  const generatingPreview = node.generatingPreview;
   const art = node.artifactId
     ? sessionArtifacts[node.artifactId]
     : undefined;
@@ -176,7 +179,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest(TEXT_SELECTABLE)) return;
+    const isRepoArtifact = art?.kind === "repo";
+
+    if (isRepoArtifact) {
+      if (!target.closest(`[${REPO_DRAG_HANDLE_ATTR}]`)) return;
+      if (target.closest("button, a, [data-no-drag]")) return;
+    } else if (target.closest(TEXT_SELECTABLE)) {
+      return;
+    }
 
     e.stopPropagation();
     const st = useCanvasStore.getState();
@@ -320,6 +330,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const isTransparentCanvasChrome =
     art?.kind === "repo" || art?.kind === "table" || art?.kind === "todo";
+  const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
 
   return (
@@ -335,14 +346,17 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
-      className={`group/artifact absolute cursor-grab overflow-visible active:cursor-grabbing ${
-        isSelected ? "z-30" : "z-20"
-      }`}
+      className={`group/artifact absolute overflow-visible ${
+        isRepoArtifact ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+      } ${isSelected ? "z-30" : "z-20"}`}
       style={{
         left: node.position.x,
         top: node.position.y,
         width,
         height: artifactHeight,
+        transition: isRepoArtifact
+          ? "width 0.38s cubic-bezier(0.16, 1, 0.3, 1), height 0.38s cubic-bezier(0.16, 1, 0.3, 1), left 0.38s cubic-bezier(0.16, 1, 0.3, 1), top 0.38s cubic-bezier(0.16, 1, 0.3, 1)"
+          : undefined,
       }}
     >
       <MotionCanvasNode
@@ -416,6 +430,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             busy={preview.status === "declining"}
             onApprove={() => approvePermissionPreview(node.id)}
             onDecline={() => declinePermissionPreview(node.id)}
+          />
+        ) : generatingPreview ? (
+          <GeneratingArtifactContent
+            kind={generatingPreview.kind}
+            title={generatingPreview.title}
+            sourceCard={sourceCard}
           />
         ) : art ? (
           <ArtifactShell

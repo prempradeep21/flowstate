@@ -10,6 +10,7 @@ import {
   ensureUniqueTodoItemIds,
   todoCompletionStats,
 } from "@/lib/todoArtifact";
+import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 const PRIORITY_OPTIONS: { value: TodoPriority | ""; label: string }[] = [
   { value: "", label: "—" },
@@ -116,7 +117,7 @@ function TodoRow({
                 : "text-canvas-ink"
             }`}
           >
-            {item.label || "Untitled"}
+            <span className="rich-text">{formatRichTextForDisplay(item.label || "Untitled")}</span>
           </p>
         ) : (
           <input

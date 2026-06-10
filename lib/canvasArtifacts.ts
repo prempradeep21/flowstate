@@ -44,6 +44,20 @@ export function getNodesForCard(
   return Object.values(nodes).filter((n) => n.sourceCardId === cardId);
 }
 
+export function findGeneratingPreviewNode(
+  nodes: Record<string, CanvasArtifactNode>,
+  cardId: string,
+  kind?: import("@/lib/artifactTypes").ArtifactKind,
+): CanvasArtifactNode | undefined {
+  return Object.values(nodes).find(
+    (n) =>
+      n.sourceCardId === cardId &&
+      n.generatingPreview &&
+      !n.artifactId &&
+      (!kind || n.generatingPreview.kind === kind),
+  );
+}
+
 function payloadSpawnSize(payload?: ArtifactPayload): { w: number; h: number } {
   if (payload?.type === "table") {
     return { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT };

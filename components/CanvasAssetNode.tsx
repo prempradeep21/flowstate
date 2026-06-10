@@ -22,6 +22,11 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
+import {
+  CANVAS_ASSET_ICON_SIZE_PX,
+  CANVAS_ASSET_TITLE_MAX_WIDTH_PX,
+} from "@/lib/design/canvasInsets";
+import { canvasSpacing } from "@/lib/design/tokens";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 4;
@@ -294,15 +299,32 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
               />
             </div>
           ) : (
-            <div className="flex h-full w-full items-center gap-3 rounded-canvas px-4 py-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted">
+            <div
+              className="flex h-full w-full items-center rounded-canvas"
+              style={{
+                gap: canvasSpacing.compact,
+                padding: canvasSpacing.compact,
+                paddingLeft: canvasSpacing.section,
+                paddingRight: canvasSpacing.section,
+              }}
+            >
+              <span
+                className="flex shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted"
+                style={{
+                  width: CANVAS_ASSET_ICON_SIZE_PX,
+                  height: CANVAS_ASSET_ICON_SIZE_PX,
+                }}
+              >
                 <AssetKindIcon kind={asset.kind} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-medium text-canvas-ink">
+                <span
+                  className="line-clamp-2 block break-words text-canvas-body font-medium leading-snug text-canvas-ink"
+                  style={{ maxWidth: CANVAS_ASSET_TITLE_MAX_WIDTH_PX }}
+                >
                   {asset.name}
                 </span>
-                <span className="block text-[11px] uppercase tracking-wide text-canvas-muted">
+                <span className="block text-canvas-caption uppercase tracking-wide text-canvas-muted">
                   {asset.kind}
                 </span>
               </span>

@@ -17,7 +17,10 @@ import {
   ARTIFACT_CHROME_ZONE_ATTR,
   ARTIFACT_INTERACTIVE_SURFACE_ATTR,
 } from "@/lib/artifactChromeHover";
-import { isVideoArtifactPayload } from "@/lib/artifactTypes";
+import {
+  isVideoArtifactPayload,
+  payloadToArtifactKind,
+} from "@/lib/artifactTypes";
 import { useCanvasStore } from "@/lib/store";
 
 export function ArtifactShell({
@@ -68,12 +71,31 @@ export function ArtifactShell({
     sessionArtifact,
   ]);
 
+  const sourceCard = useCanvasStore((s) =>
+    sourceCardId ? s.cards[sourceCardId] : undefined,
+  );
+
   const activeVersion = useMemo(() => {
     return (
       getVersionById(sessionArtifact, versionId) ??
       getLatestVersion(sessionArtifact)
     );
   }, [sessionArtifact, versionId]);
+
+  const streamingPayload = useMemo(() => {
+    if (
+      !sourceCard ||
+      (sourceCard.status !== "thinking" && sourceCard.status !== "streaming")
+    ) {
+      return undefined;
+    }
+    const payload = sourceCard.artifactPayload;
+    if (!payload) return undefined;
+    if (payloadToArtifactKind(payload) !== sessionArtifact.kind) return undefined;
+    return payload;
+  }, [sessionArtifact.kind, sourceCard]);
+
+  const displayPayload = streamingPayload ?? activeVersion?.payload;
 
   const isLatest = versionId === sessionArtifact.latestVersionId;
   const isTodo = sessionArtifact.kind === "todo";
@@ -119,13 +141,14 @@ export function ArtifactShell({
     setIsTodoDirty(false);
   }, []);
 
-  if (!activeVersion) return null;
+  if (!activeVersion || !displayPayload) return null;
 
   const title =
     sessionArtifact.kind === "code"
       ? codeTitleOverride ??
         artifactDisplayTitle(sessionArtifact, activeVersion)
-      : artifactDisplayTitle(sessionArtifact, activeVersion);
+      : streamingPayload?.title ||
+        artifactDisplayTitle(sessionArtifact, activeVersion);
 
   const isCanvasLayout = layout === "canvas";
   const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
@@ -202,7 +225,7 @@ export function ArtifactShell({
         {catalogPreview ? (
           <ArtifactContent
             layout={layout}
-            payload={activeVersion.payload}
+            payload={displayPayload}
             artifactId={sessionArtifact.id}
             versionId={activeVersion.id}
             onCodeActiveFileChange={
@@ -239,7 +262,7 @@ export function ArtifactShell({
           >
             <ArtifactContent
               layout={layout}
-              payload={activeVersion.payload}
+              payload={displayPayload}
               artifactId={sessionArtifact.id}
               versionId={activeVersion.id}
               onCodeActiveFileChange={
