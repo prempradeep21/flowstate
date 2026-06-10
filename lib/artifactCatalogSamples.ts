@@ -70,6 +70,116 @@ export const ARTIFACT_CATALOG_ENTRIES: ArtifactCatalogEntry[] = [
     },
   },
   {
+    id: "chart-bar",
+    category: "flowstate",
+    name: "Charts — bar",
+    title: "Monthly coffee spend",
+    description:
+      "Compare categories with bar charts. Switch type and style via the toolbar — ECharts or visx, plain background.",
+    chips: ["budgeting", "spending", "personal finance", "comparison"],
+    payload: {
+      type: "chart",
+      title: "Monthly coffee spend",
+      data: {
+        chartType: "bar",
+        categories: ["Café", "Beans", "Takeaway"],
+        series: [{ name: "Spend", data: [12, 28, 8] }],
+        unit: "€",
+      },
+    },
+  },
+  {
+    id: "chart-area",
+    category: "flowstate",
+    name: "Charts — area",
+    title: "Running distance this year",
+    description:
+      "Filled trends with visx AreaClosed curves by default. Try stream graph when you have multiple series.",
+    chips: ["fitness", "running", "trends", "health"],
+    payload: {
+      type: "chart",
+      title: "Running distance this year",
+      data: {
+        chartType: "area",
+        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+        series: [
+          { name: "Road", data: [12, 18, 22, 28, 35, 42] },
+          { name: "Trail", data: [8, 10, 14, 16, 20, 24] },
+        ],
+        unit: "km",
+      },
+    },
+  },
+  {
+    id: "chart-line",
+    category: "flowstate",
+    name: "Charts — line",
+    title: "Sleep hours — last 14 nights",
+    description:
+      "Time-series line graphs with smooth visx curves. Toggle ECharts straight or smooth styles.",
+    chips: ["sleep", "wellness", "habits", "tracking"],
+    payload: {
+      type: "chart",
+      title: "Sleep hours — last 14 nights",
+      data: {
+        chartType: "line",
+        categories: [
+          "D1", "D2", "D3", "D4", "D5", "D6", "D7",
+          "D8", "D9", "D10", "D11", "D12", "D13", "D14",
+        ],
+        series: [
+          {
+            name: "Hours",
+            data: [6.5, 7, 6.8, 7.2, 6.9, 7.5, 7.1, 7.3, 7.6, 7.4, 7.8, 7.2, 7.5, 7.7],
+          },
+        ],
+        unit: "hrs",
+      },
+    },
+  },
+  {
+    id: "chart-pie",
+    category: "flowstate",
+    name: "Charts — pie",
+    title: "How I spend my weekend",
+    description:
+      "Share-of-whole breakdowns for personal time, budget slices, or habit splits.",
+    chips: ["weekend", "time management", "lifestyle", "balance"],
+    payload: {
+      type: "chart",
+      title: "How I spend my weekend",
+      data: {
+        chartType: "pie",
+        slices: [
+          { name: "Rest", value: 40 },
+          { name: "Social", value: 25 },
+          { name: "Chores", value: 20 },
+          { name: "Hobbies", value: 15 },
+        ],
+      },
+    },
+  },
+  {
+    id: "chart-gauge",
+    category: "flowstate",
+    name: "Charts — gauge",
+    title: "Emergency fund progress",
+    description:
+      "Track progress toward a personal goal with a plain gauge or progress bar.",
+    chips: ["savings", "goals", "finance", "progress"],
+    payload: {
+      type: "chart",
+      title: "Emergency fund progress",
+      data: {
+        chartType: "gauge",
+        gaugeValue: 4200,
+        gaugeMax: 6000,
+        gaugeLabel: "Emergency fund",
+        unit: "€",
+      },
+    },
+  },
+  {
     id: "code",
     category: "flowstate",
     name: "Code",

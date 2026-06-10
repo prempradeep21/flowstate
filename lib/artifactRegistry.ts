@@ -32,6 +32,7 @@ const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   repo: "Repositories",
   embed: "Embeds",
   timeline: "Timelines",
+  chart: "Charts",
 };
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
@@ -47,6 +48,7 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "repo",
   "embed",
   "timeline",
+  "chart",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -75,6 +77,8 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "embed";
     case "timeline":
       return "timeline";
+    case "chart":
+      return "chart";
     default:
       return null;
   }
@@ -136,6 +140,7 @@ export function buildArtifactRegistry(
     repo: [],
     embed: [],
     timeline: [],
+    chart: [],
   };
 
   for (const art of artifacts) {

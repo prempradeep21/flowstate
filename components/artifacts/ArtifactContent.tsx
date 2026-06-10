@@ -34,6 +34,14 @@ const StreetViewArtifactContent = dynamic(
   { ssr: false },
 );
 
+const ChartArtifactContent = dynamic(
+  () =>
+    import("@/components/artifacts/ChartArtifactContent").then(
+      (m) => m.ChartArtifactContent,
+    ),
+  { ssr: false },
+);
+
 export type ArtifactLayout = "canvas" | "panel" | "sidebar";
 
 export function ArtifactContent({
@@ -243,6 +251,17 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={layout}
+          />
+        );
+      }
+      break;
+    case "chart":
+      if (payload.type === "chart") {
+        return (
+          <ChartArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
           />
         );
       }

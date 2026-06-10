@@ -126,6 +126,15 @@ export function ArtifactTypeIcon({
           <path d="M4 5.5V3M8 11V13M12 6V4" strokeLinecap="round" />
         </svg>
       );
+    case "chart":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <path d="M2 13V3" strokeLinecap="round" />
+          <rect x="4" y="8" width="2.5" height="5" rx="0.5" fill="currentColor" stroke="none" />
+          <rect x="7.5" y="5" width="2.5" height="8" rx="0.5" fill="currentColor" stroke="none" />
+          <rect x="11" y="7" width="2.5" height="6" rx="0.5" fill="currentColor" stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }

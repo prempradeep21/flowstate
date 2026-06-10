@@ -5,9 +5,11 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
+import type { ArtifactKind } from "@/lib/artifactTypes";
 import {
   computeCanvasContentBounds,
   type ContentBounds,
@@ -25,8 +27,30 @@ const CHAT_DOT_SIZE = 4;
 const ARTIFACT_DOT_SIZE = 8;
 const ASSET_DOT_SIZE = 7;
 
+/** Subtle minimap fills per artifact kind — low opacity so they read on dark card bg. */
+const ARTIFACT_MINIMAP_COLORS: Record<ArtifactKind, string> = {
+  table: "rgb(var(--canvas-info) / 0.42)",
+  code: "rgb(var(--canvas-muted) / 0.48)",
+  custom: "rgb(var(--canvas-muted) / 0.38)",
+  images: "rgb(var(--canvas-warning) / 0.38)",
+  "3d": "rgb(var(--canvas-accent) / 0.42)",
+  todo: "rgb(var(--canvas-success) / 0.38)",
+  calendar: "rgb(var(--canvas-info) / 0.34)",
+  map: "rgb(var(--canvas-map-primary) / 0.42)",
+  streetview: "rgb(var(--canvas-map-saved) / 0.38)",
+  website: "rgb(var(--canvas-accent) / 0.32)",
+  repo: "rgb(var(--canvas-syntax-keyword) / 0.35)",
+  embed: "rgb(var(--canvas-warning) / 0.32)",
+  timeline: "rgb(var(--canvas-success) / 0.32)",
+  chart: "rgb(var(--canvas-accent) / 0.38)",
+};
+
+const ARTIFACT_MINIMAP_FALLBACK = "rgb(var(--canvas-ink) / 0.25)";
+
 interface CanvasMinimapProps {
   containerRef: RefObject<HTMLDivElement | null>;
+  /** Bumps container resize observation when the canvas remounts. */
+  canvasKey?: string;
 }
 
 interface MinimapTransform {
@@ -68,7 +92,10 @@ function minimapToWorld(
   };
 }
 
-export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
+export function CanvasMinimap({
+  containerRef,
+  canvasKey,
+}: CanvasMinimapProps) {
   const setViewport = useCanvasStore((s) => s.setViewport);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
@@ -108,18 +135,44 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
     };
   }, []);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
+  useLayoutEffect(() => {
+    let ro: ResizeObserver | null = null;
+    let observed: HTMLDivElement | null = null;
+    let rafId = 0;
+    let cancelled = false;
+
+    const updateSize = (el: HTMLDivElement) => {
       const rect = el.getBoundingClientRect();
       setContainerSize({ w: rect.width, h: rect.height });
     };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [containerRef]);
+
+    const attach = (el: HTMLDivElement) => {
+      if (observed === el) return;
+      ro?.disconnect();
+      observed = el;
+      updateSize(el);
+      ro = new ResizeObserver(() => updateSize(el));
+      ro.observe(el);
+    };
+
+    const sync = () => {
+      if (cancelled) return;
+      const el = containerRef.current;
+      if (el) {
+        attach(el);
+        return;
+      }
+      rafId = requestAnimationFrame(sync);
+    };
+
+    sync();
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      ro?.disconnect();
+    };
+  }, [containerRef, canvasKey]);
 
   const bounds = useMemo(
     () =>
@@ -173,7 +226,8 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
   }, [cardOrder, cards, bounds, transform]);
 
   const artifactDots = useMemo(() => {
-    const dots: { id: string; left: number; top: number }[] = [];
+    const dots: { id: string; left: number; top: number; color: string }[] =
+      [];
     for (const id of canvasArtifactOrder) {
       const node = canvasArtifactNodes[id];
       if (!node) continue;
@@ -185,10 +239,15 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
         bounds,
         transform,
       );
+      const kind = artifact?.kind;
       dots.push({
         id,
         left: pos.x - ARTIFACT_DOT_SIZE / 2,
         top: pos.y - ARTIFACT_DOT_SIZE / 2,
+        color:
+          kind && kind in ARTIFACT_MINIMAP_COLORS
+            ? ARTIFACT_MINIMAP_COLORS[kind]
+            : ARTIFACT_MINIMAP_FALLBACK,
       });
     }
     return dots;
@@ -294,12 +353,13 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
           <div
             key={dot.id}
             aria-hidden
-            className="pointer-events-none absolute rounded-canvas-xs bg-canvas-ink/25"
+            className="pointer-events-none absolute rounded-canvas-xs"
             style={{
               left: dot.left,
               top: dot.top,
               width: ARTIFACT_DOT_SIZE,
               height: ARTIFACT_DOT_SIZE,
+              backgroundColor: dot.color,
             }}
           />
         ))}
@@ -319,18 +379,18 @@ export function CanvasMinimap({ containerRef }: CanvasMinimapProps) {
         {viewportRect && (
           <div
             aria-hidden
-            className="pointer-events-none absolute border border-canvas-ink/60 bg-canvas-ink/10"
+            className="pointer-events-none absolute z-10 rounded-[2px] border border-canvas-ink/70 bg-canvas-ink/12 shadow-[inset_0_0_0_1px_rgb(var(--canvas-ink)/0.12)]"
             style={{
               left: viewportRect.left,
               top: viewportRect.top,
-              width: viewportRect.width,
-              height: viewportRect.height,
+              width: Math.max(viewportRect.width, 2),
+              height: Math.max(viewportRect.height, 2),
             }}
           />
         )}
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-0.5 left-1 text-[10px] font-medium tabular-nums leading-none text-canvas-muted/90"
+          className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-[10px] font-medium tabular-nums leading-none text-canvas-muted/90"
         >
           {zoomPercent}%
         </span>

@@ -8,6 +8,7 @@ import {
   payloadToArtifactKind,
   videoPayloadToImages,
 } from "@/lib/artifactTypes";
+import { normalizeChartPayload } from "@/lib/chartArtifact";
 import {
   mergeCalendarEventsFromAi,
   normalizeCalendarEvent,
@@ -81,6 +82,33 @@ export function getVersionById(
 ): ArtifactVersion | undefined {
   const versions = Array.isArray(artifact.versions) ? artifact.versions : [];
   return versions.find((v) => v.id === versionId);
+}
+
+/** Next version number if a successful payload were committed now. */
+export function getNextArtifactVersionNumber(
+  artifact: SessionArtifact | undefined,
+): number {
+  if (!artifact) return 1;
+  const versions = Array.isArray(artifact.versions) ? artifact.versions : [];
+  if (versions.length === 0) return 1;
+  return versions[versions.length - 1]!.number + 1;
+}
+
+/** Version label to show in previews while a turn is still in flight. */
+export function resolvePreviewVersionNumber(
+  card: Card,
+  sessionArtifacts: Record<string, SessionArtifact>,
+  cards: Record<string, Card>,
+  connections: Connection[],
+  cardOrder: string[],
+): number {
+  const targetId =
+    card.outputArtifactId ??
+    resolveEditingArtifactId(card, cards, connections, cardOrder);
+  if (targetId) {
+    return getNextArtifactVersionNumber(sessionArtifacts[targetId]);
+  }
+  return 1;
 }
 
 export function artifactDisplayTitle(
@@ -182,6 +210,9 @@ export function normalizePayloadForRegistry(
   if (payload.type === "repo") {
     return normalizeRepoPayload(payload);
   }
+  if (payload.type === "chart") {
+    return normalizeChartPayload(payload);
+  }
   if (payload.type === "timeline") {
     const normalized = normalizeTimelinePayload(payload);
     if (previousPayload?.type === "timeline") {
@@ -245,13 +276,19 @@ export function appendArtifactVersion(
     payload,
     latest?.payload,
   );
+  const isFollowUpEdit = artifact.versions.length > 0;
+  const versionPayload = isFollowUpEdit
+    ? ({ ...normalized, title: artifact.title } as ArtifactPayload)
+    : normalized;
   const nextNum =
     (artifact.versions[artifact.versions.length - 1]?.number ?? 0) + 1;
-  const version = createVersionEntry(normalized, sourceCardId, nextNum);
+  const version = createVersionEntry(versionPayload, sourceCardId, nextNum);
   return {
     artifact: {
       ...artifact,
-      title: normalized.title || artifact.title,
+      title: isFollowUpEdit
+        ? artifact.title
+        : normalized.title || artifact.title,
       kind: payloadToArtifactKind(normalized),
       versions: [...artifact.versions, version],
       latestVersionId: version.id,
@@ -275,6 +312,29 @@ export function resolveThreadArtifactId(
     if (c?.outputArtifactId) return c.outputArtifactId;
   }
   return null;
+}
+
+/** Walk the parent chain (then thread) to find an artifact a follow-up should edit. */
+export function resolveInheritedArtifactIdForParent(
+  parentId: string,
+  cards: Record<string, Card>,
+  connections: Connection[],
+  cardOrder: string[],
+): string | undefined {
+  let pid: string | null | undefined = parentId;
+  while (pid) {
+    const c = cards[pid];
+    if (!c) break;
+    if (c.outputArtifactId) return c.outputArtifactId;
+    if (c.inheritedArtifactId) return c.inheritedArtifactId;
+    pid = c.parentCardId ?? null;
+  }
+  const parent = cards[parentId];
+  if (!parent) return undefined;
+  return (
+    resolveThreadArtifactId(cards, connections, cardOrder, parent.threadId) ??
+    undefined
+  );
 }
 
 export function resolveEditingArtifactId(

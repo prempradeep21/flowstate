@@ -8,11 +8,16 @@ import {
 import { geocodeMapArtifact } from "@/lib/geocoding";
 import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
 import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
+import { fetchChartData } from "@/lib/chartDataFetch";
+import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
   CALENDAR_INTENT_SYSTEM_NOTE,
   CALENDAR_THINKING_LABEL,
+  CHART_INTENT_SYSTEM_NOTE,
+  CHART_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
   detectCalendarIntent,
+  detectChartIntent,
   detectCustomUiIntent,
   detectTimelineIntent,
   detectTodoListIntent,
@@ -54,16 +59,42 @@ const BASE_SYSTEM =
   `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
   ARTIFACT_PROMPT;
 
+const FETCH_CHART_DATA_TOOL: Anthropic.Tool = {
+  name: "fetch_chart_data",
+  description:
+    "Research numeric data for a chart visualization. Call before emit_artifact type chart when the user did not supply complete numbers.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      topic: { type: "string", description: "Subject to research" },
+      chartType: {
+        type: "string",
+        enum: ["bar", "area", "line", "pie", "gauge"],
+        description: "Intended chart type",
+      },
+      timeRange: {
+        type: "string",
+        description: "Optional range e.g. 2018-2024",
+      },
+      unit: {
+        type: "string",
+        description: "Optional unit e.g. USD, hours, %",
+      },
+    },
+    required: ["topic", "chartType"],
+  },
+};
+
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
   description:
-    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, calendars, timelines, or to-do lists. Put brief context in your text reply; put structured content here.",
+    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, calendars, timelines, charts, or to-do lists. Put brief context in your text reply; put structured content here.",
   input_schema: {
     type: "object" as const,
     properties: {
       type: {
         type: "string",
-        enum: ["table", "code", "video", "custom", "3d", "map", "streetview", "todo", "calendar", "timeline"],
+        enum: ["table", "code", "video", "custom", "3d", "map", "streetview", "todo", "calendar", "timeline", "chart"],
         description: "Artifact type to render on the card",
       },
       title: { type: "string", description: "Card artifact title" },
@@ -188,6 +219,7 @@ export async function POST(req: Request) {
 
   const allTools: Anthropic.Tool[] = [
     SEARCH_IMAGES_TOOL,
+    FETCH_CHART_DATA_TOOL,
     EMIT_ARTIFACT_TOOL,
     ...mcp.anthropicTools,
   ];
@@ -216,6 +248,7 @@ export async function POST(req: Request) {
   const timelineIntent = detectTimelineIntent(question);
   const customUiIntent = detectCustomUiIntent(question);
   const travelMapIntent = detectTravelMapIntent(question);
+  const chartIntent = detectChartIntent(question);
 
   const editingPayload =
     editingArtifact?.payload &&
@@ -265,6 +298,9 @@ export async function POST(req: Request) {
         } else if (travelMapIntent) {
           emit({ thinking: MAP_THINKING_LABEL });
           emit({ pendingArtifact: { type: "map" } });
+        } else if (chartIntent) {
+          emit({ thinking: CHART_THINKING_LABEL });
+          emit({ pendingArtifact: { type: "chart" } });
         }
 
         // Tool-use loop: Claude may call tools multiple times before a final reply.
@@ -281,6 +317,7 @@ export async function POST(req: Request) {
             timelineIntent && !editingArtifact
               ? TIMELINE_INTENT_SYSTEM_NOTE
               : null,
+            chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
             editingNote || null,
           ]
             .filter(Boolean)
@@ -330,7 +367,27 @@ export async function POST(req: Request) {
             let resultContent = "";
 
             try {
-              if (block.name === "search_images") {
+              if (block.name === "fetch_chart_data") {
+                const topic = input.topic as string;
+                const chartType = input.chartType as
+                  | "bar"
+                  | "area"
+                  | "line"
+                  | "pie"
+                  | "gauge";
+                emit({ thinking: `Researching data for "${topic}"…` });
+                const fetched = await fetchChartData({
+                  topic,
+                  chartType,
+                  timeRange:
+                    typeof input.timeRange === "string"
+                      ? input.timeRange
+                      : undefined,
+                  unit:
+                    typeof input.unit === "string" ? input.unit : undefined,
+                });
+                resultContent = JSON.stringify(fetched, null, 2);
+              } else if (block.name === "search_images") {
                 const query = input.query as string;
                 const count =
                   typeof input.count === "number" ? input.count : 4;
@@ -425,10 +482,27 @@ export async function POST(req: Request) {
                   ) as unknown as Record<string, unknown>;
                 }
 
+                if (type === "chart") {
+                  const normalized = normalizeChartArtifactData(data);
+                  const err = validateChartEmit(normalized);
+                  if (err) {
+                    resultContent = err;
+                    toolResults.push({
+                      type: "tool_result" as const,
+                      tool_use_id: block.id,
+                      content: resultContent,
+                    });
+                    continue;
+                  }
+                  data = normalized as unknown as Record<string, unknown>;
+                }
+
                 if (type === "table") {
                   emit({ pendingArtifact: { type: "table" } });
                 } else if (type === "custom") {
                   emit({ pendingArtifact: { type: "custom" } });
+                } else if (type === "chart") {
+                  emit({ pendingArtifact: { type: "chart" } });
                 }
                 emit({ thinking: `Building ${type}…` });
                 emit({

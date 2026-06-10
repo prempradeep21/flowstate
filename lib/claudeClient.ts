@@ -10,6 +10,7 @@ import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import {
   CALENDAR_THINKING_LABEL,
+  CHART_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
   detectCalendarIntent,
   detectCustomUiIntent,
@@ -201,6 +202,7 @@ export function askClaude(
       });
 
       if (!res.ok) {
+        cb.onThinking?.(`Request failed (${res.status})`);
         cb.onToken(`Error: HTTP ${res.status}`);
         cb.onDone({ artifactId: null, responseType: "text" });
         return;
@@ -246,6 +248,7 @@ export function askClaude(
                 "todo",
                 "calendar",
                 "timeline",
+                "chart",
               ] as const;
               if (
                 !raw.type ||
@@ -275,6 +278,8 @@ export function askClaude(
               cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
             } else if (parsed.pendingArtifact?.type === "map") {
               cb.onThinking?.("Preparing map…");
+            } else if (parsed.pendingArtifact?.type === "chart") {
+              cb.onThinking?.(CHART_THINKING_LABEL);
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {
@@ -282,6 +287,7 @@ export function askClaude(
                 .getState()
                 .addUsage(parsed.usage.inputTokens, parsed.usage.outputTokens);
             } else if (parsed.error) {
+              cb.onThinking?.("Request failed");
               acc = acc ? `${acc}\n\n⚠️ ${parsed.error}` : `⚠️ ${parsed.error}`;
               cb.onToken(acc);
             } else if (parsed.text) {
@@ -296,6 +302,7 @@ export function askClaude(
     } catch (err) {
       if (!cancelled) {
         const msg = err instanceof Error ? err.message : String(err);
+        cb.onThinking?.("Request failed");
         cb.onToken(`⚠️ ${msg}`);
       }
     } finally {

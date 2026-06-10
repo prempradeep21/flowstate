@@ -1,3 +1,5 @@
+import { normalizeChartArtifactData } from "@/lib/chartArtifact";
+import type { ChartArtifactData } from "@/lib/chartTypes";
 import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
 import { normalizeCustomArtifactData } from "@/lib/customArtifact";
 import type { RepoExplorerData } from "@/lib/github/types";
@@ -27,7 +29,8 @@ export type ResponseType =
   | "website"
   | "repo"
   | "embed"
-  | "timeline";
+  | "timeline"
+  | "chart";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -43,7 +46,8 @@ export type ArtifactKind =
   | "website"
   | "repo"
   | "embed"
-  | "timeline";
+  | "timeline"
+  | "chart";
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -222,6 +226,8 @@ export interface TimelineArtifactData {
   view?: { scrollLeft: number; zoom: number };
 }
 
+export type { ChartArtifactData, ChartType } from "@/lib/chartTypes";
+
 export type ArtifactPayload =
   | { type: "table"; title: string; description?: string; data: TableArtifactData }
   | { type: "code"; title: string; description?: string; data: CodeArtifactData }
@@ -236,7 +242,8 @@ export type ArtifactPayload =
   | { type: "website"; title: string; description?: string; data: WebsiteArtifactData }
   | { type: "repo"; title: string; description?: string; data: RepoArtifactData }
   | { type: "embed"; title: string; description?: string; data: EmbedArtifactData }
-  | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData };
+  | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData }
+  | { type: "chart"; title: string; description?: string; data: ChartArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {
@@ -378,6 +385,12 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
         type: "timeline",
         ...base,
         data: normalizeTimelineArtifactData(artifact.data),
+      };
+    case "chart":
+      return {
+        type: "chart",
+        ...base,
+        data: normalizeChartArtifactData(artifact.data),
       };
     default:
       return {
