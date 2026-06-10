@@ -31,11 +31,6 @@ import {
   type RepoSpokeId,
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
-import {
-  ARTIFACT_CANVAS_CASING_DEFAULT,
-  ARTIFACT_CANVAS_CHROME_OPACITY,
-  ARTIFACT_CANVAS_SURFACE_FILL,
-} from "@/lib/artifactCanvasChrome";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
@@ -54,19 +49,11 @@ function GitHubLogo({ className = "h-10 w-10" }: { className?: string }) {
   );
 }
 
-function BoundsGlow({
-  intensity,
-  canvasChrome = false,
-}: {
-  intensity: "full" | "half";
-  canvasChrome?: boolean;
-}) {
+function BoundsGlow({ intensity }: { intensity: "full" | "half" }) {
   const isFull = intensity === "full";
   return (
     <m.div
       className={`pointer-events-none absolute inset-0 rounded-canvas ${
-        canvasChrome ? ARTIFACT_CANVAS_CHROME_OPACITY : ""
-      } ${
         isFull
           ? "ring-2 ring-canvas-accent/55 shadow-[0_0_0_1px_rgb(var(--canvas-accent)/0.25)]"
           : "ring-1 ring-canvas-accent/30 shadow-[0_0_0_1px_rgb(var(--canvas-accent)/0.12)]"
@@ -546,7 +533,6 @@ function RepoSpokeCard({
   dataReady,
   onDismiss,
   onHeightChange,
-  canvasChrome = false,
 }: {
   spoke: RepoSpokeLayout;
   visible: boolean;
@@ -556,7 +542,6 @@ function RepoSpokeCard({
   dataReady: boolean;
   onDismiss: () => void;
   onHeightChange: (id: RepoSpokeId, height: number) => void;
-  canvasChrome?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -566,7 +551,7 @@ function RepoSpokeCard({
     if (!el) return;
 
     const report = () => {
-      const next = Math.min(REPO_SPOKE_MAX_HEIGHT, Math.ceil(el.getBoundingClientRect().height));
+      const next = Math.min(REPO_SPOKE_MAX_HEIGHT, Math.ceil(el.offsetHeight));
       onHeightChange(spoke.id, next);
     };
 
@@ -580,11 +565,7 @@ function RepoSpokeCard({
     <m.div
       ref={cardRef}
       data-no-drag
-      className={`absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} ${
-        canvasChrome
-          ? ARTIFACT_CANVAS_CASING_DEFAULT
-          : "border-canvas-border shadow-card"
-      }`}
+      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
       style={{
         left: spoke.x,
         top: spoke.y,
@@ -596,7 +577,7 @@ function RepoSpokeCard({
       initial={reduceMotion ? "reduced" : "initial"}
       animate={visible ? "animate" : "initial"}
     >
-      <BoundsGlow intensity="half" canvasChrome={canvasChrome} />
+      <BoundsGlow intensity="half" />
       <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-canvas-border px-3 py-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-compact text-canvas-accent">
           {spokeIcon(spoke.id)}
@@ -950,11 +931,7 @@ export function RepoArtifactContent({
 
       <m.div
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
-        className={`absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border bg-canvas-card ${ARTIFACT_CANVAS_SURFACE_FILL} text-center ${
-          fill
-            ? ARTIFACT_CANVAS_CASING_DEFAULT
-            : "border-canvas-border shadow-card"
-        }`}
+        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-card"
         style={{
           left: hub.cx - hub.w / 2,
           top: hub.cy - hub.h / 2,
@@ -965,7 +942,7 @@ export function RepoArtifactContent({
         initial="initial"
         animate="animate"
       >
-        <BoundsGlow intensity="full" canvasChrome={fill} />
+        <BoundsGlow intensity="full" />
         <div
           className="relative z-10 flex w-full shrink-0 cursor-grab items-center justify-center gap-1.5 border-b border-canvas-border/40 bg-canvas-artifactStage/50 py-1 active:cursor-grabbing"
           title="Drag here to move"
@@ -1029,7 +1006,6 @@ export function RepoArtifactContent({
               dataReady={dataReady}
               onDismiss={() => dismissSpoke(spoke.id)}
               onHeightChange={handleSpokeHeightChange}
-              canvasChrome={fill}
             />
           ))
         : null}
