@@ -3,6 +3,7 @@ import type {
   CalendarArtifactData,
   CalendarEvent,
 } from "@/lib/artifactTypes";
+import { TIMELINE_EVENT_COLORS } from "@/lib/timelineLayout";
 
 /** Source card id for user-initiated calendar saves (no chat turn). */
 export const MANUAL_CALENDAR_SOURCE_CARD_ID = "__manual__";
@@ -344,4 +345,19 @@ export function monthLabel(year: number, month: number): string {
     month: "long",
     year: "numeric",
   });
+}
+
+export function calendarEventColor(index: number): string {
+  return TIMELINE_EVENT_COLORS[index % TIMELINE_EVENT_COLORS.length]!;
+}
+
+export function calendarEventChipStyle(index: number): {
+  backgroundColor: string;
+  color: string;
+} {
+  const base = calendarEventColor(index);
+  return {
+    backgroundColor: `${base}22`,
+    color: base,
+  };
 }

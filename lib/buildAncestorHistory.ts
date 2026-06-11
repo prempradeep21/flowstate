@@ -65,6 +65,14 @@ function artifactContextNote(payload: ArtifactPayload): string {
     }
     case "website":
       return `[Card showed website: "${payload.title}" (${payload.data.url})]`;
+    case "google-doc": {
+      const chars = payload.data.extractedTextLength ?? payload.data.extractedText?.length ?? 0;
+      const imported =
+        payload.data.status === "ready" && chars > 0
+          ? ` with ${chars} characters imported`
+          : "";
+      return `[Card showed ${payload.data.fileKind}: "${payload.data.title}" (${payload.data.url})${imported}]`;
+    }
     case "repo":
       return `[Card showed repository: "${payload.data.displayTitle}" (${payload.data.repoUrl})]`;
     case "embed":

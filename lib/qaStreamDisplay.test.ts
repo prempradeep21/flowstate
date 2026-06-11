@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   hasQaResponseError,
+  isQaResponseFinalError,
+  isQaResponseFinalMissing,
   isQaResponseMissing,
   isQaTurnInProgress,
   resolveQaStatusLabel,
@@ -81,10 +83,30 @@ describe("qaStreamDisplay", () => {
   it("detects empty done cards with no artifact", () => {
     const card = baseCard({ status: "done", answer: "" });
     expect(isQaResponseMissing(card)).toBe(true);
+    expect(isQaResponseFinalMissing(card)).toBe(true);
     expect(shouldShowQaAnswerSection(card)).toBe(true);
   });
 
-  it("detects surfaced API errors in answer text", () => {
+  it("withholds missing state while artifacts are still materializing", () => {
+    const card = baseCard({ status: "done", answer: "" });
+    const nodes = {
+      n1: {
+        id: "n1",
+        artifactId: "",
+        versionId: "",
+        sourceCardId: "c1",
+        position: { x: 0, y: 0 },
+        size: { w: 100, h: 100 },
+        generatingPreview: { kind: "map" as const, title: "Map" },
+      },
+    };
+    expect(isQaResponseMissing(card)).toBe(true);
+    expect(isQaResponseFinalMissing(card, nodes)).toBe(false);
+    expect(shouldShowQaAnswerSection(card, nodes)).toBe(false);
+    expect(resolveQaStatusLabel(card, nodes)).toBe("Building artifact…");
+  });
+
+  it("detects surfaced API errors only after the turn finishes", () => {
     expect(
       hasQaResponseError(baseCard({ answer: "⚠️ Network error" })),
     ).toBe(true);
@@ -92,6 +114,16 @@ describe("qaStreamDisplay", () => {
       resolveQaStatusLabel(
         baseCard({ status: "streaming", answer: "⚠️ Network error" }),
       ),
-    ).toBe("Request failed");
+    ).toBe("Writing the answer…");
+    expect(
+      resolveQaStatusLabel(
+        baseCard({ status: "done", answer: "⚠️ Network error" }),
+      ),
+    ).toBe("Couldn't finish");
+    expect(
+      isQaResponseFinalError(
+        baseCard({ status: "done", answer: "⚠️ Network error" }),
+      ),
+    ).toBe(true);
   });
 });

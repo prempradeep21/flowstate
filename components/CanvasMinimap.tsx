@@ -39,6 +39,7 @@ const ARTIFACT_MINIMAP_COLORS: Record<ArtifactKind, string> = {
   map: "rgb(var(--canvas-map-primary) / 0.42)",
   streetview: "rgb(var(--canvas-map-saved) / 0.38)",
   website: "rgb(var(--canvas-accent) / 0.32)",
+  "google-doc": "rgb(var(--canvas-accent) / 0.36)",
   repo: "rgb(var(--canvas-syntax-keyword) / 0.35)",
   embed: "rgb(var(--canvas-warning) / 0.32)",
   timeline: "rgb(var(--canvas-success) / 0.32)",
@@ -104,6 +105,11 @@ export function CanvasMinimap({
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
   const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
+  const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
+  const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvasSkills = useCanvasStore((s) => s.canvasSkills);
+  const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
+  const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
@@ -184,6 +190,11 @@ export function CanvasMinimap({
         canvasAssets,
         canvasAssetNodes,
         canvasAssetOrder,
+        canvasGifNodes,
+        canvasGifOrder,
+        canvasSkills,
+        canvasSkillNodes,
+        canvasSkillOrder,
         canvasTextLabels,
         canvasTextLabelOrder,
         sessionArtifacts,
@@ -196,6 +207,11 @@ export function CanvasMinimap({
       canvasAssets,
       canvasAssetNodes,
       canvasAssetOrder,
+      canvasGifNodes,
+      canvasGifOrder,
+      canvasSkills,
+      canvasSkillNodes,
+      canvasSkillOrder,
       canvasTextLabels,
       canvasTextLabelOrder,
       sessionArtifacts,

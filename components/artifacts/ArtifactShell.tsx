@@ -178,6 +178,9 @@ export function ArtifactShell({
             sessionArtifact.kind === "website" &&
             activeVersion.payload.type === "website"
               ? activeVersion.payload.data.url
+              : sessionArtifact.kind === "google-doc" &&
+                  activeVersion.payload.type === "google-doc"
+                ? activeVersion.payload.data.url
               : sessionArtifact.kind === "embed" &&
                   activeVersion.payload.type === "embed"
                 ? activeVersion.payload.data.url

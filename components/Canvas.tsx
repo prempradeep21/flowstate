@@ -81,6 +81,7 @@ import {
 import { useHiddenCardIds } from "@/hooks/useHiddenCardIds";
 import {
   getLandingCardId,
+  pickCanvasLandingInput,
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
 import { GroupBounds } from "@/components/GroupBounds";
@@ -165,7 +166,17 @@ export function Canvas({
   useCanvasFontLoader(bodyFontId, displayFontId);
   const fontPreviewStyle = getCanvasFontPreviewStyles(bodyFontId, displayFontId);
 
-  const showLanding = shouldShowCanvasLanding(cards, cardOrder);
+  const showLanding = shouldShowCanvasLanding(
+    pickCanvasLandingInput({
+      cards,
+      cardOrder,
+      canvasArtifactOrder,
+      canvasAssetOrder,
+      canvasGifOrder,
+      canvasSkillOrder,
+      canvasTextLabelOrder,
+    }),
+  );
   const landingCardId = getLandingCardId(cards, cardOrder);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -583,6 +594,8 @@ export function Canvas({
     if (!el) return;
 
     const centerLanding = () => {
+      if (landingViewportCenteredRef.current) return;
+
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
@@ -1433,9 +1446,12 @@ export function Canvas({
         {imagePlacement && <GhostImage world={imagePlacement} />}
         {gifPlacement && <GhostGif world={gifPlacement} />}
       </CanvasViewport>
-      {showLanding && !placement && landingCardId && (
-        <CanvasLandingOverlay cardId={landingCardId} />
-      )}
+      {showLanding &&
+        !placement &&
+        !textPlacement &&
+        !imagePlacement &&
+        !gifPlacement &&
+        landingCardId && <CanvasLandingOverlay cardId={landingCardId} />}
       <SelectionOverlay rect={marqueeRect} />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
       {!marqueeRect && <SelectionToolbar />}

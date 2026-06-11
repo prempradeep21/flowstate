@@ -13,19 +13,24 @@ export function PendingAnswerPlaceholder({
 
   return (
     <div
-      className={`flex items-center justify-center gap-1.5 ${className}`}
+      className={`flex flex-col items-center justify-center gap-2 ${className}`}
       aria-live="polite"
       aria-busy="true"
       aria-label={label}
     >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="switch-dot h-2 w-2 rounded-full bg-canvas-muted"
-          style={{ animationDelay: `${i * 0.15}s` }}
-          aria-hidden
-        />
-      ))}
+      <div className="flex items-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="switch-dot h-2 w-2 rounded-full bg-canvas-muted"
+            style={{ animationDelay: `${i * 0.15}s` }}
+            aria-hidden
+          />
+        ))}
+      </div>
+      <p className="max-w-xs text-center text-canvas-body-sm text-canvas-muted">
+        {label}
+      </p>
     </div>
   );
 }

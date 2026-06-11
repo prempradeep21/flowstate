@@ -1,6 +1,8 @@
 import {
   getLandingCardId,
+  pickCanvasLandingInput,
   shouldShowCanvasLanding,
+  type CanvasLandingInput,
 } from "@/lib/canvasLandingState";
 import type { ResolvedCanvasTuning } from "@/lib/canvasTuning";
 import type { Card } from "@/lib/store";
@@ -33,13 +35,12 @@ export function landingStackViewportCenter(
 }
 
 export function isOriginCardPinned(
-  cards: Record<string, Card>,
-  cardOrder: string[],
+  landing: CanvasLandingInput,
   cardId: string,
   globalOrigin: GlobalOrigin | null,
 ): boolean {
   if (!globalOrigin || globalOrigin.cardId !== cardId) return false;
-  return shouldShowCanvasLanding(cards, cardOrder);
+  return shouldShowCanvasLanding(pickCanvasLandingInput(landing));
 }
 
 export function getOriginCoords(

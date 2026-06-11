@@ -55,6 +55,7 @@ import {
   isOriginCardPinned,
   type GlobalOrigin,
 } from "@/lib/canvasOrigin";
+import { pickCanvasLandingInput } from "@/lib/canvasLandingState";
 import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import {
   getFamilyCardIds,
@@ -120,6 +121,11 @@ import {
   createWebsitePayload,
   MANUAL_WEBSITE_SOURCE_CARD_ID,
 } from "@/lib/websiteArtifact";
+import {
+  createGoogleWorkspacePayload,
+  MANUAL_GOOGLE_DOC_SOURCE_CARD_ID,
+} from "@/lib/googleWorkspaceArtifact";
+import { parseGoogleDriveUrl } from "@/lib/google/parseDriveUrl";
 import {
   createEmbedPayload,
   EMBED_LOADING_HEIGHT,
@@ -746,6 +752,19 @@ interface CanvasState {
       recordUndo?: boolean;
     },
   ) => { artifactId: string; versionId: string };
+  createGoogleWorkspaceArtifactFromUrl: (
+    url: string,
+    opts?: {
+      position?: { x: number; y: number };
+      recordUndo?: boolean;
+    },
+  ) => { artifactId: string; versionId: string };
+  patchGoogleWorkspaceArtifact: (
+    artifactId: string,
+    patch: Partial<
+      import("@/lib/artifactTypes").GoogleWorkspaceArtifactData
+    > & { title?: string },
+  ) => void;
   patchRepoArtifactExplorer: (
     artifactId: string,
     patch: Partial<RepoExplorerData>,
@@ -1149,7 +1168,7 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
         const ids = getFamilyCardIds(state, d.id);
         // Families anchored by the pinned origin card stay put.
         const pinned = ids.some((id) =>
-          isOriginCardPinned(state.cards, state.cardOrder, id, state.globalOrigin),
+          isOriginCardPinned(pickCanvasLandingInput(state), id, state.globalOrigin),
         );
         if (pinned) break;
         if (cards === state.cards) cards = { ...cards };
@@ -2084,12 +2103,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       let nextPatch = patch;
       if (
         patch.position &&
-        isOriginCardPinned(
-          state.cards,
-          state.cardOrder,
-          id,
-          state.globalOrigin,
-        )
+        isOriginCardPinned(pickCanvasLandingInput(state), id, state.globalOrigin)
       ) {
         nextPatch = {
           ...patch,
@@ -2167,8 +2181,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!state.cards[rootId]) return state;
       if (
         isOriginCardPinned(
-          state.cards,
-          state.cardOrder,
+          pickCanvasLandingInput(state),
           rootId,
           state.globalOrigin,
         )
@@ -2388,6 +2401,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return { artifactId, versionId };
   },
 
+  createGoogleWorkspaceArtifactFromUrl: (url, opts) => {
+    const parsed = parseGoogleDriveUrl(url);
+    const payload = createGoogleWorkspacePayload(parsed);
+    if (!payload) {
+      throw new Error("Invalid Google Drive URL");
+    }
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_GOOGLE_DOC_SOURCE_CARD_ID,
+    );
+    if (opts?.position) {
+      get().spawnCanvasArtifact(artifactId, versionId, {
+        position: opts.position,
+        focus: true,
+      });
+    } else {
+      get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    }
+    get().openSessionArtifact(artifactId, versionId);
+    return { artifactId, versionId };
+  },
+
   patchRepoArtifactExplorer: (artifactId, patch) => {
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -2453,6 +2492,46 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           [artifactId]: {
             ...art,
             title,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
+  patchGoogleWorkspaceArtifact: (artifactId, patch) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "google-doc") return state;
+      const latest = getLatestVersion(art);
+      if (!latest || latest.payload.type !== "google-doc") return state;
+
+      const patchTitle = patch.title;
+      const dataPatch = { ...patch };
+      delete dataPatch.title;
+      const resolvedTitle =
+        typeof patchTitle === "string" && patchTitle.trim()
+          ? patchTitle.trim()
+          : latest.payload.data.title;
+
+      const updatedPayload: ArtifactPayload = {
+        ...latest.payload,
+        title: resolvedTitle,
+        data: {
+          ...latest.payload.data,
+          ...dataPatch,
+          title: resolvedTitle,
+        },
+      };
+      const versions = art.versions.map((v) =>
+        v.id === latest.id ? { ...v, payload: updatedPayload } : v,
+      );
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title: resolvedTitle,
             versions,
           },
         },

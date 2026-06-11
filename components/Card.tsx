@@ -34,6 +34,7 @@ import {
 } from "@/lib/design/canvasInsets";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
+import type { AskHandle } from "@/lib/dummyLLM";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
@@ -81,7 +82,7 @@ import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
 import {
-  hasQaResponseError,
+  isQaResponseFinalError,
   isQaTurnInProgress,
   resolveQaStatusBadgeLabel,
   resolveQaStatusLabel,
@@ -161,7 +162,19 @@ function CardInner({ card }: CardProps) {
       s.connections.some((c) => c.to === card.id),
   );
   const isLanding = useCanvasStore((s) => {
-    if (!shouldShowCanvasLanding(s.cards, s.cardOrder)) return false;
+    if (
+      !shouldShowCanvasLanding({
+        cards: s.cards,
+        cardOrder: s.cardOrder,
+        canvasArtifactOrder: s.canvasArtifactOrder,
+        canvasAssetOrder: s.canvasAssetOrder,
+        canvasGifOrder: s.canvasGifOrder,
+        canvasSkillOrder: s.canvasSkillOrder,
+        canvasTextLabelOrder: s.canvasTextLabelOrder,
+      })
+    ) {
+      return false;
+    }
     return getLandingCardId(s.cards, s.cardOrder) === card.id;
   });
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
@@ -183,8 +196,15 @@ function CardInner({ card }: CardProps) {
 
   const originPinned = useCanvasStore((s) =>
     isOriginCardPinned(
-      s.cards,
-      s.cardOrder,
+      {
+        cards: s.cards,
+        cardOrder: s.cardOrder,
+        canvasArtifactOrder: s.canvasArtifactOrder,
+        canvasAssetOrder: s.canvasAssetOrder,
+        canvasGifOrder: s.canvasGifOrder,
+        canvasSkillOrder: s.canvasSkillOrder,
+        canvasTextLabelOrder: s.canvasTextLabelOrder,
+      },
       card.id,
       s.globalOrigin,
     ),
@@ -236,6 +256,7 @@ function CardInner({ card }: CardProps) {
   const DRAG_THRESHOLD_PX = 5;
 
   const startedFor = useRef<string | null>(null);
+  const askHandleRef = useRef<AskHandle | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const answerTextRef = useRef<HTMLDivElement | null>(null);
@@ -565,10 +586,18 @@ function CardInner({ card }: CardProps) {
   ]);
 
   useEffect(() => {
+    return () => {
+      askHandleRef.current?.cancel();
+      askHandleRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
+    askHandleRef.current?.cancel();
     startedFor.current = card.question;
-    askClaude(card.id, card.parentConversationId ?? null, card.question, selectedModel, {
+    askHandleRef.current = askClaude(card.id, card.parentConversationId ?? null, card.question, selectedModel, {
       onThinking: (label) => {
         updateCard(card.id, {
           status: "thinking",
@@ -654,6 +683,11 @@ function CardInner({ card }: CardProps) {
     const childId = createFollowUp(card.id, question, options);
     if (user?.id && childId) stampContributor(user.id, childId);
   };
+
+  const handleTryAgain = useCallback(() => {
+    if (!canEdit || !card.question.trim()) return;
+    submitFollowUp(card.question);
+  }, [canEdit, card.question, submitFollowUp]);
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -890,7 +924,8 @@ function CardInner({ card }: CardProps) {
             aria-hidden
           />
         )}
-        {turnInProgress && (
+        {(turnInProgress ||
+          isQaResponseFinalError(card, canvasArtifactNodes)) && (
           <PendingStatusIndicator
             card={card}
             canvasArtifactNodes={canvasArtifactNodes}
@@ -979,6 +1014,7 @@ function CardInner({ card }: CardProps) {
                         turnInProgress && !shouldShowQaAnswerText(card)
                       }
                       pendingLabel={qaStatusLabel}
+                      onTryAgain={handleTryAgain}
                     />
                   </div>
                 </>
@@ -1106,7 +1142,7 @@ function PendingStatusIndicator({
   card: CardType;
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
 }) {
-  const isError = hasQaResponseError(card);
+  const isError = isQaResponseFinalError(card, canvasArtifactNodes);
   const label = compactThinkingWord(
     resolveQaStatusBadgeLabel(card, canvasArtifactNodes),
   );

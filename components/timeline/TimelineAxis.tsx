@@ -29,8 +29,8 @@ export function TimelineAxis({
         x2={trackWidth}
         y2={axisY}
         stroke={canvasColors.ink}
-        strokeWidth={1}
-        opacity={0.85}
+        strokeWidth={2}
+        opacity={0.9}
       />
 
       {ticks.map((tick) => (
@@ -42,20 +42,21 @@ export function TimelineAxis({
         >
           <line
             x1={tick.x}
-            y1={axisY - 6}
+            y1={axisY - 9}
             x2={tick.x}
-            y2={axisY + 6}
+            y2={axisY + 9}
             stroke={canvasColors.muted}
-            strokeWidth={1}
-            opacity={0.5}
+            strokeWidth={2}
+            opacity={0.65}
           />
           <text
             x={tick.x}
-            y={axisY + 22}
+            y={axisY + 28}
             textAnchor="middle"
             fill={canvasColors.muted}
-            fontSize={10}
+            fontSize={14}
             fontFamily="system-ui, sans-serif"
+            fontWeight={500}
           >
             {tick.label}
           </text>

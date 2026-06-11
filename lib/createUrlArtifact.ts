@@ -10,6 +10,12 @@ import {
 } from "@/lib/embedArtifact";
 import { matchEmbedProviderId } from "@/lib/embed/registry";
 import type { EmbedResolveResult } from "@/lib/embed/types";
+import {
+  fetchGoogleConnectionGate,
+  googleFileImportBlockedMessage,
+} from "@/lib/google/fileImportClient";
+import { createGoogleWorkspacePayload } from "@/lib/googleWorkspaceArtifact";
+import { parseGoogleDriveUrl } from "@/lib/google/parseDriveUrl";
 import { useCanvasStore } from "@/lib/store";
 import { classifyPastedText } from "@/lib/urlDetection";
 import { fetchYoutubeMeta } from "@/lib/youtube";
@@ -119,6 +125,124 @@ function enrichEmbed(artifactId: string, versionId: string, url: string): void {
   });
 }
 
+interface GoogleFileImportResult {
+  fileId: string;
+  fileKind: string;
+  title: string;
+  mimeType?: string;
+  url: string;
+  extractedText?: string;
+  extractedTextLength?: number;
+  truncated?: boolean;
+  status?: string;
+  needsConnect?: boolean;
+  needsAccess?: boolean;
+  error?: string;
+}
+
+async function fetchGoogleFileImport(
+  url: string,
+  fileId?: string,
+): Promise<GoogleFileImportResult | null> {
+  try {
+    const params = new URLSearchParams({ url });
+    if (fileId) params.set("fileId", fileId);
+    const res = await fetch(`/api/google/files?${params.toString()}`);
+    const body = (await res.json()) as GoogleFileImportResult;
+    if (body.needsConnect) {
+      return {
+        ...body,
+        fileId: body.fileId ?? fileId ?? "",
+        url,
+        needsConnect: true,
+      };
+    }
+    if (body.needsAccess) {
+      return {
+        ...body,
+        fileId: body.fileId ?? fileId ?? "",
+        url,
+        needsAccess: true,
+        error: body.error,
+      };
+    }
+    if (!res.ok) {
+      return {
+        ...body,
+        fileId: body.fileId ?? fileId ?? "",
+        url,
+        error: body.error,
+      } as GoogleFileImportResult;
+    }
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+function enrichGoogleWorkspaceArtifact(
+  artifactId: string,
+  url: string,
+  fileId: string,
+): void {
+  void fetchGoogleConnectionGate().then((gate) => {
+    const state = useCanvasStore.getState();
+    if (!gate.signedIn || !gate.connected) {
+      state.patchGoogleWorkspaceArtifact(artifactId, {
+        status: "needs_connect",
+        errorMessage: googleFileImportBlockedMessage(gate),
+      });
+      return;
+    }
+
+    void fetchGoogleFileImport(url, fileId).then((result) => {
+      if (!result) {
+        state.patchGoogleWorkspaceArtifact(artifactId, {
+          status: "failed",
+          errorMessage: "Could not import this file.",
+        });
+        return;
+      }
+
+      if (result.needsConnect) {
+        state.patchGoogleWorkspaceArtifact(artifactId, {
+          status: "needs_connect",
+          errorMessage: "Connect Google to import content from this file.",
+        });
+        return;
+      }
+
+      if (result.needsAccess) {
+        state.patchGoogleWorkspaceArtifact(artifactId, {
+          status: "needs_access",
+          errorMessage:
+            "Choose this file in Google Drive to grant access, then try again.",
+        });
+        return;
+      }
+
+      if (result.error && result.status !== "ready") {
+        state.patchGoogleWorkspaceArtifact(artifactId, {
+          status: "failed",
+          errorMessage: result.error,
+        });
+        return;
+      }
+
+      state.patchGoogleWorkspaceArtifact(artifactId, {
+        title: result.title,
+        mimeType: result.mimeType,
+        status: "ready",
+        extractedText: result.extractedText,
+        extractedTextLength:
+          result.extractedTextLength ?? result.extractedText?.length,
+        truncated: result.truncated,
+        errorMessage: undefined,
+      });
+    });
+  });
+}
+
 /** Create a website, embed, or YouTube artifact from pasted/typed URL text. */
 export function createUrlArtifactFromText(
   text: string,
@@ -150,6 +274,20 @@ export function createUrlArtifactFromText(
       ),
       ...undoOpts,
     });
+    return true;
+  }
+
+  if (classified.kind === "google-doc") {
+    const parsed = parseGoogleDriveUrl(classified.url);
+    const payload = createGoogleWorkspacePayload(parsed);
+    if (!payload) return false;
+    const { artifactId } = useCanvasStore
+      .getState()
+      .createGoogleWorkspaceArtifactFromUrl(classified.url, {
+        position: artifactPositionAtPointer(position),
+        ...undoOpts,
+      });
+    enrichGoogleWorkspaceArtifact(artifactId, classified.url, payload.data.fileId);
     return true;
   }
 

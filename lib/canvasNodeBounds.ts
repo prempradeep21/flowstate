@@ -134,6 +134,7 @@ export function getDefaultArtifactSize(
       return { w: CANVAS_ARTIFACT_WIDTH, h: CUSTOM_ARTIFACT_HEIGHT };
     case "images":
     case "website":
+    case "google-doc":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
     case "map":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MAP_ARTIFACT_HEIGHT };

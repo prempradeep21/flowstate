@@ -60,8 +60,8 @@ export function ConnectorPathGroup({
 
     const onEnd = () => {
       path.classList.remove("connection-draw-in");
-      path.style.strokeDasharray = "";
-      path.style.strokeDashoffset = "";
+      path.style.removeProperty("stroke-dasharray");
+      path.style.removeProperty("stroke-dashoffset");
       onDrawComplete?.();
     };
 
