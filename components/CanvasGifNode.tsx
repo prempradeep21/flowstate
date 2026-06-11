@@ -17,6 +17,10 @@ import {
 } from "@/lib/canvasGifBounds";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
+  CANVAS_CONTENT_INERT_CLASS,
+  CANVAS_NODE_INTERACTIVE_ATTR,
+} from "@/lib/canvasNodeInteraction";
+import {
   useCanvasStore,
   type CanvasGifNode as CanvasGifNodeType,
 } from "@/lib/store";
@@ -198,6 +202,8 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
       <div
         ref={nodeRef}
         data-canvas-gif
+        data-canvas-node-id={node.id}
+        {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -210,7 +216,10 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
           height,
         }}
       >
-        <CanvasSharpContent worldWidth={width} className="h-full w-full">
+        <CanvasSharpContent
+          worldWidth={width}
+          className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={node.url}
@@ -229,7 +238,11 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
               recordUndo();
               removeCanvasGifNode(node.id);
             }}
-            className="absolute right-1 top-1 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted opacity-0 shadow-sm transition-opacity hover:text-canvas-ink group-hover/gif:opacity-100"
+            className={`absolute right-1 top-1 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+              isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/gif:opacity-100"
+            }`}
           >
             x
           </button>
@@ -237,7 +250,11 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
         {!canvasReadOnly && (
           <NodeCornerResizeHandles
             ariaLabel="Resize GIF"
-            visibilityClass="opacity-0 group-hover/gif:opacity-100"
+            visibilityClass={
+              isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/gif:opacity-100"
+            }
             onCornerPointerDown={handleResizePointerDown}
           />
         )}

@@ -10,6 +10,7 @@ import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
+import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
@@ -56,6 +57,7 @@ export function ArtifactPanelHeader({
   todoEditControls,
   isVideo = false,
   websiteUrl,
+  googleFileKind,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -70,6 +72,7 @@ export function ArtifactPanelHeader({
   todoEditControls?: TodoEditControls;
   isVideo?: boolean;
   websiteUrl?: string;
+  googleFileKind?: GoogleDriveFileKind;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -162,6 +165,7 @@ export function ArtifactPanelHeader({
         >
           <ArtifactTypeIcon
             kind={isVideo ? "video" : kind}
+            googleFileKind={kind === "google-doc" ? googleFileKind : undefined}
             className="h-[22px] w-[22px]"
           />
         </span>

@@ -35,6 +35,7 @@ interface AuthContextValue extends CollaborationContextValue {
   createNewCanvas: () => Promise<string | null>;
   renameCanvas: (canvasId: string, title: string) => Promise<void>;
   deleteOwnedCanvas: (canvasId: string) => Promise<void>;
+  duplicateCanvas: (canvasId: string) => Promise<string | null>;
   localReadOnly: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -112,6 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isDirtyRef,
     isHydratingRef,
   });
+
+  const duplicateCanvas = useCallback(
+    async (canvasId: string) => {
+      if (activeCanvasId === canvasId) {
+        await flushSave();
+      }
+      return collaboration.duplicateCanvasById(canvasId);
+    },
+    [activeCanvasId, collaboration.duplicateCanvasById, flushSave],
+  );
 
   useEffect(() => {
     const readOnly =
@@ -199,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createNewCanvas,
       renameCanvas,
       deleteOwnedCanvas,
+      duplicateCanvas,
       localReadOnly,
       signInWithGoogle,
       signOut,
@@ -217,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persistenceStatus,
       renameCanvas,
       deleteOwnedCanvas,
+      duplicateCanvas,
       localReadOnly,
       saveStatus,
       shareModalOpen,

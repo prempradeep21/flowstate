@@ -82,9 +82,9 @@ interface QaQuestionSectionProps {
 export const QA_QUESTION_ACCENT_BAND_HEIGHT_PX =
   canvasSpacing.section + QA_QUESTION_HEADER_ROW_HEIGHT_PX;
 
-/** Collapsed summary — one text line + section inset (no separate header row). */
+/** Collapsed summary — section inset + fixed control header row. */
 export const QA_QUESTION_COMPACT_ACCENT_BAND_HEIGHT_PX =
-  canvasSpacing.section + 24;
+  canvasSpacing.section + QA_QUESTION_HEADER_ROW_HEIGHT_PX;
 
 /** Question block with a fixed-height diffused accent glow at the top left. */
 export function QaQuestionSection({

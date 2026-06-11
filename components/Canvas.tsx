@@ -14,6 +14,13 @@ import {
   mergeCanvasSelections,
   type CanvasSelection,
 } from "@/lib/canvasSelection";
+import {
+  applyContextMenuSelection,
+  canRemoveCanvasSelection,
+  hasCanvasSelection,
+  isContextHitInSelection,
+  resolveCanvasContextHit,
+} from "@/lib/canvasContextSelection";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import {
   allowSidebarDrop,
@@ -145,15 +152,14 @@ export function Canvas({
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
-  const selectedCanvasTextLabelId = useCanvasStore(
-    (s) => s.selectedCanvasTextLabelId,
+  const removeSelectedFromCanvas = useCanvasStore(
+    (s) => s.removeSelectedFromCanvas,
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
   const spawnCanvasGif = useCanvasStore((s) => s.spawnCanvasGif);
   const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
   const imagePlacementAssetId = useCanvasStore((s) => s.imagePlacementAssetId);
   const gifPlacementRequest = useCanvasStore((s) => s.gifPlacementRequest);
-  const removeCanvasTextLabel = useCanvasStore((s) => s.removeCanvasTextLabel);
   const createVideoArtifactFromUrl = useCanvasStore(
     (s) => s.createVideoArtifactFromUrl,
   );
@@ -749,10 +755,7 @@ export function Canvas({
         return;
       }
 
-      if (
-        (e.key === "Delete" || e.key === "Backspace") &&
-        selectedCanvasTextLabelId
-      ) {
+      if (e.key === "Delete" || e.key === "Backspace") {
         const target = e.target as HTMLElement | null;
         if (target) {
           const tag = target.tagName;
@@ -764,8 +767,11 @@ export function Canvas({
             return;
           }
         }
-        e.preventDefault();
-        removeCanvasTextLabel(selectedCanvasTextLabelId);
+        const st = useCanvasStore.getState();
+        if (canRemoveCanvasSelection(st)) {
+          e.preventDefault();
+          st.removeSelectedFromCanvas();
+        }
         return;
       }
 
@@ -819,7 +825,7 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [closePie, pieStateRef, removeCanvasTextLabel, selectedCanvasTextLabelId]);
+  }, [closePie, pieStateRef, removeSelectedFromCanvas]);
 
   // T (enter text placement) — same rules as Q for focused inputs.
   useEffect(() => {
@@ -1186,13 +1192,28 @@ export function Canvas({
     ) {
       return;
     }
-    if ((e.target as HTMLElement).closest("[data-canvas-card]")) return;
-    if ((e.target as HTMLElement).closest("[data-canvas-artifact]")) return;
-    if ((e.target as HTMLElement).closest("[data-canvas-asset]")) return;
-    if ((e.target as HTMLElement).closest("[data-canvas-gif]")) return;
-    if ((e.target as HTMLElement).closest("[data-canvas-skill]")) return;
-    if ((e.target as HTMLElement).closest("[data-canvas-text-label]")) return;
-    setContextMenu({ screenX: e.clientX, screenY: e.clientY });
+
+    const target = e.target as HTMLElement;
+    const hit = resolveCanvasContextHit(target);
+    const st = useCanvasStore.getState();
+
+    if (hit) {
+      if (!isContextHitInSelection(st, hit)) {
+        applyContextMenuSelection(st, hit);
+      }
+      setContextMenu({
+        screenX: e.clientX,
+        screenY: e.clientY,
+        showDelete: canRemoveCanvasSelection(useCanvasStore.getState()),
+      });
+      return;
+    }
+
+    setContextMenu({
+      screenX: e.clientX,
+      screenY: e.clientY,
+      showDelete: canRemoveCanvasSelection(st),
+    });
   };
 
   const handleAddTextAtContextMenu = () => {
@@ -1479,6 +1500,7 @@ export function Canvas({
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           onAddText={handleAddTextAtContextMenu}
+          onDelete={() => removeSelectedFromCanvas()}
         />
       )}
       <CollaboratorCursors

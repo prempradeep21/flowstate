@@ -126,9 +126,9 @@ export function TypeIcon() {
   );
 }
 
-export function PlusIcon() {
+export function PlusIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+    <svg aria-hidden viewBox="0 0 16 16" className={className} fill="none">
       <path
         d="M8 3.5v9M3.5 8h9"
         stroke="currentColor"
@@ -206,13 +206,13 @@ export function SoundOnIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
       <path
-        d="M3.5 5.5v5l3-2v-1l-3-2Z"
+        d="M2.75 5.75v4.5h2.25L8.25 13V3L5 5.75H2.75Z"
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinejoin="round"
       />
       <path
-        d="M9.5 5.5c1.2.8 2 2.1 2 3.5s-.8 2.7-2 3.5M11.25 4c1.9 1.2 3.15 3.2 3.15 5.5S13.15 13.8 11.25 15"
+        d="M10 5.25a3.25 3.25 0 010 5.5M11.75 3.75a5.5 5.5 0 010 8.5"
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinecap="round"
@@ -225,13 +225,13 @@ export function SoundMuteIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
       <path
-        d="M3.5 5.5v5l3-2v-1l-3-2Z"
+        d="M2.75 5.75v4.5h2.25L8.25 13V3L5 5.75H2.75Z"
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinejoin="round"
       />
       <path
-        d="m10.5 6 3 3M13.5 6l-3 3"
+        d="M10.5 5.75 14.25 9.5M14.25 5.75 10.5 9.5"
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinecap="round"
@@ -249,6 +249,63 @@ export function SettingsIcon() {
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function DuplicateIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="5.5"
+        y="5.5"
+        width="8"
+        height="8"
+        rx="1.25"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <path
+        d="M3.5 10.5V4.5a1.25 1.25 0 0 1 1.25-1.25H10.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function PersonIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <circle cx="8" cy="5.25" r="2.25" stroke="currentColor" strokeWidth="1.25" />
+      <path
+        d="M3.5 13.25c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function LightbulbIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M6.25 11.5h3.5M7.25 13.5h1.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 2.5a4 4 0 0 1 2.65 7.02c-.47.4-.65.78-.65 1.23V11"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

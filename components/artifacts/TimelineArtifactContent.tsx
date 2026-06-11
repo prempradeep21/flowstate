@@ -8,6 +8,7 @@ import { TimelineAxis } from "@/components/timeline/TimelineAxis";
 import { TimelineControls } from "@/components/timeline/TimelineControls";
 import { TimelineEventNode } from "@/components/timeline/TimelineEventNode";
 import type { ArtifactPayload, TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
+import { TIMELINE_ARTIFACT_BODY_MIN_HEIGHT, TIMELINE_ARTIFACT_STAGE_WIDTH } from "@/lib/canvasNodeBounds";
 import { useTimelineViewport } from "@/hooks/useTimelineViewport";
 import {
   createTimelineEvent,
@@ -66,15 +67,16 @@ export function TimelineArtifactContent({
   useEffect(() => {
     const el = trackAreaRef.current;
     if (!el) return;
+    const minTrackHeight = fill ? TIMELINE_ARTIFACT_BODY_MIN_HEIGHT : 240;
     const sync = () => {
-      const next = Math.max(240, Math.floor(el.clientHeight));
+      const next = Math.max(minTrackHeight, Math.floor(el.clientHeight));
       setTrackHeight((prev) => (prev === next ? prev : next));
     };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [fill]);
 
   const isCanvas = layout === "canvas";
   const interactive = canEdit && isCanvas && !sidebar;
@@ -209,30 +211,41 @@ export function TimelineArtifactContent({
   return (
     <ArtifactContentStage
       fill={fill}
+      artifactId={artifactId}
+      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-col" : "aspect-[21/9] min-h-[280px]"}
+      controls={
+        !sidebar ? (
+          <div data-timeline-no-pan className="h-full min-w-0 flex-1">
+            <TimelineControls
+              scale={scale}
+              onScaleChange={handleScaleChange}
+              zoomPercent={zoomPercent}
+              onZoomIn={() => zoomByButton(1.15)}
+              onZoomOut={() => zoomByButton(1 / 1.15)}
+              disabled={!interactive}
+              zoomDisabled={!viewportEnabled}
+            />
+          </div>
+        ) : undefined
+      }
     >
-      {!sidebar && (
-        <div data-timeline-no-pan>
-          <TimelineControls
-            scale={scale}
-            onScaleChange={handleScaleChange}
-            zoomPercent={zoomPercent}
-            onZoomIn={() => zoomByButton(1.15)}
-            onZoomOut={() => zoomByButton(1 / 1.15)}
-            disabled={!interactive}
-            zoomDisabled={!viewportEnabled}
-          />
-        </div>
-      )}
-
       <div
         ref={trackAreaRef}
-        className={`relative min-h-0 flex-1 ${viewportEnabled ? "" : "pointer-events-none"}`}
+        className={`relative min-h-0 flex-1 ${fill ? "flex flex-col" : ""} ${viewportEnabled ? "" : "pointer-events-none"}`}
+        style={
+          fill
+            ? {
+                minWidth: TIMELINE_ARTIFACT_STAGE_WIDTH,
+                minHeight: TIMELINE_ARTIFACT_BODY_MIN_HEIGHT,
+              }
+            : undefined
+        }
       >
         <div
           ref={containerRef}
           data-canvas-scroll
-          className={`h-full overflow-hidden ${
+          className={`min-h-0 flex-1 overflow-hidden ${
             isPanning ? "cursor-grabbing" : "cursor-grab"
           }`}
         >
@@ -241,7 +254,7 @@ export function TimelineArtifactContent({
             role={interactive ? "button" : undefined}
             tabIndex={interactive ? 0 : undefined}
             aria-label={interactive ? "Timeline — click to add an event" : undefined}
-            className="relative h-full w-full"
+            className="relative w-full"
             style={{
               height: trackHeight,
               minHeight: trackHeight,

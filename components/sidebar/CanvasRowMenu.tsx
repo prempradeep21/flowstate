@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ContextMenuItem, TrashIcon } from "@/components/MenuIcons";
+import {
+  ContextMenuItem,
+  DuplicateIcon,
+  TrashIcon,
+} from "@/components/MenuIcons";
 
 interface CanvasRowMenuProps {
   onRename: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
   disabled?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -46,6 +51,7 @@ function RenameIcon() {
 
 export function CanvasRowMenu({
   onRename,
+  onDuplicate,
   onDelete,
   disabled = false,
   onOpenChange,
@@ -107,6 +113,15 @@ export function CanvasRowMenu({
             disabled={disabled}
             onClick={() => {
               onRename();
+              setOpen(false);
+            }}
+          />
+          <ContextMenuItem
+            icon={<DuplicateIcon />}
+            label="Duplicate"
+            disabled={disabled}
+            onClick={() => {
+              onDuplicate();
               setOpen(false);
             }}
           />

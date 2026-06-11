@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactTextSelection } from "@/components/ArtifactTextSelection";
+import { ArtifactCanvasSizeReportProvider } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
+import type { ArtifactContentAreaSize } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
@@ -21,6 +23,7 @@ import {
   isVideoArtifactPayload,
   payloadToArtifactKind,
 } from "@/lib/artifactTypes";
+import { CANVAS_CONTENT_INERT_CLASS } from "@/lib/canvasNodeInteraction";
 import { useCanvasStore } from "@/lib/store";
 
 export function ArtifactShell({
@@ -34,7 +37,8 @@ export function ArtifactShell({
   onTodoEditingChange,
   catalogPreview = false,
   sourceCardId,
-  onImagesContentHeightChange,
+  onArtifactContentAreaSizeChange,
+  contentInteractive = true,
 }: {
   sessionArtifact: SessionArtifact;
   versionId: string;
@@ -48,8 +52,10 @@ export function ArtifactShell({
   catalogPreview?: boolean;
   /** Card that spawned this artifact — enables Ask a question from selection. */
   sourceCardId?: string | null;
-  /** Images-only: reports the gallery's natural height so the canvas node wraps it. */
-  onImagesContentHeightChange?: (heightPx: number) => void;
+  /** Canvas: reports stage content area so the node wraps font-scale / content growth. */
+  onArtifactContentAreaSizeChange?: (size: ArtifactContentAreaSize) => void;
+  /** Canvas: when false, artifact body is inert until the node is selected. */
+  contentInteractive?: boolean;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
@@ -189,6 +195,12 @@ export function ArtifactShell({
                 ? activeVersion.payload.data.repoUrl
                 : undefined
           }
+          googleFileKind={
+            sessionArtifact.kind === "google-doc" &&
+            activeVersion.payload.type === "google-doc"
+              ? activeVersion.payload.data.fileKind
+              : undefined
+          }
           menuVariant={menuVariant}
           onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}
@@ -228,10 +240,13 @@ export function ArtifactShell({
                   : sessionArtifact.kind === "streetview"
                     ? "mt-0 min-h-0 flex-1"
                     : "mt-[22px]"
-              }`
+              } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`
             : "mt-[22px]"
         }
       >
+        <ArtifactCanvasSizeReportProvider
+          onContentAreaSizeChange={onArtifactContentAreaSizeChange}
+        >
         {catalogPreview ? (
           <ArtifactContent
             layout={layout}
@@ -260,7 +275,7 @@ export function ArtifactShell({
             calendarCanEdit={canEditCalendar}
             timelineCanEdit={canEditTimeline}
             catalogPreview={catalogPreview}
-            onImagesContentHeightChange={onImagesContentHeightChange}
+            canvasContentInteractive={contentInteractive}
           />
         ) : (
           <ArtifactTextSelection
@@ -300,10 +315,11 @@ export function ArtifactShell({
               calendarCanEdit={canEditCalendar}
               timelineCanEdit={canEditTimeline}
               catalogPreview={catalogPreview}
-              onImagesContentHeightChange={onImagesContentHeightChange}
+              canvasContentInteractive={contentInteractive}
             />
           </ArtifactTextSelection>
         )}
+        </ArtifactCanvasSizeReportProvider>
       </div>
     </div>
   );

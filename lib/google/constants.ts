@@ -1,5 +1,6 @@
-/** Scopes requested for Google Workspace file import (non-restricted drive.file). */
+/** Scopes for Google Workspace import (non-restricted). readonly enables pasted links; file keeps picker grants. */
 export const GOOGLE_WORKSPACE_SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/userinfo.email",
 ] as const;

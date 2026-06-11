@@ -557,6 +557,40 @@ export function buildDuplicateTitle(title: string): string {
   return `${title} (copy)`;
 }
 
+/** Owned canvases that have collaborators or pending invites. */
+export async function fetchOwnedCanvasShareFlags(
+  supabase: Supabase,
+  ownerId: string,
+): Promise<Record<string, boolean>> {
+  const { data: owned, error: ownedError } = await supabase
+    .from("canvases")
+    .select("id")
+    .eq("owner_id", ownerId);
+
+  if (ownedError) throw ownedError;
+
+  const canvasIds = (owned ?? []).map((row) => row.id);
+  if (!canvasIds.length) return {};
+
+  const [{ data: collaborators }, { data: invites }] = await Promise.all([
+    supabase.from("canvas_collaborators").select("canvas_id").in("canvas_id", canvasIds),
+    supabase
+      .from("canvas_invites")
+      .select("canvas_id")
+      .in("canvas_id", canvasIds)
+      .eq("status", "pending"),
+  ]);
+
+  const flags: Record<string, boolean> = {};
+  for (const row of collaborators ?? []) {
+    flags[row.canvas_id] = true;
+  }
+  for (const row of invites ?? []) {
+    flags[row.canvas_id] = true;
+  }
+  return flags;
+}
+
 export function snapshotWithOwnerAttribution(
   snapshot: CanvasSnapshot,
   ownerId: string,

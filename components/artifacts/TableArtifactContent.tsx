@@ -4,7 +4,13 @@ import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStag
 import { ArtifactTable } from "@/components/artifacts/ArtifactTable";
 import { TableShaderSkeleton } from "@/components/artifacts/TableShaderSkeleton";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
+import {
+  TABLE_ARTIFACT_BODY_MIN_HEIGHT,
+  TABLE_ARTIFACT_STAGE_WIDTH,
+} from "@/lib/canvasNodeBounds";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
+
+const CANVAS_TABLE_BODY_CLASS = "min-h-0 flex-1 max-h-none";
 
 export function TableArtifactContent({
   payload,
@@ -12,12 +18,14 @@ export function TableArtifactContent({
   versionId,
   fill = false,
   sidebar = false,
+  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "table" }>;
   artifactId?: string;
   versionId?: string;
   fill?: boolean;
   sidebar?: boolean;
+  showControls?: boolean;
 }) {
   const { columns, rows } = normalizeTableArtifactData(payload.data);
   const accentSeed = artifactId ?? payload.title;
@@ -50,12 +58,19 @@ export function TableArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="flex-1 !bg-transparent p-0">
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={showControls}
+        className="flex-1 !bg-transparent p-0"
+      >
         {isLoading ? (
           <TableShaderSkeleton
             accentSeed={accentSeed}
             columnCount={columnCount}
-            maxHeightClassName="h-full max-h-none"
+            maxHeightClassName={CANVAS_TABLE_BODY_CLASS}
+            minHeightPx={TABLE_ARTIFACT_BODY_MIN_HEIGHT}
+            minWidthPx={TABLE_ARTIFACT_STAGE_WIDTH}
             canvasSurface
           />
         ) : (
@@ -64,7 +79,9 @@ export function TableArtifactContent({
             rows={rows}
             accentSeed={accentSeed}
             versionId={versionId}
-            maxHeightClassName="h-full max-h-none"
+            maxHeightClassName={CANVAS_TABLE_BODY_CLASS}
+            minHeightPx={TABLE_ARTIFACT_BODY_MIN_HEIGHT}
+            minWidthPx={TABLE_ARTIFACT_STAGE_WIDTH}
             canvasSurface
           />
         )}
@@ -75,7 +92,9 @@ export function TableArtifactContent({
   return (
     <ArtifactContentStage
       minHeight="200px"
-      className="min-h-[200px] max-h-[480px] !bg-canvas-card p-0"
+      artifactId={artifactId}
+      showControls={showControls}
+      className="min-h-[200px] !bg-canvas-card p-0"
     >
       {isLoading ? (
         <TableShaderSkeleton

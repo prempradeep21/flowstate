@@ -67,6 +67,10 @@ import {
   isCardInSelectedFamilies,
 } from "@/lib/chatThreads";
 import {
+  CANVAS_CONTENT_INERT_CLASS,
+  CANVAS_NODE_INTERACTIVE_ATTR,
+} from "@/lib/canvasNodeInteraction";
+import {
   AnswerExplain,
   CanvasArtifactNode,
   Card as CardType,
@@ -74,17 +78,14 @@ import {
   newExplainId,
   useCanvasStore,
 } from "@/lib/store";
-import {
-  compactThinkingWord,
-  compensatedStrokeWidth,
-} from "@/lib/zoomDisplay";
+import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
+import { QaStatusBadge } from "@/components/QaStatusBadge";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
 import {
   isQaResponseFinalError,
   isQaTurnInProgress,
-  resolveQaStatusBadgeLabel,
   resolveQaStatusLabel,
   shouldShowQaAnswerText,
 } from "@/lib/qaStreamDisplay";
@@ -256,6 +257,7 @@ function CardInner({ card }: CardProps) {
   const DRAG_THRESHOLD_PX = 5;
 
   const startedFor = useRef<string | null>(null);
+  const askGenerationRef = useRef(0);
   const askHandleRef = useRef<AskHandle | null>(null);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -483,6 +485,8 @@ function CardInner({ card }: CardProps) {
     'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
 
   const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
+  const showStatusBadge =
+    turnInProgress || isQaResponseFinalError(card, canvasArtifactNodes);
   const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
 
   const pendingMinHeight = turnInProgress
@@ -597,55 +601,76 @@ function CardInner({ card }: CardProps) {
     if (startedFor.current === card.question) return;
     askHandleRef.current?.cancel();
     startedFor.current = card.question;
-    askHandleRef.current = askClaude(card.id, card.parentConversationId ?? null, card.question, selectedModel, {
-      onThinking: (label) => {
-        updateCard(card.id, {
-          status: "thinking",
-          thinkingLabel: label,
-        });
-        if (/building table/i.test(label)) {
-          if (shouldEarlySpawnArtifact(card.id, "table")) {
-            useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+    const generation = askGenerationRef.current;
+    askHandleRef.current = askClaude(
+      card.id,
+      card.parentConversationId ?? null,
+      card.question,
+      selectedModel,
+      {
+        onThinking: (label) => {
+          if (generation !== askGenerationRef.current) return;
+          updateCard(card.id, {
+            status: "thinking",
+            thinkingLabel: label,
+          });
+          if (/building table/i.test(label)) {
+            if (shouldEarlySpawnArtifact(card.id, "table")) {
+              useCanvasStore.getState().ensurePendingTableArtifact(card.id);
+            }
+          } else if (/building custom/i.test(label)) {
+            if (shouldEarlySpawnArtifact(card.id, "custom")) {
+              useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
+            }
           }
-        } else if (/building custom/i.test(label)) {
-          if (shouldEarlySpawnArtifact(card.id, "custom")) {
-            useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
-          }
-        }
+        },
+        onToken: (next) => {
+          if (generation !== askGenerationRef.current) return;
+          const current = useCanvasStore.getState().cards[card.id];
+          updateCard(card.id, {
+            status: "streaming",
+            answer: next,
+            thinkingLabel: current?.thinkingLabel,
+          });
+        },
+        onImages: (images) => {
+          if (generation !== askGenerationRef.current) return;
+          updateCard(card.id, {
+            images,
+            responseType: "image",
+          });
+        },
+        onResponseType: (responseType) => {
+          if (generation !== askGenerationRef.current) return;
+          updateCard(card.id, { responseType });
+        },
+        onArtifact: (artifact) => {
+          if (generation !== askGenerationRef.current) return;
+          handleStreamArtifact(card.id, artifact);
+        },
+        onDone: ({ responseType }) => {
+          if (generation !== askGenerationRef.current) return;
+          finalizeCardResponse(card.id, {
+            responseType: responseType ?? card.responseType ?? "text",
+          });
+          requestAnimationFrame(() => {
+            const state = useCanvasStore.getState();
+            const hasBottomChild = state.connections.some(
+              (c) =>
+                c.from === card.id &&
+                (c.fromSide === "bottom" || c.fromSide == null),
+            );
+            if (hasBottomChild) {
+              state.relayoutFollowUpChainFromParent(card.id);
+            }
+          });
+        },
       },
-      onToken: (next) => {
-        const current = useCanvasStore.getState().cards[card.id];
-        updateCard(card.id, {
-          status: "streaming",
-          answer: next,
-          thinkingLabel: current?.thinkingLabel,
-        });
-      },
-      onImages: (images) =>
-        updateCard(card.id, {
-          images,
-          responseType: "image",
-        }),
-      onResponseType: (responseType) =>
-        updateCard(card.id, { responseType }),
-      onArtifact: (artifact) => handleStreamArtifact(card.id, artifact),
-      onDone: ({ responseType }) => {
-        finalizeCardResponse(card.id, {
-          responseType: responseType ?? card.responseType ?? "text",
-        });
-        requestAnimationFrame(() => {
-          const state = useCanvasStore.getState();
-          const hasBottomChild = state.connections.some(
-            (c) =>
-              c.from === card.id &&
-              (c.fromSide === "bottom" || c.fromSide == null),
-          );
-          if (hasBottomChild) {
-            state.relayoutFollowUpChainFromParent(card.id);
-          }
-        });
-      },
-    });
+    );
+    return () => {
+      askHandleRef.current?.cancel();
+      startedFor.current = null;
+    };
   }, [card.status, card.question, card.id, updateCard, selectedModel]);
 
   useEffect(() => {
@@ -658,12 +683,14 @@ function CardInner({ card }: CardProps) {
     if (!q || turnInProgress || !canEdit) return;
     recordUndo();
     if (user?.id) stampContributor(user.id, card.id);
+    askHandleRef.current?.cancel();
+    askGenerationRef.current += 1;
     startedFor.current = null;
     updateCard(card.id, {
       question: q,
       answer: "",
       status: "thinking",
-      thinkingLabel: undefined,
+      thinkingLabel: "Thinking",
       responseType: "text",
       artifactPayload: undefined,
       pendingEmittedArtifacts: undefined,
@@ -709,6 +736,17 @@ function CardInner({ card }: CardProps) {
       );
       return;
     }
+
+    const inMultiSelection =
+      st.selectedFamilyRootIds.includes(familyRootId) &&
+      st.selectedFamilyRootIds.length + st.canvasSelection.length > 1;
+    if (!inMultiSelection) {
+      st.setCanvasSelection({
+        familyRootIds: [familyRootId],
+        items: [],
+      });
+    }
+
     if (!isDraggable) return;
 
     e.preventDefault();
@@ -765,6 +803,8 @@ function CardInner({ card }: CardProps) {
     return stored.length ? stored : undefined;
   })();
 
+  const contentInteractive = isSelected || isEmptyComposer;
+
   const handleDragPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
@@ -783,6 +823,7 @@ function CardInner({ card }: CardProps) {
     <div
       ref={cardRef}
       data-canvas-card={card.id}
+      {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       onPointerDown={handleCardPointerDown}
       onPointerMove={handleDragPointerMove}
       onPointerUp={handleDragPointerUp}
@@ -910,7 +951,7 @@ function CardInner({ card }: CardProps) {
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"
-        }`}
+        } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{
           borderWidth: cardBorderWidth,
           ...(isSelected && accent
@@ -922,13 +963,6 @@ function CardInner({ card }: CardProps) {
           <div
             className="thinking-accent-bar pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-canvas-accent"
             aria-hidden
-          />
-        )}
-        {(turnInProgress ||
-          isQaResponseFinalError(card, canvasArtifactNodes)) && (
-          <PendingStatusIndicator
-            card={card}
-            canvasArtifactNodes={canvasArtifactNodes}
           />
         )}
         <CanvasSharpContent
@@ -948,32 +982,61 @@ function CardInner({ card }: CardProps) {
                 }
               >
                 {isChatCollapsed ? (
-                  <div className="flex items-start gap-2">
+                  <>
+                    <QaQuestionHeaderRow
+                      collaborators={
+                        showContributors || showStatusBadge ? (
+                          <div className="flex min-w-0 items-center gap-2">
+                            {showContributors && (
+                              <ContributorAvatarStack
+                                profiles={contributorProfiles}
+                              />
+                            )}
+                            {showStatusBadge && (
+                              <QaStatusBadge
+                                card={card}
+                                canvasArtifactNodes={canvasArtifactNodes}
+                              />
+                            )}
+                          </div>
+                        ) : null
+                      }
+                      controls={
+                        <CardQaMenu
+                          cardId={card.id}
+                          viewportScale={scale}
+                          layout="embedded"
+                        />
+                      }
+                    />
                     <div
                       data-selectable-text
-                      className="min-w-0 flex-1 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink line-clamp-2 overflow-hidden"
+                      className="min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink line-clamp-2 overflow-hidden"
                       style={{
                         maxWidth: QA_COLLAPSED_QUESTION_TEXT_MAX_WIDTH_PX,
                       }}
                     >
                       {card.question}
                     </div>
-                    <div className="shrink-0">
-                      <CardQaMenu
-                        cardId={card.id}
-                        viewportScale={scale}
-                        layout="embedded"
-                      />
-                    </div>
-                  </div>
+                  </>
                 ) : (
                   <>
                     <QaQuestionHeaderRow
                       collaborators={
-                        showContributors ? (
-                          <ContributorAvatarStack
-                            profiles={contributorProfiles}
-                          />
+                        showContributors || showStatusBadge ? (
+                          <div className="flex min-w-0 items-center gap-2">
+                            {showContributors && (
+                              <ContributorAvatarStack
+                                profiles={contributorProfiles}
+                              />
+                            )}
+                            {showStatusBadge && (
+                              <QaStatusBadge
+                                card={card}
+                                canvasArtifactNodes={canvasArtifactNodes}
+                              />
+                            )}
+                          </div>
                         ) : null
                       }
                       controls={
@@ -1135,39 +1198,3 @@ function BranchPlugHint({ side }: { side: "left" | "right" }) {
   );
 }
 
-function PendingStatusIndicator({
-  card,
-  canvasArtifactNodes,
-}: {
-  card: CardType;
-  canvasArtifactNodes: Record<string, CanvasArtifactNode>;
-}) {
-  const isError = isQaResponseFinalError(card, canvasArtifactNodes);
-  const label = compactThinkingWord(
-    resolveQaStatusBadgeLabel(card, canvasArtifactNodes),
-  );
-  return (
-    <div
-      className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
-      aria-live="polite"
-    >
-      <span className="relative flex h-2.5 w-2.5 shrink-0">
-        {!isError && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
-        )}
-        <span
-          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
-            isError ? "bg-canvas-danger" : "bg-canvas-success"
-          }`}
-        />
-      </span>
-      <span
-        className={`max-w-[140px] truncate text-canvas-caption font-medium capitalize ${
-          isError ? "text-canvas-danger" : "text-canvas-muted"
-        }`}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}

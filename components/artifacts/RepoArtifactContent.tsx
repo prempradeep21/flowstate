@@ -31,6 +31,8 @@ import {
   type RepoSpokeId,
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
+import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
+import { useArtifactFontScale } from "@/hooks/useArtifactFontScale";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
@@ -597,7 +599,7 @@ function RepoSpokeCard({
       </header>
       <m.div
         data-canvas-scroll
-        className="relative z-10 overflow-y-auto p-3"
+        className="artifact-content-body relative z-10 overflow-y-auto p-3"
         style={{ maxHeight: REPO_SPOKE_BODY_MAX_HEIGHT }}
         initial={{ opacity: 0 }}
         animate={{
@@ -878,17 +880,25 @@ export function RepoArtifactContent({
   const spokesRevealed = phase === "widgets" || Boolean(reduceMotion);
   const showConnectors = (phase !== "hub" || Boolean(reduceMotion)) && !collapsed;
   const showWidgets = spokesRevealed && !collapsed;
+  const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
 
   return (
     <div
-      className="relative"
+      className="artifact-content-stage relative"
       style={{
         width: fill ? "100%" : layoutW,
         height: layoutH,
         minWidth: layoutW,
         minHeight: layoutH,
+        ["--artifact-font-scale" as string]: String(fontScale),
       }}
     >
+      <div className="absolute inset-x-0 top-0 z-50">
+        <ArtifactControlsBar
+          fontScale={fontScale}
+          onFontScaleChange={setFontScale}
+        />
+      </div>
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
         aria-hidden
@@ -952,7 +962,7 @@ export function RepoArtifactContent({
           </span>
           <span className="text-canvas-micro font-medium text-canvas-muted/90">Drag</span>
         </div>
-        <div className="relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
+        <div className="artifact-content-body relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
           <a
             href={repoUrl}
             target="_blank"

@@ -24,13 +24,13 @@ export function ChartToolbar({
   const styles = getStylesForUIChartType(chartType);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-canvas-border px-3 py-2">
-      <label className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-canvas-muted">
+    <div className="flex h-full min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+      <label className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-wide text-canvas-muted">
         Chart
         <select
           value={chartType}
           onChange={(e) => onChartTypeChange(e.target.value as UIChartType)}
-          className="rounded border border-canvas-border bg-canvas-card px-2 py-1 text-[11px] normal-case tracking-normal text-canvas-ink focus:outline-none focus:ring-1 focus:ring-canvas-accent"
+          className="h-3 max-w-[4.5rem] rounded border border-canvas-border bg-canvas-card px-1 text-[9px] normal-case tracking-normal text-canvas-ink focus:outline-none focus:ring-1 focus:ring-canvas-accent"
         >
           {UI_CHART_TYPES.map((t) => (
             <option
@@ -44,12 +44,12 @@ export function ChartToolbar({
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-canvas-muted">
+      <label className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-wide text-canvas-muted">
         Style
         <select
           value={styleId}
           onChange={(e) => onStyleChange(e.target.value)}
-          className="rounded border border-canvas-border bg-canvas-card px-2 py-1 text-[11px] normal-case tracking-normal text-canvas-ink focus:outline-none focus:ring-1 focus:ring-canvas-accent"
+          className="h-3 max-w-[5.5rem] rounded border border-canvas-border bg-canvas-card px-1 text-[9px] normal-case tracking-normal text-canvas-ink focus:outline-none focus:ring-1 focus:ring-canvas-accent"
         >
           {styles.map((s) => (
             <option key={s.id} value={s.id}>

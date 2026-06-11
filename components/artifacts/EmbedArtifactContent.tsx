@@ -208,6 +208,10 @@ export function EmbedArtifactContent({
   forceInteractive?: boolean;
 }) {
   const [active, setActive] = useState(forceInteractive);
+
+  useEffect(() => {
+    setActive(forceInteractive);
+  }, [forceInteractive]);
   const [retrying, setRetrying] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const { status, url } = payload.data;
@@ -285,7 +289,12 @@ export function EmbedArtifactContent({
     );
     if (fill) {
       return (
-        <ArtifactContentStage fill className="h-full !bg-transparent">
+        <ArtifactContentStage
+          fill
+          artifactId={artifactId}
+          showControls={!sidebar}
+          className="h-full !bg-transparent"
+        >
           {loading}
         </ArtifactContentStage>
       );
@@ -299,7 +308,12 @@ export function EmbedArtifactContent({
     );
     if (fill) {
       return (
-        <ArtifactContentStage fill className="h-full !bg-transparent">
+        <ArtifactContentStage
+          fill
+          artifactId={artifactId}
+          showControls={!sidebar}
+          className="h-full !bg-transparent"
+        >
           <div className="flex h-full min-h-0 flex-col overflow-auto">{failed}</div>
         </ArtifactContentStage>
       );
@@ -319,7 +333,12 @@ export function EmbedArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full min-h-0 !bg-transparent">
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={!sidebar}
+        className="h-full min-h-0 !bg-transparent"
+      >
         {ready}
       </ArtifactContentStage>
     );

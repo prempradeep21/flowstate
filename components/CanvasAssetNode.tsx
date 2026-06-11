@@ -17,6 +17,10 @@ import {
   resizeAssetMaintainingAspect,
 } from "@/lib/canvasAssetBounds";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import {
+  CANVAS_CONTENT_INERT_CLASS,
+  CANVAS_NODE_INTERACTIVE_ATTR,
+} from "@/lib/canvasNodeInteraction";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
@@ -256,6 +260,8 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       <div
         ref={nodeRef}
         data-canvas-asset
+        data-canvas-node-id={node.id}
+        {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -291,7 +297,10 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           onPointerDown={handleAssetPlugPointerDown("right")}
         />
 
-        <CanvasSharpContent worldWidth={width} className="h-full w-full">
+        <CanvasSharpContent
+          worldWidth={width}
+          className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
+        >
           {asset.kind === "image" ? (
             // No backdrop fill — transparent PNGs float directly on the canvas.
             <div className="h-full w-full overflow-hidden rounded-canvas">
@@ -346,7 +355,11 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
               recordUndo();
               removeCanvasAssetNode(node.id);
             }}
-            className="absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted opacity-0 shadow-sm transition-opacity hover:text-canvas-ink group-hover/asset:opacity-100"
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+              isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/asset:opacity-100"
+            }`}
           >
             x
           </button>
@@ -354,7 +367,11 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         {!canvasReadOnly && (
           <NodeCornerResizeHandles
             ariaLabel="Resize asset"
-            visibilityClass="opacity-0 group-hover/asset:opacity-100"
+            visibilityClass={
+              isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/asset:opacity-100"
+            }
             onCornerPointerDown={handleResizePointerDown}
           />
         )}

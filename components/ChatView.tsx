@@ -6,6 +6,7 @@ import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
+import { QaStatusBadge } from "@/components/QaStatusBadge";
 import {
   QaQuestionHeaderRow,
   QaQuestionSection,
@@ -115,8 +116,9 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
   if (!card || card.status === "empty") return null;
 
   const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
-  const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
   const showFinalError = isQaResponseFinalError(card, canvasArtifactNodes);
+  const showStatusBadge = turnInProgress || showFinalError;
+  const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
   const showAnswer =
     turnInProgress ||
     shouldShowQaAnswerText(card) ||
@@ -126,36 +128,22 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
 
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
-      {(turnInProgress || showFinalError) && (
-        <div
-          className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
-          aria-live="polite"
-        >
-          <span className="relative flex h-2 w-2 shrink-0">
-            {!showFinalError && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
-            )}
-            <span
-              className={`relative inline-flex h-2 w-2 rounded-full ${
-                showFinalError ? "bg-canvas-danger" : "bg-canvas-success"
-              }`}
-            />
-          </span>
-          <span
-            className={`max-w-[160px] truncate text-canvas-caption font-medium capitalize ${
-              showFinalError ? "text-canvas-danger" : "text-canvas-muted"
-            }`}
-          >
-            {qaStatusLabel.replace(/…$/, "")}
-          </span>
-        </div>
-      )}
       <QaTranslucentSurface>
         <QaQuestionSection accentColour={accent} style={qaInsetStyle("chatPanel")}>
           <QaQuestionHeaderRow
             collaborators={
-              showContributors ? (
-                <ContributorAvatarStack profiles={contributorProfiles} />
+              showContributors || showStatusBadge ? (
+                <div className="flex min-w-0 items-center gap-2">
+                  {showContributors && (
+                    <ContributorAvatarStack profiles={contributorProfiles} />
+                  )}
+                  {showStatusBadge && (
+                    <QaStatusBadge
+                      card={card}
+                      canvasArtifactNodes={canvasArtifactNodes}
+                    />
+                  )}
+                </div>
               ) : null
             }
             controls={<CardQaMenu cardId={cardId} layout="embedded" />}

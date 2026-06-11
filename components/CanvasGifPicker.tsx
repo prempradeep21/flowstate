@@ -28,9 +28,11 @@ interface SearchResponse {
   error?: string;
 }
 
+const TAB_ORDER: TabCategory[] = ["sticker", "gif"];
+
 const TAB_LABELS: Record<TabCategory, string> = {
-  gif: "GIFs",
-  sticker: "Transparent",
+  sticker: "Transparent GIFs",
+  gif: "All GIFs",
 };
 
 export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
@@ -47,7 +49,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
   );
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [category, setCategory] = useState<TabCategory>("gif");
+  const [category, setCategory] = useState<TabCategory>("sticker");
   const [results, setResults] = useState<GiphyResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
     if (!open) {
       setQuery("");
       setDebouncedQuery("");
-      setCategory("gif");
+      setCategory("sticker");
       setError(null);
     }
   }, [open]);
@@ -165,7 +167,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
             role="tablist"
             aria-label="GIF category"
           >
-            {(Object.keys(TAB_LABELS) as TabCategory[]).map((tab) => (
+            {TAB_ORDER.map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -214,7 +216,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={item.previewUrl}
+                    src={item.url}
                     alt={item.title}
                     loading="lazy"
                     draggable={false}

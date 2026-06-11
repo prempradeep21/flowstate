@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArtifactKind } from "@/lib/artifactTypes";
+import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 
 const stroke = {
   stroke: "currentColor",
@@ -8,12 +9,68 @@ const stroke = {
   fill: "none" as const,
 };
 
+function GoogleWorkspaceKindIcon({
+  fileKind,
+  className,
+}: {
+  fileKind: GoogleDriveFileKind;
+  className: string;
+}) {
+  if (fileKind === "spreadsheet") {
+    return (
+      <svg viewBox="0 0 16 16" className={className} aria-hidden>
+        <path fill="#188038" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
+        <path fill="#fff" fillOpacity=".35" d="M9.5 1.5v3h3" />
+        <rect x="5" y="6.5" width="6" height="0.9" rx=".4" fill="#fff" />
+        <rect x="5" y="8.3" width="6" height="0.9" rx=".4" fill="#fff" />
+        <rect x="5" y="10.1" width="4" height="0.9" rx=".4" fill="#fff" />
+        <path
+          d="M5 6.5h6M5 8.3h6M5 10.1h4"
+          stroke="#fff"
+          strokeWidth=".35"
+          opacity=".45"
+        />
+      </svg>
+    );
+  }
+  if (fileKind === "presentation") {
+    return (
+      <svg viewBox="0 0 16 16" className={className} aria-hidden>
+        <path fill="#F4B400" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
+        <path fill="#fff" fillOpacity=".35" d="M9.5 1.5v3h3" />
+        <rect x="4.5" y="7" width="7" height="4.5" rx=".75" fill="#fff" />
+      </svg>
+    );
+  }
+  if (fileKind === "file") {
+    return (
+      <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+        <path fill="#5F6368" stroke="none" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
+        <path fill="#fff" fillOpacity=".25" stroke="none" d="M9.5 1.5v3h3" />
+        <path d="M5.5 8h5M5.5 10h3" stroke="#fff" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden>
+      <path fill="#4285F4" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
+      <path fill="#fff" fillOpacity=".35" d="M9.5 1.5v3h3" />
+      <rect x="5" y="7" width="6" height="1" rx=".5" fill="#fff" />
+      <rect x="5" y="9.2" width="6" height="1" rx=".5" fill="#fff" />
+      <rect x="5" y="11.4" width="4" height="1" rx=".5" fill="#fff" />
+    </svg>
+  );
+}
+
 export function ArtifactTypeIcon({
   kind,
   className = "h-4 w-4",
+  googleFileKind,
 }: {
   kind: ArtifactKind | "video";
   className?: string;
+  /** When kind is google-doc, picks Docs / Sheets / Slides icon. */
+  googleFileKind?: GoogleDriveFileKind;
 }) {
   switch (kind) {
     case "video":
@@ -101,13 +158,10 @@ export function ArtifactTypeIcon({
       );
     case "google-doc":
       return (
-        <svg viewBox="0 0 16 16" className={className} aria-hidden>
-          <path fill="#4285F4" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
-          <path fill="#fff" fillOpacity=".35" d="M9.5 1.5v3h3" />
-          <rect x="5" y="7" width="6" height="1" rx=".5" fill="#fff" />
-          <rect x="5" y="9.2" width="6" height="1" rx=".5" fill="#fff" />
-          <rect x="5" y="11.4" width="4" height="1" rx=".5" fill="#fff" />
-        </svg>
+        <GoogleWorkspaceKindIcon
+          fileKind={googleFileKind ?? "document"}
+          className={className}
+        />
       );
     case "repo":
       return (

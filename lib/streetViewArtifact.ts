@@ -1,12 +1,13 @@
 import type { StreetViewArtifactData } from "@/lib/artifactTypes";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 
-/**
- * Default canvas height so the inscribed circle spans the inner width.
- * innerWidth = CANVAS_ARTIFACT_WIDTH - 32px padding;
- * innerHeight = height - 32px padding - 56px header → set height = width + 56.
- */
-export const STREET_VIEW_ARTIFACT_HEIGHT = 576;
+/** Canvas padding + header + controls bar above the square circle body. */
+export const STREET_VIEW_NODE_CHROME_PX = 104;
+
+/** Keep the content area square so the inscribed circle fills width and height. */
+export function streetViewArtifactHeightForWidth(nodeWidth: number): number {
+  return nodeWidth + STREET_VIEW_NODE_CHROME_PX;
+}
 
 export function normalizeStreetViewArtifactData(
   data: unknown,

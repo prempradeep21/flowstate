@@ -216,7 +216,7 @@ function enrichGoogleWorkspaceArtifact(
         state.patchGoogleWorkspaceArtifact(artifactId, {
           status: "needs_access",
           errorMessage:
-            "Choose this file in Google Drive to grant access, then try again.",
+            "Grant Drive access to import text for AI context.",
         });
         return;
       }

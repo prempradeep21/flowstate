@@ -11,18 +11,19 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 
 
 export function CustomArtifactContent({
-
   payload,
-
   fill = false,
-
   sidebar = false,
   layout = "panel",
+  artifactId,
+  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "custom" }>;
   fill?: boolean;
   sidebar?: boolean;
   layout?: "canvas" | "panel" | "sidebar";
+  artifactId?: string;
+  showControls?: boolean;
 }) {
   const isCanvas = layout === "canvas";
   const readOnlyShell = !isCanvas ? "pointer-events-none " : "";
@@ -39,7 +40,12 @@ export function CustomArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full min-h-0">
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={showControls}
+        className="h-full min-h-0"
+      >
         <div className={`${readOnlyShell}h-full min-h-0 w-full`}>
           <DynamicUiFrame data={payload.data} />
         </div>
@@ -48,7 +54,12 @@ export function CustomArtifactContent({
   }
 
   return (
-    <ArtifactContentStage className="aspect-[4/3] min-h-[280px]" minHeight="280px">
+    <ArtifactContentStage
+      className="aspect-[4/3] min-h-[280px]"
+      minHeight="280px"
+      artifactId={artifactId}
+      showControls={showControls}
+    >
       <div className={`${readOnlyShell}h-full w-full`}>
         <DynamicUiFrame data={payload.data} />
       </div>

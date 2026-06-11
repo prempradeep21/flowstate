@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { PersonIcon } from "@/components/MenuIcons";
 import { CanvasRowMenu } from "@/components/sidebar/CanvasRowMenu";
 import { DeleteCanvasConfirmModal } from "@/components/sidebar/DeleteCanvasConfirmModal";
 import { LEFT_PANEL_SECTIONS } from "@/lib/motion/variants";
@@ -27,6 +28,8 @@ export function CanvasesSection({
     createNewCanvas,
     renameCanvas,
     deleteOwnedCanvas,
+    duplicateCanvas,
+    ownedCanvasShareFlags,
     acceptInvite,
     declineInvite,
   } = useAuth();
@@ -40,6 +43,7 @@ export function CanvasesSection({
   } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const canManage = Boolean(user && supabaseConfigured);
@@ -92,6 +96,23 @@ export function CanvasesSection({
     setPendingDelete(null);
     setDeleteError(null);
   }, [deleteBusy]);
+
+  const handleDuplicate = useCallback(
+    async (canvasId: string) => {
+      if (duplicatingId || isSwitchingCanvas) return;
+      setMenuOpenId(null);
+      setDuplicatingId(canvasId);
+      try {
+        const newId = await duplicateCanvas(canvasId);
+        if (newId) {
+          await switchCanvas(newId);
+        }
+      } finally {
+        setDuplicatingId(null);
+      }
+    },
+    [duplicateCanvas, duplicatingId, isSwitchingCanvas, switchCanvas],
+  );
 
   const confirmDelete = useCallback(async () => {
     if (!pendingDelete || deleteBusy) return;
@@ -226,9 +247,11 @@ export function CanvasesSection({
                 canvasId={canvas.id}
                 title={canvas.title}
                 active={canvas.id === activeCanvasId}
-                isShared={false}
+                isSharedWithMe={false}
+                isSharedWithOthers={Boolean(ownedCanvasShareFlags[canvas.id])}
                 isSwitching={isSwitchingCanvas}
                 isPendingSwitch={switchingCanvasId === canvas.id}
+                isDuplicating={duplicatingId === canvas.id}
                 isEditing={editingId === canvas.id}
                 menuOpen={menuOpenId === canvas.id}
                 editTitle={editTitle}
@@ -236,6 +259,7 @@ export function CanvasesSection({
                 canRename={true}
                 onSwitch={() => void switchCanvas(canvas.id)}
                 onStartRename={() => startRename(canvas.id, canvas.title)}
+                onDuplicate={() => void handleDuplicate(canvas.id)}
                 onStartDelete={() => startDelete(canvas.id, canvas.title)}
                 onEditTitleChange={setEditTitle}
                 onCommitRename={() => void commitRename(canvas.id)}
@@ -284,9 +308,11 @@ export function CanvasesSection({
                   canvasId={canvas.id}
                   title={canvas.title}
                   active={canvas.id === activeCanvasId}
-                  isShared={true}
+                  isSharedWithMe={true}
+                  isSharedWithOthers={false}
                   isSwitching={isSwitchingCanvas}
                   isPendingSwitch={switchingCanvasId === canvas.id}
+                  isDuplicating={false}
                   isEditing={false}
                   menuOpen={false}
                   editTitle=""
@@ -294,6 +320,7 @@ export function CanvasesSection({
                   canRename={false}
                   onSwitch={() => void switchCanvas(canvas.id)}
                   onStartRename={() => {}}
+                  onDuplicate={() => {}}
                   onStartDelete={() => {}}
                   onEditTitleChange={() => {}}
                   onCommitRename={() => {}}
@@ -322,9 +349,11 @@ function CanvasListRow({
   canvasId,
   title,
   active,
-  isShared,
+  isSharedWithMe,
+  isSharedWithOthers,
   isSwitching,
   isPendingSwitch,
+  isDuplicating,
   isEditing,
   menuOpen,
   editTitle,
@@ -332,6 +361,7 @@ function CanvasListRow({
   canRename,
   onSwitch,
   onStartRename,
+  onDuplicate,
   onStartDelete,
   onEditTitleChange,
   onCommitRename,
@@ -341,9 +371,11 @@ function CanvasListRow({
   canvasId: string;
   title: string;
   active: boolean;
-  isShared: boolean;
+  isSharedWithMe: boolean;
+  isSharedWithOthers: boolean;
   isSwitching: boolean;
   isPendingSwitch?: boolean;
+  isDuplicating?: boolean;
   isEditing: boolean;
   menuOpen: boolean;
   editTitle: string;
@@ -351,6 +383,7 @@ function CanvasListRow({
   canRename: boolean;
   onSwitch: () => void;
   onStartRename: () => void;
+  onDuplicate: () => void;
   onStartDelete: () => void;
   onEditTitleChange: (v: string) => void;
   onCommitRename: () => void;
@@ -372,13 +405,13 @@ function CanvasListRow({
         ].join(" ")}
         aria-hidden
       />
-      {isPendingSwitch && (
+      {(isPendingSwitch || isDuplicating) && (
         <span
           className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent"
-          aria-label="Opening canvas"
+          aria-label={isDuplicating ? "Duplicating canvas" : "Opening canvas"}
         />
       )}
-      {isShared && <SharedIcon />}
+      {isSharedWithMe && <SharedWithMeIcon />}
       {isEditing ? (
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
@@ -411,12 +444,23 @@ function CanvasListRow({
         </button>
       )}
       {canRename && !isEditing && (
-        <CanvasRowMenu
-          onRename={onStartRename}
-          onDelete={onStartDelete}
-          disabled={isSwitching}
-          onOpenChange={onMenuOpenChange}
-        />
+        <>
+          {isSharedWithOthers && (
+            <span
+              className="flex h-7 w-7 shrink-0 items-center justify-center text-canvas-muted"
+              title="Shared with others"
+            >
+              <PersonIcon />
+            </span>
+          )}
+          <CanvasRowMenu
+            onRename={onStartRename}
+            onDuplicate={onDuplicate}
+            onDelete={onStartDelete}
+            disabled={isSwitching || Boolean(isDuplicating)}
+            onOpenChange={onMenuOpenChange}
+          />
+        </>
       )}
     </div>
   );
@@ -430,16 +474,14 @@ function PlusIcon() {
   );
 }
 
-function SharedIcon() {
+function SharedWithMeIcon() {
   return (
-    <svg
-      viewBox="0 0 20 20"
-      className="h-4 w-4 shrink-0 text-canvas-muted"
-      fill="currentColor"
-      aria-label="Shared canvas"
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center text-canvas-muted"
+      title="Shared with you"
     >
-      <path d="M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 8a7 7 0 0 1 14 0H3Zm12.5-2.5a5.5 5.5 0 0 0-9.5-3.9 5.5 5.5 0 0 0 7.8 7.8 5.5 5.5 0 0 0 1.7-3.9Z" />
-    </svg>
+      <PersonIcon />
+    </span>
   );
 }
 

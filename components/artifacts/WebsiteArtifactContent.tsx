@@ -68,10 +68,14 @@ export function WebsiteArtifactContent({
   payload,
   fill = false,
   sidebar = false,
+  artifactId,
+  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "website" }>;
   fill?: boolean;
   sidebar?: boolean;
+  artifactId?: string;
+  showControls?: boolean;
 }) {
   const { url, title, faviconUrl, previewImageUrl } = payload.data;
   const pending = isWebsiteTitlePending(payload);
@@ -148,7 +152,12 @@ export function WebsiteArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full !bg-transparent">
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={showControls}
+        className="h-full !bg-transparent"
+      >
         <div className="flex h-full min-h-0 flex-col overflow-auto">{card}</div>
       </ArtifactContentStage>
     );

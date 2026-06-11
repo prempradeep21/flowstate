@@ -2,7 +2,6 @@
 
 import {
   PointerEvent as ReactPointerEvent,
-  WheelEvent as ReactWheelEvent,
   useCallback,
   useRef,
   useState,
@@ -18,9 +17,17 @@ import {
 } from "@/components/canvas/NodeCornerResizeHandles";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
-import { clampArtifactSize, getArtifactBounds, MAX_TIMELINE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import {
+  CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
+  clampArtifactSize,
+  clampStreetViewArtifactSize,
+  getArtifactBounds,
+  getDefaultArtifactSize,
+  MAX_TIMELINE_ARTIFACT_WIDTH,
+} from "@/lib/canvasNodeBounds";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
@@ -116,22 +123,46 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
   const godView = isGodViewMode(scale);
 
-  /** Image galleries wrap the node around the grid's natural height (no cropping). */
-  const handleImagesContentHeight = useCallback(
-    (contentHeightPx: number) => {
+  /** Font-scale / content growth wraps the node; never override a manual resize. */
+  const handleArtifactContentAreaSize = useCallback(
+    (contentArea: { w: number; h: number }) => {
+      if (resizeStateRef.current) return;
+
       const st = useCanvasStore.getState();
       const current = st.canvasArtifactNodes[node.id];
-      if (!current) return;
-      const bounds = getArtifactBounds(
-        current,
-        current.artifactId ? st.sessionArtifacts[current.artifactId] : undefined,
+      if (!current || current.userSetSize) return;
+      const artForBounds = current.artifactId
+        ? st.sessionArtifacts[current.artifactId]
+        : undefined;
+      const bounds = getArtifactBounds(current, artForBounds);
+      const latestPayload = artForBounds?.versions.find(
+        (v) => v.id === artForBounds.latestVersionId,
+      )?.payload;
+      const defaultSize = artForBounds
+        ? getDefaultArtifactSize(artForBounds.kind, latestPayload)
+        : null;
+      const clampOpts =
+        artForBounds?.kind === "timeline"
+          ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
+          : undefined;
+      // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
+      const targetW = Math.max(
+        contentArea.w + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
+        defaultSize?.w ?? 0,
       );
-      const next = clampArtifactSize(
-        bounds.w,
-        contentHeightPx + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+      const targetH = Math.max(
+        contentArea.h + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+        defaultSize?.h ?? 0,
       );
-      if (Math.abs(next.h - bounds.h) > 1) {
-        st.setCanvasArtifactSize(node.id, { w: bounds.w, h: next.h });
+      const next =
+        artForBounds?.kind === "streetview"
+          ? clampStreetViewArtifactSize(targetW)
+          : clampArtifactSize(targetW, targetH, clampOpts);
+      if (
+        Math.abs(next.w - bounds.w) > 1 ||
+        Math.abs(next.h - bounds.h) > 1
+      ) {
+        st.setCanvasArtifactSize(node.id, next);
       }
     },
     [node.id],
@@ -220,14 +251,19 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
       const vpScale = useCanvasStore.getState().viewport.scale;
       const { sx, sy } = cornerResizeSigns(rs.corner);
-      const next = clampArtifactSize(
-        rs.startW + (sx * screenDx) / vpScale,
-        rs.startH + (sy * screenDy) / vpScale,
-        art?.kind === "timeline"
-          ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-          : undefined,
-      );
-      setCanvasArtifactSize(node.id, next);
+      const next =
+        art?.kind === "streetview"
+          ? clampStreetViewArtifactSize(
+              rs.startW + (sx * screenDx) / vpScale,
+            )
+          : clampArtifactSize(
+              rs.startW + (sx * screenDx) / vpScale,
+              rs.startH + (sy * screenDy) / vpScale,
+              art?.kind === "timeline"
+                ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
+                : undefined,
+            );
+      setCanvasArtifactSize(node.id, next, { userSet: true });
       // Keep the corner opposite the grip anchored in place.
       const targetX =
         sx === -1 ? rs.startPosX + (rs.startW - next.w) : rs.startPosX;
@@ -314,29 +350,31 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     };
   };
 
-  const handleWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-  };
-
   if (!preview && !art) return null;
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
+  const contentInteractive = isSelected || isPermissionPreview;
+  /** Hover or selection keeps chrome, fill, plugs, and resize grips visible. */
+  const chromeVisible = chromeHover || isSelected;
 
   return (
     <div
       ref={nodeRef}
       data-canvas-artifact
+      data-canvas-node-id={node.id}
+      {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       {...(chromeReveal ? { "data-chrome-reveal": "" } : {})}
-      {...(chromeHover ? { "data-chrome-hover": "" } : {})}
+      {...(chromeVisible ? { "data-chrome-hover": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerEnter={syncChromeHover}
-      onPointerLeave={() => setChromeHover(false)}
+      onPointerLeave={() => {
+        if (!isSelected) setChromeHover(false);
+      }}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onWheel={handleWheel}
-      className={`group/artifact absolute overflow-visible ${
+      className={`canvas-artifact-node-shell group/artifact absolute overflow-visible ${
         isRepoArtifact ? "cursor-default" : "cursor-grab active:cursor-grabbing"
       } ${isSelected ? "z-30" : "z-20"}`}
       style={{
@@ -344,9 +382,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         top: node.position.y,
         width,
         height: artifactHeight,
-        transition: isRepoArtifact
-          ? "width 0.38s cubic-bezier(0.16, 1, 0.3, 1), height 0.38s cubic-bezier(0.16, 1, 0.3, 1), left 0.38s cubic-bezier(0.16, 1, 0.3, 1), top 0.38s cubic-bezier(0.16, 1, 0.3, 1)"
-          : undefined,
       }}
     >
       <MotionCanvasNode
@@ -428,6 +463,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             sessionArtifact={art}
             versionId={node.versionId}
             sourceCardId={node.sourceCardId}
+            contentInteractive={contentInteractive}
             onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
             menuVariant="canvas"
             onExpand={() =>
@@ -435,8 +471,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
-            onImagesContentHeightChange={
-              art.kind === "images" ? handleImagesContentHeight : undefined
+            onArtifactContentAreaSizeChange={
+              art.kind !== "repo" ? handleArtifactContentAreaSize : undefined
             }
           />
         ) : null}

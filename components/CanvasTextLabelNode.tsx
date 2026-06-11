@@ -14,6 +14,10 @@ import {
   MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import {
+  CANVAS_CONTENT_INERT_CLASS,
+  CANVAS_NODE_INTERACTIVE_ATTR,
+} from "@/lib/canvasNodeInteraction";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { classifyPastedText } from "@/lib/urlDetection";
 import {
@@ -369,10 +373,14 @@ export function CanvasTextLabelNode({
     dragStateRef.current = null;
   };
 
+  const contentInteractive = isSelected || editing;
+
   return (
     <div
       ref={rootRef}
       data-canvas-text-label
+      data-canvas-node-id={label.id}
+      {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -397,6 +405,7 @@ export function CanvasTextLabelNode({
         worldWidth={
           typeof containerWidth === "number" ? containerWidth : undefined
         }
+        className={!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : undefined}
       >
         {editing ? (
           <textarea

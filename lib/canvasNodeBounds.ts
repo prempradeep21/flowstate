@@ -9,8 +9,10 @@ import {
   TIMELINE_ARTIFACT_HEIGHT,
   TIMELINE_ARTIFACT_WIDTH,
 } from "@/lib/timelineArtifact";
-import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/streetViewArtifact";
+import { streetViewArtifactHeightForWidth, STREET_VIEW_NODE_CHROME_PX } from "@/lib/streetViewArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
+import { ARTIFACT_CONTROLS_BAR_HEIGHT_PX } from "@/lib/artifactFontScale";
 import {
   DEFAULT_CANVAS_TUNING,
   resolveTuning,
@@ -20,17 +22,38 @@ import {
 export const CARD_WIDTH = 420;
 export const CANVAS_ARTIFACT_WIDTH = 520;
 export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
+/** Horizontal padding on canvas artifact casing (16px × 2). */
+export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 32;
 export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
 export { TIMELINE_ARTIFACT_HEIGHT, TIMELINE_ARTIFACT_WIDTH, MAX_TIMELINE_ARTIFACT_WIDTH };
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
 export const DEFAULT_ARTIFACT_HEIGHT = 280;
-export const TABLE_ARTIFACT_HEIGHT = 480;
+export const TABLE_ARTIFACT_HEIGHT = 512;
+/** Content stage height (control strip + table body) inside a default table node. */
+export const TABLE_ARTIFACT_STAGE_HEIGHT =
+  TABLE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
+/** Minimum table body height within the content stage (excludes the 48px control strip). */
+export const TABLE_ARTIFACT_BODY_MIN_HEIGHT =
+  TABLE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
+/** Content stage width inside a default table canvas node. */
+export const TABLE_ARTIFACT_STAGE_WIDTH =
+  CANVAS_TABLE_ARTIFACT_WIDTH - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
+/** Content stage width inside a default timeline canvas node. */
+export const TIMELINE_ARTIFACT_STAGE_WIDTH =
+  TIMELINE_ARTIFACT_WIDTH - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
+/** Content stage height (control strip + timeline body) inside a default timeline node. */
+export const TIMELINE_ARTIFACT_STAGE_HEIGHT =
+  TIMELINE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
+/** Minimum timeline body height within the content stage (excludes the 48px control strip). */
+export const TIMELINE_ARTIFACT_BODY_MIN_HEIGHT =
+  TIMELINE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
 /* Per-kind intended heights — sized so default nodes reveal the full content
    without cropping. Canvas chrome overhead is ~110px (16px padding ×2,
-   56px header band, 22px header gap); content components budget the rest. */
-/** Chart toolbar (33) + canvas chart height (280) + stage padding (16). */
+   56px header band, 22px header gap); content components budget the rest,
+   including the 48px artifact control strip. */
+/** Chart toolbar + canvas chart height + stage padding (control strip is 48px). */
 export const CHART_ARTIFACT_HEIGHT = 440;
 /** Progress header plus ~6 task rows before the list scrolls. */
 export const TODO_ARTIFACT_HEIGHT = 440;
@@ -41,10 +64,13 @@ export const CUSTOM_ARTIFACT_HEIGHT = 380;
 /** Image / video grids and website previews. */
 export const MEDIA_ARTIFACT_HEIGHT = 400;
 export const MAP_ARTIFACT_HEIGHT = 380;
+/** Default street-view height for a {@link CANVAS_ARTIFACT_WIDTH} node (square circle body). */
+export const STREET_VIEW_ARTIFACT_HEIGHT =
+  streetViewArtifactHeightForWidth(CANVAS_ARTIFACT_WIDTH);
 export const MIN_ARTIFACT_WIDTH = 280;
 export const MAX_ARTIFACT_WIDTH = 1200;
 export const MIN_ARTIFACT_HEIGHT = 160;
-export const MAX_ARTIFACT_HEIGHT = 900;
+export const MAX_ARTIFACT_HEIGHT = 1170;
 
 export function clampArtifactSize(
   w: number,
@@ -57,6 +83,20 @@ export function clampArtifactSize(
     w: Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w)),
     h: Math.min(maxH, Math.max(MIN_ARTIFACT_HEIGHT, h)),
   };
+}
+
+/** Street View nodes keep a square content area so the circle fills the frame. */
+export function clampStreetViewArtifactSize(w: number): { w: number; h: number } {
+  const maxW = Math.min(
+    MAX_ARTIFACT_WIDTH,
+    MAX_ARTIFACT_HEIGHT - STREET_VIEW_NODE_CHROME_PX,
+  );
+  const clampedW = Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w));
+  const h = Math.min(
+    MAX_ARTIFACT_HEIGHT,
+    streetViewArtifactHeightForWidth(clampedW),
+  );
+  return { w: clampedW, h };
 }
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
@@ -113,7 +153,10 @@ export function getDefaultArtifactSize(
     case "timeline":
       return { w: TIMELINE_ARTIFACT_WIDTH, h: TIMELINE_ARTIFACT_HEIGHT };
     case "streetview":
-      return { w: CANVAS_ARTIFACT_WIDTH, h: STREET_VIEW_ARTIFACT_HEIGHT };
+      return {
+        w: CANVAS_ARTIFACT_WIDTH,
+        h: STREET_VIEW_ARTIFACT_HEIGHT,
+      };
     case "calendar":
       return { w: CANVAS_ARTIFACT_WIDTH, h: CALENDAR_ARTIFACT_HEIGHT };
     case "embed":

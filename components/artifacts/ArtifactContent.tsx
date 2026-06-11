@@ -56,7 +56,7 @@ export function ArtifactContent({
   calendarCanEdit = false,
   timelineCanEdit = false,
   catalogPreview = false,
-  onImagesContentHeightChange,
+  canvasContentInteractive = true,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
@@ -76,12 +76,14 @@ export function ArtifactContent({
   calendarCanEdit?: boolean;
   timelineCanEdit?: boolean;
   catalogPreview?: boolean;
-  /** Images-only: reports the gallery's natural height so canvas nodes can wrap it. */
-  onImagesContentHeightChange?: (heightPx: number) => void;
+  /** Canvas: artifact body is interactable only when the node is selected. */
+  canvasContentInteractive?: boolean;
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
-  const fill = layout === "canvas" || isSidebar;
+  const isCanvas = layout === "canvas";
+  const fill = isCanvas || isSidebar;
+  const canvasInteractive = catalogPreview || canvasContentInteractive;
 
   switch (kind) {
     case "table":
@@ -93,6 +95,7 @@ export function ArtifactContent({
             versionId={versionId}
             fill={fill}
             sidebar={isSidebar}
+            showControls={!isSidebar}
           />
         );
       }
@@ -104,8 +107,9 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
-            allowMediaInteraction={catalogPreview || fill}
-            onContentHeightChange={onImagesContentHeightChange}
+            allowMediaInteraction={catalogPreview || !isCanvas || canvasInteractive}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }
@@ -117,6 +121,8 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }
@@ -129,6 +135,8 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={layout}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }
@@ -143,6 +151,8 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             onActiveFileChange={onCodeActiveFileChange}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }
@@ -167,7 +177,9 @@ export function ArtifactContent({
           <StreetViewArtifactContent
             payload={payload}
             layout={layout}
-            forceInteractive={catalogPreview}
+            forceInteractive={canvasInteractive}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
         return layout === "canvas" ? (
@@ -220,6 +232,8 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }
@@ -231,7 +245,9 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            layout={layout}
             artifactId={artifactId}
+            forceInteractive={canvasInteractive}
           />
         );
       }
@@ -258,7 +274,7 @@ export function ArtifactContent({
             layout={layout}
             artifactId={artifactId}
             versionId={versionId}
-            forceInteractive={catalogPreview}
+            forceInteractive={canvasInteractive}
           />
         );
       }
@@ -284,6 +300,7 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            artifactId={artifactId}
           />
         );
       }

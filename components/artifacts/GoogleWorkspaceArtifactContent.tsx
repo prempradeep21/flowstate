@@ -1,249 +1,324 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
-import {
-  googleWorkspaceFileKindLabel,
-  isGoogleWorkspaceTitlePending,
-} from "@/lib/googleWorkspaceArtifact";
+import { isGoogleWorkspaceTitlePending } from "@/lib/googleWorkspaceArtifact";
+import { googleWorkspacePreviewUrl } from "@/lib/google/workspacePreviewUrl";
 import { useGoogleConnection } from "@/hooks/useGoogleConnection";
 import { useGooglePicker } from "@/hooks/useGooglePicker";
 import { useCanvasStore } from "@/lib/store";
 
-function GoogleWorkspaceBrandIcon({
+function parseCsvPreview(csv: string, maxRows: number): string[][] {
+  const rows: string[][] = [];
+  for (const line of csv.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    rows.push(line.split(",").map((cell) => cell.trim()));
+    if (rows.length >= maxRows) break;
+  }
+  return rows;
+}
+
+function ExtractedContentPreview({
   fileKind,
-  className,
+  extractedText,
 }: {
   fileKind: Extract<
     ArtifactPayload,
     { type: "google-doc" }
   >["data"]["fileKind"];
-  className?: string;
+  extractedText: string;
 }) {
-  const base = className ?? "h-10 w-10";
   if (fileKind === "spreadsheet") {
+    const rows = parseCsvPreview(extractedText, 8);
+    if (rows.length === 0) return null;
+    const colCount = Math.max(...rows.map((r) => r.length));
     return (
-      <svg viewBox="0 0 48 48" className={base} aria-hidden>
-        <path fill="#188038" d="M11 4h18l8 8v32H11V4z" />
-        <path fill="#fff" fillOpacity=".25" d="M29 4v8h8" />
-        <rect x="16" y="22" width="16" height="2.5" rx="1" fill="#fff" />
-        <rect x="16" y="28" width="16" height="2.5" rx="1" fill="#fff" />
-        <rect x="16" y="34" width="10" height="2.5" rx="1" fill="#fff" />
-      </svg>
+      <div className="overflow-hidden rounded-canvas border border-canvas-border/60 bg-canvas-card">
+        <table className="w-full border-collapse text-left text-canvas-micro text-canvas-ink">
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr
+                key={rowIndex}
+                className={
+                  rowIndex === 0
+                    ? "bg-canvas-bg/80 font-medium"
+                    : "border-t border-canvas-border/40"
+                }
+              >
+                {Array.from({ length: colCount }, (_, colIndex) => (
+                  <td
+                    key={colIndex}
+                    className="max-w-[120px] truncate px-2 py-1.5 align-top"
+                  >
+                    {row[colIndex] ?? ""}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
-  if (fileKind === "presentation") {
-    return (
-      <svg viewBox="0 0 48 48" className={base} aria-hidden>
-        <path fill="#F4B400" d="M11 4h18l8 8v32H11V4z" />
-        <path fill="#fff" fillOpacity=".25" d="M29 4v8h8" />
-        <rect x="15" y="24" width="18" height="12" rx="1.5" fill="#fff" />
-      </svg>
-    );
-  }
+
   return (
-    <svg viewBox="0 0 48 48" className={base} aria-hidden>
-      <path fill="#4285F4" d="M11 4h18l8 8v32H11V4z" />
-      <path fill="#fff" fillOpacity=".25" d="M29 4v8h8" />
-      <rect x="16" y="22" width="16" height="2.5" rx="1" fill="#fff" />
-      <rect x="16" y="27" width="16" height="2.5" rx="1" fill="#fff" />
-      <rect x="16" y="32" width="12" height="2.5" rx="1" fill="#fff" />
-    </svg>
+    <div className="overflow-hidden rounded-canvas border border-canvas-border/60 bg-canvas-bg/80">
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap p-3 text-canvas-caption leading-relaxed text-canvas-ink/90">
+        {extractedText.slice(0, 1600)}
+        {extractedText.length > 1600 ? "…" : ""}
+      </pre>
+    </div>
   );
 }
 
-function statusMessage(
-  payload: Extract<ArtifactPayload, { type: "google-doc" }>,
-): string | null {
-  switch (payload.data.status) {
-    case "loading":
-      return "Importing content…";
-    case "needs_connect":
-      return "Connect Google Drive to import this file.";
-    case "needs_access":
-      return "Choose this file in Google Drive to grant access.";
-    case "failed":
-      return payload.data.errorMessage ?? "Could not import this file.";
-    case "ready":
-      if (payload.data.extractedText?.trim()) {
-        const chars =
-          payload.data.extractedTextLength ??
-          payload.data.extractedText.length;
-        return payload.data.truncated
-          ? `${chars.toLocaleString()} characters imported (truncated for context)`
-          : `${chars.toLocaleString()} characters ready for AI context`;
-      }
-      return "Linked — open in Google to view the live document.";
-    default:
-      return null;
-  }
+function GoogleWorkspacePreviewFrame({
+  previewUrl,
+  title,
+  interactive,
+  onActivate,
+}: {
+  previewUrl: string;
+  title: string;
+  interactive: boolean;
+  onActivate?: () => void;
+}) {
+  return (
+    <div className="relative flex h-full min-h-[200px] w-full flex-col overflow-hidden bg-canvas-bg">
+      <iframe
+        src={previewUrl}
+        title={title}
+        className={`h-full w-full flex-1 border-0 bg-white ${
+          interactive ? "pointer-events-auto" : "pointer-events-none"
+        }`}
+        allow="autoplay; fullscreen; clipboard-write"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allowFullScreen
+      />
+      {!interactive && onActivate ? (
+        <button
+          type="button"
+          aria-label="Click to interact with document"
+          onClick={onActivate}
+          className="absolute inset-0 z-10 flex cursor-pointer items-end justify-center bg-transparent pb-3 opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+        >
+          <span className="rounded-full border border-canvas-border/60 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
+            Click to interact
+          </span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportStatusBanner({
+  status,
+  message,
+  connected,
+  signedIn,
+  pickerBusy,
+  onConnect,
+  onGrantAccess,
+  onRetry,
+}: {
+  status: Extract<
+    ArtifactPayload,
+    { type: "google-doc" }
+  >["data"]["status"];
+  message: string | null;
+  connected: boolean;
+  signedIn: boolean;
+  pickerBusy: boolean;
+  onConnect: () => void;
+  onGrantAccess: () => void;
+  onRetry: () => void;
+}) {
+  if (status === "ready" || status === "loading") return null;
+  if (!message) return null;
+
+  return (
+    <div className="shrink-0 border-t border-canvas-border/50 bg-canvas-card/95 px-3 py-2">
+      <p className="text-canvas-micro text-canvas-muted">{message}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {status === "needs_connect" && signedIn ? (
+          <button
+            type="button"
+            data-no-drag
+            onClick={onConnect}
+            className="rounded-full border border-canvas-ink/20 px-2.5 py-1 text-canvas-micro text-canvas-ink hover:bg-canvas-bg"
+          >
+            Connect Google Drive
+          </button>
+        ) : null}
+        {status === "needs_access" ? (
+          <button
+            type="button"
+            data-no-drag
+            disabled={pickerBusy || !connected}
+            onClick={onGrantAccess}
+            className="rounded-full border border-canvas-ink/20 px-2.5 py-1 text-canvas-micro text-canvas-ink hover:bg-canvas-bg disabled:opacity-50"
+          >
+            Grant access for AI
+          </button>
+        ) : null}
+        {(status === "needs_access" || status === "failed") && connected ? (
+          <button
+            type="button"
+            data-no-drag
+            onClick={onRetry}
+            className="rounded-full px-2.5 py-1 text-canvas-micro text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+          >
+            Retry import
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function GoogleWorkspaceArtifactContent({
   payload,
   fill = false,
   sidebar = false,
+  layout = "panel",
   artifactId,
+  forceInteractive = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "google-doc" }>;
   fill?: boolean;
   sidebar?: boolean;
+  layout?: "canvas" | "panel" | "sidebar";
   artifactId?: string;
+  forceInteractive?: boolean;
 }) {
   const { connect, connected, signedIn } = useGoogleConnection();
   const { openPicker, busy: pickerBusy } = useGooglePicker();
   const patch = useCanvasStore((s) => s.patchGoogleWorkspaceArtifact);
   const pending = isGoogleWorkspaceTitlePending(payload);
-  const { url, title, fileKind, status, extractedText } = payload.data;
-  const message = statusMessage(payload);
+  const { url, title, fileKind, fileId, status, extractedText } = payload.data;
+  const previewUrl = googleWorkspacePreviewUrl(fileId, fileKind);
+  const isCanvas = layout === "canvas";
+  const [active, setActive] = useState(forceInteractive);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  const retryImport = async (fileId: string, docUrl: string) => {
-    if (!artifactId) return;
-    patch(artifactId, { status: "loading", errorMessage: undefined });
-    try {
-      const params = new URLSearchParams({ url: docUrl, fileId });
-      const res = await fetch(`/api/google/files?${params.toString()}`);
-      const body = (await res.json()) as {
-        needsConnect?: boolean;
-        needsAccess?: boolean;
-        error?: string;
-        title?: string;
-        mimeType?: string;
-        extractedText?: string;
-        extractedTextLength?: number;
-        truncated?: boolean;
-      };
-      if (body.needsConnect) {
-        patch(artifactId, {
-          status: "needs_connect",
-          errorMessage: "Connect Google Drive to import this file.",
-        });
-        return;
+  useEffect(() => {
+    setActive(forceInteractive);
+  }, [forceInteractive]);
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActive(false);
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) {
+        setActive(false);
       }
-      if (body.needsAccess) {
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [active]);
+
+  const interactive = isCanvas && active;
+  const importMessage =
+    status === "loading"
+      ? "Importing text for AI context…"
+      : status === "needs_connect"
+        ? "Connect Google Drive to import text for AI context."
+        : status === "needs_access"
+          ? "Preview is live. Grant Drive access to import text for AI."
+          : status === "failed"
+            ? (payload.data.errorMessage ?? "Could not import text for AI context.")
+            : null;
+
+  const retryImport = useCallback(
+    async (targetFileId: string, docUrl: string) => {
+      if (!artifactId) return;
+      patch(artifactId, { status: "loading", errorMessage: undefined });
+      try {
+        const params = new URLSearchParams({ url: docUrl, fileId: targetFileId });
+        const res = await fetch(`/api/google/files?${params.toString()}`);
+        const body = (await res.json()) as {
+          needsConnect?: boolean;
+          needsAccess?: boolean;
+          error?: string;
+          title?: string;
+          mimeType?: string;
+          extractedText?: string;
+          extractedTextLength?: number;
+          truncated?: boolean;
+        };
+        if (body.needsConnect) {
+          patch(artifactId, {
+            status: "needs_connect",
+            errorMessage: "Connect Google Drive to import text for AI context.",
+          });
+          return;
+        }
+        if (body.needsAccess) {
+          patch(artifactId, {
+            status: "needs_access",
+            errorMessage:
+              "Grant Drive access to import text for AI context.",
+          });
+          return;
+        }
+        if (!res.ok) {
+          patch(artifactId, {
+            status: "failed",
+            errorMessage: body.error ?? "Import failed",
+          });
+          return;
+        }
         patch(artifactId, {
-          status: "needs_access",
-          errorMessage:
-            "Choose this file in Google Drive to grant access, then try again.",
+          title: body.title,
+          mimeType: body.mimeType,
+          status: "ready",
+          extractedText: body.extractedText,
+          extractedTextLength:
+            body.extractedTextLength ?? body.extractedText?.length,
+          truncated: body.truncated,
+          errorMessage: undefined,
         });
-        return;
-      }
-      if (!res.ok) {
+      } catch {
         patch(artifactId, {
           status: "failed",
-          errorMessage: body.error ?? "Import failed",
+          errorMessage: "Import failed",
         });
-        return;
       }
-      patch(artifactId, {
-        title: body.title,
-        mimeType: body.mimeType,
-        status: "ready",
-        extractedText: body.extractedText,
-        extractedTextLength:
-          body.extractedTextLength ?? body.extractedText?.length,
-        truncated: body.truncated,
-        errorMessage: undefined,
-      });
-    } catch {
-      patch(artifactId, {
-        status: "failed",
-        errorMessage: "Import failed",
-      });
-    }
-  };
+    },
+    [artifactId, patch],
+  );
 
-  const handleGrantAccess = () => {
+  const handleGrantAccess = useCallback(() => {
     void openPicker((doc) => {
       if (!artifactId) return;
       const docUrl =
         doc.url ?? `https://drive.google.com/file/d/${doc.id}/view`;
       void retryImport(doc.id, docUrl);
     });
-  };
+  }, [artifactId, openPicker, retryImport]);
 
-  const body = (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-start gap-3">
-        <GoogleWorkspaceBrandIcon fileKind={fileKind} className="h-11 w-11 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <p className="text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted">
-            {googleWorkspaceFileKindLabel(fileKind)}
-          </p>
-          <h3
-            className={`mt-0.5 text-canvas-body font-semibold leading-snug ${
-              pending ? "text-canvas-muted" : "text-canvas-ink"
-            }`}
-          >
-            {title}
-          </h3>
-          {message ? (
-            <p className="mt-1 text-canvas-caption text-canvas-muted">{message}</p>
-          ) : null}
-        </div>
-      </div>
-
-      {status === "ready" && extractedText?.trim() ? (
-        <div className="max-h-40 overflow-hidden rounded-canvas border border-canvas-border/60 bg-canvas-bg/80">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap p-3 text-canvas-caption text-canvas-ink/90">
-            {extractedText.slice(0, 1200)}
-            {extractedText.length > 1200 ? "…" : ""}
-          </pre>
-        </div>
-      ) : null}
-
-      {(status === "needs_connect" || status === "needs_access" || status === "failed") &&
-      artifactId ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {(status === "needs_connect" || !connected) && signedIn ? (
-            <button
-              type="button"
-              data-no-drag
-              onClick={() =>
-                connect({ intent: "picker", artifactId })
-              }
-              className="rounded-full border border-canvas-ink/20 px-3 py-1.5 text-canvas-compact text-canvas-ink hover:bg-canvas-bg"
-            >
-              Connect Google Drive
-            </button>
-          ) : null}
-          {status === "needs_access" || status === "failed" ? (
-            <button
-              type="button"
-              data-no-drag
-              disabled={pickerBusy || !connected}
-              onClick={handleGrantAccess}
-              className="rounded-full border border-canvas-ink/20 px-3 py-1.5 text-canvas-compact text-canvas-ink hover:bg-canvas-bg disabled:opacity-50"
-            >
-              Choose in Google Drive
-            </button>
-          ) : null}
-          {connected ? (
-            <button
-              type="button"
-              data-no-drag
-              onClick={() => void retryImport(payload.data.fileId, url)}
-              className="rounded-full px-3 py-1.5 text-canvas-compact text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-            >
-              Retry import
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!sidebar && signedIn && status !== "needs_connect" ? (
-        <div className="flex justify-end">
-          <GoogleWorkspaceConnectMenu />
-        </div>
-      ) : null}
-    </div>
-  );
+  const handleRetry = useCallback(() => {
+    void retryImport(fileId, url);
+  }, [fileId, retryImport, url]);
 
   if (sidebar) {
     return (
       <div className="flex h-full min-h-[80px] items-center gap-2 px-3 py-2">
-        <GoogleWorkspaceBrandIcon fileKind={fileKind} className="h-9 w-9 shrink-0" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-canvas bg-canvas-bg">
+          <ArtifactTypeIcon
+            kind="google-doc"
+            googleFileKind={fileKind}
+            className="h-5 w-5"
+          />
+        </span>
         <div className="min-w-0 flex-1">
           <span
             className={`block truncate text-canvas-caption font-medium ${
@@ -252,21 +327,70 @@ export function GoogleWorkspaceArtifactContent({
           >
             {title}
           </span>
-          <span className="mt-0.5 block truncate text-canvas-micro text-canvas-muted">
-            {googleWorkspaceFileKindLabel(fileKind)}
-          </span>
         </div>
       </div>
     );
   }
 
+  const preview = (
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
+      <div className="relative min-h-0 flex-1">
+        <GoogleWorkspacePreviewFrame
+          previewUrl={previewUrl}
+          title={title}
+          interactive={interactive || !isCanvas}
+          onActivate={isCanvas ? () => setActive(true) : undefined}
+        />
+        {status === "loading" ? (
+          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-canvas-border/50 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
+            <span className="h-3 w-3 animate-spin rounded-full border border-canvas-border border-t-canvas-accent" />
+            Importing…
+          </div>
+        ) : null}
+      </div>
+      {status === "ready" &&
+      extractedText?.trim() &&
+      !fill &&
+      fileKind !== "presentation" ? (
+        <div className="shrink-0 p-3">
+          <ExtractedContentPreview
+            fileKind={fileKind}
+            extractedText={extractedText}
+          />
+        </div>
+      ) : null}
+      {artifactId ? (
+        <ImportStatusBanner
+          status={status}
+          message={importMessage}
+          connected={connected}
+          signedIn={signedIn}
+          pickerBusy={pickerBusy}
+          onConnect={() => connect({ intent: "picker", artifactId })}
+          onGrantAccess={handleGrantAccess}
+          onRetry={handleRetry}
+        />
+      ) : null}
+      {!sidebar && signedIn && status !== "needs_connect" && !fill ? (
+        <div className="flex justify-end px-3 pb-3">
+          <GoogleWorkspaceConnectMenu />
+        </div>
+      ) : null}
+    </div>
+  );
+
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full !bg-transparent">
-        <div className="flex h-full min-h-0 flex-col overflow-auto">{body}</div>
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={!sidebar}
+        className="h-full min-h-0 !bg-transparent"
+      >
+        {preview}
       </ArtifactContentStage>
     );
   }
 
-  return body;
+  return preview;
 }

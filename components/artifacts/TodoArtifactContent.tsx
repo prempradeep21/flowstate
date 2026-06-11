@@ -358,7 +358,11 @@ export function TodoArtifactContent({
   );
 
   return (
-    <ArtifactContentStage fill={fill} className={fill ? "flex flex-col" : ""}>
+    <ArtifactContentStage
+      fill={fill}
+      artifactId={artifactId}
+      className={fill ? "flex flex-col" : ""}
+    >
       <div className={`flex flex-col ${fill ? "min-h-0 flex-1" : ""}`}>
         <div className="shrink-0 border-b border-canvas-border/60 px-4 pb-3 pt-4">
           <div className="mb-2 flex items-baseline justify-between gap-3">

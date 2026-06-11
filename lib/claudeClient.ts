@@ -72,6 +72,7 @@ export function askClaude(
   let receivedContent = false;
 
   const run = async () => {
+    if (cancelled) return;
     cb.onThinking(
       detectCalendarIntent(question)
         ? CALENDAR_THINKING_LABEL
@@ -229,6 +230,7 @@ export function askClaude(
       });
 
       if (!res.ok) {
+        if (cancelled) return;
         receivedContent = true;
         cb.onThinking?.(`Request failed (${res.status})`);
         cb.onToken(`Error: HTTP ${res.status}`);

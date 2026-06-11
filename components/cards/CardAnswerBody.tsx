@@ -8,6 +8,7 @@ import { TextCardBody } from "@/components/cards/TextCardBody";
 import {
   formatQaResponseErrorMessage,
   isQaResponseFinalMissing,
+  isQaResponsePending,
   shouldShowQaAnswerError,
   shouldShowQaAnswerText,
   shouldShowQaArtifactPreview,
@@ -46,6 +47,8 @@ export function CardAnswerBody({
   const showText = shouldShowQaAnswerText(card);
   const showError = shouldShowQaAnswerError(card, canvasArtifactNodes);
   const showMissing = isQaResponseFinalMissing(card, canvasArtifactNodes);
+  const showActiveTurn =
+    showPendingPlaceholder || isQaResponsePending(card.status);
   const scrollKey = `${card.id}:${card.question}`;
   const answerContent = showText ? (
     <TextCardBody
@@ -57,6 +60,8 @@ export function CardAnswerBody({
       textRootRef={textRootRef}
       onExplainClick={onExplainClick}
     />
+  ) : showActiveTurn ? (
+    <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
   ) : showError ? (
     <QaRetryPlaceholder
       message={formatQaResponseErrorMessage(card.answer)}
@@ -67,8 +72,6 @@ export function CardAnswerBody({
       message="No response came through. The connection may have timed out."
       onTryAgain={onTryAgain}
     />
-  ) : showPendingPlaceholder ? (
-    <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
   ) : null;
 
   if (!showPreview && !answerContent) return null;
@@ -77,7 +80,7 @@ export function CardAnswerBody({
     <div className="flex min-w-0 flex-col gap-3">
       {showPreview && <CardArtifactPreview card={card} />}
       {answerContent ? (
-        showPendingPlaceholder && !showText ? (
+        showActiveTurn && !showText ? (
           <div className="flex w-full items-center justify-center py-10">
             {answerContent}
           </div>

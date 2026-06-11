@@ -1,9 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef, type ReactNode, type WheelEvent } from "react";
+import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
 import { QA_ANSWER_HEIGHT_PX } from "@/lib/qaStreamDisplay";
 
 function handleAnswerWheel(e: WheelEvent<HTMLDivElement>) {
+  if (!e.currentTarget.closest(`[${CANVAS_NODE_INTERACTIVE_ATTR}]`)) return;
   e.stopPropagation();
   if (e.deltaX !== 0) e.preventDefault();
 }

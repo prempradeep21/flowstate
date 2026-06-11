@@ -1,7 +1,8 @@
-/** Regions where wheel should scroll content, not zoom the canvas. */
+import { isInsideInteractiveCanvasNode } from "@/lib/canvasNodeInteraction";
+
+/** Scroll regions that consume wheel only inside an activated canvas node. */
 const WHEEL_SCROLL_REGION_SELECTOR = [
   "[data-card-answer]",
-  "[data-canvas-artifact]",
   "[data-canvas-scroll]",
   ".leaflet-container",
 ].join(", ");
@@ -20,10 +21,12 @@ function isVerticallyScrollable(el: HTMLElement): boolean {
 
 /**
  * True when a wheel event on the canvas should change viewport zoom.
- * Returns false over Q&A answers, canvas artifacts, and other scrollable panels.
+ * Scrollable content inside nodes only blocks zoom after the node is clicked/selected.
  */
 export function shouldCanvasWheelZoom(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return true;
+
+  if (!isInsideInteractiveCanvasNode(target)) return true;
 
   if (target.closest(WHEEL_SCROLL_REGION_SELECTOR)) return false;
 

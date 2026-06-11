@@ -170,7 +170,7 @@ export function shouldShowQaAnswerSection(
 ): boolean {
   if (card.status === "empty") return false;
   if (card.status === "thinking") {
-    return shouldShowQaArtifactPreview(card);
+    return true;
   }
   if (card.status === "done") {
     return (

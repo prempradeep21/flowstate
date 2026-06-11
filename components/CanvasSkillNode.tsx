@@ -6,6 +6,10 @@ import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { SkillBrainIcon } from "@/components/skills/SkillBrainIcon";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import {
+  CANVAS_CONTENT_INERT_CLASS,
+  CANVAS_NODE_INTERACTIVE_ATTR,
+} from "@/lib/canvasNodeInteraction";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
@@ -144,6 +148,8 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       <div
         ref={nodeRef}
         data-canvas-skill
+        data-canvas-node-id={node.id}
+        {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -175,7 +181,10 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
           onPointerDown={handleSkillPlugPointerDown("right")}
         />
 
-        <CanvasSharpContent worldWidth={width} className="h-full w-full">
+        <CanvasSharpContent
+          worldWidth={width}
+          className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
+        >
           <div className="relative flex h-full w-full flex-col items-center justify-center px-3 pb-3 pt-5">
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-canvas-ink px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-canvas-card">
               Skill
@@ -196,7 +205,11 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
               recordUndo();
               removeCanvasSkillNode(node.id);
             }}
-            className="absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted opacity-0 shadow-sm transition-opacity hover:text-canvas-ink group-hover/skill:opacity-100"
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+              isSelected
+                ? "opacity-100"
+                : "opacity-0 group-hover/skill:opacity-100"
+            }`}
           >
             x
           </button>

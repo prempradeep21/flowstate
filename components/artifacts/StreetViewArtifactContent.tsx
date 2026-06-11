@@ -1,42 +1,13 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import {
   buildStreetViewEmbedUrl,
   isGoogleMapsKeyConfigured,
 } from "@/lib/googleMaps";
-import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/streetViewArtifact";
-
-function useInscribedCircleSize() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState(0);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const update = () => {
-      const { width, height } = el.getBoundingClientRect();
-      const next = Math.max(0, Math.min(width, height));
-      setSize(next);
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  return { containerRef, size };
-}
+import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/canvasNodeBounds";
 
 function StreetViewCircleFrame({
   children,
@@ -47,27 +18,26 @@ function StreetViewCircleFrame({
   fill: boolean;
   minHeight?: string;
 }) {
-  const { containerRef, size } = useInscribedCircleSize();
+  const panelSizeStyle =
+    !fill && minHeight ? { minHeight, height: minHeight } : undefined;
 
   return (
     <div
-      ref={containerRef}
       className={
         fill
-          ? "flex min-h-0 w-full flex-1 items-center justify-center self-stretch"
-          : "flex w-full items-center justify-center"
+          ? "h-full min-h-0 w-full flex-1 [container-type:size]"
+          : "w-full [container-type:size]"
       }
-      style={!fill && minHeight ? { minHeight } : undefined}
+      style={panelSizeStyle}
     >
-      {size > 0 ? (
+      <div className="flex h-full w-full items-center justify-center">
         <div
           data-no-drag
-          className="relative shrink-0 overflow-hidden rounded-full"
-          style={{ width: size, height: size }}
+          className="relative aspect-square max-h-full max-w-full shrink-0 overflow-hidden rounded-full [width:min(100cqw,100cqh)]"
         >
           {children}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -76,12 +46,20 @@ export function StreetViewArtifactContent({
   payload,
   layout = "panel",
   forceInteractive = false,
+  artifactId,
+  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "streetview" }>;
   layout?: "canvas" | "panel" | "sidebar";
   forceInteractive?: boolean;
+  artifactId?: string;
+  showControls?: boolean;
 }) {
   const [interactive, setInteractive] = useState(forceInteractive);
+
+  useEffect(() => {
+    setInteractive(forceInteractive);
+  }, [forceInteractive]);
   const { place, heading, pitch, fov } = payload.data;
   const lat = place.lat;
   const lng = place.lng;
@@ -106,7 +84,12 @@ export function StreetViewArtifactContent({
 
   if (!hasCoords) {
     return (
-      <ArtifactContentStage fill={fill} className={`${stageClassName} p-4`}>
+      <ArtifactContentStage
+        fill={fill}
+        artifactId={artifactId}
+        showControls={showControls && layout !== "sidebar"}
+        className={`${stageClassName} p-4`}
+      >
         <p className="text-canvas-body-sm text-canvas-muted">
           Street View location could not be loaded.
         </p>
@@ -126,7 +109,12 @@ export function StreetViewArtifactContent({
     layout === "canvas" ? undefined : `${STREET_VIEW_ARTIFACT_HEIGHT}px`;
 
   return (
-    <ArtifactContentStage fill={fill} className={stageClassName}>
+    <ArtifactContentStage
+      fill={fill}
+      artifactId={artifactId}
+      showControls={showControls && layout !== "sidebar"}
+      className={stageClassName}
+    >
       <StreetViewCircleFrame fill={fill} minHeight={panelMinHeight}>
         {!keyReady ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas-artifactStage p-6 text-center">

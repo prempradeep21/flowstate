@@ -48,6 +48,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       question: q,
       answer: "",
       status: "thinking",
+      thinkingLabel: "Thinking",
       responseType: "text",
       artifactPayload: undefined,
       images: options?.pendingImages,

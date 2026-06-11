@@ -44,10 +44,14 @@ export function ThreeDArtifactContent({
   payload,
   fill = false,
   sidebar = false,
+  artifactId,
+  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "3d" }>;
   fill?: boolean;
   sidebar?: boolean;
+  artifactId?: string;
+  showControls?: boolean;
 }) {
   const { modelUrl, format = "glb" } = payload.data;
 
@@ -57,14 +61,23 @@ export function ThreeDArtifactContent({
 
   if (fill) {
     return (
-      <ArtifactContentStage fill className="h-full min-h-0">
+      <ArtifactContentStage
+        fill
+        artifactId={artifactId}
+        showControls={showControls}
+        className="h-full min-h-0"
+      >
         <ThreeDInner modelUrl={modelUrl} format={format} />
       </ArtifactContentStage>
     );
   }
 
   return (
-    <ArtifactContentStage className="aspect-[4/3]">
+    <ArtifactContentStage
+      artifactId={artifactId}
+      showControls={showControls}
+      className="aspect-[4/3]"
+    >
       <div className="min-h-[280px] h-full">
         <ThreeDInner modelUrl={modelUrl} format={format} />
       </div>

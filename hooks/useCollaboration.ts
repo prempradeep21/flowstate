@@ -8,6 +8,7 @@ import {
   canEditCanvas,
   declineCanvasInvite,
   duplicateCanvasForUser,
+  fetchOwnedCanvasShareFlags,
   fetchCanvasAccessInfo,
   fetchCanvasInvitesForOwner,
   fetchCanvasMembers,
@@ -71,6 +72,9 @@ export function useCollaboration({
   const [shareLink, setShareLink] = useState<CanvasShareLink | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [collaborationHasEdits, setCollaborationHasEdits] = useState(false);
+  const [ownedCanvasShareFlags, setOwnedCanvasShareFlags] = useState<
+    Record<string, boolean>
+  >({});
 
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
@@ -85,6 +89,7 @@ export function useCollaboration({
     if (!user || !supabaseConfigured) {
       setSharedCanvases([]);
       setPendingInvites([]);
+      setOwnedCanvasShareFlags({});
       return;
     }
 
@@ -96,19 +101,22 @@ export function useCollaboration({
     );
 
     try {
-      const [shared, pending] = await Promise.all([
+      const [shared, pending, shareFlags] = await Promise.all([
         fetchSharedCanvasList(supabase, user.id),
         user.email
           ? fetchPendingInvitesForUser(supabase, user.email)
           : Promise.resolve([]),
+        fetchOwnedCanvasShareFlags(supabase, user.id),
       ]);
 
       setSharedCanvases(shared);
       setPendingInvites(pending);
+      setOwnedCanvasShareFlags(shareFlags);
     } catch (err) {
       console.warn("[collab] refresh shared canvases failed:", err);
       setSharedCanvases([]);
       setPendingInvites([]);
+      setOwnedCanvasShareFlags({});
     }
   }, [supabaseConfigured, user]);
 
@@ -425,25 +433,54 @@ export function useCollaboration({
     [activeCanvasId, localReadOnly, onRefreshCanvasList, refreshActiveCanvasCollaboration, user],
   );
 
+  const duplicateCanvasById = useCallback(
+    async (canvasId: string) => {
+      if (localReadOnly) return null;
+      if (!user || !supabaseConfigured) return null;
+
+      const supabase = createClient();
+      const { data: canvas } = await supabase
+        .from("canvases")
+        .select("title, owner_id")
+        .eq("id", canvasId)
+        .maybeSingle();
+
+      if (!canvas) return null;
+
+      const isOwner = canvas.owner_id === user.id;
+      if (!isOwner) {
+        const access = await fetchCanvasAccessInfo(supabase, canvasId, user.id);
+        const canDuplicateAsViewer =
+          access?.role === "viewer" && access.allowViewerDuplicate;
+        if (access?.role !== "editor" && !canDuplicateAsViewer) {
+          return null;
+        }
+      }
+
+      const title = buildDuplicateTitle(canvas.title ?? "Canvas");
+      const created = await duplicateCanvasForUser(
+        supabase,
+        canvasId,
+        user.id,
+        title,
+      );
+      await onRefreshCanvasList();
+      await refreshSharedAndInvites();
+      return created.id;
+    },
+    [
+      localReadOnly,
+      onRefreshCanvasList,
+      refreshSharedAndInvites,
+      supabaseConfigured,
+      user,
+    ],
+  );
+
   const duplicateActiveCanvas = useCallback(async () => {
-    if (localReadOnly) return null;
-    if (!user || !activeCanvasId || !accessInfo) return null;
-    const supabase = createClient();
-    const { data: canvas } = await supabase
-      .from("canvases")
-      .select("title")
-      .eq("id", activeCanvasId)
-      .maybeSingle();
-    const title = buildDuplicateTitle(canvas?.title ?? "Canvas");
-    const created = await duplicateCanvasForUser(
-      supabase,
-      activeCanvasId,
-      user.id,
-      title,
-    );
-    await onRefreshCanvasList();
-    return created.id;
-  }, [accessInfo, activeCanvasId, localReadOnly, onRefreshCanvasList, user]);
+    if (!activeCanvasId || !accessInfo) return null;
+    return duplicateCanvasById(activeCanvasId);
+  }, [accessInfo, activeCanvasId, duplicateCanvasById]);
 
   const joinViaToken = useCallback(
     async (token: string) => {
@@ -498,6 +535,8 @@ export function useCollaboration({
     leaveCanvas,
     transferOwnership,
     duplicateActiveCanvas,
+    duplicateCanvasById,
+    ownedCanvasShareFlags,
     joinViaToken,
     refreshSharedAndInvites,
     refreshActiveCanvasCollaboration,

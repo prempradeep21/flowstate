@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
 import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
@@ -58,19 +59,23 @@ export function AppRightPanel() {
 
   return (
 
-    <aside
+    <div className="pointer-events-auto absolute right-3 top-3 z-40 flex items-start gap-2">
 
-      className={[
+      <BetaFeedbackButton />
 
-        "floating-panel floating-panel-right pointer-events-auto flex flex-col overflow-hidden",
+      <aside
 
-        collapsed ? "w-auto" : "w-[462px]",
+        className={[
 
-      ].join(" ")}
+          "flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
 
-      style={collapsed ? undefined : { height: "calc(100vh - 24px)" }}
+          collapsed ? "w-auto" : "w-[462px]",
 
-    >
+        ].join(" ")}
+
+        style={collapsed ? undefined : { height: "calc(100vh - 24px)" }}
+
+      >
 
       <MotionPanelContent
 
@@ -180,7 +185,9 @@ export function AppRightPanel() {
 
       />
 
-    </aside>
+      </aside>
+
+    </div>
 
   );
 

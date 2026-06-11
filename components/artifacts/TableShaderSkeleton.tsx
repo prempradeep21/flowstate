@@ -9,6 +9,8 @@ export function TableShaderSkeleton({
   rowCount = 7,
   compact = false,
   maxHeightClassName = "max-h-[420px]",
+  minHeightPx,
+  minWidthPx,
   canvasSurface = false,
 }: {
   accentSeed: string;
@@ -16,6 +18,8 @@ export function TableShaderSkeleton({
   rowCount?: number;
   compact?: boolean;
   maxHeightClassName?: string;
+  minHeightPx?: number;
+  minWidthPx?: number;
   canvasSurface?: boolean;
 }) {
   const surfaceBg = canvasSurface
@@ -30,7 +34,11 @@ export function TableShaderSkeleton({
   return (
     <div
       className={`overflow-hidden ${surfaceBg} ${maxHeightClassName}`}
-      style={tableAccentStyles(accentSeed)}
+      style={{
+        ...tableAccentStyles(accentSeed),
+        ...(minHeightPx != null ? { minHeight: minHeightPx } : {}),
+        ...(minWidthPx != null ? { minWidth: minWidthPx } : {}),
+      }}
       aria-hidden
     >
       <table className={`w-full table-fixed border-collapse ${surfaceBg}`}>

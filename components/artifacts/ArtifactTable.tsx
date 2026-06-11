@@ -49,6 +49,8 @@ export function ArtifactTable({
   accentSeed = "table",
   versionId,
   maxHeightClassName = "max-h-[420px]",
+  minHeightPx,
+  minWidthPx,
   compact = false,
   animate = true,
   canvasSurface = false,
@@ -58,6 +60,10 @@ export function ArtifactTable({
   accentSeed?: string;
   versionId?: string;
   maxHeightClassName?: string;
+  /** Canvas fill: floor body height so auto-size does not collapse the node. */
+  minHeightPx?: number;
+  /** Canvas fill: floor body width so columns are not squeezed during measure. */
+  minWidthPx?: number;
   compact?: boolean;
   animate?: boolean;
   /** Canvas: defer opaque surface until artifact chrome hover. */
@@ -188,7 +194,11 @@ export function ArtifactTable({
     <div
       data-canvas-scroll
       className={`overflow-y-auto overflow-x-hidden ${surfaceBg} ${maxHeightClassName}`}
-      style={tableAccentStyles(accentSeed)}
+      style={{
+        ...tableAccentStyles(accentSeed),
+        ...(minHeightPx != null ? { minHeight: minHeightPx } : {}),
+        ...(minWidthPx != null ? { minWidth: minWidthPx } : {}),
+      }}
     >
       <table
         ref={tableRef}

@@ -55,7 +55,10 @@ import {
   isOriginCardPinned,
   type GlobalOrigin,
 } from "@/lib/canvasOrigin";
-import { pickCanvasLandingInput } from "@/lib/canvasLandingState";
+import {
+  getLandingCardId,
+  pickCanvasLandingInput,
+} from "@/lib/canvasLandingState";
 import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import {
   getFamilyCardIds,
@@ -411,6 +414,8 @@ export interface CanvasArtifactNode {
   sourceCardId: string;
   position: { x: number; y: number };
   size?: CardSize;
+  /** Set when the user manually resizes — auto content sizing only grows from here. */
+  userSetSize?: boolean;
   /** Permission gate — artifact not materialized until user approves. */
   permissionPreview?: ArtifactPermissionPreview;
   /** Canvas placeholder while a version is still generating. */
@@ -618,6 +623,8 @@ interface CanvasState {
   toggleCardCollapsed: (cardId: string) => void;
   autoCollapseInactiveThreads: (threadIds: string[]) => void;
   clearSelection: () => void;
+  /** Remove the current canvas selection from the canvas (sidebar data is kept). */
+  removeSelectedFromCanvas: () => void;
   createGroupFromSelection: (label?: string) => string | null;
   setGroupSummary: (groupId: string, markdown: string) => void;
   openGroupArtifact: (groupId: string) => void;
@@ -638,7 +645,11 @@ interface CanvasState {
 
   updateCard: (id: string, patch: Partial<Card>) => void;
   setCardSize: (id: string, size: CardSize) => void;
-  setCanvasArtifactSize: (nodeId: string, size: CardSize) => void;
+  setCanvasArtifactSize: (
+    nodeId: string,
+    size: CardSize,
+    options?: { userSet?: boolean },
+  ) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
 
   createRootCard: (position: { x: number; y: number }) => string;
@@ -1729,6 +1740,240 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasSkillId: null,
     }),
 
+  removeSelectedFromCanvas: () =>
+    set((state) => {
+      if (state.canvasReadOnly) return state;
+      const { selectedFamilyRootIds, canvasSelection } = state;
+      if (selectedFamilyRootIds.length === 0 && canvasSelection.length === 0) {
+        return state;
+      }
+
+      const landingId = getLandingCardId(state.cards, state.cardOrder);
+      const cardIdsToDelete = new Set<string>();
+      for (const rootId of selectedFamilyRootIds) {
+        for (const id of getFamilyCardIds(state, rootId)) {
+          if (id === landingId) {
+            const landing = state.cards[id];
+            if (landing?.status === "empty") continue;
+          }
+          cardIdsToDelete.add(id);
+        }
+      }
+
+      const removedArtifactNodeIds = new Set<string>();
+      const removedAssetNodeIds = new Set<string>();
+      const removedGifNodeIds = new Set<string>();
+      const removedSkillNodeIds = new Set<string>();
+      const removedLabelIds = new Set<string>();
+
+      for (const item of canvasSelection) {
+        switch (item.kind) {
+          case "artifact":
+            if (state.canvasArtifactNodes[item.id]) {
+              removedArtifactNodeIds.add(item.id);
+            }
+            break;
+          case "asset":
+            if (state.canvasAssetNodes[item.id]) {
+              removedAssetNodeIds.add(item.id);
+            }
+            break;
+          case "gif":
+            if (state.canvasGifNodes[item.id]) {
+              removedGifNodeIds.add(item.id);
+            }
+            break;
+          case "skill":
+            if (state.canvasSkillNodes[item.id]) {
+              removedSkillNodeIds.add(item.id);
+            }
+            break;
+          case "label":
+            if (state.canvasTextLabels[item.id]) {
+              removedLabelIds.add(item.id);
+            }
+            break;
+        }
+      }
+
+      const willDeleteCards = cardIdsToDelete.size > 0;
+      const willDeleteNodes =
+        removedArtifactNodeIds.size > 0 ||
+        removedAssetNodeIds.size > 0 ||
+        removedGifNodeIds.size > 0 ||
+        removedSkillNodeIds.size > 0 ||
+        removedLabelIds.size > 0;
+
+      if (!willDeleteCards && !willDeleteNodes) return state;
+
+      const undoPast = pushUndoSnapshot(state);
+
+      let nextCards = state.cards;
+      let nextCardOrder = state.cardOrder;
+      let nextConnections = state.connections;
+      let nextThreads = state.threads;
+      let nextThreadOrder = state.threadOrder;
+      let activeThreadId = state.activeThreadId;
+      let openArtifactCardId = state.openArtifactCardId;
+
+      if (willDeleteCards) {
+        nextCards = { ...state.cards };
+        for (const id of cardIdsToDelete) {
+          delete nextCards[id];
+        }
+        nextConnections = state.connections.filter(
+          (c) => !cardIdsToDelete.has(c.from) && !cardIdsToDelete.has(c.to),
+        );
+        nextCardOrder = state.cardOrder.filter((id) => !cardIdsToDelete.has(id));
+
+        const remainingThreadIds = new Set(
+          Object.values(nextCards).map((c) => c.threadId),
+        );
+        nextThreads = { ...state.threads };
+        for (const tid of Object.keys(nextThreads)) {
+          if (!remainingThreadIds.has(tid)) delete nextThreads[tid];
+        }
+        nextThreadOrder = state.threadOrder.filter((tid) =>
+          remainingThreadIds.has(tid),
+        );
+
+        if (activeThreadId && !remainingThreadIds.has(activeThreadId)) {
+          activeThreadId = pickDefaultThreadId({
+            cards: nextCards,
+            connections: nextConnections,
+            cardOrder: nextCardOrder,
+            threads: nextThreads,
+            threadOrder: nextThreadOrder,
+          });
+        }
+
+        if (openArtifactCardId && cardIdsToDelete.has(openArtifactCardId)) {
+          openArtifactCardId = null;
+        }
+      }
+
+      let nextArtifactNodes = state.canvasArtifactNodes;
+      let nextArtifactOrder = state.canvasArtifactOrder;
+      if (removedArtifactNodeIds.size > 0) {
+        nextArtifactNodes = { ...state.canvasArtifactNodes };
+        for (const id of removedArtifactNodeIds) {
+          delete nextArtifactNodes[id];
+        }
+        nextArtifactOrder = state.canvasArtifactOrder.filter(
+          (id) => !removedArtifactNodeIds.has(id),
+        );
+      }
+
+      let nextAssetNodes = state.canvasAssetNodes;
+      let nextAssetOrder = state.canvasAssetOrder;
+      if (removedAssetNodeIds.size > 0) {
+        nextAssetNodes = { ...state.canvasAssetNodes };
+        for (const id of removedAssetNodeIds) {
+          delete nextAssetNodes[id];
+        }
+        nextAssetOrder = state.canvasAssetOrder.filter(
+          (id) => !removedAssetNodeIds.has(id),
+        );
+      }
+
+      let nextGifNodes = state.canvasGifNodes;
+      let nextGifOrder = state.canvasGifOrder;
+      if (removedGifNodeIds.size > 0) {
+        nextGifNodes = { ...state.canvasGifNodes };
+        for (const id of removedGifNodeIds) {
+          delete nextGifNodes[id];
+        }
+        nextGifOrder = state.canvasGifOrder.filter(
+          (id) => !removedGifNodeIds.has(id),
+        );
+      }
+
+      let nextSkillNodes = state.canvasSkillNodes;
+      let nextSkillOrder = state.canvasSkillOrder;
+      if (removedSkillNodeIds.size > 0) {
+        nextSkillNodes = { ...state.canvasSkillNodes };
+        for (const id of removedSkillNodeIds) {
+          delete nextSkillNodes[id];
+        }
+        nextSkillOrder = state.canvasSkillOrder.filter(
+          (id) => !removedSkillNodeIds.has(id),
+        );
+      }
+
+      let nextLabels = state.canvasTextLabels;
+      let nextLabelOrder = state.canvasTextLabelOrder;
+      if (removedLabelIds.size > 0) {
+        nextLabels = { ...state.canvasTextLabels };
+        for (const id of removedLabelIds) {
+          delete nextLabels[id];
+        }
+        nextLabelOrder = state.canvasTextLabelOrder.filter(
+          (id) => !removedLabelIds.has(id),
+        );
+      }
+
+      const deletedFamilyRoots = new Set(
+        selectedFamilyRootIds.filter((rootId) =>
+          getFamilyCardIds(state, rootId).some((id) => cardIdsToDelete.has(id)),
+        ),
+      );
+
+      let nextGroups = state.groups;
+      let activeGroupId = state.activeGroupId;
+      let openGroupArtifactId = state.openGroupArtifactId;
+      if (deletedFamilyRoots.size > 0) {
+        nextGroups = { ...state.groups };
+        for (const [gid, group] of Object.entries(nextGroups)) {
+          const remaining = group.familyRootThreadIds.filter(
+            (id) => !deletedFamilyRoots.has(id),
+          );
+          if (remaining.length === 0) {
+            delete nextGroups[gid];
+            if (activeGroupId === gid) activeGroupId = null;
+            if (openGroupArtifactId === gid) openGroupArtifactId = null;
+          } else if (remaining.length !== group.familyRootThreadIds.length) {
+            nextGroups[gid] = { ...group, familyRootThreadIds: remaining };
+          }
+        }
+      }
+
+      return {
+        undoPast,
+        cards: nextCards,
+        cardOrder: nextCardOrder,
+        connections: nextConnections,
+        threads: nextThreads,
+        threadOrder: nextThreadOrder,
+        activeThreadId,
+        openArtifactCardId,
+        canvasArtifactNodes: nextArtifactNodes,
+        canvasArtifactOrder: nextArtifactOrder,
+        canvasAssetNodes: nextAssetNodes,
+        canvasAssetOrder: nextAssetOrder,
+        canvasGifNodes: nextGifNodes,
+        canvasGifOrder: nextGifOrder,
+        canvasSkillNodes: nextSkillNodes,
+        canvasSkillOrder: nextSkillOrder,
+        canvasTextLabels: nextLabels,
+        canvasTextLabelOrder: nextLabelOrder,
+        groups: nextGroups,
+        activeGroupId,
+        openGroupArtifactId,
+        artifactPlugConnections: state.artifactPlugConnections.filter(
+          (c) =>
+            !cardIdsToDelete.has(c.cardId) &&
+            !removedArtifactNodeIds.has(c.artifactNodeId),
+        ),
+        skillPlugConnections: state.skillPlugConnections.filter(
+          (c) =>
+            !cardIdsToDelete.has(c.cardId) &&
+            !removedSkillNodeIds.has(c.skillNodeId),
+        ),
+        ...unifiedSelectionPatch({ familyRootIds: [], items: [] }),
+        collaborationHasEdits: true,
+      };
+    }),
+
   setCanvasSelection: (selection) => set(unifiedSelectionPatch(selection)),
 
   addCanvasSelection: (selection) =>
@@ -2161,16 +2406,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  setCanvasArtifactSize: (nodeId, size) =>
+  setCanvasArtifactSize: (nodeId, size, options) =>
     set((state) => {
       const node = state.canvasArtifactNodes[nodeId];
       if (!node) return state;
       const prev = node.size;
-      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      const userSetSize = options?.userSet ? true : node.userSetSize;
+      if (
+        prev &&
+        prev.w === size.w &&
+        prev.h === size.h &&
+        userSetSize === node.userSetSize
+      ) {
+        return state;
+      }
       return {
         canvasArtifactNodes: {
           ...state.canvasArtifactNodes,
-          [nodeId]: { ...node, size },
+          [nodeId]: { ...node, size, userSetSize },
         },
       };
     }),
@@ -3172,6 +3425,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         question,
         answer: "",
         status: "thinking",
+        thinkingLabel: "Thinking",
         position: pos,
         size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,

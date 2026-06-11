@@ -325,6 +325,48 @@ body::-webkit-scrollbar-corner {
   background-color: rgb(var(--canvas-card));
 }
 
+/** Internal artifact stage — collective text scaling via top control strip. */
+.artifact-content-stage {
+  --artifact-font-scale: 1;
+  --artifact-controls-bar-height: 48px;
+  transition:
+    width var(--motion-duration-standard) var(--motion-ease-settle),
+    height var(--motion-duration-standard) var(--motion-ease-settle),
+    min-height var(--motion-duration-standard) var(--motion-ease-settle),
+    min-width var(--motion-duration-standard) var(--motion-ease-settle);
+}
+
+.artifact-content-body {
+  zoom: var(--artifact-font-scale);
+  transition: zoom var(--motion-duration-standard) var(--motion-ease-settle);
+}
+
+.artifact-controls-bar {
+  height: var(--artifact-controls-bar-height);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artifact-content-stage,
+  .artifact-content-body {
+    transition: none;
+  }
+}
+
+/** Canvas artifact node — smooth settle when content area resizes (font scale, etc.). */
+.canvas-artifact-node-shell {
+  transition:
+    width var(--motion-duration-standard) var(--motion-ease-settle),
+    height var(--motion-duration-standard) var(--motion-ease-settle),
+    left var(--motion-duration-standard) var(--motion-ease-medium),
+    top var(--motion-duration-standard) var(--motion-ease-medium);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-artifact-node-shell {
+    transition: none;
+  }
+}
+
 /** Matches canvasSpacing.section (16px) — artifact chrome reveal inset. */
 .artifact-canvas-padding-chrome {
   padding: 1rem;
