@@ -29,6 +29,7 @@ export type ResponseType =
   | "website"
   | "repo"
   | "embed"
+  | "google-doc"
   | "timeline"
   | "chart";
 
@@ -46,6 +47,7 @@ export type ArtifactKind =
   | "website"
   | "repo"
   | "embed"
+  | "google-doc"
   | "timeline"
   | "chart";
 
@@ -205,6 +207,32 @@ export interface RepoArtifactData {
   explorer: RepoExplorerData;
 }
 
+export type GoogleWorkspaceFileKind =
+  | "document"
+  | "spreadsheet"
+  | "presentation"
+  | "file";
+
+export type GoogleWorkspaceImportStatus =
+  | "loading"
+  | "ready"
+  | "needs_connect"
+  | "needs_access"
+  | "failed";
+
+export interface GoogleWorkspaceArtifactData {
+  url: string;
+  fileId: string;
+  fileKind: GoogleWorkspaceFileKind;
+  title: string;
+  mimeType?: string;
+  status: GoogleWorkspaceImportStatus;
+  extractedText?: string;
+  extractedTextLength?: number;
+  truncated?: boolean;
+  errorMessage?: string;
+}
+
 export type TimelineScale = "year" | "month" | "day";
 
 export interface TimelineEvent {
@@ -242,6 +270,12 @@ export type ArtifactPayload =
   | { type: "website"; title: string; description?: string; data: WebsiteArtifactData }
   | { type: "repo"; title: string; description?: string; data: RepoArtifactData }
   | { type: "embed"; title: string; description?: string; data: EmbedArtifactData }
+  | {
+      type: "google-doc";
+      title: string;
+      description?: string;
+      data: GoogleWorkspaceArtifactData;
+    }
   | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData }
   | { type: "chart"; title: string; description?: string; data: ChartArtifactData };
 

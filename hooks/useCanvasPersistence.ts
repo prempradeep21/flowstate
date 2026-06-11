@@ -791,6 +791,18 @@ export function useCanvasPersistence({
   ]);
 
   useEffect(() => {
+    const onOAuthFlush = (event: Event) => {
+      const finish = (event as CustomEvent<{ finish?: () => void }>).detail
+        ?.finish;
+      void flushSaveWithDeadline(FLUSH_SAVE_DEADLINE_MS)
+        .catch(() => {})
+        .finally(() => finish?.());
+    };
+    window.addEventListener("flowstate:oauth-flush", onOAuthFlush);
+    return () => window.removeEventListener("flowstate:oauth-flush", onOAuthFlush);
+  }, [flushSaveWithDeadline]);
+
+  useEffect(() => {
     if (
       !supabaseConfigured ||
       !user ||

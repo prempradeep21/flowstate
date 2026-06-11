@@ -220,6 +220,17 @@ export function ArtifactPanelHeader({
           Visit website
           <ExternalLinkIcon />
         </a>
+      ) : kind === "google-doc" && websiteUrl ? (
+        <a
+          href={websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-no-drag
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+        >
+          Open in Google
+          <ExternalLinkIcon />
+        </a>
       ) : (
         !isVideo && (
           <div

@@ -12,6 +12,7 @@ import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
 import type { ArtifactPayload, CalendarEvent } from "@/lib/artifactTypes";
 import {
   buildMonthWeeks,
+  calendarEventChipStyle,
   compareIsoDates,
   createCalendarEvent,
   layoutWeekEventSegments,
@@ -83,6 +84,10 @@ export function CalendarArtifactContent({
     [payload.data.highlightedDates],
   );
   const events = payload.data.events;
+  const eventColorIndex = useMemo(
+    () => new Map(events.map((event, index) => [event.id, index])),
+    [events],
+  );
   const today = todayIso();
   const weeks = useMemo(
     () => buildMonthWeeks(viewYear, viewMonth),
@@ -237,7 +242,7 @@ export function CalendarArtifactContent({
         className={`flex flex-col ${fill ? `${ARTIFACT_CANVAS_SURFACE_FILL} min-h-0 flex-1` : "bg-canvas-card"}`}
         data-no-drag
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-canvas-border/60 px-4 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-canvas-border/60 px-4 py-5">
           <button
             type="button"
             data-no-drag
@@ -247,7 +252,7 @@ export function CalendarArtifactContent({
           >
             ‹
           </button>
-          <h3 className="font-display text-canvas-body tracking-wide text-canvas-ink">
+          <h3 className="font-display text-[28px] leading-tight tracking-wide text-canvas-ink">
             {monthLabel(viewYear, viewMonth)}
           </h3>
           <button
@@ -343,15 +348,21 @@ export function CalendarArtifactContent({
                         )}
                         {dayEvents.length > 0 && eventAreaHeight === 0 && (
                           <div className="mt-0.5 space-y-0.5">
-                            {dayEvents.slice(0, 2).map((ev) => (
-                              <div
-                                key={ev.id}
-                                title={ev.title}
-                                className="truncate rounded px-1 py-0.5 text-[10px] leading-tight text-canvas-ink bg-canvas-ink/10"
-                              >
-                                {truncateTitle(ev.title, 10)}
-                              </div>
-                            ))}
+                            {dayEvents.slice(0, 2).map((ev) => {
+                              const chipStyle = calendarEventChipStyle(
+                                eventColorIndex.get(ev.id) ?? 0,
+                              );
+                              return (
+                                <div
+                                  key={ev.id}
+                                  title={ev.title}
+                                  className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
+                                  style={chipStyle}
+                                >
+                                  {truncateTitle(ev.title, 10)}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </button>
@@ -366,31 +377,37 @@ export function CalendarArtifactContent({
                   >
                     {segments
                       .filter((s) => s.lane < MAX_VISIBLE_LANES)
-                      .map((seg) => (
-                        <button
-                          key={`${seg.event.id}-${weekIdx}-${seg.startCol}`}
-                          type="button"
-                          data-no-drag
-                          title={seg.event.title}
-                          disabled={!editable}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!editable) return;
-                            setEditingEventId(seg.event.id);
-                            setEditTitle(seg.event.title);
-                            clearSelection();
-                          }}
-                          className="absolute mx-0.5 truncate rounded-sm bg-canvas-ink/10 px-1.5 text-left text-[10px] leading-[18px] text-canvas-ink transition-colors hover:bg-canvas-ink/20 disabled:cursor-default"
-                          style={{
-                            left: `calc(${(seg.startCol / 7) * 100}% + 2px)`,
-                            width: `calc(${(seg.span / 7) * 100}% - 4px)`,
-                            top: seg.lane * LANE_HEIGHT + 2,
-                            height: LANE_HEIGHT - 2,
-                          }}
-                        >
-                          {truncateTitle(seg.event.title)}
-                        </button>
-                      ))}
+                      .map((seg) => {
+                        const chipStyle = calendarEventChipStyle(
+                          eventColorIndex.get(seg.event.id) ?? 0,
+                        );
+                        return (
+                          <button
+                            key={`${seg.event.id}-${weekIdx}-${seg.startCol}`}
+                            type="button"
+                            data-no-drag
+                            title={seg.event.title}
+                            disabled={!editable}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!editable) return;
+                              setEditingEventId(seg.event.id);
+                              setEditTitle(seg.event.title);
+                              clearSelection();
+                            }}
+                            className="absolute mx-0.5 truncate rounded-sm px-1.5 text-left text-[10px] font-medium leading-[18px] transition-opacity hover:opacity-80 disabled:cursor-default"
+                            style={{
+                              left: `calc(${(seg.startCol / 7) * 100}% + 2px)`,
+                              width: `calc(${(seg.span / 7) * 100}% - 4px)`,
+                              top: seg.lane * LANE_HEIGHT + 2,
+                              height: LANE_HEIGHT - 2,
+                              ...chipStyle,
+                            }}
+                          >
+                            {truncateTitle(seg.event.title)}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
               </div>

@@ -58,6 +58,17 @@ describe("classifyPastedUrl", () => {
     expect(classifyPastedUrl("https://example.com")).toBe("website");
   });
 
+  it("routes Google Docs URLs to google-doc", () => {
+    expect(
+      classifyPastedUrl(
+        "https://docs.google.com/document/d/abc123/edit?usp=sharing",
+      ),
+    ).toBe("google-doc");
+    expect(
+      classifyPastedUrl("https://docs.google.com/spreadsheets/d/xyz789/edit"),
+    ).toBe("google-doc");
+  });
+
   it("routes social embed URLs to embed", () => {
     expect(
       classifyPastedUrl("https://www.reddit.com/r/test/comments/abc123/x/"),

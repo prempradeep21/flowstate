@@ -99,6 +99,16 @@ export function ArtifactTypeIcon({
           <path d="M2 8h12M8 2a10 10 0 0 1 3 6 10 10 0 0 1-3 6 10 10 0 0 1-3-6 10 10 0 0 1 3-6z" />
         </svg>
       );
+    case "google-doc":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden>
+          <path fill="#4285F4" d="M3.5 1.5h6l3 3v10h-9V1.5z" />
+          <path fill="#fff" fillOpacity=".35" d="M9.5 1.5v3h3" />
+          <rect x="5" y="7" width="6" height="1" rx=".5" fill="#fff" />
+          <rect x="5" y="9.2" width="6" height="1" rx=".5" fill="#fff" />
+          <rect x="5" y="11.4" width="4" height="1" rx=".5" fill="#fff" />
+        </svg>
+      );
     case "repo":
       return (
         <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>

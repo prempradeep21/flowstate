@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
 
 type AuthButtonSize = "default" | "panel";
 
@@ -49,6 +50,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
 
     return (
       <div className="pointer-events-auto flex items-center gap-2">
+        <GoogleWorkspaceConnectMenu size={size} />
         <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-canvas-border/60 bg-canvas-card/90 py-0.5 pl-0.5 pr-2">
           {avatar ? (
             // eslint-disable-next-line @next/next/no-img-element

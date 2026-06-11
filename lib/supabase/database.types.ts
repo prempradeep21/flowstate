@@ -161,6 +161,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      google_connections: {
+        Row: {
+          user_id: string;
+          google_email: string;
+          access_token_encrypted: string;
+          refresh_token_encrypted: string;
+          expires_at: string;
+          scopes: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          google_email: string;
+          access_token_encrypted: string;
+          refresh_token_encrypted: string;
+          expires_at: string;
+          scopes?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          google_email?: string;
+          access_token_encrypted?: string;
+          refresh_token_encrypted?: string;
+          expires_at?: string;
+          scopes?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -10,7 +10,10 @@ export const PX_PER_UNIT: Record<TimelineScale, number> = {
 export const TRACK_PADDING_X = 48;
 export const TRACK_HEIGHT = 400;
 export const AXIS_Y = TRACK_HEIGHT / 2;
-export const STEM_LENGTH = 96;
+export const STEM_LENGTH = 48;
+
+/** Max width before event titles wrap to a second line (px). */
+export const LABEL_MAX_WIDTH = 500;
 
 /** Event labels appear once zoom reaches this level. */
 export const LABEL_MIN_ZOOM = 1.35;

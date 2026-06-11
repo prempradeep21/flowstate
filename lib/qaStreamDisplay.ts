@@ -76,8 +76,48 @@ export function hasQaResponseError(
   return answer.startsWith("⚠️") || /^Error:/i.test(answer);
 }
 
+/** Human-readable error copy for the answer area (strips transport prefixes). */
+export function formatQaResponseErrorMessage(answer: string): string {
+  const trimmed = answer.trim();
+  if (trimmed.startsWith("⚠️")) return trimmed.slice(1).trim();
+  if (/^Error:/i.test(trimmed)) return trimmed.replace(/^Error:\s*/i, "");
+  return trimmed;
+}
+
+type QaProgressCard = Pick<
+  Card,
+  | "id"
+  | "status"
+  | "answer"
+  | "thinkingLabel"
+  | "artifactPayload"
+  | "pendingEmittedArtifacts"
+  | "images"
+  | "responseType"
+>;
+
+/** Error surfaced only after the turn fully finishes — not while still working. */
+export function isQaResponseFinalError(
+  card: QaProgressCard,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
+  if (card.status !== "done") return false;
+  if (!hasQaResponseError(card)) return false;
+  return !isQaTurnInProgress(card, canvasArtifactNodes);
+}
+
+/** Missing response only after the turn fully finishes — not while artifacts materialize. */
+export function isQaResponseFinalMissing(
+  card: QaResponseCard,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
+  if (!isQaResponseMissing(card)) return false;
+  return !isQaTurnInProgress(card, canvasArtifactNodes);
+}
+
 type QaResponseCard = Pick<
   Card,
+  | "id"
   | "status"
   | "answer"
   | "artifactPayload"
@@ -108,20 +148,25 @@ export function shouldShowQaArtifactPreview(
 export function shouldShowQaAnswerText(
   card: Pick<Card, "status" | "answer">,
 ): boolean {
-  return card.status === "done" && !!card.answer.trim();
+  return (
+    card.status === "done" &&
+    !!card.answer.trim() &&
+    !hasQaResponseError(card)
+  );
+}
+
+/** Show surfaced error copy only once the turn is fully finished. */
+export function shouldShowQaAnswerError(
+  card: QaProgressCard,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
+  return isQaResponseFinalError(card, canvasArtifactNodes);
 }
 
 /** Whether the answer section should render content instead of a placeholder. */
 export function shouldShowQaAnswerSection(
-  card: Pick<
-    Card,
-    | "status"
-    | "answer"
-    | "artifactPayload"
-    | "outputArtifactId"
-    | "images"
-    | "responseType"
-  >,
+  card: QaProgressCard,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): boolean {
   if (card.status === "empty") return false;
   if (card.status === "thinking") {
@@ -131,7 +176,8 @@ export function shouldShowQaAnswerSection(
     return (
       shouldShowQaAnswerText(card) ||
       shouldShowQaArtifactPreview(card) ||
-      isQaResponseMissing(card)
+      isQaResponseFinalMissing(card, canvasArtifactNodes) ||
+      isQaResponseFinalError(card, canvasArtifactNodes)
     );
   }
   return shouldShowQaArtifactPreview(card);
@@ -165,11 +211,36 @@ export function isQaTurnInProgress(
   return false;
 }
 
+const ARTIFACT_LOADING_LABELS: Partial<Record<string, string>> = {
+  map: "Plotting markers…",
+  table: "Laying out rows…",
+  chart: "Drawing the chart…",
+  calendar: "Blocking time…",
+  timeline: "Lining up events…",
+  todo: "Checking boxes…",
+  code: "Writing code…",
+  custom: "Building the view…",
+  video: "Cueing playback…",
+  "3d": "Rendering shapes…",
+};
+
 /** Human-readable status while a card is still generating. */
 export function formatPendingStatusLabel(thinkingLabel?: string): string {
   const trimmed = thinkingLabel?.trim();
-  if (!trimmed) return "Thinking…";
+  if (!trimmed) return "Sketching an answer…";
   return trimmed.endsWith("…") ? trimmed : `${trimmed}…`;
+}
+
+function engagingThinkingLabel(thinkingLabel?: string): string | null {
+  const trimmed = thinkingLabel?.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (/building\s+map/i.test(lower)) return "Plotting markers…";
+  if (/preparing\s+map/i.test(lower)) return "Loading the map…";
+  if (/building\s+table/i.test(lower)) return "Laying out rows…";
+  if (/building\s+custom/i.test(lower)) return "Assembling the view…";
+  if (/request failed/i.test(lower)) return null;
+  return formatPendingStatusLabel(trimmed);
 }
 
 /** Badge label for the corner pending indicator. */
@@ -189,11 +260,15 @@ function artifactBuildingLabel(
 ): string | null {
   const payload = card.artifactPayload;
   if (payload) {
-    return `Building ${payload.type}…`;
+    return (
+      ARTIFACT_LOADING_LABELS[payload.type] ?? `Building ${payload.type}…`
+    );
   }
   const pending = card.pendingEmittedArtifacts?.[0];
   if (pending) {
-    return `Building ${pending.type}…`;
+    return (
+      ARTIFACT_LOADING_LABELS[pending.type] ?? `Building ${pending.type}…`
+    );
   }
   return null;
 }
@@ -213,23 +288,22 @@ export function resolveQaStatusLabel(
   >,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): string {
-  if (hasQaResponseError(card)) {
-    return "Request failed";
+  if (isQaResponseFinalError(card, canvasArtifactNodes)) {
+    return "Couldn't finish";
   }
 
-  if (card.thinkingLabel?.trim()) {
-    return formatPendingStatusLabel(card.thinkingLabel);
-  }
+  const engaging = engagingThinkingLabel(card.thinkingLabel);
+  if (engaging) return engaging;
 
   if (card.status === "thinking") {
-    return "Thinking…";
+    return "Sketching an answer…";
   }
 
   if (card.status === "streaming") {
     if (isStreamingArtifactWork(card)) {
-      return artifactBuildingLabel(card) ?? "Parsing response…";
+      return artifactBuildingLabel(card) ?? "Unpacking the response…";
     }
-    return "Responding…";
+    return "Writing the answer…";
   }
 
   if ((card.pendingEmittedArtifacts?.length ?? 0) > 0) {
@@ -240,7 +314,11 @@ export function resolveQaStatusLabel(
     return artifactBuildingLabel(card) ?? "Building artifact…";
   }
 
-  return "Finishing up…";
+  if (card.status === "done" && isQaTurnInProgress(card, canvasArtifactNodes)) {
+    return artifactBuildingLabel(card) ?? "Putting it together…";
+  }
+
+  return "Almost there…";
 }
 
 /** Badge variant for the corner pending indicator. */
@@ -259,6 +337,6 @@ export function resolveQaStatusBadgeLabel(
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): string {
   const label = resolveQaStatusLabel(card, canvasArtifactNodes);
-  if (label === "Request failed") return "Failed";
+  if (label === "Couldn't finish") return "Failed";
   return label.replace(/…$/, "");
 }

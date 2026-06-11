@@ -95,9 +95,35 @@ export function askClaude(
 
       const editingArtifact = resolveEditingPayloadForApi(cardId);
 
-      const files: PendingFileAttachment[] = [...(card?.pendingFiles ?? [])];
+      const files: PendingFileAttachment[] = [];
       const assetTextContexts: string[] = [];
       const skillTextContexts: string[] = [];
+      for (const file of card?.pendingFiles ?? []) {
+        if (
+          file.mimeType.startsWith("text/") ||
+          file.mimeType === "application/json"
+        ) {
+          try {
+            const bytes = Uint8Array.from(atob(file.base64), (c) =>
+              c.charCodeAt(0),
+            );
+            const raw = new TextDecoder().decode(bytes);
+            const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
+            const text = truncated
+              ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
+              : raw;
+            assetTextContexts.push(
+              `Attached file: ${file.name}\n${text}${
+                truncated ? "\n[File truncated due to size limit]" : ""
+              }`,
+            );
+          } catch {
+            assetTextContexts.push(`Attached file: ${file.name} could not be read.`);
+          }
+          continue;
+        }
+        files.push(file);
+      }
       if (card?.images?.length) {
         for (const img of card.images) {
           if (img.url.startsWith("data:")) {
@@ -317,7 +343,7 @@ export function askClaude(
         if (!receivedContent) {
           cb.onThinking?.("Request failed");
           cb.onToken(
-            "⚠️ No response received. The connection may have timed out — try again.",
+            "⚠️ No response received. The connection may have timed out.",
           );
         }
         cb.onDone({ artifactId: null, responseType });

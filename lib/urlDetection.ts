@@ -1,4 +1,5 @@
 import { matchEmbedProvider } from "@/lib/embed/registry";
+import { parseGoogleDriveUrl } from "@/lib/google/parseDriveUrl";
 import { parseGithubRepoUrl } from "@/lib/github/parseRepoUrl";
 import { isYoutubeUrl } from "@/lib/youtube";
 
@@ -47,7 +48,7 @@ export function domainDisplayLabel(url: string): string {
   }
 }
 
-export type PastedUrlKind = "youtube" | "website" | "repo" | "embed";
+export type PastedUrlKind = "youtube" | "website" | "repo" | "embed" | "google-doc";
 
 /** Classify a normalized URL for artifact routing. */
 export function classifyPastedUrl(url: string): PastedUrlKind | null {
@@ -55,6 +56,7 @@ export function classifyPastedUrl(url: string): PastedUrlKind | null {
   if (!normalized) return null;
   if (isYoutubeUrl(normalized)) return "youtube";
   if (parseGithubRepoUrl(normalized)) return "repo";
+  if (parseGoogleDriveUrl(normalized)) return "google-doc";
   if (matchEmbedProvider(normalized)) return "embed";
   return "website";
 }

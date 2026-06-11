@@ -2,6 +2,7 @@
 
 import {
   KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -17,6 +18,8 @@ import {
   getLatestVersion,
   getVersionById,
 } from "@/lib/sessionArtifacts";
+import { useGoogleConnection } from "@/hooks/useGoogleConnection";
+import { useGooglePicker } from "@/hooks/useGooglePicker";
 import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
@@ -86,6 +89,8 @@ export function ChatComposer({
   const [attachedSkills, setAttachedSkills] = useState<AttachedSkillRef[]>([]);
   const [pendingImages, setPendingImages] = useState<CardImage[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
+  const { connected: googleConnected, connect: connectGoogle } = useGoogleConnection();
+  const { openPicker: openGooglePicker, busy: googlePickerBusy } = useGooglePicker();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textarea = useAutoResizeTextarea(draft);
@@ -222,6 +227,74 @@ export function ChatComposer({
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+
+  const textToPendingFile = (name: string, text: string): PendingFileAttachment => ({
+    name,
+    mimeType: "text/plain",
+    base64: btoa(
+      new TextEncoder()
+        .encode(text)
+        .reduce((acc, byte) => acc + String.fromCharCode(byte), ""),
+    ),
+  });
+
+  const importPickedDriveFile = useCallback(async (doc: {
+    id: string;
+    name: string;
+    url?: string;
+  }) => {
+    try {
+      const params = new URLSearchParams({ fileId: doc.id });
+      if (doc.url) params.set("url", doc.url);
+      const res = await fetch(`/api/google/files?${params.toString()}`);
+      const body = (await res.json()) as {
+        extractedText?: string;
+        title?: string;
+        needsConnect?: boolean;
+        error?: string;
+      };
+      if (body.needsConnect) {
+        connectGoogle({ intent: "picker" });
+        return;
+      }
+      if (!res.ok || !body.extractedText) {
+        window.alert(body.error ?? "Could not import the selected file.");
+        return;
+      }
+      setPendingFiles((prev) => [
+        ...prev,
+        textToPendingFile(
+          body.title ?? doc.name ?? "Google file",
+          body.extractedText!,
+        ),
+      ]);
+    } catch {
+      window.alert("Could not import the selected file.");
+    }
+  }, [connectGoogle]);
+
+  const attachGoogleDriveFile = () => {
+    setMenuOpen(false);
+    setArtifactMenuOpen(false);
+    if (!googleConnected) {
+      connectGoogle({ intent: "picker" });
+      return;
+    }
+    void openGooglePicker((doc) => {
+      void importPickedDriveFile(doc);
+    });
+  };
+
+  useEffect(() => {
+    const onResumePicker = () => {
+      void openGooglePicker((doc) => {
+        void importPickedDriveFile(doc);
+      });
+    };
+    window.addEventListener("flowstate:google-picker-resume", onResumePicker);
+    return () =>
+      window.removeEventListener("flowstate:google-picker-resume", onResumePicker);
+  }, [importPickedDriveFile, openGooglePicker]);
 
   const addImageFiles = async (files: File[]) => {
     const next: CardImage[] = [];
@@ -482,6 +555,14 @@ export function ChatComposer({
                     onClick={() => fileInputRef.current?.click()}
                   >
                     File
+                  </button>
+                  <button
+                    type="button"
+                    disabled={googlePickerBusy}
+                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg disabled:opacity-50"
+                    onClick={attachGoogleDriveFile}
+                  >
+                    Google Drive…
                   </button>
                   <button
                     type="button"

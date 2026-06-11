@@ -12,6 +12,7 @@ import {
   MAX_TIMELINE_ZOOM,
   MIN_TIMELINE_ZOOM,
   pxPerMsFor,
+  screenXToTimeMs,
 } from "@/lib/timelineLayout";
 
 const PAN_DRAG_THRESHOLD_PX = 4;
@@ -48,7 +49,7 @@ export function useTimelineViewport(opts: {
   const [isPanning, setIsPanning] = useState(false);
 
   const wheelRaf = useRef<number | null>(null);
-  const pendingWheel = useRef<number | null>(null);
+  const pendingWheel = useRef<{ delta: number; pivotX: number } | null>(null);
   const panRef = useRef<{
     pointerId: number;
     startX: number;
@@ -57,18 +58,41 @@ export function useTimelineViewport(opts: {
   } | null>(null);
   const didPanRef = useRef(false);
 
-  const queueZoomAt = useCallback((factor: number, animate = false) => {
-    const prev = zoomRef.current;
-    const next = clampZoom(prev * factor);
-    if (next === prev) return;
-    if (animate) setAnimating(true);
-    setZoomState(next);
-    zoomRef.current = next;
-  }, []);
+  const queueZoomAt = useCallback(
+    (factor: number, pivotScreenX: number, animate = false) => {
+      const el = containerRef.current;
+      const width = el?.clientWidth ?? 0;
+      if (width <= 0) return;
+
+      const prev = zoomRef.current;
+      const next = clampZoom(prev * factor);
+      if (next === prev) return;
+
+      const center = centerMsRef.current;
+      const pivotTimeMs = screenXToTimeMs(
+        pivotScreenX,
+        center,
+        width,
+        scale,
+        prev,
+      );
+      const newCenterMs =
+        pivotTimeMs -
+        (pivotScreenX - width / 2) / pxPerMsFor(scale, next);
+
+      if (animate) setAnimating(true);
+      setCenterMs(newCenterMs);
+      setZoomState(next);
+      zoomRef.current = next;
+    },
+    [scale],
+  );
 
   const zoomByButton = useCallback(
     (factor: number) => {
-      queueZoomAt(factor, true);
+      const el = containerRef.current;
+      const pivotX = (el?.clientWidth ?? 0) / 2;
+      queueZoomAt(factor, pivotX, true);
       window.setTimeout(() => setAnimating(false), durations.standard);
     },
     [queueZoomAt],
@@ -93,7 +117,13 @@ export function useTimelineViewport(opts: {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      pendingWheel.current = (pendingWheel.current ?? 0) + e.deltaY + e.deltaX;
+      const rect = el.getBoundingClientRect();
+      const pivotX = e.clientX - rect.left;
+      const prev = pendingWheel.current;
+      pendingWheel.current = {
+        delta: (prev?.delta ?? 0) + e.deltaY + e.deltaX,
+        pivotX,
+      };
       if (wheelRaf.current != null) return;
       wheelRaf.current = requestAnimationFrame(() => {
         wheelRaf.current = null;
@@ -101,8 +131,8 @@ export function useTimelineViewport(opts: {
         pendingWheel.current = null;
         if (pending == null) return;
         const intensity = 0.002;
-        const factor = Math.exp(-pending * intensity);
-        queueZoomAt(factor);
+        const factor = Math.exp(-pending.delta * intensity);
+        queueZoomAt(factor, pending.pivotX);
       });
     };
 

@@ -3,14 +3,17 @@
 import { CardArtifactPreview } from "@/components/artifacts/CardArtifactPreview";
 import { AnswerTextScrollRegion } from "@/components/cards/AnswerTextScrollRegion";
 import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
+import { QaRetryPlaceholder } from "@/components/cards/QaRetryPlaceholder";
 import { TextCardBody } from "@/components/cards/TextCardBody";
 import {
-  isQaResponseMissing,
+  formatQaResponseErrorMessage,
+  isQaResponseFinalMissing,
+  shouldShowQaAnswerError,
   shouldShowQaAnswerText,
   shouldShowQaArtifactPreview,
 } from "@/lib/qaStreamDisplay";
-import { MissingResponsePlaceholder } from "@/components/cards/MissingResponsePlaceholder";
 import type { AnswerExplain, Card } from "@/lib/store";
+import { useCanvasStore } from "@/lib/store";
 
 interface CardAnswerBodyProps {
   card: Card;
@@ -23,6 +26,7 @@ interface CardAnswerBodyProps {
   onExplainClick?: (explainId: string) => void;
   showPendingPlaceholder?: boolean;
   pendingLabel?: string;
+  onTryAgain?: () => void;
 }
 
 export function CardAnswerBody({
@@ -35,10 +39,13 @@ export function CardAnswerBody({
   onExplainClick,
   showPendingPlaceholder = false,
   pendingLabel,
+  onTryAgain,
 }: CardAnswerBodyProps) {
+  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const showPreview = shouldShowQaArtifactPreview(card);
   const showText = shouldShowQaAnswerText(card);
-  const showMissing = isQaResponseMissing(card);
+  const showError = shouldShowQaAnswerError(card, canvasArtifactNodes);
+  const showMissing = isQaResponseFinalMissing(card, canvasArtifactNodes);
   const scrollKey = `${card.id}:${card.question}`;
   const answerContent = showText ? (
     <TextCardBody
@@ -50,8 +57,16 @@ export function CardAnswerBody({
       textRootRef={textRootRef}
       onExplainClick={onExplainClick}
     />
+  ) : showError ? (
+    <QaRetryPlaceholder
+      message={formatQaResponseErrorMessage(card.answer)}
+      onTryAgain={onTryAgain}
+    />
   ) : showMissing ? (
-    <MissingResponsePlaceholder />
+    <QaRetryPlaceholder
+      message="No response came through. The connection may have timed out."
+      onTryAgain={onTryAgain}
+    />
   ) : showPendingPlaceholder ? (
     <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
   ) : null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
@@ -15,6 +15,7 @@ import { qaInsetStyle } from "@/lib/design/canvasInsets";
 import { useAuth } from "@/components/AuthProvider";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
 import {
+  isQaResponseFinalError,
   isQaTurnInProgress,
   resolveQaStatusLabel,
   shouldShowQaAnswerText,
@@ -90,6 +91,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
+  const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
   const accent = useCanvasStore(
     (s) => s.threads[card?.threadId ?? ""]?.accentColour,
@@ -105,28 +107,45 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
     collaborationHasEdits &&
     contributorProfiles.length > 0;
 
+  const handleTryAgain = useCallback(() => {
+    if (!card?.question.trim()) return;
+    createFollowUp(cardId, card.question);
+  }, [card?.question, cardId, createFollowUp]);
+
   if (!card || card.status === "empty") return null;
 
   const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
   const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
+  const showFinalError = isQaResponseFinalError(card, canvasArtifactNodes);
   const showAnswer =
     turnInProgress ||
     shouldShowQaAnswerText(card) ||
+    showFinalError ||
     card.artifactPayload != null ||
     card.outputArtifactId != null;
 
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
-      {turnInProgress && (
+      {(turnInProgress || showFinalError) && (
         <div
           className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
           aria-live="polite"
         >
           <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-canvas-success" />
+            {!showFinalError && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-canvas-success/70 opacity-70" />
+            )}
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                showFinalError ? "bg-canvas-danger" : "bg-canvas-success"
+              }`}
+            />
           </span>
-          <span className="max-w-[160px] truncate text-canvas-caption font-medium capitalize text-canvas-muted">
+          <span
+            className={`max-w-[160px] truncate text-canvas-caption font-medium capitalize ${
+              showFinalError ? "text-canvas-danger" : "text-canvas-muted"
+            }`}
+          >
             {qaStatusLabel.replace(/…$/, "")}
           </span>
         </div>
@@ -172,6 +191,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
                 turnInProgress && !shouldShowQaAnswerText(card)
               }
               pendingLabel={qaStatusLabel}
+              onTryAgain={handleTryAgain}
             />
           </div>
         )}

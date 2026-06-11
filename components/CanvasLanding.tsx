@@ -13,10 +13,9 @@ import {
   hasLandingAnimated,
   markLandingAnimated,
 } from "@/lib/motion/performance";
+import { LANDING_STACK_WIDTH } from "@/lib/canvasLandingState";
 import { LANDING_ARTIFACT_SUGGESTIONS } from "@/lib/landingSuggestions";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
-
-const LANDING_WIDTH = 680;
 
 const PILL_DELAYS = [280, 320, 360, 400, 440] as const;
 const TIP_DELAYS = [640, 675, 710] as const;
@@ -82,7 +81,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       className={`absolute z-30 flex -translate-x-1/2 -translate-y-1/2 select-text flex-col items-center gap-6 px-6 ${
         skipMotion ? "motion-landing-skip" : ""
       }`}
-      style={{ left: 0, top: 0, width: LANDING_WIDTH }}
+      style={{ left: 0, top: 0, width: LANDING_STACK_WIDTH }}
       aria-label="Start a conversation"
       onPointerDown={(e) => e.stopPropagation()}
     >

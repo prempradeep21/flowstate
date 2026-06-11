@@ -22,6 +22,7 @@ import {
 } from "@/lib/todoArtifact";
 import { normalizeStreetViewPayload } from "@/lib/streetViewArtifact";
 import { normalizeWebsitePayload } from "@/lib/websiteArtifact";
+import { normalizeGoogleWorkspacePayload } from "@/lib/googleWorkspaceArtifact";
 import { normalizeEmbedPayload } from "@/lib/embedArtifact";
 import { normalizeRepoPayload } from "@/lib/repoArtifact";
 import {
@@ -203,6 +204,9 @@ export function normalizePayloadForRegistry(
   }
   if (payload.type === "website") {
     return normalizeWebsitePayload(payload);
+  }
+  if (payload.type === "google-doc") {
+    return normalizeGoogleWorkspacePayload(payload);
   }
   if (payload.type === "embed") {
     return normalizeEmbedPayload(payload);

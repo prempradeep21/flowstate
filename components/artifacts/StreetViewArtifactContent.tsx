@@ -51,23 +51,23 @@ function StreetViewCircleFrame({
 
   return (
     <div
-      className={`relative w-full ${fill ? "min-h-0 flex-1 self-stretch" : ""}`}
-      style={minHeight ? { minHeight } : undefined}
+      ref={containerRef}
+      className={
+        fill
+          ? "flex min-h-0 w-full flex-1 items-center justify-center self-stretch"
+          : "flex w-full items-center justify-center"
+      }
+      style={!fill && minHeight ? { minHeight } : undefined}
     >
-      <div
-        ref={containerRef}
-        className="absolute inset-0 flex items-center justify-center"
-      >
-        {size > 0 ? (
-          <div
-            data-no-drag
-            className="relative shrink-0 overflow-hidden rounded-full"
-            style={{ width: size, height: size }}
-          >
-            {children}
-          </div>
-        ) : null}
-      </div>
+      {size > 0 ? (
+        <div
+          data-no-drag
+          className="relative shrink-0 overflow-hidden rounded-full"
+          style={{ width: size, height: size }}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

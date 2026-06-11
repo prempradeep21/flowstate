@@ -4,6 +4,7 @@ import { m, useReducedMotion } from "framer-motion";
 import type { TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
 import {
   LABEL_EDGE_FADE_PX,
+  LABEL_MAX_WIDTH,
   LABEL_MIN_ZOOM,
   STEM_LENGTH,
   eventColor,
@@ -35,9 +36,9 @@ function EventLabelBlock({
   return (
     <div
       className="flex shrink-0 flex-col items-center text-center transition-opacity duration-200"
-      style={{ maxWidth: 160 }}
+      style={{ maxWidth: LABEL_MAX_WIDTH }}
     >
-      <p className="rich-text line-clamp-3 text-xs font-semibold leading-snug text-canvas-ink">
+      <p className="rich-text line-clamp-2 text-xs font-semibold leading-snug text-canvas-ink">
         {formatRichTextForDisplay(label)}
       </p>
       <p className="mt-0.5 whitespace-nowrap text-[10px] text-canvas-muted">

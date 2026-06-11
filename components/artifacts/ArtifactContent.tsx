@@ -12,6 +12,7 @@ import { CalendarArtifactContent } from "@/components/artifacts/CalendarArtifact
 import { TodoArtifactContent } from "@/components/artifacts/TodoArtifactContent";
 import { TodoSidebarPreview } from "@/components/artifacts/TodoSidebarPreview";
 import { WebsiteArtifactContent } from "@/components/artifacts/WebsiteArtifactContent";
+import { GoogleWorkspaceArtifactContent } from "@/components/artifacts/GoogleWorkspaceArtifactContent";
 import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactContent";
 import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
 import { TimelineArtifactContent } from "@/components/artifacts/TimelineArtifactContent";
@@ -219,6 +220,18 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+          />
+        );
+      }
+      break;
+    case "google-doc":
+      if (payload.type === "google-doc") {
+        return (
+          <GoogleWorkspaceArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
           />
         );
       }
