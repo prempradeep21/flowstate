@@ -1,5 +1,12 @@
 import type { UploadedAttachment } from "@/lib/store";
 import type { CanvasAsset, CanvasAssetKind } from "@/lib/store";
+import {
+  officeKindForExtension,
+  officeKindForMime,
+  PRESENTATION_TYPES,
+  SPREADSHEET_TYPES,
+  WORD_TYPES,
+} from "@/lib/officeAssetKinds";
 import { createClient } from "@/lib/supabase/client";
 import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
 
@@ -118,6 +125,28 @@ function mimeFromExtension(ext: string): string {
       return "application/json";
     case "pdf":
       return "application/pdf";
+    case "xls":
+      return "application/vnd.ms-excel";
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "xlsm":
+      return "application/vnd.ms-excel.sheet.macroEnabled.12";
+    case "ods":
+      return "application/vnd.oasis.opendocument.spreadsheet";
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "odt":
+      return "application/vnd.oasis.opendocument.text";
+    case "rtf":
+      return "application/rtf";
+    case "ppt":
+      return "application/vnd.ms-powerpoint";
+    case "pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case "odp":
+      return "application/vnd.oasis.opendocument.presentation";
     default:
       return "text/plain";
   }
@@ -127,6 +156,10 @@ export function assetKindForFile(file: File): CanvasAssetKind | null {
   const ext = extensionForName(file.name);
   const type = file.type || "";
   if (IMAGE_TYPES.has(type)) return "image";
+  const officeFromMime = type ? officeKindForMime(type) : null;
+  if (officeFromMime) return officeFromMime;
+  const officeFromExt = officeKindForExtension(ext);
+  if (officeFromExt) return officeFromExt;
   if (DOCUMENT_TYPES.has(type) || DOCUMENT_EXTENSIONS.has(ext)) {
     return "document";
   }
@@ -149,7 +182,14 @@ export function formatBytes(bytes: number): string {
 
 export function uploadCategoryForMime(mime: string): UploadCategory | null {
   if (IMAGE_TYPES.has(mime)) return "images";
-  if (DOCUMENT_TYPES.has(mime)) return "documents";
+  if (
+    DOCUMENT_TYPES.has(mime) ||
+    SPREADSHEET_TYPES.has(mime) ||
+    WORD_TYPES.has(mime) ||
+    PRESENTATION_TYPES.has(mime)
+  ) {
+    return "documents";
+  }
   return null;
 }
 
@@ -195,7 +235,14 @@ export function groupCanvasAssets(
   for (const asset of assets) {
     if (asset.kind === "image") buckets.images.push(asset);
     else if (asset.kind === "code") buckets.code.push(asset);
-    else buckets.documents.push(asset);
+    else if (
+      asset.kind === "document" ||
+      asset.kind === "spreadsheet" ||
+      asset.kind === "word" ||
+      asset.kind === "presentation"
+    ) {
+      buckets.documents.push(asset);
+    }
   }
   return (["images", "documents", "code"] as const).map((category) => ({
     category,
@@ -210,7 +257,7 @@ function validateAssetFile(file: File): { kind: CanvasAssetKind } | AssetUploadE
     return {
       fileName: file.name,
       code: "unsupported-type",
-      message: `${file.name} is not a supported image, document, or code file.`,
+      message: `${file.name} is not a supported image, document, spreadsheet, presentation, or code file.`,
     };
   }
   const maxBytes = maxBytesForAssetKind(kind);

@@ -6,12 +6,20 @@ import {
   uploadAssetFiles,
   type AssetUploadError,
 } from "@/lib/attachments";
+import { OFFICE_FILE_ACCEPT } from "@/lib/officeAssetKinds";
 import { setSidebarDragData } from "@/lib/sidebarDnD";
 import { useCanvasStore } from "@/lib/store";
 import { useAuth } from "@/components/AuthProvider";
 
-function AssetIcon({ kind }: { kind: "image" | "document" | "code" }) {
+function AssetIcon({
+  kind,
+}: {
+  kind: "image" | "document" | "code" | "spreadsheet" | "word" | "presentation";
+}) {
   if (kind === "code") return <span aria-hidden>{"</>"}</span>;
+  if (kind === "spreadsheet") return <span aria-hidden>xls</span>;
+  if (kind === "presentation") return <span aria-hidden>ppt</span>;
+  if (kind === "word") return <span aria-hidden>doc</span>;
   if (kind === "document") return <span aria-hidden>doc</span>;
   return <span aria-hidden>img</span>;
 }
@@ -113,7 +121,7 @@ export function AttachmentsSection() {
         }}
       >
         <p className="text-canvas-body-lg text-canvas-muted">
-          Drop images, documents, or code files here
+          Drop images, spreadsheets, documents, presentations, or code files here
         </p>
       </div>
 
@@ -153,7 +161,7 @@ export function AttachmentsSection() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/markdown,text/csv,application/json,.txt,.md,.csv,.json,.ts,.tsx,.js,.jsx,.py,.sql,.css,.html,.go,.rs,.java,.cpp,.c,.cs,.php,.rb,.sh,.yaml,.yml"
+        accept={`image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,text/markdown,text/csv,application/json,.txt,.md,.csv,.json,.ts,.tsx,.js,.jsx,.py,.sql,.css,.html,.go,.rs,.java,.cpp,.c,.cs,.php,.rb,.sh,.yaml,.yml,${OFFICE_FILE_ACCEPT}`}
         multiple
         className="hidden"
         onChange={async (e) => {

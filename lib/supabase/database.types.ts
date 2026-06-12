@@ -194,9 +194,47 @@ export interface Database {
         };
         Relationships: [];
       };
+      beta_suggestions: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          user_email: string;
+          page_url: string | null;
+          message: string;
+          image_urls: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          user_email?: string;
+          page_url?: string | null;
+          message: string;
+          image_urls?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          user_email?: string;
+          page_url?: string | null;
+          message?: string;
+          image_urls?: string[];
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      submit_beta_suggestion: {
+        Args: {
+          p_message: string;
+          p_page_url?: string | null;
+          p_image_urls?: string[];
+        };
+        Returns: string;
+      };
       join_canvas_via_share_token: {
         Args: { p_token: string };
         Returns: string | null;

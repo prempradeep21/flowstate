@@ -183,7 +183,13 @@ export interface UploadedAttachment {
   addedAt: number;
 }
 
-export type CanvasAssetKind = "image" | "document" | "code";
+export type CanvasAssetKind =
+  | "image"
+  | "document"
+  | "code"
+  | "spreadsheet"
+  | "word"
+  | "presentation";
 
 export interface CanvasAsset {
   id: string;
@@ -1294,10 +1300,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!asset) return state;
       const id = newCanvasAssetNodeId();
       nodeId = id;
-      const size =
+      const previewAspect =
         asset.kind === "image" && asset.aspectRatio
-          ? { w: Math.min(480, Math.max(180, asset.width ?? 360)), h: Math.min(480, Math.max(180, asset.width ?? 360)) / asset.aspectRatio }
-          : undefined;
+          ? asset.aspectRatio
+          : asset.kind === "spreadsheet" ||
+              asset.kind === "word" ||
+              asset.kind === "presentation"
+            ? 4 / 3
+            : null;
+      const size = previewAspect
+        ? {
+            w: Math.min(480, Math.max(180, asset.width ?? 360)),
+            h:
+              Math.min(480, Math.max(180, asset.width ?? 360)) / previewAspect,
+          }
+        : undefined;
       const node: CanvasAssetNode = {
         id,
         assetId,
@@ -2627,6 +2644,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
+    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 

@@ -28,6 +28,8 @@ function emptySlice(overrides: Partial<CanvasPersistSlice> = {}): CanvasPersistS
     canvasAssetOrder: [],
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
+    canvasGifNodes: {},
+    canvasGifOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
     ...overrides,
