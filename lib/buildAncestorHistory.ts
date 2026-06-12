@@ -77,6 +77,8 @@ function artifactContextNote(payload: ArtifactPayload): string {
       return `[Card showed repository: "${payload.data.displayTitle}" (${payload.data.repoUrl})]`;
     case "embed":
       return `[Card showed ${payload.data.provider} embed: "${payload.title}" (${payload.data.url})]`;
+    case "audio":
+      return `[Card showed audio: "${payload.title}"]`;
   }
 }
 

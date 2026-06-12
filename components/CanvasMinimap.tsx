@@ -44,6 +44,7 @@ const ARTIFACT_MINIMAP_COLORS: Record<ArtifactKind, string> = {
   embed: "rgb(var(--canvas-warning) / 0.32)",
   timeline: "rgb(var(--canvas-success) / 0.32)",
   chart: "rgb(var(--canvas-accent) / 0.38)",
+  audio: "rgb(var(--canvas-warning) / 0.36)",
 };
 
 const ARTIFACT_MINIMAP_FALLBACK = "rgb(var(--canvas-ink) / 0.25)";

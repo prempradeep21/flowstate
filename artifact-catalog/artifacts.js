@@ -101,6 +101,22 @@ export const INPUT_ARTIFACTS = [
     chips: ["tutorials", "talks", "travel vlogs", "demos"],
   },
   {
+    id: "audio-short",
+    name: "Audio — short clip",
+    title: "Voice memo with time-proportional waveform",
+    description:
+      "Drop MP3, WAV, M4A, AAC, OGG, or WebM audio. Waveform width scales with clip duration (10 MB max).",
+    chips: ["voice memos", "interviews", "podcast clips", "field recordings"],
+  },
+  {
+    id: "audio-long",
+    name: "Audio — long clip",
+    title: "Longer recordings span wider waveforms",
+    description:
+      "A 5-minute clip is five times the waveform width of a 1-minute clip when placed side by side.",
+    chips: ["meetings", "lectures", "ambient", "music sketches"],
+  },
+  {
     id: "repo",
     name: "Repositories",
     title: "GitHub repo dashboard",

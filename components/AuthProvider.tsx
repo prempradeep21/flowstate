@@ -54,6 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const setCanvasReadOnly = useCanvasStore((s) => s.setCanvasReadOnly);
+  const setCollaborationActorUserId = useCanvasStore(
+    (s) => s.setCollaborationActorUserId,
+  );
   const isRemoteUpdateRef = useRef(false);
 
   const {
@@ -129,6 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Boolean(user && activeCanvasId) && !collaboration.canEdit;
     setCanvasReadOnly(readOnly);
   }, [activeCanvasId, collaboration.canEdit, setCanvasReadOnly, user]);
+
+  useEffect(() => {
+    setCollaborationActorUserId(user?.id ?? null);
+  }, [setCollaborationActorUserId, user?.id]);
 
   useEffect(() => {
     if (!supabaseConfigured) {

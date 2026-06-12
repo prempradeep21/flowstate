@@ -31,7 +31,8 @@ export type ResponseType =
   | "embed"
   | "google-doc"
   | "timeline"
-  | "chart";
+  | "chart"
+  | "audio";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -49,7 +50,8 @@ export type ArtifactKind =
   | "embed"
   | "google-doc"
   | "timeline"
-  | "chart";
+  | "chart"
+  | "audio";
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -207,6 +209,15 @@ export interface RepoArtifactData {
   explorer: RepoExplorerData;
 }
 
+export interface AudioArtifactData {
+  fileName: string;
+  mimeType: string;
+  storagePath: string;
+  publicUrl: string;
+  durationMs: number;
+  peaks: number[];
+}
+
 export type GoogleWorkspaceFileKind =
   | "document"
   | "spreadsheet"
@@ -277,7 +288,8 @@ export type ArtifactPayload =
       data: GoogleWorkspaceArtifactData;
     }
   | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData }
-  | { type: "chart"; title: string; description?: string; data: ChartArtifactData };
+  | { type: "chart"; title: string; description?: string; data: ChartArtifactData }
+  | { type: "audio"; title: string; description?: string; data: AudioArtifactData };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {

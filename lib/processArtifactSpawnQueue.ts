@@ -19,6 +19,8 @@ import {
 } from "@/lib/artifactSpawnPriority";
 import {
   resolveArtifactTargetId,
+  resolveEditingArtifactId,
+  canAppendArtifactVersion,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
@@ -68,11 +70,25 @@ function filterAlreadySpawnedPayloads(
   card: Card,
   payloads: ArtifactPayload[],
   sessionArtifacts: Record<string, SessionArtifact>,
+  editingArtifactId: string | null,
 ): ArtifactPayload[] {
   if (!card.outputArtifactId) return payloads;
   const art = sessionArtifacts[card.outputArtifactId];
   if (!art) return payloads;
+  // Same-kind payloads are updates when output targets the artefact being edited.
+  if (editingArtifactId && editingArtifactId === card.outputArtifactId) {
+    return payloads.filter((p) => canAppendArtifactVersion(art, p));
+  }
   return payloads.filter((p) => payloadToArtifactKind(p) !== art.kind);
+}
+
+function plugContextFromState(state: ReturnType<typeof useCanvasStore.getState>) {
+  return {
+    artifactPlugConnections: state.artifactPlugConnections,
+    canvasArtifactNodes: state.canvasArtifactNodes,
+    plugComposerAttachments: state.plugComposerAttachments,
+    sessionArtifacts: state.sessionArtifacts,
+  };
 }
 
 /** Pick the one payload that may spawn without a permission prompt. */
@@ -126,10 +142,21 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
   const rawPayloads = payloadsForTurn(card);
   if (rawPayloads.length === 0) return null;
 
+  const plugCtx = plugContextFromState(state);
+  const editingArtifactId =
+    resolveEditingArtifactId(
+      card,
+      state.cards,
+      state.connections,
+      state.cardOrder,
+      plugCtx,
+    ) ?? card.outputArtifactId;
+
   const payloads = filterAlreadySpawnedPayloads(
     card,
     rawPayloads,
     state.sessionArtifacts,
+    editingArtifactId ?? null,
   );
   const responseType = primaryResponseType(rawPayloads);
 
@@ -140,17 +167,15 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
         [cardId]: {
           ...current.cards[cardId],
           status: "done",
-          thinkingLabel: resolveDoneThinkingLabel(
-            cardId,
-            current.cards[cardId]!,
-          ),
+          thinkingLabel: undefined,
+          artifactPayload: undefined,
           pendingFiles: undefined,
           pendingEmittedArtifacts: undefined,
           responseType,
         },
       },
     }));
-    return card.outputArtifactId ?? null;
+    return editingArtifactId ?? null;
   }
 
   const userRequestedKind = detectUserRequestedArtifactKind(card.question);
@@ -179,10 +204,27 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
           cards: current.cards,
           connections: current.connections,
           cardOrder: current.cardOrder,
+          artifactPlugConnections: current.artifactPlugConnections,
+          canvasArtifactNodes: current.canvasArtifactNodes,
+          plugComposerAttachments: current.plugComposerAttachments,
         },
       );
 
-      if (!materialized) return current;
+      if (!materialized) {
+        return {
+          cards: {
+            ...current.cards,
+            [cardId]: {
+              ...current.cards[cardId],
+              status: "done",
+              thinkingLabel: undefined,
+              pendingFiles: undefined,
+              pendingEmittedArtifacts: undefined,
+              responseType,
+            },
+          },
+        };
+      }
 
       artifactId = materialized.artifactId;
       versionId = materialized.versionId;
@@ -260,10 +302,11 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
     const targetId = resolveArtifactTargetId(
       card,
       payload,
-      state.sessionArtifacts,
-      state.cards,
-      state.connections,
-      state.cardOrder,
+      useCanvasStore.getState().sessionArtifacts,
+      useCanvasStore.getState().cards,
+      useCanvasStore.getState().connections,
+      useCanvasStore.getState().cardOrder,
+      plugContextFromState(useCanvasStore.getState()),
     );
     if (targetId) {
       const { versionId } = useCanvasStore

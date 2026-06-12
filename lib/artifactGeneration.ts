@@ -12,6 +12,7 @@ import {
   resolveEditingArtifactId,
   canAppendArtifactVersion,
 } from "@/lib/sessionArtifacts";
+import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
 import { useCanvasStore } from "@/lib/store";
 
 function resolveDoneThinkingLabel(
@@ -50,12 +51,20 @@ export function handleStreamArtifact(cardId: string, emitted: EmittedArtifact) {
   const card = state.cards[cardId];
   const payload = applied.artifactPayload;
 
+  const plugContext = {
+    artifactPlugConnections: state.artifactPlugConnections,
+    canvasArtifactNodes: state.canvasArtifactNodes,
+    plugComposerAttachments: state.plugComposerAttachments,
+    sessionArtifacts: state.sessionArtifacts,
+  };
+
   const targetArtifactId = card
     ? (resolveEditingArtifactId(
         card,
         state.cards,
         state.connections,
         state.cardOrder,
+        plugContext,
       ) ?? card.outputArtifactId)
     : null;
 
@@ -130,18 +139,30 @@ export function resolveEditingPayloadForApi(cardId: string): {
   const card = state.cards[cardId];
   if (!card) return null;
 
+  const plugContext = {
+    artifactPlugConnections: state.artifactPlugConnections,
+    canvasArtifactNodes: state.canvasArtifactNodes,
+    plugComposerAttachments: state.plugComposerAttachments,
+    sessionArtifacts: state.sessionArtifacts,
+  };
+
   const artifactId = resolveEditingArtifactId(
     card,
     state.cards,
     state.connections,
     state.cardOrder,
+    plugContext,
   );
   if (!artifactId) return null;
 
   const art = state.sessionArtifacts[artifactId];
   if (!art) return null;
 
-  const attachVid = card.attachedArtifacts?.[0]?.versionId;
+  const attachedRefs = resolveCardAttachedArtifactRefs(card.id, {
+    cards: state.cards,
+    ...plugContext,
+  });
+  const attachVid = attachedRefs[0]?.versionId;
   const ver = attachVid
     ? getVersionById(art, attachVid)
     : getLatestVersion(art);

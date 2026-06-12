@@ -66,15 +66,18 @@ export function ArtifactShell({
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
   const readOnly = catalogPreview ? false : canvasReadOnly;
 
+  const cards = useCanvasStore((s) => s.cards);
   const contributorProfiles = useMemo(() => {
     if (members.length <= 1 || !collaborationHasEdits) return [];
     return artifactContributorProfiles(
       sessionArtifact,
       members,
       accessInfo?.ownerId,
+      cards,
     );
   }, [
     accessInfo?.ownerId,
+    cards,
     collaborationHasEdits,
     members,
     sessionArtifact,

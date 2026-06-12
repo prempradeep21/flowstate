@@ -9,6 +9,7 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
+import type { AttachedArtifactResolveContext } from "@/lib/attachedArtifactRefs";
 
 export type ArtifactPreviewStatus = "generating" | "ready" | "failed" | "pending";
 
@@ -16,6 +17,17 @@ export interface MaterializeContext {
   cards: Record<string, Card>;
   connections: Connection[];
   cardOrder: string[];
+  artifactPlugConnections?: AttachedArtifactResolveContext["artifactPlugConnections"];
+  canvasArtifactNodes?: AttachedArtifactResolveContext["canvasArtifactNodes"];
+  plugComposerAttachments?: AttachedArtifactResolveContext["plugComposerAttachments"];
+}
+
+function plugContextFromMaterialize(context: MaterializeContext) {
+  return {
+    artifactPlugConnections: context.artifactPlugConnections ?? [],
+    canvasArtifactNodes: context.canvasArtifactNodes ?? {},
+    plugComposerAttachments: context.plugComposerAttachments ?? {},
+  };
 }
 
 export function resolveArtifactPreviewStatus(card: Card): ArtifactPreviewStatus {
@@ -86,23 +98,31 @@ export function materializeCardArtifact(
     context.cards,
     context.connections,
     context.cardOrder,
+    plugContextFromMaterialize(context),
   );
 
   let artifactId: string;
   let versionId: string;
   const nextArtifacts = { ...sessionArtifacts };
 
+  const createdByUserId = card.contributorIds?.[0];
+
   if (existingId && sessionArtifacts[existingId]) {
     const { artifact, versionId: vid } = appendArtifactVersion(
       sessionArtifacts[existingId],
       payload,
       card.id,
+      createdByUserId,
     );
     artifactId = artifact.id;
     versionId = vid;
     nextArtifacts[artifactId] = artifact;
   } else {
-    const created = createSessionArtifactFromPayload(payload, card.id);
+    const created = createSessionArtifactFromPayload(
+      payload,
+      card.id,
+      createdByUserId,
+    );
     artifactId = created.id;
     versionId = created.latestVersionId;
     nextArtifacts[artifactId] = created;

@@ -199,6 +199,13 @@ export function ArtifactTypeIcon({
           <rect x="11" y="7" width="2.5" height="6" rx="0.5" fill="currentColor" stroke="none" />
         </svg>
       );
+    case "audio":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <path d="M2 8h12" strokeLinecap="round" opacity="0.35" />
+          <path d="M3 10V6M5 11V5M7 9V7M9 11V5M11 8V8M13 10V6" strokeLinecap="round" />
+        </svg>
+      );
     default:
       return null;
   }

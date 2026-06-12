@@ -100,6 +100,35 @@ export function ImagesArtifactContent({
     );
   }
 
+  if (items.length === 0) {
+    const emptyBody = (
+      <div className="flex min-h-[160px] items-center justify-center p-6 text-center text-canvas-body-sm text-canvas-muted">
+        No images yet
+      </div>
+    );
+    if (fill) {
+      return (
+        <ArtifactContentStage
+          fill
+          artifactId={artifactId}
+          showControls={showControls}
+          className="h-full !bg-transparent"
+        >
+          {emptyBody}
+        </ArtifactContentStage>
+      );
+    }
+    return (
+      <ArtifactContentStage
+        artifactId={artifactId}
+        showControls={showControls}
+        className="!bg-transparent"
+      >
+        {emptyBody}
+      </ArtifactContentStage>
+    );
+  }
+
   // Videos keep fixed 16:9 frames (iframes have no intrinsic size); images
   // flow as borderless masonry columns at their original aspect ratios.
   const grid = isVideo ? (

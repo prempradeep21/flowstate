@@ -30,6 +30,11 @@ import {
   normalizeTimelineEvent,
   normalizeTimelinePayload,
 } from "@/lib/timelineArtifact";
+import { normalizeAudioPayload } from "@/lib/audioArtifact";
+import {
+  primaryAttachedArtifactId,
+  type AttachedArtifactResolveContext,
+} from "@/lib/attachedArtifactRefs";
 import type { Card, CardImage, Connection } from "@/lib/store";
 import { getThreadCardChain } from "@/lib/chatThreads";
 
@@ -236,6 +241,9 @@ export function normalizePayloadForRegistry(
     }
     return normalized;
   }
+  if (payload.type === "audio") {
+    return normalizeAudioPayload(payload);
+  }
   return payload;
 }
 
@@ -243,6 +251,7 @@ export function createVersionEntry(
   payload: ArtifactPayload,
   sourceCardId: string,
   versionNumber: number,
+  createdByUserId?: string,
 ): ArtifactVersion {
   const normalized = normalizePayloadForRegistry(payload);
   return {
@@ -251,15 +260,17 @@ export function createVersionEntry(
     payload: normalized,
     createdAt: Date.now(),
     sourceCardId,
+    ...(createdByUserId ? { createdByUserId } : {}),
   };
 }
 
 export function createSessionArtifactFromPayload(
   payload: ArtifactPayload,
   sourceCardId: string,
+  createdByUserId?: string,
 ): SessionArtifact {
   const normalized = normalizePayloadForRegistry(payload);
-  const version = createVersionEntry(normalized, sourceCardId, 1);
+  const version = createVersionEntry(normalized, sourceCardId, 1, createdByUserId);
   const kind = payloadToArtifactKind(normalized);
   return {
     id: newSessionArtifactId(),
@@ -274,6 +285,7 @@ export function appendArtifactVersion(
   artifact: SessionArtifact,
   payload: ArtifactPayload,
   sourceCardId: string,
+  createdByUserId?: string,
 ): { artifact: SessionArtifact; versionId: string } {
   const latest = getLatestVersion(artifact);
   const normalized = normalizePayloadForRegistry(
@@ -286,7 +298,12 @@ export function appendArtifactVersion(
     : normalized;
   const nextNum =
     (artifact.versions[artifact.versions.length - 1]?.number ?? 0) + 1;
-  const version = createVersionEntry(versionPayload, sourceCardId, nextNum);
+  const version = createVersionEntry(
+    versionPayload,
+    sourceCardId,
+    nextNum,
+    createdByUserId,
+  );
   return {
     artifact: {
       ...artifact,
@@ -346,8 +363,15 @@ export function resolveEditingArtifactId(
   cards: Record<string, Card>,
   connections: Connection[],
   cardOrder: string[],
+  plugContext?: Omit<AttachedArtifactResolveContext, "cards">,
 ): string | null {
-  if (card.attachedArtifacts?.[0]?.artifactId) {
+  if (plugContext) {
+    const pluggedId = primaryAttachedArtifactId(card.id, {
+      cards,
+      ...plugContext,
+    });
+    if (pluggedId) return pluggedId;
+  } else if (card.attachedArtifacts?.[0]?.artifactId) {
     return card.attachedArtifacts[0].artifactId;
   }
   if (card.inheritedArtifactId) {
@@ -391,12 +415,14 @@ export function resolveArtifactTargetId(
   cards: Record<string, Card>,
   connections: Connection[],
   cardOrder: string[],
+  plugContext?: Omit<AttachedArtifactResolveContext, "cards">,
 ): string | null {
   const editingId = resolveEditingArtifactId(
     card,
     cards,
     connections,
     cardOrder,
+    plugContext,
   );
   if (
     editingId &&

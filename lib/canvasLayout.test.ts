@@ -343,18 +343,18 @@ describe("resolveBranchDropPosition", () => {
 
   it("uses cursor Y and centers X on the pointer when clear of parent column", () => {
     const drop = resolveBranchDropPosition(900, 500, "right", source, tuning);
-    expect(drop).toEqual({ x: 900 - 210, y: 500 - 44 });
+    expect(drop).toEqual({ x: 900 - 210, y: 500 - 40 });
   });
 
   it("snaps X to the default side gap but keeps cursor Y when overlapping parent column", () => {
     const drop = resolveBranchDropPosition(300, 500, "right", source, tuning);
     expect(drop.x).toBe(100 + 420 + 420);
-    expect(drop.y).toBe(500 - 44);
+    expect(drop.y).toBe(500 - 40);
   });
 
   it("snaps left branches to the left column when overlapping", () => {
     const drop = resolveBranchDropPosition(200, 350, "left", source, tuning);
     expect(drop.x).toBe(100 - 420 - 420);
-    expect(drop.y).toBe(350 - 44);
+    expect(drop.y).toBe(350 - 40);
   });
 });

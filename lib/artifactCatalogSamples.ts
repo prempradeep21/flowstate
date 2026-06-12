@@ -2,6 +2,7 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { createRepoPayload } from "@/lib/repoArtifact";
 import { createWebsitePayload } from "@/lib/websiteArtifact";
 import { createEmbedPayload } from "@/lib/embedArtifact";
+import { createCatalogAudioPayload } from "@/lib/audioArtifact";
 
 /** Cubbon Park, Bengaluru — canonical map / street-view focus for catalog previews. */
 export const CATALOG_CUBBON_PARK = {
@@ -420,6 +421,26 @@ export function checkLimit(count: number): boolean {
         ],
       },
     },
+  },
+  {
+    id: "audio-short",
+    category: "input",
+    name: "Audio — short clip",
+    title: "Voice memo (1 min)",
+    description:
+      "Drop MP3, WAV, M4A, AAC, OGG, or WebM audio onto the canvas. Waveform width scales with duration.",
+    chips: ["voice memos", "interviews", "podcast clips", "field recordings"],
+    payload: createCatalogAudioPayload("Voice memo", 60_000, 1),
+  },
+  {
+    id: "audio-long",
+    category: "input",
+    name: "Audio — long clip",
+    title: "Meeting recording (5 min)",
+    description:
+      "Longer clips spawn wider nodes — a 5-minute file is five times the waveform width of a 1-minute file.",
+    chips: ["meetings", "lectures", "ambient", "music sketches"],
+    payload: createCatalogAudioPayload("Meeting recording", 300_000, 2),
   },
   ...(repoPayload
     ? [

@@ -44,6 +44,7 @@ import {
   shouldEarlySpawnArtifact,
 } from "@/lib/artifactGeneration";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
+import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
 import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
 import {
   getLandingCardId,
@@ -667,11 +668,7 @@ function CardInner({ card }: CardProps) {
         },
       },
     );
-    return () => {
-      askHandleRef.current?.cancel();
-      startedFor.current = null;
-    };
-  }, [card.status, card.question, card.id, updateCard, selectedModel]);
+  }, [card.question, card.id, updateCard, selectedModel]);
 
   useEffect(() => {
     if (turnInProgress || !card.thinkingLabel) return;
@@ -686,6 +683,22 @@ function CardInner({ card }: CardProps) {
     askHandleRef.current?.cancel();
     askGenerationRef.current += 1;
     startedFor.current = null;
+    const st = useCanvasStore.getState();
+    const attachedFromPlug = resolveCardAttachedArtifactRefs(card.id, {
+      cards: st.cards,
+      artifactPlugConnections: st.artifactPlugConnections,
+      canvasArtifactNodes: st.canvasArtifactNodes,
+      plugComposerAttachments: st.plugComposerAttachments,
+      sessionArtifacts: st.sessionArtifacts,
+    });
+    const attachedArtifacts =
+      options?.attachedArtifacts?.length
+        ? options.attachedArtifacts
+        : card.attachedArtifacts?.length
+          ? card.attachedArtifacts
+          : attachedFromPlug.length
+            ? attachedFromPlug
+            : undefined;
     updateCard(card.id, {
       question: q,
       answer: "",
@@ -697,7 +710,7 @@ function CardInner({ card }: CardProps) {
       images: options?.pendingImages,
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
-      attachedArtifacts: options?.attachedArtifacts,
+      attachedArtifacts,
       attachedAssets: options?.attachedAssets,
       pendingFiles: options?.pendingFiles,
       quotedSelection: undefined,
@@ -713,8 +726,23 @@ function CardInner({ card }: CardProps) {
 
   const handleTryAgain = useCallback(() => {
     if (!canEdit || !card.question.trim()) return;
-    submitFollowUp(card.question);
-  }, [canEdit, card.question, submitFollowUp]);
+    const st = useCanvasStore.getState();
+    const attachedFromPlug = resolveCardAttachedArtifactRefs(card.id, {
+      cards: st.cards,
+      artifactPlugConnections: st.artifactPlugConnections,
+      canvasArtifactNodes: st.canvasArtifactNodes,
+      plugComposerAttachments: st.plugComposerAttachments,
+      sessionArtifacts: st.sessionArtifacts,
+    });
+    submitFollowUp(card.question, {
+      attachedArtifacts:
+        card.attachedArtifacts?.length
+          ? card.attachedArtifacts
+          : attachedFromPlug.length
+            ? attachedFromPlug
+            : undefined,
+    });
+  }, [canEdit, card.question, card.attachedArtifacts, card.id, submitFollowUp]);
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;

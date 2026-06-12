@@ -24,6 +24,7 @@ import {
   getArtifactBounds,
   getDefaultArtifactSize,
   MAX_TIMELINE_ARTIFACT_WIDTH,
+  MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
@@ -144,7 +145,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       const clampOpts =
         artForBounds?.kind === "timeline"
           ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-          : undefined;
+          : artForBounds?.kind === "audio"
+            ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
+            : undefined;
       // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
       const targetW = Math.max(
         contentArea.w + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
@@ -261,7 +264,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
               rs.startH + (sy * screenDy) / vpScale,
               art?.kind === "timeline"
                 ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-                : undefined,
+                : art?.kind === "audio"
+                  ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
+                  : undefined,
             );
       setCanvasArtifactSize(node.id, next, { userSet: true });
       // Keep the corner opposite the grip anchored in place.
@@ -472,7 +477,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
             onArtifactContentAreaSizeChange={
-              art.kind !== "repo" ? handleArtifactContentAreaSize : undefined
+              art.kind !== "repo" && art.kind !== "audio"
+                ? handleArtifactContentAreaSize
+                : undefined
             }
           />
         ) : null}

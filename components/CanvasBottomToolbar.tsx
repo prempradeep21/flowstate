@@ -2,14 +2,15 @@
 
 import { useRef, useState } from "react";
 import {
+  ArtefactIcon,
   BranchForkIcon,
   ChatBubbleIcon,
   PlusIcon,
-  QuestionIcon,
   SettingsIcon,
   ShareIcon,
 } from "@/components/MenuIcons";
 import { CanvasAddMenu } from "@/components/CanvasAddMenu";
+import { CanvasArtifactMenu } from "@/components/CanvasArtifactMenu";
 import { CanvasFontPopover } from "@/components/CanvasFontPopover";
 import { CanvasGifPicker } from "@/components/CanvasGifPicker";
 import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
@@ -32,11 +33,13 @@ export function CanvasBottomToolbar() {
   const fontBtnRef = useRef<HTMLButtonElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
+  const artefactBtnRef = useRef<HTMLButtonElement>(null);
   const toolbarShellRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [fontOpen, setFontOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const canEdit = useCanEditCanvas();
   const {
     activeCanvasRole,
@@ -49,6 +52,7 @@ export function CanvasBottomToolbar() {
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
+  const requestArtifactPlacement = useCanvasStore((s) => s.requestArtifactPlacement);
   const activeCanvasPlacement = useCanvasStore((s) => s.activeCanvasPlacement);
   const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
   const gifPickerOpen = useCanvasStore((s) => s.gifPickerOpen);
@@ -62,6 +66,7 @@ export function CanvasBottomToolbar() {
     setFontOpen(false);
     setSettingsOpen(false);
     setAddMenuOpen(false);
+    setArtifactMenuOpen(false);
     setGifPickerOpen(false);
   };
 
@@ -76,6 +81,9 @@ export function CanvasBottomToolbar() {
     addCanvasAsset(imageAsset);
     requestImagePlacement(imageAsset.id);
   };
+
+  const artefactPlacementActive =
+    activeCanvasPlacement === "question" || activeCanvasPlacement === "artifact";
 
   if (!mounted) {
     return (
@@ -124,6 +132,21 @@ export function CanvasBottomToolbar() {
             setGifPickerOpen(true);
           }}
         />
+        <CanvasArtifactMenu
+          open={artifactMenuOpen}
+          onClose={() => setArtifactMenuOpen(false)}
+          anchorRef={artefactBtnRef}
+          containerRef={toolbarShellRef}
+          disabled={!canEdit}
+          onPick={(pick) => {
+            closeSubpanels();
+            if (pick.kind === "question") {
+              requestCanvasPlacement("question");
+            } else {
+              requestArtifactPlacement(pick);
+            }
+          }}
+        />
         <CanvasGifPicker
           anchorRef={addBtnRef}
           containerRef={toolbarShellRef}
@@ -134,23 +157,29 @@ export function CanvasBottomToolbar() {
           aria-label="Canvas tools"
         >
           <button
+            ref={artefactBtnRef}
             type="button"
             disabled={!canEdit}
             className={`${toolbarBtn} ${
-              activeCanvasPlacement === "question"
+              artifactMenuOpen || artefactPlacementActive
                 ? "bg-canvas-bg text-canvas-ink"
                 : ""
             }`}
-            aria-pressed={activeCanvasPlacement === "question"}
+            aria-pressed={artifactMenuOpen || artefactPlacementActive}
+            aria-expanded={artifactMenuOpen}
+            aria-haspopup="menu"
             onClick={() => {
-              closeSubpanels();
-              requestCanvasPlacement("question");
+              setFontOpen(false);
+              setSettingsOpen(false);
+              setAddMenuOpen(false);
+              setGifPickerOpen(false);
+              setArtifactMenuOpen((v) => !v);
             }}
           >
             <span className="text-canvas-muted">
-              <QuestionIcon />
+              <ArtefactIcon />
             </span>
-            Add question
+            Add artefact
           </button>
           <button
             ref={addBtnRef}
@@ -167,6 +196,7 @@ export function CanvasBottomToolbar() {
               setFontOpen(false);
               setSettingsOpen(false);
               setGifPickerOpen(false);
+              setArtifactMenuOpen(false);
               setAddMenuOpen((v) => !v);
             }}
           >
@@ -221,6 +251,7 @@ export function CanvasBottomToolbar() {
             onClick={() => {
               setSettingsOpen(false);
               setAddMenuOpen(false);
+              setArtifactMenuOpen(false);
               setGifPickerOpen(false);
               setFontOpen((v) => !v);
             }}
@@ -242,6 +273,7 @@ export function CanvasBottomToolbar() {
             onClick={() => {
               setFontOpen(false);
               setAddMenuOpen(false);
+              setArtifactMenuOpen(false);
               setGifPickerOpen(false);
               setSettingsOpen((v) => !v);
             }}

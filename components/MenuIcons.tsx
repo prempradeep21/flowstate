@@ -100,6 +100,49 @@ export function QuestionIcon() {
   );
 }
 
+export function ArtefactIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="2.5"
+        y="2.5"
+        width="5"
+        height="5"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="8.5"
+        y="2.5"
+        width="5"
+        height="5"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="2.5"
+        y="8.5"
+        width="5"
+        height="5"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <rect
+        x="8.5"
+        y="8.5"
+        width="5"
+        height="5"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+    </svg>
+  );
+}
+
 export function ChatBubbleIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

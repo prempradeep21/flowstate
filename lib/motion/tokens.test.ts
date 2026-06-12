@@ -42,9 +42,9 @@ describe("motion variants", () => {
     expect(scales.scalePopStart).toBeLessThan(1);
   });
 
-  it("artifact pop-in runs for 1.5 seconds with bounce keyframes", () => {
-    expect(ARTIFACT_SPAWN_ANIMATION_MS).toBe(1500);
-    expect(artifactPopUpVariants.animate.transition.y.duration).toBe(1.5);
+  it("artifact pop-in runs for 1.2 seconds with bounce keyframes", () => {
+    expect(ARTIFACT_SPAWN_ANIMATION_MS).toBe(1200);
+    expect(artifactPopUpVariants.animate.transition.y.duration).toBe(1.2);
     expect(Array.isArray(artifactPopUpVariants.animate.y)).toBe(true);
     expect(Array.isArray(artifactPopUpVariants.animate.scale)).toBe(true);
   });

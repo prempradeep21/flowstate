@@ -20,7 +20,8 @@ export type SidebarArtifactCategory =
   | "repo"
   | "embed"
   | "timeline"
-  | "chart";
+  | "chart"
+  | "audio";
 
 export type SidebarDragPayload =
   | {

@@ -331,8 +331,12 @@ export async function POST(req: Request) {
             system: systemPrompt,
             messages,
             tools: allTools,
-            ...((todoIntent || calendarIntent || timelineIntent) &&
-            !editingArtifact &&
+            ...((todoIntent || calendarIntent || timelineIntent || chartIntent) &&
+            (!editingArtifact ||
+              (timelineIntent && editingPayload?.type === "timeline") ||
+              (todoIntent && editingPayload?.type === "todo") ||
+              (calendarIntent && editingPayload?.type === "calendar") ||
+              (chartIntent && editingPayload?.type === "chart")) &&
             !artifactEmitted &&
             turn === 0
               ? {

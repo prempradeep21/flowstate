@@ -27,6 +27,7 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   embed: { span: 1, aspectClass: null, minHeight: 100, maxHeight: 140 },
   timeline: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
   chart: { span: 2, aspectClass: null, minHeight: 200, maxHeight: 280 },
+  audio: { span: 1, aspectClass: null, minHeight: 80, maxHeight: 120 },
 };
 
 /** Wide map every 3rd map (1-indexed: 3rd, 6th, …). */

@@ -1,0 +1,83 @@
+---
+description: Waveform input artifact — formats, size limits, and time-proportional layout
+globs:
+  - lib/audioArtifact.ts
+  - lib/audioWaveform.ts
+  - lib/audioFileImport.ts
+  - lib/canvasNodeBounds.ts
+  - lib/attachments.ts
+  - components/artifacts/AudioArtifactContent.tsx
+  - components/Canvas.tsx
+  - lib/store.ts
+---
+
+# Waveform input artifact rules
+
+User-dropped audio files become **input artifacts** (`type: "audio"`) with title + time-proportional waveform chrome — not generic canvas assets.
+
+## Allowed formats
+
+| Include | MIME / extensions |
+|---------|-------------------|
+| MP3 | `audio/mpeg`, `.mp3` |
+| WAV | `audio/wav`, `audio/wave`, `audio/x-wav`, `.wav` |
+| M4A / AAC | `audio/mp4`, `audio/x-m4a`, `audio/aac`, `.m4a`, `.aac` |
+| OGG | `audio/ogg`, `application/ogg`, `.ogg` |
+| WebM audio | `audio/webm`, `.webm` (not `video/webm`) |
+
+## Excluded formats
+
+| Exclude | Examples | Reason |
+|---------|----------|--------|
+| Lossless heavy | FLAC, AIFF | Large payloads |
+| Video | `video/*`, video `.mp4` | Out of scope |
+| Exotic | MIDI, WMA | Unsupported |
+
+Enforced in [`lib/audioArtifact.ts`](lib/audioArtifact.ts) (`isAudioFile`) and [`lib/attachments.ts`](lib/attachments.ts) (`validateAudioFile`).
+
+## Size limit
+
+| Constant | Value |
+|----------|-------|
+| `AUDIO_ASSET_MAX_BYTES` | **10 MB** (matches Supabase `asset-files` bucket) |
+
+Reject before `decodeAudioData` to avoid memory spikes.
+
+## Time-proportional waveform (strict)
+
+Constants live in [`lib/audioArtifact.ts`](lib/audioArtifact.ts):
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `WAVEFORM_PX_PER_SECOND` | **4** | Content width per second of audio |
+| `WAVEFORM_PEAK_BINS` | **256** | Stored peak samples |
+| `MAX_AUDIO_ARTIFACT_WIDTH` | **2800** | Max canvas node width |
+| `MIN_WAVEFORM_CONTENT_WIDTH_PX` | **240** | Minimum waveform content width (60s floor) |
+| `AUDIO_ARTIFACT_BODY_MIN_HEIGHT` | **160** | Minimum body height in fill layout |
+| `AUDIO_ARTIFACT_HEIGHT` | **318** | Default node height (chrome + controls + body) |
+
+### Layout rules
+
+1. **Content width** = `durationSec × WAVEFORM_PX_PER_SECOND` (via `waveformContentWidthPx`).
+2. **Node spawn width** = content width + 32px horizontal padding (via `audioArtifactWidthForDuration` / `getDefaultArtifactSize("audio", payload)`).
+3. Adjacent clips must reflect **duration ratio** (e.g. 1 min vs 5 min → ~1:5 width).
+4. Waveform SVG/bar width must **not stretch** beyond proportional width — no `width: 100%` on the waveform body in canvas mode.
+5. **Do not** auto-resize audio nodes from content measurement — `CanvasArtifactNode` skips `onArtifactContentAreaSizeChange` for `kind === "audio"` (same as repo).
+6. **Apply content floors in fill mode** — set `minWidth` / `minHeight` on the artifact body via `audioArtifactContentFloors()` (registered in `getArtifactContentFloors()` in `lib/canvasNodeBounds.ts`). Same pattern as table/timeline.
+
+## Visual
+
+- Standard artifact chrome: hover reveal, plugs, selection gating (`CANVAS_CONTENT_INERT_CLASS`).
+- Body: title row + waveform in a surfaced container (`artifact-canvas-surface-fill`).
+- Playback/seek only when the canvas node is selected (`canvasContentInteractive`).
+
+## Touch points
+
+When changing audio artifact behavior, update:
+
+- `lib/audioArtifact.ts` — constants, width math, payload normalization
+- `lib/audioWaveform.ts` — peak extraction
+- `lib/canvasNodeBounds.ts` — `getDefaultArtifactSize` for `audio`
+- `components/artifacts/AudioArtifactContent.tsx` — waveform render width
+- `components/Canvas.tsx` — drop → `createAudioArtifactFromFile`
+- `lib/store.ts` — upload + spawn pipeline

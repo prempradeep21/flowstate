@@ -112,6 +112,13 @@ import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
 import {
+  createManualArtifactPayload,
+  manualArtifactSourceCardId,
+  type ManualArtifactType,
+} from "@/lib/manualArtifactDefaults";
+import type { ManualArtifactMenuPick } from "@/lib/manualArtifactMenu";
+import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
+import {
   createEmptyTodoPayload,
   MANUAL_TODO_SOURCE_CARD_ID,
 } from "@/lib/todoArtifact";
@@ -139,6 +146,17 @@ import { matchEmbedProviderId } from "@/lib/embed/registry";
 import type { EmbedResolveResult } from "@/lib/embed/types";
 import type { RepoExplorerData } from "@/lib/github/types";
 import { domainDisplayLabel } from "@/lib/urlDetection";
+import {
+  createAudioPayload,
+  getDefaultAudioArtifactSize,
+  MANUAL_AUDIO_SOURCE_CARD_ID,
+} from "@/lib/audioArtifact";
+import { extractWaveformPeaks } from "@/lib/audioWaveform";
+import {
+  uploadAudioFile,
+  type AssetUploadContext,
+  type AssetUploadError,
+} from "@/lib/attachments";
 import {
   graphSnapshotFromState,
   GraphSnapshot,
@@ -439,7 +457,7 @@ export interface CanvasAssetNode {
 
 export const CANVAS_TEXT_LABEL_FONT_SIZE = 40;
 
-export type CanvasPlacementTool = "question" | "text";
+export type CanvasPlacementTool = "question" | "text" | "artifact";
 
 export interface CanvasTextLabel {
   id: string;
@@ -532,6 +550,12 @@ interface CanvasState {
   canvasPlacementRequest: CanvasPlacementTool | null;
   activeCanvasPlacement: CanvasPlacementTool | null;
   requestCanvasPlacement: (tool: CanvasPlacementTool) => void;
+  artifactPlacementRequest: ManualArtifactMenuPick | null;
+  requestArtifactPlacement: (pick: ManualArtifactMenuPick) => void;
+  createManualArtifact: (
+    artifactType: ManualArtifactType,
+    opts?: { position?: { x: number; y: number } },
+  ) => { artifactId: string; versionId: string };
 
   sessionUsage: { inputTokens: number; outputTokens: number };
   addUsage: (input: number, output: number) => void;
@@ -749,6 +773,18 @@ interface CanvasState {
       recordUndo?: boolean;
     },
   ) => { artifactId: string; versionId: string };
+  createAudioArtifactFromFile: (
+    file: File,
+    opts?: {
+      uploadContext: AssetUploadContext | null;
+      position?: { x: number; y: number };
+      index?: number;
+      recordUndo?: boolean;
+    },
+  ) => Promise<
+    | { artifactId: string; versionId: string }
+    | { error: AssetUploadError }
+  >;
   createWebsiteArtifactFromUrl: (
     url: string,
     position?: { x: number; y: number },
@@ -900,6 +936,9 @@ interface CanvasState {
   setCanvasReadOnly: (readOnly: boolean) => void;
   collaborationHasEdits: boolean;
   setCollaborationHasEdits: (value: boolean) => void;
+  /** Signed-in user performing local edits — used to attribute new artifacts/versions. */
+  collaborationActorUserId: string | null;
+  setCollaborationActorUserId: (userId: string | null) => void;
   appendContributorToCard: (cardId: string, userId: string) => void;
   appendContributorToArtifact: (artifactId: string, userId: string) => void;
   stampContributorOnActiveEdits: (userId: string) => void;
@@ -1619,6 +1658,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeCanvasPlacement: null,
   requestCanvasPlacement: (tool) =>
     set({ canvasPlacementRequest: tool, viewMode: "canvas" }),
+  artifactPlacementRequest: null,
+  requestArtifactPlacement: (pick) =>
+    set({ artifactPlacementRequest: pick, viewMode: "canvas" }),
   setViewMode: (mode) =>
     set((state) => {
       if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
@@ -2519,6 +2561,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   createArtifactVersion: (artifactId, payload, cardId) => {
     let result = { artifactId: "", versionId: "" };
     set((state) => {
+      const createdByUserId =
+        state.collaborationActorUserId ??
+        state.cards[cardId]?.contributorIds?.[0];
       const normalized = normalizePayloadForRegistry(payload);
       const newKind = payloadToArtifactKind(normalized);
       if (artifactId && state.sessionArtifacts[artifactId]) {
@@ -2528,9 +2573,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             existing,
             payload,
             cardId,
+            createdByUserId,
           );
           result = { artifactId: artifact.id, versionId };
           return {
+            collaborationHasEdits: createdByUserId
+              ? true
+              : state.collaborationHasEdits,
             sessionArtifacts: {
               ...state.sessionArtifacts,
               [artifact.id]: artifact,
@@ -2538,12 +2587,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           };
         }
       }
-      const created = createSessionArtifactFromPayload(payload, cardId);
+      const created = createSessionArtifactFromPayload(
+        payload,
+        cardId,
+        createdByUserId,
+      );
       result = {
         artifactId: created.id,
         versionId: created.latestVersionId,
       };
       return {
+        collaborationHasEdits: createdByUserId
+          ? true
+          : state.collaborationHasEdits,
         sessionArtifacts: {
           ...state.sessionArtifacts,
           [created.id]: created,
@@ -2555,13 +2611,39 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   createBlankTodoArtifact: (title) => {
     const payload = createEmptyTodoPayload(title);
+    get().recordUndo();
     const { artifactId, versionId } = get().createArtifactVersion(
       null,
       payload,
       MANUAL_TODO_SOURCE_CARD_ID,
     );
     get().openSessionArtifact(artifactId, versionId);
-    get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
+    get().spawnCanvasArtifact(artifactId, versionId, {
+      focus: true,
+      payload,
+      size: getDefaultArtifactSize("todo", payload),
+    });
+    return { artifactId, versionId };
+  },
+
+  createManualArtifact: (artifactType, opts) => {
+    get().recordUndo();
+    const payload = createManualArtifactPayload(artifactType);
+    const sourceCardId = manualArtifactSourceCardId(artifactType);
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      sourceCardId,
+    );
+    const kind = payloadToArtifactKind(payload);
+    const size = getDefaultArtifactSize(kind, payload);
+    get().spawnCanvasArtifact(artifactId, versionId, {
+      position: opts?.position,
+      focus: true,
+      payload,
+      size,
+    });
+    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2597,6 +2679,67 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
+    return { artifactId, versionId };
+  },
+
+  createAudioArtifactFromFile: async (file, opts) => {
+    const uploadResult = await uploadAudioFile(file, opts?.uploadContext ?? null);
+    if ("error" in uploadResult) {
+      return { error: uploadResult.error };
+    }
+
+    let durationMs: number;
+    let peaks: number[];
+    try {
+      const waveform = await extractWaveformPeaks(file);
+      durationMs = waveform.durationMs;
+      peaks = waveform.peaks;
+    } catch {
+      return {
+        error: {
+          fileName: file.name,
+          code: "audio-decode-failed",
+          message: `Could not decode ${file.name}. Try a different audio format.`,
+        },
+      };
+    }
+
+    const payload = createAudioPayload({
+      fileName: uploadResult.upload.fileName,
+      mimeType: uploadResult.upload.mimeType,
+      storagePath: uploadResult.upload.storagePath,
+      publicUrl: uploadResult.upload.publicUrl,
+      durationMs,
+      peaks,
+    });
+
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_AUDIO_SOURCE_CARD_ID,
+    );
+
+    const size = getDefaultAudioArtifactSize(payload);
+    const index = opts?.index ?? 0;
+    const offset = index * 28;
+    const spawnPosition = opts?.position
+      ? {
+          x: opts.position.x - size.w / 2 + offset,
+          y: opts.position.y - size.h / 2 + offset,
+        }
+      : undefined;
+
+    get().spawnCanvasArtifact(artifactId, versionId, {
+      position: spawnPosition,
+      focus: index === 0,
+      payload,
+      size,
+    });
+    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3429,8 +3572,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       childId = id;
       const tuning = TUNING;
       const pos = computeFollowUpPositionFromDom(parentId, parent, tuning);
+      const plugAttached = resolveCardAttachedArtifactRefs(parentId, {
+        cards: state.cards,
+        artifactPlugConnections: state.artifactPlugConnections,
+        canvasArtifactNodes: state.canvasArtifactNodes,
+        plugComposerAttachments: state.plugComposerAttachments,
+        sessionArtifacts: state.sessionArtifacts,
+      });
+      const attachedArtifacts =
+        options?.attachedArtifacts?.length
+          ? options.attachedArtifacts
+          : parent.attachedArtifacts?.length
+            ? parent.attachedArtifacts
+            : plugAttached.length
+              ? plugAttached
+              : undefined;
       const inheritedArtifactId =
-        options?.attachedArtifacts?.[0]?.artifactId ??
+        attachedArtifacts?.[0]?.artifactId ??
         resolveInheritedArtifactIdForParent(
           parentId,
           state.cards,
@@ -3448,7 +3606,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,
         parentConversationId: parentId,
-        attachedArtifacts: options?.attachedArtifacts,
+        attachedArtifacts,
         attachedAssets: options?.attachedAssets,
         attachedSkills: options?.attachedSkills,
         inheritedArtifactId,
@@ -4098,11 +4256,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
 
   collaborationHasEdits: false,
+  collaborationActorUserId: null,
   canvasReadOnly: false,
 
   setCanvasReadOnly: (readOnly) => set({ canvasReadOnly: readOnly }),
 
   setCollaborationHasEdits: (value) => set({ collaborationHasEdits: value }),
+
+  setCollaborationActorUserId: (userId) =>
+    set({ collaborationActorUserId: userId }),
 
   appendContributorToCard: (cardId, userId) =>
     set((state) => {
@@ -4126,15 +4288,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const artifact = state.sessionArtifacts[artifactId];
       if (!artifact) return state;
-      const versions = artifact.versions.map((v) => {
-        if (v.createdByUserId) return v;
-        return { ...v, createdByUserId: userId };
-      });
-      const latest = versions.find((v) => v.id === artifact.latestVersionId);
-      if (latest && !latest.createdByUserId) {
-        const idx = versions.findIndex((v) => v.id === latest.id);
-        versions[idx] = { ...latest, createdByUserId: userId };
-      }
+      const latest = getLatestVersion(artifact);
+      if (!latest || latest.createdByUserId) return state;
+      const versions = artifact.versions.map((v) =>
+        v.id === latest.id ? { ...v, createdByUserId: userId } : v,
+      );
       return {
         collaborationHasEdits: true,
         sessionArtifacts: {
@@ -4230,6 +4388,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       skillPlugConnections: [],
       canvasPlacementRequest: null,
       activeCanvasPlacement: null,
+      artifactPlacementRequest: null,
       viewMode: "canvas",
       collaborationHasEdits: false,
       canvasReadOnly: false,
@@ -4368,6 +4527,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         skillPlugConnections: [],
         canvasPlacementRequest: null,
         activeCanvasPlacement: null,
+        artifactPlacementRequest: null,
         collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,
       };
     });

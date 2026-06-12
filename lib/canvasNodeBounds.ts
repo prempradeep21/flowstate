@@ -9,6 +9,13 @@ import {
   TIMELINE_ARTIFACT_HEIGHT,
   TIMELINE_ARTIFACT_WIDTH,
 } from "@/lib/timelineArtifact";
+import {
+  AUDIO_ARTIFACT_BODY_MIN_HEIGHT,
+  AUDIO_ARTIFACT_HEIGHT,
+  audioArtifactContentFloors,
+  getDefaultAudioArtifactSize,
+  MAX_AUDIO_ARTIFACT_WIDTH,
+} from "@/lib/audioArtifact";
 import { streetViewArtifactHeightForWidth, STREET_VIEW_NODE_CHROME_PX } from "@/lib/streetViewArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
@@ -26,6 +33,46 @@ export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
 export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 32;
 export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
 export { TIMELINE_ARTIFACT_HEIGHT, TIMELINE_ARTIFACT_WIDTH, MAX_TIMELINE_ARTIFACT_WIDTH };
+export {
+  AUDIO_ARTIFACT_BODY_MIN_HEIGHT,
+  AUDIO_ARTIFACT_HEIGHT,
+  MAX_AUDIO_ARTIFACT_WIDTH,
+};
+
+export interface ArtifactContentFloors {
+  minWidth: number;
+  minHeight: number;
+}
+
+/**
+ * Minimum content width/height for canvas fill-mode artifacts.
+ * Apply inline on the artifact body so flex `min-h-0` stages do not collapse.
+ * New fill-mode artifact kinds should register floors here (see table/timeline/audio).
+ */
+export function getArtifactContentFloors(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): ArtifactContentFloors | null {
+  switch (kind) {
+    case "table":
+      return {
+        minWidth: TABLE_ARTIFACT_STAGE_WIDTH,
+        minHeight: TABLE_ARTIFACT_BODY_MIN_HEIGHT,
+      };
+    case "timeline":
+      return {
+        minWidth: TIMELINE_ARTIFACT_STAGE_WIDTH,
+        minHeight: TIMELINE_ARTIFACT_BODY_MIN_HEIGHT,
+      };
+    case "audio":
+      if (payload?.type === "audio") {
+        return audioArtifactContentFloors(payload.data.durationMs);
+      }
+      return audioArtifactContentFloors(0);
+    default:
+      return null;
+  }
+}
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
@@ -181,6 +228,11 @@ export function getDefaultArtifactSize(
       return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
     case "map":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MAP_ARTIFACT_HEIGHT };
+    case "audio":
+      if (payload?.type === "audio") {
+        return getDefaultAudioArtifactSize(payload);
+      }
+      return { w: MIN_ARTIFACT_WIDTH, h: AUDIO_ARTIFACT_HEIGHT };
     default:
       return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   }

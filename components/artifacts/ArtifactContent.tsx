@@ -16,6 +16,7 @@ import { GoogleWorkspaceArtifactContent } from "@/components/artifacts/GoogleWor
 import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactContent";
 import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
 import { TimelineArtifactContent } from "@/components/artifacts/TimelineArtifactContent";
+import { AudioArtifactContent } from "@/components/artifacts/AudioArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -301,6 +302,20 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "audio":
+      if (payload.type === "audio") {
+        return (
+          <AudioArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
+            artifactId={artifactId}
+            showControls={!isSidebar}
           />
         );
       }

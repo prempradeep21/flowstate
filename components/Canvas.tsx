@@ -34,13 +34,22 @@ import {
   uploadAssetFiles,
   type AssetUploadError,
 } from "@/lib/attachments";
+import { isAudioFile } from "@/lib/audioArtifact";
+import { getAudioFilesFromDataTransfer } from "@/lib/audioFileImport";
 import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
   useCanvasStore,
   type SpawnCanvasGifInput,
 } from "@/lib/store";
-import { getArtifactBounds } from "@/lib/canvasNodeBounds";
+import { getArtifactBounds, getDefaultArtifactSize } from "@/lib/canvasNodeBounds";
+import { payloadToArtifactKind } from "@/lib/artifactTypes";
+import {
+  createManualArtifactPayload,
+  type ManualArtifactType,
+} from "@/lib/manualArtifactDefaults";
+import { MANUAL_ARTIFACT_MENU_ITEMS } from "@/lib/manualArtifactMenu";
+import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 import {
@@ -71,6 +80,7 @@ import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import {
   getImageFilesFromDataTransfer,
   isExternalImageDrag,
+  isImageMime,
   resolveImageFileFromDataTransfer,
 } from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
@@ -120,6 +130,10 @@ interface ImagePlacementState extends PlacementState {
 
 interface GifPlacementState extends SpawnCanvasGifInput, PlacementState {}
 
+interface ArtifactPlacementState extends PlacementState {
+  artifactType: ManualArtifactType;
+}
+
 export function Canvas({
   containerRef: externalContainerRef,
 }: {
@@ -160,8 +174,13 @@ export function Canvas({
   const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
   const imagePlacementAssetId = useCanvasStore((s) => s.imagePlacementAssetId);
   const gifPlacementRequest = useCanvasStore((s) => s.gifPlacementRequest);
+  const artifactPlacementRequest = useCanvasStore((s) => s.artifactPlacementRequest);
+  const createManualArtifact = useCanvasStore((s) => s.createManualArtifact);
   const createVideoArtifactFromUrl = useCanvasStore(
     (s) => s.createVideoArtifactFromUrl,
+  );
+  const createAudioArtifactFromFile = useCanvasStore(
+    (s) => s.createAudioArtifactFromFile,
   );
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const groups = useCanvasStore((s) => s.groups);
@@ -275,12 +294,15 @@ export function Canvas({
   const [gifPlacement, setGifPlacement] = useState<GifPlacementState | null>(
     null,
   );
+  const [artifactPlacement, setArtifactPlacement] =
+    useState<ArtifactPlacementState | null>(null);
   const [autoEditLabelId, setAutoEditLabelId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
   const textPlacementRef = useRef<PlacementState | null>(null);
   const imagePlacementRef = useRef<ImagePlacementState | null>(null);
   const gifPlacementRef = useRef<GifPlacementState | null>(null);
+  const artifactPlacementRef = useRef<ArtifactPlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
   }, [placement]);
@@ -293,6 +315,9 @@ export function Canvas({
   useEffect(() => {
     gifPlacementRef.current = gifPlacement;
   }, [gifPlacement]);
+  useEffect(() => {
+    artifactPlacementRef.current = artifactPlacement;
+  }, [artifactPlacement]);
 
   const canvasPlacementRequest = useCanvasStore((s) => s.canvasPlacementRequest);
 
@@ -311,6 +336,7 @@ export function Canvas({
     setContextMenu(null);
     setImagePlacement(null);
     setGifPlacement(null);
+    setArtifactPlacement(null);
     if (tool === "question") {
       setTextPlacement(null);
       setPlacement(pos);
@@ -318,6 +344,26 @@ export function Canvas({
       setPlacement(null);
       setTextPlacement(pos);
     }
+  };
+
+  const beginArtifactPlacementAtCursor = (artifactType: ManualArtifactType) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const pos = placementWorld(world);
+    setContextMenu(null);
+    setPlacement(null);
+    setTextPlacement(null);
+    setImagePlacement(null);
+    setGifPlacement(null);
+    setArtifactPlacement({ artifactType, ...pos });
   };
 
   // Hold-Z pie menu — north fires question placement, west fires text
@@ -332,6 +378,7 @@ export function Canvas({
           textPlacementRef.current ||
           imagePlacementRef.current ||
           gifPlacementRef.current ||
+          artifactPlacementRef.current ||
           marqueeState.current ||
           panState.current ||
           useCanvasStore.getState().plugDrag,
@@ -363,6 +410,7 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setGifPlacement(null);
+    setArtifactPlacement(null);
     setImagePlacement({
       assetId: asset.id,
       previewUrl: asset.publicUrl,
@@ -387,13 +435,17 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setImagePlacement(null);
+    setArtifactPlacement(null);
     setGifPlacement({ ...input, ...pos });
   };
 
   useEffect(() => {
     if (!canvasPlacementRequest) return;
-    beginPlacementAtCursor(canvasPlacementRequest);
+    const tool = canvasPlacementRequest;
     useCanvasStore.setState({ canvasPlacementRequest: null });
+    if (tool === "question" || tool === "text") {
+      beginPlacementAtCursor(tool);
+    }
   }, [canvasPlacementRequest]);
 
   useEffect(() => {
@@ -412,15 +464,28 @@ export function Canvas({
   }, [gifPlacementRequest]);
 
   useEffect(() => {
+    if (!artifactPlacementRequest) return;
+    const pick = artifactPlacementRequest;
+    useCanvasStore.setState({ artifactPlacementRequest: null });
+    if (pick.kind === "question") {
+      beginPlacementAtCursor("question");
+    } else {
+      beginArtifactPlacementAtCursor(pick.artifactType);
+    }
+  }, [artifactPlacementRequest]);
+
+  useEffect(() => {
     const mode = placement
       ? "question"
-      : textPlacement || imagePlacement || gifPlacement
-        ? "text"
-        : null;
+      : artifactPlacement
+        ? "artifact"
+        : textPlacement || imagePlacement || gifPlacement
+          ? "text"
+          : null;
     if (useCanvasStore.getState().activeCanvasPlacement !== mode) {
       useCanvasStore.setState({ activeCanvasPlacement: mode });
     }
-  }, [placement, textPlacement, imagePlacement, gifPlacement]);
+  }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -669,6 +734,14 @@ export function Canvas({
           );
         }
       }
+      if (artifactPlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) {
+          setArtifactPlacement((prev) =>
+            prev ? { ...prev, ...placementWorld(world) } : prev,
+          );
+        }
+      }
     };
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
@@ -749,6 +822,10 @@ export function Canvas({
           e.preventDefault();
           setGifPlacement(null);
         }
+        if (artifactPlacementRef.current) {
+          e.preventDefault();
+          setArtifactPlacement(null);
+        }
         setContextMenu(null);
         useCanvasStore.getState().clearSelection();
         useCanvasStore.getState().selectCanvasTextLabel(null);
@@ -797,7 +874,8 @@ export function Canvas({
         placementRef.current ||
         textPlacementRef.current ||
         imagePlacementRef.current ||
-        gifPlacementRef.current
+        gifPlacementRef.current ||
+        artifactPlacementRef.current
       ) {
         return;
       }
@@ -819,6 +897,7 @@ export function Canvas({
       setTextPlacement(null);
       setImagePlacement(null);
       setGifPlacement(null);
+      setArtifactPlacement(null);
       target?.blur();
       setPlacement(placementWorld(world));
     };
@@ -847,7 +926,8 @@ export function Canvas({
         placementRef.current ||
         textPlacementRef.current ||
         imagePlacementRef.current ||
-        gifPlacementRef.current
+        gifPlacementRef.current ||
+        artifactPlacementRef.current
       ) {
         return;
       }
@@ -856,6 +936,7 @@ export function Canvas({
       e.stopPropagation();
       setContextMenu(null);
       setPlacement(null);
+      setArtifactPlacement(null);
       target?.blur();
       beginPlacementAtCursor("text");
     };
@@ -913,6 +994,22 @@ export function Canvas({
         return;
       }
 
+      const artifactPos = artifactPlacementRef.current;
+      if (artifactPos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const payload = createManualArtifactPayload(artifactPos.artifactType);
+        const kind = payloadToArtifactKind(payload);
+        const { w, h } = getDefaultArtifactSize(kind, payload);
+        const world =
+          computeWorldFromClient(e.clientX, e.clientY) ?? artifactPos;
+        createManualArtifact(artifactPos.artifactType, {
+          position: { x: world.x - w / 2, y: world.y - h / 2 },
+        });
+        setArtifactPlacement(null);
+        return;
+      }
+
       const textPos = textPlacementRef.current;
       if (textPos) {
         e.preventDefault();
@@ -942,7 +1039,7 @@ export function Canvas({
     window.addEventListener("pointerdown", onPointerDown, true);
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
-  }, [createRootCard, spawnCanvasAsset, spawnCanvasGif, spawnCanvasTextLabel]);
+  }, [createRootCard, createManualArtifact, spawnCanvasAsset, spawnCanvasGif, spawnCanvasTextLabel]);
 
   const placeCanvasAsset = (
     assetId: string,
@@ -981,6 +1078,38 @@ export function Canvas({
       setAssetDropErrors(result.errors);
     }
     return result.assets.length > 0;
+  };
+
+  const importAudioAtWorld = async (
+    files: File[],
+    world: { x: number; y: number },
+  ) => {
+    if (!files.length) return false;
+    const uploadContext =
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null;
+    const errors: AssetUploadError[] = [];
+    let created = 0;
+
+    for (let index = 0; index < files.length; index++) {
+      const result = await createAudioArtifactFromFile(files[index]!, {
+        uploadContext,
+        position: world,
+        index,
+        recordUndo: index === 0,
+      });
+      if ("error" in result) {
+        errors.push(result.error);
+      } else {
+        created++;
+      }
+    }
+
+    if (errors.length > 0) {
+      setAssetDropErrors(errors);
+    }
+    return created > 0;
   };
 
   // Paste images or URLs on canvas at cursor.
@@ -1059,9 +1188,17 @@ export function Canvas({
       return;
     }
 
-    if (e.dataTransfer.files.length > 0) {
+    const audioFiles = getAudioFilesFromDataTransfer(e.dataTransfer);
+    if (audioFiles.length > 0) {
+      await importAudioAtWorld(audioFiles, world);
+    }
+
+    const otherFiles = Array.from(e.dataTransfer.files).filter(
+      (file) => !isAudioFile(file) && !isImageMime(file.type),
+    );
+    if (otherFiles.length > 0) {
       const result = await uploadAssetFiles(
-        e.dataTransfer.files,
+        otherFiles,
         user && activeCanvasId
           ? { userId: user.id, canvasId: activeCanvasId }
           : null,
@@ -1070,7 +1207,14 @@ export function Canvas({
         addCanvasAsset(asset);
         placeCanvasAsset(asset.id, world, index);
       });
-      setAssetDropErrors(result.errors);
+      if (result.errors.length > 0) {
+        setAssetDropErrors((prev) => [...prev, ...result.errors]);
+      }
+      return;
+    }
+
+    if (audioFiles.length > 0) {
+      return;
     }
   };
 
@@ -1188,7 +1332,8 @@ export function Canvas({
       placementRef.current ||
       textPlacementRef.current ||
       imagePlacementRef.current ||
-      gifPlacementRef.current
+      gifPlacementRef.current ||
+      artifactPlacementRef.current
     ) {
       return;
     }
@@ -1274,7 +1419,8 @@ export function Canvas({
       placementRef.current ||
       textPlacementRef.current ||
       imagePlacementRef.current ||
-      gifPlacementRef.current
+      gifPlacementRef.current ||
+      artifactPlacementRef.current
     ) {
       return;
     }
@@ -1382,7 +1528,11 @@ export function Canvas({
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
       className={`absolute inset-0 overflow-hidden bg-canvas-bg font-sans select-none touch-none ${
-        placement || textPlacement || imagePlacement || gifPlacement
+        placement ||
+        textPlacement ||
+        imagePlacement ||
+        gifPlacement ||
+        artifactPlacement
           ? "cursor-crosshair"
           : spaceHeld
             ? "cursor-grab active:cursor-grabbing"
@@ -1466,12 +1616,14 @@ export function Canvas({
         {textPlacement && <GhostTextLabel world={textPlacement} />}
         {imagePlacement && <GhostImage world={imagePlacement} />}
         {gifPlacement && <GhostGif world={gifPlacement} />}
+        {artifactPlacement && <GhostArtifact world={artifactPlacement} />}
       </CanvasViewport>
       {showLanding &&
         !placement &&
         !textPlacement &&
         !imagePlacement &&
         !gifPlacement &&
+        !artifactPlacement &&
         landingCardId && <CanvasLandingOverlay cardId={landingCardId} />}
       <SelectionOverlay rect={marqueeRect} />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
@@ -1575,6 +1727,36 @@ function GhostGif({ world }: { world: GifPlacementState }) {
         draggable={false}
         className="h-full w-full object-contain"
       />
+    </div>
+  );
+}
+
+function GhostArtifact({ world }: { world: ArtifactPlacementState }) {
+  const payload = createManualArtifactPayload(world.artifactType);
+  const kind = payloadToArtifactKind(payload);
+  const { w, h } = getDefaultArtifactSize(kind, payload);
+  const label =
+    MANUAL_ARTIFACT_MENU_ITEMS.find(
+      (entry) =>
+        entry.pick.kind === "artifact" &&
+        entry.pick.artifactType === world.artifactType,
+    )?.label ?? "Artefact";
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 opacity-60 shadow-card"
+      style={{
+        left: world.x - w / 2,
+        top: world.y - h / 2,
+        width: w,
+        height: h,
+      }}
+    >
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-canvas-muted">
+        <ArtifactTypeIcon kind={kind} className="h-6 w-6" />
+        <span className="text-center text-canvas-body-sm font-medium">{label}</span>
+      </div>
     </div>
   );
 }

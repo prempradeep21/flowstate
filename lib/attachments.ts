@@ -9,6 +9,10 @@ import {
 } from "@/lib/officeAssetKinds";
 import { createClient } from "@/lib/supabase/client";
 import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
+import {
+  AUDIO_ASSET_MAX_BYTES,
+  isAudioFile,
+} from "@/lib/audioArtifact";
 
 export type UploadCategory = "images" | "documents" | "code";
 
@@ -98,7 +102,8 @@ export type AssetUploadErrorCode =
   | "image-read-failed"
   | "upload-failed"
   | "missing-context"
-  | "read-only-local";
+  | "read-only-local"
+  | "audio-decode-failed";
 
 export interface AssetUploadError {
   fileName?: string;
@@ -147,6 +152,18 @@ function mimeFromExtension(ext: string): string {
       return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     case "odp":
       return "application/vnd.oasis.opendocument.presentation";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "m4a":
+      return "audio/mp4";
+    case "aac":
+      return "audio/aac";
+    case "ogg":
+      return "audio/ogg";
+    case "webm":
+      return "audio/webm";
     default:
       return "text/plain";
   }
@@ -269,6 +286,108 @@ function validateAssetFile(file: File): { kind: CanvasAssetKind } | AssetUploadE
     };
   }
   return { kind };
+}
+
+export function validateAudioFile(file: File): true | AssetUploadError {
+  if (!isAudioFile(file)) {
+    return {
+      fileName: file.name,
+      code: "unsupported-type",
+      message: `${file.name} is not a supported audio file (MP3, WAV, M4A, AAC, OGG, or WebM audio).`,
+    };
+  }
+  if (file.size > AUDIO_ASSET_MAX_BYTES) {
+    return {
+      fileName: file.name,
+      code: "file-too-large",
+      message: `${file.name} is ${formatBytes(file.size)}; the limit is ${formatBytes(AUDIO_ASSET_MAX_BYTES)}.`,
+    };
+  }
+  return true;
+}
+
+export interface AudioUploadResult {
+  fileName: string;
+  mimeType: string;
+  storagePath: string;
+  publicUrl: string;
+  sizeBytes: number;
+}
+
+export async function uploadAudioFile(
+  file: File,
+  context: AssetUploadContext | null,
+): Promise<{ upload: AudioUploadResult } | { error: AssetUploadError }> {
+  if (!context?.canvasId || !context.userId) {
+    return {
+      error: {
+        code: "missing-context",
+        message: "Sign in and open a canvas before uploading audio.",
+      },
+    };
+  }
+
+  if (isLocalReadOnlyClient()) {
+    return {
+      error: {
+        code: "read-only-local",
+        message:
+          "File uploads are disabled in local session mode. Changes reset on reload.",
+      },
+    };
+  }
+
+  const validation = validateAudioFile(file);
+  if (validation !== true) {
+    return { error: validation };
+  }
+
+  const supabase = createClient();
+  const storagePath = `${context.userId}/${context.canvasId}/${safeStorageName(file.name)}`;
+  const contentType =
+    file.type || mimeFromExtension(extensionForName(file.name));
+
+  const { error } = await supabase.storage
+    .from(ASSET_STORAGE_BUCKET)
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      contentType,
+      upsert: false,
+    });
+
+  if (error) {
+    return {
+      error: {
+        fileName: file.name,
+        code: "upload-failed",
+        message: `Could not upload ${file.name}: ${error.message}`,
+      },
+    };
+  }
+
+  const { data: signed, error: signedError } = await supabase.storage
+    .from(ASSET_STORAGE_BUCKET)
+    .createSignedUrl(storagePath, ASSET_SIGNED_URL_TTL_SECONDS);
+
+  if (signedError || !signed?.signedUrl) {
+    return {
+      error: {
+        fileName: file.name,
+        code: "upload-failed",
+        message: `Uploaded ${file.name}, but could not create a preview URL.`,
+      },
+    };
+  }
+
+  return {
+    upload: {
+      fileName: file.name,
+      mimeType: contentType,
+      storagePath,
+      publicUrl: signed.signedUrl,
+      sizeBytes: file.size,
+    },
+  };
 }
 
 function getImageDimensions(file: File): Promise<{
