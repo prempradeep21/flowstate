@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
+import { useArtifactExportOptional } from "@/components/artifacts/ArtifactExportContext";
 import {
   useArtifactCanvasSizeReport,
   type ArtifactContentAreaSize,
@@ -22,6 +23,7 @@ export function ArtifactContentStage({
   fill = false,
   controls,
   showControls = true,
+  showFontControls = true,
   artifactId,
 }: {
   children: ReactNode;
@@ -32,13 +34,26 @@ export function ArtifactContentStage({
   controls?: ReactNode;
   /** When false, hides the top control strip (e.g. sidebar thumbnails). */
   showControls?: boolean;
+  /** When false, hides Aa font scale controls (e.g. audio speed toolbar only). */
+  showFontControls?: boolean;
   artifactId?: string;
 }) {
   const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
   const onCanvasSizeChange = useArtifactCanvasSizeReport();
+  const exportCtx = useArtifactExportOptional();
   const stageRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [autoSize, setAutoSize] = useState<ArtifactContentAreaSize | null>(null);
+
+  const setExportRootRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      bodyRef.current = node;
+      if (exportCtx) {
+        exportCtx.exportRootRef.current = node;
+      }
+    },
+    [exportCtx],
+  );
 
   const handleAutoSize = useCallback((size: ArtifactContentAreaSize) => {
     setAutoSize(size);
@@ -79,12 +94,14 @@ export function ArtifactContentStage({
         <ArtifactControlsBar
           fontScale={fontScale}
           onFontScaleChange={setFontScale}
+          showFontControls={showFontControls}
         >
           {controls}
         </ArtifactControlsBar>
       ) : null}
       <div
-        ref={bodyRef}
+        ref={setExportRootRef}
+        data-artifact-export-root
         className={`artifact-content-body ${
           fill ? "flex min-h-0 flex-1 flex-col" : ""
         } ${showControls ? "" : "h-full"}`}

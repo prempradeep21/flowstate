@@ -33,10 +33,17 @@ import type {
   CanvasMember,
   CanvasRole,
   CanvasShareLink,
+  CollaboratorPresence,
   CollaboratorRole,
   SharedCanvasMeta,
 } from "@/lib/collaborationTypes";
 import { collaboratorColor } from "@/lib/collaboratorColors";
+import { PRESENCE_OFF_SCREEN } from "@/lib/collaboratorPresenceBroadcast";
+import {
+  clearRemotePresence,
+  parsePresenceState,
+  setRemotePresence,
+} from "@/lib/remotePresenceStore";
 import { parseCanvasSnapshot } from "@/lib/canvasSnapshot";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
@@ -71,6 +78,7 @@ export function useCollaboration({
   const [accessInfo, setAccessInfo] = useState<CanvasAccessInfo | null>(null);
   const [shareLink, setShareLink] = useState<CanvasShareLink | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [presenceChannelReady, setPresenceChannelReady] = useState(false);
   const [collaborationHasEdits, setCollaborationHasEdits] = useState(false);
   const [ownedCanvasShareFlags, setOwnedCanvasShareFlags] = useState<
     Record<string, boolean>
@@ -185,6 +193,8 @@ export function useCollaboration({
       presenceChannelRef.current = null;
       realtimeChannelRef.current = null;
       setOnlineUserIds(new Set());
+      setPresenceChannelReady(false);
+      clearRemotePresence();
     };
 
     if (!user || !supabaseConfigured || !activeCanvasId || !accessInfo) {
@@ -220,14 +230,20 @@ export function useCollaboration({
         },
       );
 
+      const syncRemotePresence = () => {
+        const state =
+          presenceChannel!.presenceState<CollaboratorPresence>();
+        setRemotePresence(parsePresenceState(state, user.id));
+        setOnlineUserIds(new Set(Object.keys(state)));
+      };
+
       presenceChannel
-        .on("presence", { event: "sync" }, () => {
-          const state = presenceChannel!.presenceState();
-          const ids = new Set<string>(Object.keys(state));
-          setOnlineUserIds(ids);
-        })
+        .on("presence", { event: "sync" }, syncRemotePresence)
+        .on("presence", { event: "join" }, syncRemotePresence)
+        .on("presence", { event: "leave" }, syncRemotePresence)
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED" && !cancelled) {
+            setPresenceChannelReady(true);
             const name =
               user.user_metadata?.full_name ??
               user.user_metadata?.name ??
@@ -239,10 +255,13 @@ export function useCollaboration({
               displayName: name,
               avatarUrl: avatar,
               color: collaboratorColor(user.id),
-              worldX: -99999,
-              worldY: -99999,
+              worldX: PRESENCE_OFF_SCREEN,
+              worldY: PRESENCE_OFF_SCREEN,
               updatedAt: Date.now(),
             });
+            syncRemotePresence();
+          } else if (status !== "SUBSCRIBED") {
+            setPresenceChannelReady(false);
           }
         });
 
@@ -304,6 +323,8 @@ export function useCollaboration({
       presenceChannelRef.current = null;
       realtimeChannelRef.current = null;
       setOnlineUserIds(new Set());
+      setPresenceChannelReady(false);
+      clearRemotePresence();
     };
   }, [
     accessInfo,
@@ -522,6 +543,7 @@ export function useCollaboration({
     canEdit,
     shareLink,
     onlineUserIds,
+    presenceChannelReady,
     collaborationHasEdits,
     presenceChannelRef,
     isRemoteUpdateRef,

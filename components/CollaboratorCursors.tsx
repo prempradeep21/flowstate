@@ -1,180 +1,247 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { collaboratorColor } from "@/lib/collaboratorColors";
-import { clientToWorld, worldToScreen } from "@/lib/canvasCoordinates";
+import { worldToScreen } from "@/lib/canvasCoordinates";
+import {
+  createPresenceBroadcaster,
+  PRESENCE_OFF_SCREEN,
+} from "@/lib/collaboratorPresenceBroadcast";
 import type { CollaboratorPresence } from "@/lib/collaborationTypes";
+import { useRemotePresence, useRemotePresenceVersion } from "@/hooks/useRemotePresence";
+import { useReducedMotion } from "@/lib/motion/useReducedMotion";
 import { useCanvasStore } from "@/lib/store";
 
 const CURSOR_TIMEOUT_MS = 3000;
-const BROADCAST_INTERVAL_MS = 33;
-const MIN_MOVE_PX = 4;
 
-interface RemoteCursor extends CollaboratorPresence {
-  screenX: number;
-  screenY: number;
+interface CursorSample {
+  worldX: number;
+  worldY: number;
+  t: number;
+}
+
+interface CursorSampleBuffer {
+  prev: CursorSample | null;
+  next: CursorSample;
+}
+
+function isCursorVisible(presence: CollaboratorPresence, now: number): boolean {
+  if (presence.worldX === PRESENCE_OFF_SCREEN) return false;
+  if (now - presence.updatedAt > CURSOR_TIMEOUT_MS) return false;
+  return true;
 }
 
 export function CollaboratorCursors({
   containerRef,
   channelRef,
+  channelReady,
   currentUserId,
+  displayName,
+  avatarUrl,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   channelRef: React.RefObject<RealtimeChannel | null>;
+  channelReady: boolean;
   currentUserId: string | undefined;
+  displayName?: string;
+  avatarUrl?: string;
 }) {
-  const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
-  const lastBroadcastRef = useRef({ worldX: 0, worldY: 0, at: 0 });
-  const presencePayloadRef = useRef<CollaboratorPresence | null>(null);
+  const remotePresence = useRemotePresence();
+  const presenceVersion = useRemotePresenceVersion();
+  const reducedMotion = useReducedMotion();
+
+  const shellRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const buffersRef = useRef<Map<string, CursorSampleBuffer>>(new Map());
+  const rafRef = useRef(0);
+  const reducedMotionRef = useRef(reducedMotion);
+  const remotePresenceRef = useRef(remotePresence);
+
+  reducedMotionRef.current = reducedMotion;
+  remotePresenceRef.current = remotePresence;
 
   useEffect(() => {
-    const channel = channelRef.current;
-    if (!channel) return;
+    const now = performance.now();
+    const presence = remotePresenceRef.current;
 
-    const sync = () => {
-      const state = channel.presenceState<CollaboratorPresence>();
-      const now = Date.now();
-      const container = containerRef.current;
-      if (!container) return;
-
-      const viewport = useCanvasStore.getState().viewport;
-      const cursors: RemoteCursor[] = [];
-      for (const key of Object.keys(state)) {
-        if (key === currentUserId) continue;
-        const entries = state[key];
-        const latest = entries?.[entries.length - 1];
-        if (!latest) continue;
-        if (now - latest.updatedAt > CURSOR_TIMEOUT_MS) continue;
-        if (typeof latest.worldX !== "number" || typeof latest.worldY !== "number") {
-          continue;
-        }
-        const { screenX, screenY } = worldToScreen(
-          latest.worldX,
-          latest.worldY,
-          viewport,
-        );
-        cursors.push({ ...latest, screenX, screenY });
+    for (const userId of buffersRef.current.keys()) {
+      if (!presence[userId] || userId === currentUserId) {
+        buffersRef.current.delete(userId);
       }
-      setRemoteCursors(cursors);
-    };
+    }
 
-    // Channel is subscribed in useCollaboration; presence handlers must be
-    // registered before subscribe(), so poll presenceState instead.
-    sync();
+    for (const [userId, p] of Object.entries(presence)) {
+      if (userId === currentUserId) continue;
 
-    const interval = setInterval(sync, 200);
-    return () => {
-      clearInterval(interval);
-    };
-  }, [channelRef, containerRef, currentUserId]);
-
-  const broadcastCursor = useCallback(
-    (clientX: number, clientY: number) => {
-      const channel = channelRef.current;
-      const container = containerRef.current;
-      if (!channel || !container || !currentUserId || !presencePayloadRef.current) {
-        return;
-      }
-
-      const viewport = useCanvasStore.getState().viewport;
-      const rect = container.getBoundingClientRect();
-      const { worldX, worldY } = clientToWorld(
-        clientX,
-        clientY,
-        rect,
-        viewport,
-      );
-
-      const now = Date.now();
-      const last = lastBroadcastRef.current;
-      const dx = worldX - last.worldX;
-      const dy = worldY - last.worldY;
-      const dist = Math.hypot(dx, dy);
-
-      if (
-        now - last.at < BROADCAST_INTERVAL_MS &&
-        dist < MIN_MOVE_PX / viewport.scale
-      ) {
-        return;
-      }
-
-      lastBroadcastRef.current = { worldX, worldY, at: now };
-
-      const payload: CollaboratorPresence = {
-        ...presencePayloadRef.current,
-        worldX,
-        worldY,
-        updatedAt: now,
+      const existing = buffersRef.current.get(userId);
+      const sample: CursorSample = {
+        worldX: p.worldX,
+        worldY: p.worldY,
+        t: now,
       };
 
-      void channel.track(payload);
-    },
-    [channelRef, containerRef, currentUserId],
-  );
+      if (!existing) {
+        buffersRef.current.set(userId, { prev: null, next: sample });
+        continue;
+      }
+
+      if (
+        existing.next.worldX === sample.worldX &&
+        existing.next.worldY === sample.worldY
+      ) {
+        continue;
+      }
+
+      buffersRef.current.set(userId, {
+        prev: existing.next,
+        next: sample,
+      });
+    }
+  }, [presenceVersion, currentUserId]);
 
   useEffect(() => {
+    const hasRemoteUsers = Object.keys(remotePresence).some(
+      (id) => id !== currentUserId,
+    );
+    if (!hasRemoteUsers) {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+      return;
+    }
+
+    const tick = () => {
+      const viewport = useCanvasStore.getState().viewport;
+      const now = performance.now();
+      const clock = Date.now();
+      const presence = remotePresenceRef.current;
+      const snap = reducedMotionRef.current;
+
+      for (const [userId, buffer] of buffersRef.current) {
+        const el = shellRefs.current.get(userId);
+        if (!el) continue;
+
+        const meta = presence[userId];
+        if (!meta || !isCursorVisible(meta, clock)) {
+          el.style.display = "none";
+          continue;
+        }
+
+        let worldX: number;
+        let worldY: number;
+
+        if (snap || !buffer.prev) {
+          worldX = buffer.next.worldX;
+          worldY = buffer.next.worldY;
+        } else {
+          const span = buffer.next.t - buffer.prev.t;
+          const alpha =
+            span <= 0
+              ? 1
+              : Math.min(1, Math.max(0, (now - buffer.prev.t) / span));
+          worldX =
+            buffer.prev.worldX +
+            (buffer.next.worldX - buffer.prev.worldX) * alpha;
+          worldY =
+            buffer.prev.worldY +
+            (buffer.next.worldY - buffer.prev.worldY) * alpha;
+        }
+
+        const { screenX, screenY } = worldToScreen(worldX, worldY, viewport);
+        el.style.display = "";
+        el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0)`;
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
+  }, [remotePresence, currentUserId]);
+
+  useEffect(() => {
+    if (!channelReady || !currentUserId) return;
+
+    const channel = channelRef.current;
     const container = containerRef.current;
-    if (!container || !currentUserId) return;
+    if (!channel || !container) return;
+
+    const basePayload: CollaboratorPresence = {
+      userId: currentUserId,
+      displayName: displayName ?? "User",
+      avatarUrl,
+      color: collaboratorColor(currentUserId),
+      worldX: PRESENCE_OFF_SCREEN,
+      worldY: PRESENCE_OFF_SCREEN,
+      updatedAt: Date.now(),
+    };
+
+    const broadcaster = createPresenceBroadcaster(
+      channel,
+      basePayload,
+      () => useCanvasStore.getState().viewport,
+    );
 
     const onMove = (e: PointerEvent) => {
       if (document.visibilityState === "hidden") return;
-      broadcastCursor(e.clientX, e.clientY);
+      broadcaster.updatePointer(
+        e.clientX,
+        e.clientY,
+        container.getBoundingClientRect(),
+      );
     };
 
     const onLeave = () => {
-      const channel = channelRef.current;
-      if (!channel || !presencePayloadRef.current) return;
-      void channel.track({
-        ...presencePayloadRef.current,
-        worldX: -99999,
-        worldY: -99999,
-        updatedAt: Date.now(),
-      });
+      broadcaster.hide();
     };
 
     container.addEventListener("pointermove", onMove);
     container.addEventListener("pointerleave", onLeave);
+
     return () => {
       container.removeEventListener("pointermove", onMove);
       container.removeEventListener("pointerleave", onLeave);
+      broadcaster.destroy();
     };
-  }, [broadcastCursor, channelRef, containerRef, currentUserId]);
+  }, [
+    avatarUrl,
+    channelReady,
+    channelRef,
+    containerRef,
+    currentUserId,
+    displayName,
+  ]);
 
-  useEffect(() => {
-    if (!currentUserId) return;
-    const channel = channelRef.current;
-    if (!channel) return;
+  const shellUsers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const userId of Object.keys(remotePresence)) {
+      if (userId !== currentUserId) ids.add(userId);
+    }
+    return Array.from(ids)
+      .map((id) => remotePresence[id])
+      .filter((p): p is CollaboratorPresence => Boolean(p));
+  }, [remotePresence, currentUserId]);
 
-    const meta = channel.presenceState()[currentUserId]?.[0] as
-      | Record<string, unknown>
-      | undefined;
-
-    presencePayloadRef.current = {
-      userId: currentUserId,
-      displayName:
-        typeof meta?.displayName === "string" ? meta.displayName : "User",
-      avatarUrl:
-        typeof meta?.avatarUrl === "string" ? meta.avatarUrl : undefined,
-      color: collaboratorColor(currentUserId),
-      worldX: 0,
-      worldY: 0,
-      updatedAt: Date.now(),
-    };
-  }, [channelRef, currentUserId]);
-
-  if (remoteCursors.length === 0) return null;
+  if (shellUsers.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[45] overflow-hidden">
-      {remoteCursors.map((cursor) => (
+      {shellUsers.map((cursor) => (
         <div
           key={cursor.userId}
-          className="absolute transition-transform duration-100 ease-out"
-          style={{
-            transform: `translate(${cursor.screenX}px, ${cursor.screenY}px)`,
+          ref={(el) => {
+            if (el) shellRefs.current.set(cursor.userId, el);
+            else shellRefs.current.delete(cursor.userId);
           }}
+          className="absolute will-change-transform"
+          style={{ transform: "translate3d(0px, 0px, 0px)", display: "none" }}
         >
           <svg
             width="16"

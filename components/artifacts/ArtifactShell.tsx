@@ -5,6 +5,8 @@ import { ArtifactTextSelection } from "@/components/ArtifactTextSelection";
 import { ArtifactCanvasSizeReportProvider } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import type { ArtifactContentAreaSize } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
+import { ArtifactExportProvider } from "@/components/artifacts/ArtifactExportContext";
+import { ArtifactExportToast } from "@/components/artifacts/ArtifactExportToast";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
 import { useAuth } from "@/components/AuthProvider";
@@ -58,6 +60,9 @@ export function ArtifactShell({
   contentInteractive?: boolean;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
+  const [exportToast, setExportToast] = useState<{ message: string; isError?: boolean } | null>(
+    null,
+  );
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
   const [isTodoDirty, setIsTodoDirty] = useState(false);
   const todoActionsRef = useRef<TodoArtifactActions | null>(null);
@@ -153,6 +158,16 @@ export function ArtifactShell({
     setIsTodoDirty(false);
   }, []);
 
+  useEffect(() => {
+    if (!exportToast) return;
+    const timer = window.setTimeout(() => setExportToast(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [exportToast]);
+
+  const handleExportToast = useCallback((message: string, isError?: boolean) => {
+    setExportToast({ message, isError });
+  }, []);
+
   if (!activeVersion || !displayPayload) return null;
 
   const title =
@@ -166,6 +181,7 @@ export function ArtifactShell({
   const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
 
   return (
+    <ArtifactExportProvider>
     <div
       className={
         isCanvasLayout ? "flex min-h-0 flex-1 flex-col" : undefined
@@ -225,6 +241,8 @@ export function ArtifactShell({
                 }
               : undefined
           }
+          exportPayload={displayPayload}
+          onExportToast={handleExportToast}
         />
       </div>
       ) : null}
@@ -324,6 +342,8 @@ export function ArtifactShell({
         )}
         </ArtifactCanvasSizeReportProvider>
       </div>
+      <ArtifactExportToast message={exportToast?.message ?? null} isError={exportToast?.isError} />
     </div>
+    </ArtifactExportProvider>
   );
 }

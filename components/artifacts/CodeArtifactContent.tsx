@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { useArtifactExportOptional } from "@/components/artifacts/ArtifactExportContext";
 import { highlightCode, languageFromPath } from "@/lib/codeHighlight";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 
@@ -21,11 +22,20 @@ export function CodeArtifactContent({
   const files = payload.data.files ?? [];
   const [activeIdx, setActiveIdx] = useState(0);
   const active = files[activeIdx];
+  const exportCtx = useArtifactExportOptional();
+
+  useEffect(() => {
+    if (!exportCtx) return;
+    exportCtx.setCodeActiveFile(active?.content ?? null, active?.path ?? null);
+    return () => exportCtx.setCodeActiveFile(null, null);
+  }, [active?.content, active?.path, exportCtx]);
+
+  useEffect(() => {
+    if (active?.path) onActiveFileChange?.(active.path);
+  }, [active?.path, onActiveFileChange]);
 
   const selectFile = (i: number) => {
     setActiveIdx(i);
-    const path = files[i]?.path;
-    if (path) onActiveFileChange?.(path);
   };
 
   if (!active) {

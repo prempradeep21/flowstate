@@ -140,8 +140,13 @@ export function Canvas({
   containerRef?: RefObject<HTMLDivElement | null>;
 } = {}) {
   const persistenceReady = usePersistenceReady();
-  const { user, activeCanvasId, presenceChannelRef, isSwitchingCanvas } =
-    useAuth();
+  const {
+    user,
+    activeCanvasId,
+    presenceChannelRef,
+    presenceChannelReady,
+    isSwitchingCanvas,
+  } = useAuth();
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
   const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
@@ -1658,7 +1663,15 @@ export function Canvas({
       <CollaboratorCursors
         containerRef={containerRef}
         channelRef={presenceChannelRef}
+        channelReady={presenceChannelReady}
         currentUserId={user?.id}
+        displayName={
+          user?.user_metadata?.full_name ??
+          user?.user_metadata?.name ??
+          user?.email ??
+          undefined
+        }
+        avatarUrl={user?.user_metadata?.avatar_url as string | undefined}
       />
       <CanvasPieMenu state={pieState} />
     </div>

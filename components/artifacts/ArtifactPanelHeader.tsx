@@ -8,7 +8,9 @@ import {
 } from "@/components/CanvasFloatingMenu";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
-import type { ArtifactKind } from "@/lib/artifactTypes";
+import { ArtifactCopyCodeButton, ArtifactCodeCopyButton } from "@/components/artifacts/ArtifactCopyCodeButton";
+import { ArtifactExportMenu } from "@/components/artifacts/ArtifactExportMenu";
+import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
@@ -58,6 +60,8 @@ export function ArtifactPanelHeader({
   isVideo = false,
   websiteUrl,
   googleFileKind,
+  exportPayload,
+  onExportToast,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -73,6 +77,8 @@ export function ArtifactPanelHeader({
   isVideo?: boolean;
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
+  exportPayload?: ArtifactPayload;
+  onExportToast?: (message: string, isError?: boolean) => void;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -235,8 +241,34 @@ export function ArtifactPanelHeader({
           Open in Google
           <ExternalLinkIcon />
         </a>
-      ) : (
-        !isVideo && (
+      ) : null}
+
+      {exportPayload && onExportToast ? (
+        <>
+          {kind === "code" ? (
+            <ArtifactCodeCopyButton menuVariant={menuVariant} onToast={onExportToast} />
+          ) : (
+            <ArtifactCopyCodeButton
+              kind={kind}
+              payload={exportPayload}
+              title={title}
+              artifactId={artifactId}
+              menuVariant={menuVariant}
+              onToast={onExportToast}
+            />
+          )}
+          <ArtifactExportMenu
+            kind={kind}
+            payload={exportPayload}
+            title={title}
+            artifactId={artifactId}
+            menuVariant={menuVariant}
+            onToast={onExportToast}
+          />
+        </>
+      ) : null}
+
+      {!isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl) && (
           <div
             className={`relative shrink-0 ${chromeClass} ${
               versionOpen ? "opacity-100" : ""
@@ -304,7 +336,6 @@ export function ArtifactPanelHeader({
                 </div>
               ))}
           </div>
-        )
       )}
       {hasMenuActions && (
         <div
