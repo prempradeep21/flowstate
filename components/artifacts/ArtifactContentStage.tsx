@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
@@ -47,7 +48,7 @@ export function ArtifactContentStage({
 
   const setExportRootRef = useCallback(
     (node: HTMLDivElement | null) => {
-      bodyRef.current = node;
+      (bodyRef as MutableRefObject<HTMLDivElement | null>).current = node;
       if (exportCtx) {
         exportCtx.exportRootRef.current = node;
       }
