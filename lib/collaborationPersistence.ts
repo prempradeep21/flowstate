@@ -500,13 +500,13 @@ export async function duplicateCanvasForUser(
       state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Insert"]["state"],
       is_default: false,
     })
-    .select("id, state")
+    .select("id, state, updated_at")
     .single();
 
   if (error) throw error;
 
   const parsed = parseCanvasSnapshot(data.state) ?? snapshot;
-  return { id: data.id, state: parsed };
+  return { id: data.id, state: parsed, updatedAt: data.updated_at };
 }
 
 export async function deleteCanvas(
@@ -629,11 +629,11 @@ export async function createCanvasWithSnapshot(
       state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Insert"]["state"],
       is_default: false,
     })
-    .select("id, state")
+    .select("id, state, updated_at")
     .single();
 
   if (error) throw error;
 
   const parsed = parseCanvasSnapshot(data.state) ?? snapshot;
-  return { id: data.id, state: parsed };
+  return { id: data.id, state: parsed, updatedAt: data.updated_at };
 }

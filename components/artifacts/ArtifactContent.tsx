@@ -17,6 +17,7 @@ import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactConten
 import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
 import { TimelineArtifactContent } from "@/components/artifacts/TimelineArtifactContent";
 import { AudioArtifactContent } from "@/components/artifacts/AudioArtifactContent";
+import { StickyNoteArtifactContent } from "@/components/artifacts/StickyNoteArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -316,6 +317,19 @@ export function ArtifactContent({
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
             showControls={!isSidebar}
+          />
+        );
+      }
+      break;
+    case "stickynote":
+      if (payload.type === "stickynote") {
+        return (
+          <StickyNoteArtifactContent
+            payload={payload}
+            artifactId={artifactId}
+            fill={fill}
+            sidebar={isSidebar}
+            canvasContentInteractive={canvasInteractive}
           />
         );
       }

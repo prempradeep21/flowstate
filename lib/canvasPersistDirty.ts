@@ -107,11 +107,24 @@ function viewportChanged(
 }
 
 /** Fast path: only viewport fields differ (common during pan/zoom). */
+function slicesEqualExceptViewport(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  const prevSlice = pickCanvasPersistSlice(prev);
+  const nextSlice = pickCanvasPersistSlice(next);
+  return (
+    JSON.stringify({ ...prevSlice, viewport: null }) ===
+    JSON.stringify({ ...nextSlice, viewport: null })
+  );
+}
+
 export function isViewportOnlyChange(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
 ): boolean {
   if (!viewportChanged(prev.viewport, next.viewport)) return false;
+  if (slicesEqualExceptViewport(prev, next)) return true;
   return (
     prev.cards === next.cards &&
     prev.cardOrder === next.cardOrder &&
@@ -155,8 +168,14 @@ export function classifyCanvasPersistChange(
   next: CanvasPersistSlice,
 ): { persist: boolean; contentEdit: boolean } {
   const persist = isPersistableChange(prev, next);
+  const viewportOnly =
+    persist &&
+    (isViewportOnlyChange(prev, next) ||
+      slicesEqualExceptViewport(prev, next));
   return {
     persist,
-    contentEdit: persist && isContentEditChange(prev, next),
+    // Any non-viewport canvas change (cards, assets, artifacts, answers, …)
+    // must use the priority save path — never the slow viewport debounce.
+    contentEdit: persist && !viewportOnly,
   };
 }

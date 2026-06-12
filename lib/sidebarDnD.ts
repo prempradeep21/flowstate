@@ -21,7 +21,8 @@ export type SidebarArtifactCategory =
   | "embed"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
 
 export type SidebarDragPayload =
   | {

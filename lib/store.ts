@@ -111,6 +111,7 @@ import {
 import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
+import { MANUAL_STICKY_NOTE_SOURCE_CARD_ID } from "@/lib/stickyNoteArtifact";
 import {
   createManualArtifactPayload,
   manualArtifactSourceCardId,
@@ -278,6 +279,9 @@ export interface Card {
   parentConversationId: string | null;
   size?: CardSize;
   artifactId?: string;
+  /** User-attached reference images sent with the question. */
+  attachedImages?: CardImage[];
+  /** Model output / search result images for the answer. */
   images?: CardImage[];
   responseType?: ResponseType;
   artifactPayload?: ArtifactPayload;
@@ -863,6 +867,10 @@ interface CanvasState {
   saveTimelineArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "timeline" }>,
+  ) => { versionId: string };
+  saveStickyNoteArtifactVersion: (
+    artifactId: string,
+    payload: Extract<ArtifactPayload, { type: "stickynote" }>,
   ) => { versionId: string };
   openSessionArtifact: (artifactId: string, versionId?: string) => void;
   setArtifactPanelVersion: (versionId: string) => void;
@@ -3253,6 +3261,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return { versionId };
   },
 
+  saveStickyNoteArtifactVersion: (artifactId, payload) => {
+    const { versionId } = get().createArtifactVersion(
+      artifactId,
+      payload,
+      MANUAL_STICKY_NOTE_SOURCE_CARD_ID,
+    );
+    get().setArtifactPanelVersion(versionId);
+    const node = findCanvasNodeByArtifactId(
+      get().canvasArtifactNodes,
+      artifactId,
+    );
+    if (node) {
+      get().setCanvasArtifactVersion(node.id, versionId);
+    }
+    return { versionId };
+  },
+
   openSessionArtifact: (artifactId, versionId) =>
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -3610,7 +3635,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         attachedAssets: options?.attachedAssets,
         attachedSkills: options?.attachedSkills,
         inheritedArtifactId,
-        images: options?.pendingImages,
+        attachedImages: options?.pendingImages,
         pendingFiles: options?.pendingFiles,
       };
       const connId = `conn_${parentId}_${id}`;

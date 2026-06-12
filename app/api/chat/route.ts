@@ -15,19 +15,30 @@ import {
   CALENDAR_THINKING_LABEL,
   CHART_INTENT_SYSTEM_NOTE,
   CHART_THINKING_LABEL,
+  CUSTOM_UI_EDIT_SYSTEM_NOTE,
+  CUSTOM_UI_INTENT_SYSTEM_NOTE,
   CUSTOM_UI_THINKING_LABEL,
+  CUSTOM_UI_UPDATING_LABEL,
   detectCalendarIntent,
   detectChartIntent,
   detectCustomUiIntent,
   detectTimelineIntent,
   detectTodoListIntent,
   detectTravelMapIntent,
+  isCustomUiWork,
   MAP_THINKING_LABEL,
   TIMELINE_EDIT_SYSTEM_NOTE,
   TIMELINE_INTENT_SYSTEM_NOTE,
   TIMELINE_THINKING_LABEL,
   TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
+import {
+  customEditAckText,
+  htmlImportAckText,
+  tryImportAttachedHtmlAsCustom,
+  trySimpleCustomEdit,
+  type CustomArtifactPayload,
+} from "@/lib/customArtifactShortcuts";
 import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
@@ -166,8 +177,8 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
-/** Allow long tool-use turns (tables, charts) on serverless hosts. */
-export const maxDuration = 60;
+/** Allow long custom UI tool-use turns on serverless hosts. */
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -249,7 +260,6 @@ export async function POST(req: Request) {
   const todoIntent = detectTodoListIntent(question);
   const calendarIntent = detectCalendarIntent(question);
   const timelineIntent = detectTimelineIntent(question);
-  const customUiIntent = detectCustomUiIntent(question);
   const travelMapIntent = detectTravelMapIntent(question);
   const chartIntent = detectChartIntent(question);
 
@@ -257,14 +267,19 @@ export async function POST(req: Request) {
     editingArtifact?.payload &&
     typeof editingArtifact.payload === "object" &&
     "type" in (editingArtifact.payload as object)
-      ? (editingArtifact.payload as { type?: string })
+      ? (editingArtifact.payload as { type?: string; title?: string })
       : null;
+
+  const editingCustom = editingPayload?.type === "custom";
+  const customUiIntent = isCustomUiWork(question, editingPayload);
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
         editingPayload?.type === "timeline"
           ? `\n\n${TIMELINE_EDIT_SYSTEM_NOTE}`
-          : ""
+          : editingCustom
+            ? `\n\n${CUSTOM_UI_EDIT_SYSTEM_NOTE}`
+            : ""
       }`
     : "";
 
@@ -289,6 +304,44 @@ export async function POST(req: Request) {
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       try {
+        const fastCustom = (() => {
+          if (editingCustom && editingArtifact?.payload) {
+            const patched = trySimpleCustomEdit(
+              editingArtifact.payload as CustomArtifactPayload,
+              question,
+            );
+            if (patched) {
+              return {
+                artifact: patched,
+                text: customEditAckText(question),
+                thinking: "Applying theme…",
+              };
+            }
+          }
+          const imported = tryImportAttachedHtmlAsCustom(question);
+          if (imported) {
+            return {
+              artifact: imported,
+              text: htmlImportAckText(imported.title),
+              thinking: "Importing HTML…",
+            };
+          }
+          return null;
+        })();
+
+        if (fastCustom) {
+          emit({ thinking: fastCustom.thinking });
+          emit({ pendingArtifact: { type: "custom" } });
+          emit({
+            artifact: {
+              type: fastCustom.artifact.type,
+              title: fastCustom.artifact.title,
+              description: fastCustom.artifact.description,
+              data: fastCustom.artifact.data,
+            },
+          });
+          emit({ text: fastCustom.text });
+        } else {
         if (calendarIntent) {
           emit({ thinking: CALENDAR_THINKING_LABEL });
           emit({ pendingArtifact: { type: "calendar" } });
@@ -296,7 +349,11 @@ export async function POST(req: Request) {
           emit({ thinking: TIMELINE_THINKING_LABEL });
           emit({ pendingArtifact: { type: "timeline" } });
         } else if (customUiIntent) {
-          emit({ thinking: CUSTOM_UI_THINKING_LABEL });
+          emit({
+            thinking: editingCustom
+              ? CUSTOM_UI_UPDATING_LABEL
+              : CUSTOM_UI_THINKING_LABEL,
+          });
           emit({ pendingArtifact: { type: "custom" } });
         } else if (travelMapIntent) {
           emit({ thinking: MAP_THINKING_LABEL });
@@ -321,22 +378,30 @@ export async function POST(req: Request) {
               ? TIMELINE_INTENT_SYSTEM_NOTE
               : null,
             chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
+            customUiIntent && !editingArtifact
+              ? CUSTOM_UI_INTENT_SYSTEM_NOTE
+              : null,
             editingNote || null,
           ]
             .filter(Boolean)
             .join("\n\n");
           const stream = anthropic.messages.stream({
             model,
-            max_tokens: 4096,
+            max_tokens: customUiIntent ? 8192 : 4096,
             system: systemPrompt,
             messages,
             tools: allTools,
-            ...((todoIntent || calendarIntent || timelineIntent || chartIntent) &&
+            ...((todoIntent ||
+              calendarIntent ||
+              timelineIntent ||
+              chartIntent ||
+              customUiIntent) &&
             (!editingArtifact ||
               (timelineIntent && editingPayload?.type === "timeline") ||
               (todoIntent && editingPayload?.type === "todo") ||
               (calendarIntent && editingPayload?.type === "calendar") ||
-              (chartIntent && editingPayload?.type === "chart")) &&
+              (chartIntent && editingPayload?.type === "chart") ||
+              (customUiIntent && editingCustom)) &&
             !artifactEmitted &&
             turn === 0
               ? {
@@ -549,6 +614,7 @@ export async function POST(req: Request) {
             { role: "user" as const, content: toolResults },
           ];
         }
+        }
       } catch (err) {
         let msg = err instanceof Error ? err.message : "Unknown error";
         try {
@@ -556,6 +622,9 @@ export async function POST(req: Request) {
           if (inner?.error?.message) msg = inner.error.message;
         } catch {
           /* not JSON */
+        }
+        if (customUiIntent) {
+          msg = `${msg} Custom UI builds can take up to 2 minutes — try a smaller change (e.g. "change colors only") or retry.`;
         }
         emit({ error: msg });
       } finally {

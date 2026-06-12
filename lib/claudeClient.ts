@@ -12,9 +12,11 @@ import {
   CALENDAR_THINKING_LABEL,
   CHART_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
+  CUSTOM_UI_UPDATING_LABEL,
   detectCalendarIntent,
   detectCustomUiIntent,
   detectTimelineIntent,
+  isCustomUiWork,
   TIMELINE_THINKING_LABEL,
 } from "@/lib/artifactIntent";
 import {
@@ -24,6 +26,7 @@ import {
   PendingFileAttachment,
   useCanvasStore,
 } from "./store";
+import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 
 const MAX_ASSET_TEXT_CONTEXT_CHARS = 60_000;
 
@@ -73,13 +76,23 @@ export function askClaude(
 
   const run = async () => {
     if (cancelled) return;
+    const editingArtifact = resolveEditingPayloadForApi(cardId);
+    const customWork = isCustomUiWork(
+      question,
+      editingArtifact?.payload as { type?: string } | null,
+    );
     cb.onThinking(
       detectCalendarIntent(question)
         ? CALENDAR_THINKING_LABEL
         : detectTimelineIntent(question)
           ? TIMELINE_THINKING_LABEL
-          : detectCustomUiIntent(question)
-            ? CUSTOM_UI_THINKING_LABEL
+          : customWork
+            ? editingArtifact?.payload &&
+              typeof editingArtifact.payload === "object" &&
+              "type" in editingArtifact.payload &&
+              (editingArtifact.payload as { type?: string }).type === "custom"
+              ? CUSTOM_UI_UPDATING_LABEL
+              : CUSTOM_UI_THINKING_LABEL
             : "Thinking",
     );
     try {
@@ -93,8 +106,6 @@ export function askClaude(
         },
         cardId,
       );
-
-      const editingArtifact = resolveEditingPayloadForApi(cardId);
 
       const files: PendingFileAttachment[] = [];
       const assetTextContexts: string[] = [];
@@ -125,8 +136,8 @@ export function askClaude(
         }
         files.push(file);
       }
-      if (card?.images?.length) {
-        for (const img of card.images) {
+      if (card) {
+        for (const img of getQuestionAttachedImages(card)) {
           if (img.url.startsWith("data:")) {
             const m = img.url.match(/^data:([^;]+);base64,(.+)$/);
             if (m) {
@@ -232,8 +243,16 @@ export function askClaude(
       if (!res.ok) {
         if (cancelled) return;
         receivedContent = true;
-        cb.onThinking?.(`Request failed (${res.status})`);
-        cb.onToken(`Error: HTTP ${res.status}`);
+        const timeout =
+          res.status === 504 || res.status === 408;
+        cb.onThinking?.("Request failed");
+        cb.onToken(
+          timeout
+            ? customWork
+              ? "⚠️ The custom UI request timed out before completing. Your existing artifact on the canvas is unchanged — try a smaller change (e.g. theme or colors only) or retry."
+              : "⚠️ The request timed out before the server could respond. Try again with a simpler prompt or fewer attachments."
+            : `⚠️ Request failed (HTTP ${res.status}). Try again in a moment.`,
+        );
         cb.onDone({ artifactId: null, responseType: "text" });
         return;
       }
@@ -345,7 +364,9 @@ export function askClaude(
         if (!receivedContent) {
           cb.onThinking?.("Request failed");
           cb.onToken(
-            "⚠️ No response received. The connection may have timed out.",
+            customWork
+              ? "⚠️ No response received — the custom UI build may have timed out. Your previous artifact is still on the canvas. Try a smaller change or retry."
+              : "⚠️ No response received. The connection may have timed out.",
           );
         }
         cb.onDone({ artifactId: null, responseType });

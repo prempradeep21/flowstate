@@ -2,6 +2,7 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 
 export interface HistoryMessage {
   question: string;
@@ -79,6 +80,8 @@ function artifactContextNote(payload: ArtifactPayload): string {
       return `[Card showed ${payload.data.provider} embed: "${payload.title}" (${payload.data.url})]`;
     case "audio":
       return `[Card showed audio: "${payload.title}"]`;
+    case "stickynote":
+      return `[Card showed sticky note: "${payload.title}"]`;
   }
 }
 
@@ -106,6 +109,7 @@ function artifactPayloadContext(payload: ArtifactPayload): string {
 export function formatAnswerForContext(
   card: Card,
   sessionArtifacts: Record<string, SessionArtifact> = {},
+  opts?: { omitBulkyPayload?: boolean },
 ): string {
   const parts: string[] = [];
 
@@ -116,7 +120,10 @@ export function formatAnswerForContext(
   const payload = payloadForCard(card, sessionArtifacts);
   if (payload) {
     parts.push(artifactContextNote(payload));
-    parts.push(artifactPayloadContext(payload));
+    const bulky = payload.type === "custom" || payload.type === "code";
+    if (!(opts?.omitBulkyPayload && bulky)) {
+      parts.push(artifactPayloadContext(payload));
+    }
   } else if (card.responseType === "image" && card.images?.length) {
     const alts = card.images.map((i) => i.alt).filter(Boolean);
     const imgNote =
@@ -124,13 +131,6 @@ export function formatAnswerForContext(
         ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
         : `[Shown ${card.images.length} image(s) for this answer]`;
     parts.push(imgNote);
-  } else if (card.images?.length) {
-    const alts = card.images.map((i) => i.alt).filter(Boolean);
-    parts.push(
-      alts.length > 0
-        ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
-        : `[Shown ${card.images.length} image(s)]`,
-    );
   }
 
   return parts.join("\n\n");
@@ -174,9 +174,12 @@ export function buildAncestorHistory(
     const parent = graph.cards[parentId];
     if (!parent) break;
 
-    const answer = formatAnswerForContext(parent, sessionArtifacts);
+    const answer = formatAnswerForContext(parent, sessionArtifacts, {
+      omitBulkyPayload: true,
+    });
     const hasContent =
       answer ||
+      getQuestionAttachedImages(parent).length > 0 ||
       (parent.images && parent.images.length > 0) ||
       parent.artifactPayload ||
       parent.outputArtifactId;

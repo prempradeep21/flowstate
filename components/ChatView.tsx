@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
+import { QuestionAttachments } from "@/components/QuestionAttachments";
+import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { ChatComposer } from "@/components/ChatComposer";
 import { CardQaMenu } from "@/components/CardQaMenu";
@@ -21,11 +22,6 @@ import {
   resolveQaStatusLabel,
   shouldShowQaAnswerText,
 } from "@/lib/qaStreamDisplay";
-import {
-  artifactDisplayTitle,
-  getLatestVersion,
-  getVersionById,
-} from "@/lib/sessionArtifacts";
 import {
   buildSidebarTree,
   getThreadCardChain,
@@ -90,7 +86,6 @@ function SidebarItem({
 
 function QnaTurnBlock({ cardId }: { cardId: string }) {
   const card = useCanvasStore((s) => s.cards[cardId]);
-  const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
@@ -110,8 +105,11 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
 
   const handleTryAgain = useCallback(() => {
     if (!card?.question.trim()) return;
-    createFollowUp(cardId, card.question);
-  }, [card?.question, cardId, createFollowUp]);
+    const attachedImages = card ? getQuestionAttachedImages(card) : [];
+    createFollowUp(cardId, card.question, {
+      pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
+    });
+  }, [card, cardId, createFollowUp]);
 
   if (!card || card.status === "empty") return null;
 
@@ -148,22 +146,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
             }
             controls={<CardQaMenu cardId={cardId} layout="embedded" />}
           />
-          {card.attachedArtifacts?.map((ref) => {
-            const art = sessionArtifacts[ref.artifactId];
-            if (!art) return null;
-            const ver =
-              getVersionById(art, ref.versionId) ?? getLatestVersion(art);
-            if (!ver) return null;
-            return (
-              <div key={ref.artifactId} className="mb-3">
-                <ArtifactAttachmentPill
-                  kind={art.kind}
-                  title={artifactDisplayTitle(art, ver)}
-                  versionNumber={ver.number}
-                />
-              </div>
-            );
-          })}
+          <QuestionAttachments card={card} />
 
           <p className="text-canvas-body-lg font-medium leading-snug text-canvas-accent">
             {card.question}

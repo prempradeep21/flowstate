@@ -13,6 +13,11 @@ export interface ManualArtifactMenuEntry {
 
 /** Flat menu order: spawn priority, Add question last. */
 export const MANUAL_ARTIFACT_MENU_ITEMS: ManualArtifactMenuEntry[] = [
+  {
+    pick: { kind: "artifact", artifactType: "stickynote" },
+    label: "Sticky note",
+    iconKind: "stickynote",
+  },
   { pick: { kind: "artifact", artifactType: "todo" }, label: "To-do list", iconKind: "todo" },
   { pick: { kind: "artifact", artifactType: "calendar" }, label: "Calendar", iconKind: "calendar" },
   { pick: { kind: "artifact", artifactType: "timeline" }, label: "Timeline", iconKind: "timeline" },

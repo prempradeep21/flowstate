@@ -145,6 +145,7 @@ export function Canvas({
     activeCanvasId,
     presenceChannelRef,
     presenceChannelReady,
+    onlineUserIds,
     isSwitchingCanvas,
   } = useAuth();
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
@@ -391,6 +392,7 @@ export function Canvas({
     getCursor: () => canvasPointerRef.current ?? cursorRef.current,
     onSelect: (sector) => {
       if (sector === "north") beginPlacementAtCursor("question");
+      else if (sector === "east") beginArtifactPlacementAtCursor("stickynote");
       else if (sector === "west") beginPlacementAtCursor("text");
     },
   });
@@ -944,6 +946,48 @@ export function Canvas({
       setArtifactPlacement(null);
       target?.blur();
       beginPlacementAtCursor("text");
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [closePie, pieStateRef]);
+
+  // S (enter sticky note placement) — same rules as T for focused inputs.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "KeyS" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
+        return;
+
+      // Pie accelerator — S fires the east sector via this same path.
+      if (pieStateRef.current) closePie();
+
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (target.isContentEditable) return;
+      }
+
+      if (
+        placementRef.current ||
+        textPlacementRef.current ||
+        imagePlacementRef.current ||
+        gifPlacementRef.current ||
+        artifactPlacementRef.current
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setPlacement(null);
+      setTextPlacement(null);
+      setImagePlacement(null);
+      setGifPlacement(null);
+      setArtifactPlacement(null);
+      target?.blur();
+      beginArtifactPlacementAtCursor("stickynote");
     };
 
     window.addEventListener("keydown", onKeyDown, true);
@@ -1664,6 +1708,7 @@ export function Canvas({
         containerRef={containerRef}
         channelRef={presenceChannelRef}
         channelReady={presenceChannelReady}
+        onlineUserIds={onlineUserIds}
         currentUserId={user?.id}
         displayName={
           user?.user_metadata?.full_name ??

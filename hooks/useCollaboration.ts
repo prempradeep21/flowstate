@@ -86,6 +86,9 @@ export function useCollaboration({
 
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const pendingRemoteSnapshotRef = useRef<ReturnType<
+    typeof parseCanvasSnapshot
+  > | null>(null);
 
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
   const getSnapshotSource = useCanvasStore((s) => s.getCanvasSnapshotSource);
@@ -187,6 +190,22 @@ export function useCollaboration({
   }, [refreshActiveCanvasCollaboration]);
 
   useEffect(() => {
+    const onCanvasSaved = () => {
+      const pending = pendingRemoteSnapshotRef.current;
+      if (!pending || isDirtyRef?.current) return;
+      pendingRemoteSnapshotRef.current = null;
+      isRemoteUpdateRef.current = true;
+      hydrateFromSnapshot(pending, { applyViewport: false });
+      requestAnimationFrame(() => {
+        isRemoteUpdateRef.current = false;
+      });
+    };
+    window.addEventListener("flowstate:canvas-saved", onCanvasSaved);
+    return () =>
+      window.removeEventListener("flowstate:canvas-saved", onCanvasSaved);
+  }, [hydrateFromSnapshot, isDirtyRef, isRemoteUpdateRef]);
+
+  useEffect(() => {
     const tearDownChannels = () => {
       void presenceChannelRef.current?.unsubscribe();
       void realtimeChannelRef.current?.unsubscribe();
@@ -285,17 +304,25 @@ export function useCollaboration({
           (payload) => {
             if (localReadOnly) return;
 
-            const newState = (payload.new as { state?: unknown })?.state;
-            const parsed = parseCanvasSnapshot(newState);
+            const row = payload.new as {
+              state?: unknown;
+              updated_at?: string;
+            };
+            const parsed = parseCanvasSnapshot(row.state);
             if (!parsed) return;
 
-            if (isHydratingRef?.current || isDirtyRef?.current) return;
+            if (isHydratingRef?.current) return;
 
             const reveal = useCanvasStore.getState().canvasLoadReveal;
             if (
               reveal?.phase === "pending" ||
               reveal?.phase === "running"
             ) {
+              return;
+            }
+
+            if (isDirtyRef?.current) {
+              pendingRemoteSnapshotRef.current = parsed;
               return;
             }
 

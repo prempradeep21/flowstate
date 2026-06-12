@@ -7,6 +7,7 @@ import { QaRetryPlaceholder } from "@/components/cards/QaRetryPlaceholder";
 import { TextCardBody } from "@/components/cards/TextCardBody";
 import {
   formatQaResponseErrorMessage,
+  formatQaResponseMissingMessage,
   isQaResponseFinalMissing,
   isQaResponsePending,
   shouldShowQaAnswerError,
@@ -69,7 +70,7 @@ export function CardAnswerBody({
     />
   ) : showMissing ? (
     <QaRetryPlaceholder
-      message="No response came through. The connection may have timed out."
+      message={formatQaResponseMissingMessage(card)}
       onTryAgain={onTryAgain}
     />
   ) : null;

@@ -79,9 +79,34 @@ export function hasQaResponseError(
 /** Human-readable error copy for the answer area (strips transport prefixes). */
 export function formatQaResponseErrorMessage(answer: string): string {
   const trimmed = answer.trim();
-  if (trimmed.startsWith("⚠️")) return trimmed.slice(1).trim();
-  if (/^Error:/i.test(trimmed)) return trimmed.replace(/^Error:\s*/i, "");
-  return trimmed;
+  let msg = trimmed;
+  if (trimmed.startsWith("⚠️")) msg = trimmed.slice(1).trim();
+  else if (/^Error:/i.test(trimmed)) msg = trimmed.replace(/^Error:\s*/i, "");
+
+  if (/timed out|504|no response received/i.test(msg)) {
+    if (/previous artifact|unchanged|still on the canvas/i.test(msg)) return msg;
+    if (/custom ui|custom component/i.test(msg)) {
+      return `${msg} Your previous artifact on the canvas is unchanged.`;
+    }
+    return `${msg} Nothing was saved for this card — use Try again or simplify the request.`;
+  }
+  return msg;
+}
+
+/** Copy when a turn finished without any answer or artifact. */
+export function formatQaResponseMissingMessage(
+  card: Pick<Card, "question" | "parentCardId">,
+): string {
+  const q = card.question.toLowerCase();
+  if (
+    /\b(theme|color|styling|black\s+and\s+white|dark\s+mode|light\s+mode)\b/.test(q)
+  ) {
+    return "The theme update did not finish. Your existing custom UI on the canvas is unchanged — try again.";
+  }
+  if (/\bcustom\b|\bui\b|\bcomponent\b|\bhtml\b/i.test(q)) {
+    return "The custom UI build did not finish. Nothing was saved for this card — try again or ask for a smaller change.";
+  }
+  return "No response came through. The connection may have timed out.";
 }
 
 type QaProgressCard = Pick<

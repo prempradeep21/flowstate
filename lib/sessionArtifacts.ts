@@ -31,6 +31,7 @@ import {
   normalizeTimelinePayload,
 } from "@/lib/timelineArtifact";
 import { normalizeAudioPayload } from "@/lib/audioArtifact";
+import { normalizeStickyNotePayload } from "@/lib/stickyNoteArtifact";
 import {
   primaryAttachedArtifactId,
   type AttachedArtifactResolveContext,
@@ -243,6 +244,9 @@ export function normalizePayloadForRegistry(
   }
   if (payload.type === "audio") {
     return normalizeAudioPayload(payload);
+  }
+  if (payload.type === "stickynote") {
+    return normalizeStickyNotePayload(payload);
   }
   return payload;
 }

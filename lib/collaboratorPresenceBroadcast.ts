@@ -132,8 +132,10 @@ export function createPresenceBroadcaster(
       );
       pendingWorldX = worldX;
       pendingWorldY = worldY;
+      const isFirstFlush = lastFlushAt === 0;
       dirty = true;
       startTick();
+      if (isFirstFlush) flush();
     },
 
     hide() {

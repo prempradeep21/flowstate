@@ -15,6 +15,8 @@ import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { QuestionAttachments } from "@/components/QuestionAttachments";
+import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import { AnimatePresence } from "framer-motion";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import {
@@ -475,6 +477,7 @@ function CardInner({ card }: CardProps) {
     card.outputArtifactId ?? "",
     card.artifactPayload?.type ?? "",
     hasChildren ? "1" : "0",
+    getQuestionAttachedImages(card).length,
     card.images?.length ?? 0,
     card.responseType ?? "text",
     cardWidth,
@@ -619,7 +622,11 @@ function CardInner({ card }: CardProps) {
             if (shouldEarlySpawnArtifact(card.id, "table")) {
               useCanvasStore.getState().ensurePendingTableArtifact(card.id);
             }
-          } else if (/building custom/i.test(label)) {
+          } else if (
+            /building custom|updating custom|applying theme|importing html/i.test(
+              label,
+            )
+          ) {
             if (shouldEarlySpawnArtifact(card.id, "custom")) {
               useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
             }
@@ -707,7 +714,8 @@ function CardInner({ card }: CardProps) {
       responseType: "text",
       artifactPayload: undefined,
       pendingEmittedArtifacts: undefined,
-      images: options?.pendingImages,
+      attachedImages: options?.pendingImages,
+      images: undefined,
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
       attachedArtifacts,
@@ -734,6 +742,7 @@ function CardInner({ card }: CardProps) {
       plugComposerAttachments: st.plugComposerAttachments,
       sessionArtifacts: st.sessionArtifacts,
     });
+    const attachedImages = getQuestionAttachedImages(card);
     submitFollowUp(card.question, {
       attachedArtifacts:
         card.attachedArtifacts?.length
@@ -741,8 +750,9 @@ function CardInner({ card }: CardProps) {
           : attachedFromPlug.length
             ? attachedFromPlug
             : undefined,
+      pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
     });
-  }, [canEdit, card.question, card.attachedArtifacts, card.id, submitFollowUp]);
+  }, [canEdit, card, card.id, submitFollowUp]);
 
   const handleCardPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -1037,6 +1047,7 @@ function CardInner({ card }: CardProps) {
                         />
                       }
                     />
+                    <QuestionAttachments card={card} />
                     <div
                       data-selectable-text
                       className="min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink line-clamp-2 overflow-hidden"
@@ -1075,6 +1086,7 @@ function CardInner({ card }: CardProps) {
                         />
                       }
                     />
+                    <QuestionAttachments card={card} />
                     <div
                       data-selectable-text
                       className="w-full min-w-0 cursor-text overflow-y-auto break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink"

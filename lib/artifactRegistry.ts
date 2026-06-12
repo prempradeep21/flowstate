@@ -34,6 +34,7 @@ const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   timeline: "Timelines",
   chart: "Charts",
   audio: "Audio",
+  stickynote: "Sticky notes",
 };
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
@@ -51,6 +52,7 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "timeline",
   "chart",
   "audio",
+  "stickynote",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -83,6 +85,8 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "chart";
     case "audio":
       return "audio";
+    case "stickynote":
+      return "stickynote";
     default:
       return null;
   }
@@ -146,6 +150,7 @@ export function buildArtifactRegistry(
     timeline: [],
     chart: [],
     audio: [],
+    stickynote: [],
   };
 
   for (const art of artifacts) {

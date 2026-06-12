@@ -110,17 +110,52 @@ const CUSTOM_BUILD_VERBS =
 const CUSTOM_ARTIFACT =
   /\b(interactive|custom|widget)\s+(artifact|component|ui)\b/i;
 
+const CUSTOM_STYLE_EDIT =
+  /\b(theme|themed|color\s*scheme|colour\s*scheme|palette|styling|restyle|recolor|re-colou?r)\b/i;
+
+const CUSTOM_VISUAL_TWEAK =
+  /\b(black\s+and\s+white|monochrome|grayscale|greyscale|dark\s+(?:mode|theme)|light\s+(?:mode|theme)|make\s+it\s+(?:dark|light|bigger|smaller))\b/i;
+
 export function detectCustomUiIntent(question: string): boolean {
   const q = question.trim();
   if (!q) return false;
   return (
     CUSTOM_UI_INTENT.test(q) ||
     CUSTOM_BUILD_VERBS.test(q) ||
-    CUSTOM_ARTIFACT.test(q)
+    CUSTOM_ARTIFACT.test(q) ||
+    CUSTOM_STYLE_EDIT.test(q) ||
+    CUSTOM_VISUAL_TWEAK.test(q)
   );
 }
 
+/** True when the turn should produce or update a custom UI artifact. */
+export function isCustomUiWork(
+  question: string,
+  editingPayload?: { type?: string } | null,
+): boolean {
+  return detectCustomUiIntent(question) || editingPayload?.type === "custom";
+}
+
 export const CUSTOM_UI_THINKING_LABEL = "Building custom component…";
+
+export const CUSTOM_UI_UPDATING_LABEL = "Updating custom component…";
+
+export const CUSTOM_UI_INTENT_SYSTEM_NOTE = `
+MANDATORY — Custom interactive UI request detected:
+- You MUST call emit_artifact with type "custom" in this turn.
+- Put the full UI in data.html, data.css, and optional data.js.
+- Keep your text reply to 1–2 short sentences — the artifact is the deliverable.
+- Prefer CSS for visual styling; use JS only when interactivity requires it.
+`.trim();
+
+export const CUSTOM_UI_EDIT_SYSTEM_NOTE = `
+MANDATORY — Custom UI edit detected:
+- You MUST call emit_artifact with type "custom" and the FULL updated payload in this turn.
+- Preserve the artifact title unless the user asks to rename it.
+- For theme, color, palette, or styling-only requests: change data.css only — copy data.html and data.js verbatim from the current artifact.
+- For behavior or layout changes: update only the parts that must change; keep everything else identical.
+- Keep your text reply to 1–2 short sentences.
+`.trim();
 
 const TRAVEL_MAP_INTENT =
   /\b(travel|trip|visit(?:ing)?|vacation|holiday|itinerary|destination|journey|backpack(?:ing)?|road\s*trip|flight\s+to|flying\s+to)\b/i;

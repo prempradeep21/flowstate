@@ -206,6 +206,19 @@ export function ArtifactTypeIcon({
           <path d="M3 10V6M5 11V5M7 9V7M9 11V5M11 8V8M13 10V6" strokeLinecap="round" />
         </svg>
       );
+    case "stickynote":
+      return (
+        <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
+          <path
+            d="M3.5 2.5h7.5l2 2v9h-9.5V2.5z"
+            fill="currentColor"
+            fillOpacity="0.12"
+            stroke="currentColor"
+          />
+          <path d="M11 2.5v2h2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M5 7h5M5 9.5h3.5" strokeLinecap="round" opacity="0.7" />
+        </svg>
+      );
     default:
       return null;
   }

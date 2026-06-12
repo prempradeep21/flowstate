@@ -15,6 +15,11 @@ describe("detectCustomUiIntent", () => {
     ).toBe(true);
   });
 
+  it("detects theme follow-ups on custom UI", () => {
+    expect(detectCustomUiIntent("make it black and white theme")).toBe(true);
+    expect(detectCustomUiIntent("switch to dark mode")).toBe(true);
+  });
+
   it("ignores plain text questions", () => {
     expect(detectCustomUiIntent("What is the capital of France?")).toBe(false);
   });

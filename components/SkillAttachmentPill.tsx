@@ -5,7 +5,7 @@ export function SkillAttachmentPill({
   onRemove,
 }: {
   title: string;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   return (
     <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-canvas border border-canvas-border bg-canvas-bg px-2 py-1 text-[11px] text-canvas-ink">
@@ -13,14 +13,16 @@ export function SkillAttachmentPill({
         Skill
       </span>
       <span className="truncate">{title}</span>
-      <button
-        type="button"
-        className="ml-0.5 shrink-0 text-canvas-muted hover:text-canvas-ink"
-        aria-label={`Remove ${title}`}
-        onClick={onRemove}
-      >
-        x
-      </button>
+      {onRemove ? (
+        <button
+          type="button"
+          className="ml-0.5 shrink-0 text-canvas-muted hover:text-canvas-ink"
+          aria-label={`Remove ${title}`}
+          onClick={onRemove}
+        >
+          x
+        </button>
+      ) : null}
     </span>
   );
 }

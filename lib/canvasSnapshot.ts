@@ -202,6 +202,127 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
   };
 }
 
+function mergeRecordPreferLocal<T extends Record<string, unknown>>(
+  remote: T,
+  local: T,
+): T {
+  return { ...remote, ...local };
+}
+
+function mergeOrder(remote: string[], local: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const id of remote) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push(id);
+    }
+  }
+  for (const id of local) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push(id);
+    }
+  }
+  return merged;
+}
+
+/** Union merge for collaborative saves — local edits win on id collisions. */
+export function mergeCanvasSnapshots(
+  remote: CanvasSnapshot,
+  local: CanvasSnapshot,
+): CanvasSnapshot {
+  const cards = mergeRecordPreferLocal(remote.cards, local.cards);
+  const cardOrder = mergeOrder(remote.cardOrder, local.cardOrder).filter(
+    (id) => id in cards,
+  );
+
+  const connectionIds = new Set(remote.connections.map((c) => c.id));
+  const connections = [
+    ...remote.connections,
+    ...local.connections.filter((c) => !connectionIds.has(c.id)),
+  ];
+
+  return {
+    ...remote,
+    viewport: local.viewport,
+    cards,
+    cardOrder,
+    connections,
+    threads: mergeRecordPreferLocal(remote.threads, local.threads),
+    threadOrder: mergeOrder(remote.threadOrder, local.threadOrder),
+    groups: mergeRecordPreferLocal(remote.groups, local.groups),
+    sessionArtifacts: mergeRecordPreferLocal(
+      remote.sessionArtifacts,
+      local.sessionArtifacts,
+    ),
+    canvasAssets: mergeRecordPreferLocal(
+      remote.canvasAssets ?? {},
+      local.canvasAssets ?? {},
+    ),
+    canvasArtifactNodes: mergeRecordPreferLocal(
+      remote.canvasArtifactNodes ?? {},
+      local.canvasArtifactNodes ?? {},
+    ),
+    canvasArtifactOrder: mergeOrder(
+      remote.canvasArtifactOrder ?? [],
+      local.canvasArtifactOrder ?? [],
+    ),
+    canvasAssetNodes: mergeRecordPreferLocal(
+      remote.canvasAssetNodes ?? {},
+      local.canvasAssetNodes ?? {},
+    ),
+    canvasAssetOrder: mergeOrder(
+      remote.canvasAssetOrder ?? [],
+      local.canvasAssetOrder ?? [],
+    ),
+    canvasSkills: mergeRecordPreferLocal(
+      remote.canvasSkills ?? {},
+      local.canvasSkills ?? {},
+    ),
+    canvasSkillNodes: mergeRecordPreferLocal(
+      remote.canvasSkillNodes ?? {},
+      local.canvasSkillNodes ?? {},
+    ),
+    canvasSkillOrder: mergeOrder(
+      remote.canvasSkillOrder ?? [],
+      local.canvasSkillOrder ?? [],
+    ),
+    canvasTextLabels: mergeRecordPreferLocal(
+      remote.canvasTextLabels ?? {},
+      local.canvasTextLabels ?? {},
+    ),
+    canvasTextLabelOrder: mergeOrder(
+      remote.canvasTextLabelOrder ?? [],
+      local.canvasTextLabelOrder ?? [],
+    ),
+    canvasGifNodes: mergeRecordPreferLocal(
+      remote.canvasGifNodes ?? {},
+      local.canvasGifNodes ?? {},
+    ),
+    canvasGifOrder: mergeOrder(
+      remote.canvasGifOrder ?? [],
+      local.canvasGifOrder ?? [],
+    ),
+    uploadedAttachments: [
+      ...(remote.uploadedAttachments ?? []),
+      ...(local.uploadedAttachments ?? []).filter(
+        (item) =>
+          !(remote.uploadedAttachments ?? []).some(
+            (remoteItem) => remoteItem.id === item.id,
+          ),
+      ),
+    ],
+    collaborationHasEdits:
+      remote.collaborationHasEdits || local.collaborationHasEdits,
+    connectorStyle: local.connectorStyle,
+    canvasBackgroundStyle: local.canvasBackgroundStyle,
+    canvasTheme: local.canvasTheme,
+    selectedModel: local.selectedModel,
+    viewMode: local.viewMode,
+  };
+}
+
 export function buildEmptyCanvasSnapshot(
   selectedModel: ClaudeModel = "claude-sonnet-4-6",
 ): CanvasSnapshot {

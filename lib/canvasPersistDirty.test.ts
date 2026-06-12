@@ -119,7 +119,7 @@ describe("classifyCanvasPersistChange", () => {
     });
   });
 
-  it("does not count answer-only card updates as content edits", () => {
+  it("counts answer-only card updates as priority content edits", () => {
     const prev = emptySlice({
       cards: { c1: baseCard },
       cardOrder: ["c1"],
@@ -132,7 +132,20 @@ describe("classifyCanvasPersistChange", () => {
     });
     expect(classifyCanvasPersistChange(prev, next)).toEqual({
       persist: true,
-      contentEdit: false,
+      contentEdit: true,
+    });
+  });
+
+  it("counts canvas image placement as a priority content edit", () => {
+    const prev = emptySlice();
+    const next = emptySlice({
+      canvasAssets: { a1: { id: "a1", kind: "image" } },
+      canvasAssetNodes: { n1: { id: "n1", assetId: "a1" } },
+      canvasAssetOrder: ["n1"],
+    });
+    expect(classifyCanvasPersistChange(prev, next)).toEqual({
+      persist: true,
+      contentEdit: true,
     });
   });
 

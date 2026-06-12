@@ -96,6 +96,7 @@ export function finalizeCardResponse(
     (card.pendingEmittedArtifacts?.length ?? 0) > 0 || !!card.artifactPayload;
 
   if (!hasQueue) {
+    useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
     useCanvasStore.setState((current) => {
       const base = current.cards[cardId];
       if (!base) return current;
@@ -105,10 +106,7 @@ export function finalizeCardResponse(
           [cardId]: {
             ...base,
             status: "done",
-            thinkingLabel: resolveDoneThinkingLabel(cardId, {
-              ...base,
-              status: "done",
-            }),
+            thinkingLabel: undefined,
             pendingFiles: undefined,
             responseType: opts.responseType ?? base.responseType ?? "text",
           },

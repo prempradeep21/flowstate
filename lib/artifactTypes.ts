@@ -32,7 +32,8 @@ export type ResponseType =
   | "google-doc"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -51,7 +52,15 @@ export type ArtifactKind =
   | "google-doc"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
+
+export type StickyNoteColorId = "yellow" | "pink" | "blue" | "green" | "orange";
+
+export interface StickyNoteArtifactData {
+  text: string;
+  colorId: StickyNoteColorId;
+}
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -289,7 +298,13 @@ export type ArtifactPayload =
     }
   | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData }
   | { type: "chart"; title: string; description?: string; data: ChartArtifactData }
-  | { type: "audio"; title: string; description?: string; data: AudioArtifactData };
+  | { type: "audio"; title: string; description?: string; data: AudioArtifactData }
+  | {
+      type: "stickynote";
+      title: string;
+      description?: string;
+      data: StickyNoteArtifactData;
+    };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {

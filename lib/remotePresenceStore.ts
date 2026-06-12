@@ -24,7 +24,10 @@ export function parsePresenceState(
     ) {
       continue;
     }
-    result[key] = latest;
+    result[key] = {
+      ...latest,
+      userId: latest.userId ?? key,
+    };
   }
   return result;
 }

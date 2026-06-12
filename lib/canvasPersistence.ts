@@ -7,10 +7,12 @@ import {
 } from "@/lib/canvasSnapshot";
 import type { Database } from "@/lib/supabase/database.types";
 import type { CanvasSnapshotSource } from "@/lib/canvasSnapshot";
+import { CanvasSaveConflictError } from "@/lib/canvasSaveConflict";
 
 export interface CanvasRow {
   id: string;
   state: CanvasSnapshot;
+  updatedAt: string;
 }
 
 export interface CanvasMeta {
@@ -143,7 +145,7 @@ export async function fetchCanvasById(
 ): Promise<CanvasRow | null> {
   const { data, error } = await supabase
     .from("canvases")
-    .select("id, state")
+    .select("id, state, updated_at")
     .eq("id", canvasId)
     .maybeSingle();
 
@@ -153,7 +155,7 @@ export async function fetchCanvasById(
   const snapshot = parseCanvasSnapshot(data.state);
   if (!snapshot) return null;
 
-  return { id: data.id, state: snapshot };
+  return { id: data.id, state: snapshot, updatedAt: data.updated_at };
 }
 
 export async function fetchDefaultCanvas(
@@ -162,7 +164,7 @@ export async function fetchDefaultCanvas(
 ): Promise<CanvasRow | null> {
   const { data, error } = await supabase
     .from("canvases")
-    .select("id, state")
+    .select("id, state, updated_at")
     .eq("owner_id", userId)
     .eq("is_default", true)
     .maybeSingle();
@@ -173,7 +175,7 @@ export async function fetchDefaultCanvas(
   const snapshot = parseCanvasSnapshot(data.state);
   if (!snapshot) return null;
 
-  return { id: data.id, state: snapshot };
+  return { id: data.id, state: snapshot, updatedAt: data.updated_at };
 }
 
 export function resolveInitialCanvasId(
@@ -219,13 +221,13 @@ export async function createDefaultCanvas(
       state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Insert"]["state"],
       is_default: true,
     })
-    .select("id, state")
+    .select("id, state, updated_at")
     .single();
 
   if (error) throw error;
 
   const parsed = parseCanvasSnapshot(data.state) ?? snapshot;
-  return { id: data.id, state: parsed };
+  return { id: data.id, state: parsed, updatedAt: data.updated_at };
 }
 
 export async function createCanvas(
@@ -246,13 +248,13 @@ export async function createCanvas(
       state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Insert"]["state"],
       is_default: false,
     })
-    .select("id, state")
+    .select("id, state, updated_at")
     .single();
 
   if (error) throw error;
 
   const parsed = parseCanvasSnapshot(data.state) ?? snapshot;
-  return { id: data.id, state: parsed };
+  return { id: data.id, state: parsed, updatedAt: data.updated_at };
 }
 
 export function sortCanvasesByContentEditedAt(
@@ -287,6 +289,12 @@ export async function updateCanvasTitle(
 export interface SaveCanvasStateOptions {
   /** Bump content_edited_at for sidebar recency sorting. */
   touchContentEditedAt?: boolean;
+  /** Optimistic lock — update only if the row timestamp still matches. */
+  expectedUpdatedAt?: string;
+}
+
+export interface SaveCanvasStateResult {
+  updatedAt: string;
 }
 
 export async function saveCanvasState(
@@ -294,7 +302,7 @@ export async function saveCanvasState(
   canvasId: string,
   source: CanvasSnapshotSource,
   options: SaveCanvasStateOptions = {},
-): Promise<void> {
+): Promise<SaveCanvasStateResult> {
   const snapshot = buildCanvasSnapshot(source);
   const touchContentEditedAt = options.touchContentEditedAt ?? false;
 
@@ -312,10 +320,18 @@ export async function saveCanvasState(
         }
       : baseUpdate;
 
-  let { error } = await supabase
-    .from("canvases")
-    .update(withContentEditedAt)
-    .eq("id", canvasId);
+  const runUpdate = async (payload: typeof baseUpdate) => {
+    let query = supabase
+      .from("canvases")
+      .update(payload)
+      .eq("id", canvasId);
+    if (options.expectedUpdatedAt) {
+      query = query.eq("updated_at", options.expectedUpdatedAt);
+    }
+    return query.select("updated_at").maybeSingle();
+  };
+
+  let { data, error } = await runUpdate(withContentEditedAt);
 
   if (
     error &&
@@ -323,13 +339,18 @@ export async function saveCanvasState(
     isMissingContentEditedAtColumn(error)
   ) {
     supportsContentEditedAtColumn = false;
-    ({ error } = await supabase
-      .from("canvases")
-      .update(baseUpdate)
-      .eq("id", canvasId));
+    ({ data, error } = await runUpdate(baseUpdate));
   } else if (!error && touchContentEditedAt) {
     supportsContentEditedAtColumn = true;
   }
 
   if (error) throw error;
+
+  if (options.expectedUpdatedAt && !data?.updated_at) {
+    throw new CanvasSaveConflictError();
+  }
+
+  return {
+    updatedAt: data?.updated_at ?? new Date().toISOString(),
+  };
 }
