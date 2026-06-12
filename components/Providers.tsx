@@ -1,5 +1,6 @@
 "use client";
 
+import { AppToastHost } from "@/components/AppToastHost";
 import { AuthProvider } from "@/components/AuthProvider";
 import { GoogleOAuthReturnBridge } from "@/components/google/GoogleOAuthReturnBridge";
 import { CanvasInactivityBridge } from "@/components/CanvasInactivityBridge";
@@ -11,6 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <MotionProvider>
       <AuthProvider>
+        <AppToastHost />
         <CanvasSoundBridge />
         <CanvasInactivityBridge />
         <GoogleOAuthReturnBridge />

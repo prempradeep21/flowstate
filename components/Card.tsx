@@ -36,6 +36,7 @@ import {
 } from "@/lib/design/canvasInsets";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
+import { registerCardAsk } from "@/lib/cardAskRegistry";
 import type { AskHandle } from "@/lib/dummyLLM";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -104,7 +105,7 @@ interface CardProps {
 const QUESTION_MAX_HEIGHT = Math.ceil(18 * 1.375 * 4);
 
 function CardInner({ card }: CardProps) {
-  const { user, members, accessInfo, stampContributor } = useAuth();
+  const { user, members, accessInfo, stampContributor, onlineUserIds } = useAuth();
   const canEdit = useCanEditCanvas();
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
   const contributorProfiles = useContributorProfiles(
@@ -601,6 +602,22 @@ function CardInner({ card }: CardProps) {
   }, []);
 
   useEffect(() => {
+    return registerCardAsk(card.id, {
+      cancel: () => {
+        askHandleRef.current?.cancel();
+        askHandleRef.current = null;
+        askGenerationRef.current += 1;
+      },
+    });
+  }, [card.id]);
+
+  useEffect(() => {
+    if (card.status !== "thinking") {
+      startedFor.current = null;
+    }
+  }, [card.status]);
+
+  useEffect(() => {
     if (card.status !== "thinking") return;
     if (startedFor.current === card.question) return;
     askHandleRef.current?.cancel();
@@ -1028,6 +1045,7 @@ function CardInner({ card }: CardProps) {
                             {showContributors && (
                               <ContributorAvatarStack
                                 profiles={contributorProfiles}
+                                onlineUserIds={onlineUserIds}
                               />
                             )}
                             {showStatusBadge && (
@@ -1067,6 +1085,7 @@ function CardInner({ card }: CardProps) {
                             {showContributors && (
                               <ContributorAvatarStack
                                 profiles={contributorProfiles}
+                                onlineUserIds={onlineUserIds}
                               />
                             )}
                             {showStatusBadge && (

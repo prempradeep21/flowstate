@@ -82,6 +82,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCanvasArtifactSize = useCanvasStore((s) => s.setCanvasArtifactSize);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
@@ -99,6 +100,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Alt held at drag start — first move duplicates and drags the copy. */
+    copyOnDrag: boolean;
+    /** Node actually being dragged (the duplicate when alt-dragging). */
+    targetId: string;
     /** Whole multi-selection moves together when this node is part of it. */
     moveSelection: boolean;
   } | null>(null);
@@ -224,6 +229,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       return;
     }
     if (!inMultiSelection) selectCanvasArtifact(node.id);
+    if (canvasReadOnly) return;
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     dragStateRef.current = {
@@ -232,7 +238,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
-      moveSelection: inMultiSelection,
+      copyOnDrag: e.altKey,
+      targetId: node.id,
+      moveSelection: inMultiSelection && !e.altKey,
     };
   };
 
@@ -294,6 +302,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       recordUndo();
       ds.recordedUndo = true;
     }
+    if (!ds.didMove && ds.copyOnDrag) {
+      const copyId = useCanvasStore
+        .getState()
+        .duplicateCanvasArtifactNode(node.id);
+      if (copyId) ds.targetId = copyId;
+    }
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -302,7 +316,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     if (ds.moveSelection) {
       st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
     } else {
-      moveCanvasArtifact(node.id, screenDx / vpScale, screenDy / vpScale);
+      moveCanvasArtifact(ds.targetId, screenDx / vpScale, screenDy / vpScale);
     }
   };
 

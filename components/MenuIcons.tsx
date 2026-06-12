@@ -320,6 +320,29 @@ export function DuplicateIcon() {
   );
 }
 
+export function CopyIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="5.25"
+        y="5.25"
+        width="7.5"
+        height="7.5"
+        rx="1.25"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <path
+        d="M3.25 10.75V4.25a1.25 1.25 0 0 1 1.25-1.25H10.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function PersonIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

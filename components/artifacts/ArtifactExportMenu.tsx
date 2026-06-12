@@ -8,6 +8,7 @@ import {
 import { useArtifactExport } from "@/components/artifacts/ArtifactExportContext";
 import { useGoogleConnection } from "@/hooks/useGoogleConnection";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
+import { showAppErrorToast, showAppToast } from "@/lib/appToastStore";
 import { executeExportAction } from "@/lib/artifactExport/executeExport";
 import { getExportMenuItems } from "@/lib/artifactExport/registry";
 import type { ExportMenuItem } from "@/lib/artifactExport/types";
@@ -28,14 +29,12 @@ export function ArtifactExportMenu({
   title,
   artifactId,
   menuVariant = "panel",
-  onToast,
 }: {
   kind: ArtifactKind;
   payload: ArtifactPayload;
   title: string;
   artifactId?: string;
   menuVariant?: "canvas" | "panel";
-  onToast?: (message: string, isError?: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -64,7 +63,7 @@ export function ArtifactExportMenu({
   const runExport = async (item: ExportMenuItem) => {
     if (item.kind === "google-sheets" && !connected) {
       connect();
-      onToast?.("Connect Google Drive to export to Sheets.");
+      showAppToast("Connect Google Drive to export to Sheets.");
       setOpen(false);
       return;
     }
@@ -74,12 +73,12 @@ export function ArtifactExportMenu({
       const ctx = buildExportContext(kind, payload, title, artifactId);
       const result = await executeExportAction(ctx, item.kind, item.id);
       if (result.ok) {
-        onToast?.(result.message ?? "Export complete");
+        showAppToast(result.message ?? "Export complete");
       } else if (result.needsConnect) {
         connect();
-        onToast?.(result.error, true);
+        showAppErrorToast(result.error);
       } else {
-        onToast?.(result.error, true);
+        showAppErrorToast(result.error);
       }
     } finally {
       setBusy(false);

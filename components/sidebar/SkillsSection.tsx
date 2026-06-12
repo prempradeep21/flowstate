@@ -9,7 +9,7 @@ import {
   uploadSkillFiles,
   type SkillUploadBatchResult,
 } from "@/lib/skills";
-import type { AssetUploadError } from "@/lib/attachments";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useCanvasStore } from "@/lib/store";
 
 export function SkillsSection() {
@@ -17,7 +17,6 @@ export function SkillsSection() {
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const addCanvasSkill = useCanvasStore((s) => s.addCanvasSkill);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [errors, setErrors] = useState<AssetUploadError[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -30,7 +29,7 @@ export function SkillsSection() {
     const mdFiles = Array.from(files).filter(isSkillFile);
     const invalid = Array.from(files).filter((f) => !isSkillFile(f));
     if (invalid.length > 0) {
-      setErrors(
+      showUploadErrorsToast(
         invalid.map((file) => ({
           fileName: file.name,
           code: "unsupported-type" as const,
@@ -55,8 +54,7 @@ export function SkillsSection() {
     );
     for (const skill of result.skills) addCanvasSkill(skill);
     if (result.errors.length > 0) {
-      setUploadError(result.errors[0]!.message);
-      setErrors((prev) => [...prev, ...result.errors]);
+      showUploadErrorsToast(result.errors);
     } else {
       setPendingFile(null);
     }
@@ -97,16 +95,6 @@ export function SkillsSection() {
           Drop .md skill files here
         </p>
       </div>
-
-      {errors.length > 0 && (
-        <div className="mb-3 space-y-1 rounded-canvas border border-red-300/60 bg-red-50 px-2 py-2 text-canvas-body-sm text-red-700">
-          {errors.map((error, index) => (
-            <p key={`${error.code}-${error.fileName ?? index}`}>
-              {error.message}
-            </p>
-          ))}
-        </div>
-      )}
 
       {skillIds.length === 0 ? (
         <p className="py-4 text-center text-canvas-body text-canvas-muted/80">

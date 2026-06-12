@@ -92,7 +92,7 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
   const accent = useCanvasStore(
     (s) => s.threads[card?.threadId ?? ""]?.accentColour,
   );
-  const { members, accessInfo } = useAuth();
+  const { members, accessInfo, onlineUserIds } = useAuth();
   const contributorProfiles = useContributorProfiles(
     card?.contributorIds,
     members,
@@ -133,7 +133,10 @@ function QnaTurnBlock({ cardId }: { cardId: string }) {
               showContributors || showStatusBadge ? (
                 <div className="flex min-w-0 items-center gap-2">
                   {showContributors && (
-                    <ContributorAvatarStack profiles={contributorProfiles} />
+                    <ContributorAvatarStack
+                      profiles={contributorProfiles}
+                      onlineUserIds={onlineUserIds}
+                    />
                   )}
                   {showStatusBadge && (
                     <QaStatusBadge

@@ -16,11 +16,17 @@ import {
 } from "@/lib/canvasSelection";
 import {
   applyContextMenuSelection,
+  canCopyCanvasSelection,
   canRemoveCanvasSelection,
   hasCanvasSelection,
   isContextHitInSelection,
   resolveCanvasContextHit,
 } from "@/lib/canvasContextSelection";
+import {
+  getLastCanvasClipboard,
+  parseCanvasClipboardPayload,
+  readCanvasClipboardFromDataTransfer,
+} from "@/lib/canvasClipboard";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import {
   allowSidebarDrop,
@@ -34,6 +40,7 @@ import {
   uploadAssetFiles,
   type AssetUploadError,
 } from "@/lib/attachments";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { isAudioFile } from "@/lib/audioArtifact";
 import { getAudioFilesFromDataTransfer } from "@/lib/audioFileImport";
 import {
@@ -276,7 +283,6 @@ export function Canvas({
   } | null>(null);
   const spaceHeldRef = useRef(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [assetDropErrors, setAssetDropErrors] = useState<AssetUploadError[]>([]);
   const [marqueeRect, setMarqueeRect] = useState<{
     x: number;
     y: number;
@@ -859,6 +865,63 @@ export function Canvas({
         return;
       }
 
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.code === "KeyC" && !e.altKey && !e.shiftKey) {
+        const st = useCanvasStore.getState();
+        if (canCopyCanvasSelection(st)) {
+          e.preventDefault();
+          void st.copySelectedCanvasItems();
+          return;
+        }
+        const target = e.target as HTMLElement | null;
+        if (target) {
+          const tag = target.tagName;
+          if (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            target.isContentEditable
+          ) {
+            return;
+          }
+        }
+        return;
+      }
+
+      if (mod && e.code === "KeyV" && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        if (target) {
+          const tag = target.tagName;
+          if (tag === "INPUT" || tag === "TEXTAREA") return;
+          if (target.isContentEditable) return;
+        }
+        if (useCanvasStore.getState().canvasReadOnly) return;
+
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const canvasPtr = canvasPointerRef.current;
+        const cursor = cursorRef.current;
+        const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+        const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+        const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+        const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+        const world = computeWorldFromClient(clientX, clientY);
+        if (!world) return;
+
+        const payload = getLastCanvasClipboard();
+        if (payload) {
+          const pasted = useCanvasStore.getState().pasteCanvasClipboardAt(
+            world,
+            payload,
+            { canvasId: activeCanvasId ?? undefined },
+          );
+          if (pasted) {
+            e.preventDefault();
+            setContextMenu(null);
+          }
+        }
+        return;
+      }
+
       if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
 
@@ -911,7 +974,7 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [closePie, pieStateRef, removeSelectedFromCanvas]);
+  }, [closePie, pieStateRef, removeSelectedFromCanvas, activeCanvasId]);
 
   // T (enter text placement) — same rules as Q for focused inputs.
   useEffect(() => {
@@ -1124,7 +1187,7 @@ export function Canvas({
       placeCanvasAsset(asset.id, world, index);
     });
     if (result.errors.length > 0) {
-      setAssetDropErrors(result.errors);
+      showUploadErrorsToast(result.errors);
     }
     return result.assets.length > 0;
   };
@@ -1156,7 +1219,7 @@ export function Canvas({
     }
 
     if (errors.length > 0) {
-      setAssetDropErrors(errors);
+      showUploadErrorsToast(errors);
     }
     return created > 0;
   };
@@ -1181,6 +1244,32 @@ export function Canvas({
       const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
       const world = computeWorldFromClient(clientX, clientY);
       if (!world) return;
+
+      let internalPayload = readCanvasClipboardFromDataTransfer(e.clipboardData);
+      if (!internalPayload) {
+        const plain = e.clipboardData?.getData("text/plain") ?? "";
+        const plainIsOurs =
+          plain.trim().length > 0 && parseCanvasClipboardPayload(plain);
+        if (!plainIsOurs) {
+          internalPayload = getLastCanvasClipboard();
+        }
+      }
+      if (internalPayload && !useCanvasStore.getState().canvasReadOnly) {
+        const pasted = useCanvasStore.getState().pasteCanvasClipboardAt(
+          world,
+          internalPayload,
+          { canvasId: activeCanvasId ?? undefined },
+        );
+        if (pasted) {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu(null);
+          setPlacement(null);
+          setImagePlacement(null);
+          setGifPlacement(null);
+          return;
+        }
+      }
 
       const imageFiles = getImageFilesFromDataTransfer(e.clipboardData);
       if (imageFiles.length > 0) {
@@ -1227,7 +1316,7 @@ export function Canvas({
     if (draggedImage) {
       const ok = await importImagesAtWorld([draggedImage], world);
       if (ok) return;
-      setAssetDropErrors([
+      showUploadErrorsToast([
         {
           code: "upload-failed",
           message:
@@ -1257,7 +1346,7 @@ export function Canvas({
         placeCanvasAsset(asset.id, world, index);
       });
       if (result.errors.length > 0) {
-        setAssetDropErrors((prev) => [...prev, ...result.errors]);
+        showUploadErrorsToast(result.errors);
       }
       return;
     }
@@ -1395,10 +1484,12 @@ export function Canvas({
       if (!isContextHitInSelection(st, hit)) {
         applyContextMenuSelection(st, hit);
       }
+      const next = useCanvasStore.getState();
       setContextMenu({
         screenX: e.clientX,
         screenY: e.clientY,
-        showDelete: canRemoveCanvasSelection(useCanvasStore.getState()),
+        showDelete: canRemoveCanvasSelection(next),
+        showCopy: canCopyCanvasSelection(next),
       });
       return;
     }
@@ -1407,7 +1498,12 @@ export function Canvas({
       screenX: e.clientX,
       screenY: e.clientY,
       showDelete: canRemoveCanvasSelection(st),
+      showCopy: canCopyCanvasSelection(st),
     });
+  };
+
+  const handleCopyAtContextMenu = () => {
+    void useCanvasStore.getState().copySelectedCanvasItems();
   };
 
   const handleAddTextAtContextMenu = () => {
@@ -1677,30 +1773,12 @@ export function Canvas({
       <SelectionOverlay rect={marqueeRect} />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
       {!marqueeRect && <SelectionToolbar />}
-      {assetDropErrors.length > 0 && (
-        <div className="pointer-events-auto absolute left-1/2 top-4 z-50 max-w-md -translate-x-1/2 rounded-canvas border border-red-300/60 bg-red-50 px-3 py-2 text-canvas-body-sm text-red-700 shadow-card">
-          {assetDropErrors.slice(0, 3).map((error, index) => (
-            <p key={`${error.code}-${error.fileName ?? index}`}>
-              {error.message}
-            </p>
-          ))}
-          {assetDropErrors.length > 3 && (
-            <p>{assetDropErrors.length - 3} more upload errors.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setAssetDropErrors([])}
-            className="mt-1 text-canvas-body-sm font-medium text-red-800"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           onAddText={handleAddTextAtContextMenu}
+          onCopy={handleCopyAtContextMenu}
           onDelete={() => removeSelectedFromCanvas()}
         />
       )}

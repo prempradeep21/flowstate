@@ -16,6 +16,7 @@ import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { collectSubtreeIds } from "@/lib/canvasSubtree";
+import { cancelCardAsks } from "@/lib/cardAskRegistry";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -72,6 +73,17 @@ import {
   touchThreadActivity,
   type ThreadInactivityState,
 } from "@/lib/threadInactivity";
+import {
+  buildCanvasClipboardPayload,
+  canCopyCanvasSelection,
+  cloneSessionArtifactDeep,
+  computePastePosition,
+  writeCanvasClipboard,
+  CANVAS_PASTE_SOURCE_CARD_ID,
+  type CanvasClipboardPayload,
+} from "@/lib/canvasClipboard";
+import { showAppErrorToast, showAppToast } from "@/lib/appToastStore";
+import { copySuccessMessage } from "@/lib/copyToastMessage";
 import {
   getSelectionUnits,
   isCanvasItemSelected,
@@ -653,6 +665,15 @@ interface CanvasState {
   duplicateCanvasTextLabel: (nodeId: string) => string | null;
   duplicateCanvasAssetNode: (nodeId: string) => string | null;
   duplicateCanvasGifNode: (nodeId: string) => string | null;
+  duplicateCanvasArtifactNode: (nodeId: string) => string | null;
+  duplicateCanvasSkillNode: (nodeId: string) => string | null;
+  canCopyCanvasSelection: () => boolean;
+  copySelectedCanvasItems: () => Promise<boolean>;
+  pasteCanvasClipboardAt: (
+    world: { x: number; y: number },
+    payload?: CanvasClipboardPayload,
+    options?: { canvasId?: string },
+  ) => boolean;
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   toggleCardCollapsed: (cardId: string) => void;
   autoCollapseInactiveThreads: (threadIds: string[]) => void;
@@ -994,6 +1015,10 @@ function newCanvasAssetNodeId() {
 
 function newCanvasSkillNodeId() {
   return newId("skillnode");
+}
+
+function newCanvasSkillId() {
+  return newId("skill");
 }
 
 function newCanvasTextLabelId() {
@@ -1873,6 +1898,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       if (!willDeleteCards && !willDeleteNodes) return state;
 
+      if (willDeleteCards) cancelCardAsks(cardIdsToDelete);
+
       const undoPast = pushUndoSnapshot(state);
 
       let nextCards = state.cards;
@@ -2193,6 +2220,292 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       collaborationHasEdits: true,
     }));
     return id;
+  },
+
+  duplicateCanvasArtifactNode: (nodeId) => {
+    const state = get();
+    const node = state.canvasArtifactNodes[nodeId];
+    if (!node) return null;
+
+    const art = node.artifactId
+      ? state.sessionArtifacts[node.artifactId]
+      : undefined;
+    if (!art && !node.permissionPreview && !node.generatingPreview) {
+      return null;
+    }
+
+    let clonedArtifact = art;
+    let displayedVersionId = node.versionId;
+
+    if (art) {
+      const cloned = cloneSessionArtifactDeep(art);
+      clonedArtifact = cloned.artifact;
+      displayedVersionId =
+        cloned.versionIdMap.get(node.versionId) ??
+        cloned.artifact.latestVersionId;
+    } else if (node.permissionPreview) {
+      const id = newCanvasArtifactNodeId();
+      set((s) => ({
+        canvasArtifactNodes: {
+          ...s.canvasArtifactNodes,
+          [id]: {
+            id,
+            artifactId: "",
+            versionId: "",
+            sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+            position: { ...node.position },
+            ...(node.size ? { size: { ...node.size } } : {}),
+            ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+            permissionPreview: structuredClone(node.permissionPreview),
+          },
+        },
+        canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: [{ kind: "artifact", id }],
+        }),
+        collaborationHasEdits: true,
+      }));
+      return id;
+    } else if (node.generatingPreview) {
+      const id = newCanvasArtifactNodeId();
+      set((s) => ({
+        canvasArtifactNodes: {
+          ...s.canvasArtifactNodes,
+          [id]: {
+            id,
+            artifactId: "",
+            versionId: "",
+            sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+            position: { ...node.position },
+            ...(node.size ? { size: { ...node.size } } : {}),
+            ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+            generatingPreview: structuredClone(node.generatingPreview),
+          },
+        },
+        canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: [{ kind: "artifact", id }],
+        }),
+        collaborationHasEdits: true,
+      }));
+      return id;
+    }
+
+    if (!clonedArtifact) return null;
+
+    const id = newCanvasArtifactNodeId();
+
+    set((s) => ({
+      sessionArtifacts: {
+        ...s.sessionArtifacts,
+        [clonedArtifact!.id]: clonedArtifact!,
+      },
+      canvasArtifactNodes: {
+        ...s.canvasArtifactNodes,
+        [id]: {
+          id,
+          artifactId: clonedArtifact!.id,
+          versionId: displayedVersionId,
+          sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+          ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+        },
+      },
+      canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "artifact", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvasSkillNode: (nodeId) => {
+    const node = get().canvasSkillNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvasSkillNodeId();
+    set((state) => ({
+      canvasSkillNodes: {
+        ...state.canvasSkillNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvasSkillOrder: [...state.canvasSkillOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "skill", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  canCopyCanvasSelection: () => canCopyCanvasSelection(get()),
+
+  copySelectedCanvasItems: async () => {
+    const payload = buildCanvasClipboardPayload(get());
+    if (!payload) return false;
+    const ok = await writeCanvasClipboard(payload);
+    if (ok) {
+      showAppToast(copySuccessMessage(payload));
+    } else {
+      showAppErrorToast("Copy failed");
+    }
+    return ok;
+  },
+
+  pasteCanvasClipboardAt: (world, payload, options) => {
+    if (!payload || payload.items.length === 0) return false;
+    if (get().canvasReadOnly) return false;
+
+    get().recordUndo();
+
+    const pastedItems: CanvasSelectionItem[] = [];
+
+    set((state) => {
+      let nextSessionArtifacts = { ...state.sessionArtifacts };
+      let nextCanvasArtifactNodes = { ...state.canvasArtifactNodes };
+      let nextCanvasArtifactOrder = [...state.canvasArtifactOrder];
+      let nextCanvasSkills = { ...state.canvasSkills };
+      let nextCanvasSkillNodes = { ...state.canvasSkillNodes };
+      let nextCanvasSkillOrder = [...state.canvasSkillOrder];
+
+      payload.items.forEach((item, index) => {
+        const position = computePastePosition(
+          payload.anchor,
+          item.container.position,
+          world,
+          index,
+        );
+
+        if (item.kind === "artifact") {
+          const hasPreviewOnly =
+            item.container.permissionPreview || item.container.generatingPreview;
+          const nodeId = newCanvasArtifactNodeId();
+
+          if (!hasPreviewOnly) {
+            const { artifact, versionIdMap } = cloneSessionArtifactDeep(
+              item.sessionArtifact,
+            );
+            const displayedVersionId =
+              versionIdMap.get(item.displayedVersionId) ??
+              artifact.latestVersionId;
+
+            nextSessionArtifacts = {
+              ...nextSessionArtifacts,
+              [artifact.id]: artifact,
+            };
+            nextCanvasArtifactNodes = {
+              ...nextCanvasArtifactNodes,
+              [nodeId]: {
+                id: nodeId,
+                artifactId: artifact.id,
+                versionId: displayedVersionId,
+                sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+                position,
+                ...(item.container.size
+                  ? { size: { ...item.container.size } }
+                  : {}),
+                ...(item.container.userSetSize
+                  ? { userSetSize: item.container.userSetSize }
+                  : {}),
+              },
+            };
+          } else {
+            nextCanvasArtifactNodes = {
+              ...nextCanvasArtifactNodes,
+              [nodeId]: {
+                id: nodeId,
+                artifactId: "",
+                versionId: "",
+                sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+                position,
+                ...(item.container.size
+                  ? { size: { ...item.container.size } }
+                  : {}),
+                ...(item.container.userSetSize
+                  ? { userSetSize: item.container.userSetSize }
+                  : {}),
+                ...(item.container.permissionPreview
+                  ? {
+                      permissionPreview: structuredClone(
+                        item.container.permissionPreview,
+                      ),
+                    }
+                  : {}),
+                ...(item.container.generatingPreview
+                  ? {
+                      generatingPreview: structuredClone(
+                        item.container.generatingPreview,
+                      ),
+                    }
+                  : {}),
+              },
+            };
+          }
+          nextCanvasArtifactOrder = [...nextCanvasArtifactOrder, nodeId];
+          pastedItems.push({ kind: "artifact", id: nodeId });
+          return;
+        }
+
+        if (item.kind === "skill") {
+          let skillId = item.skill.id;
+          if (!nextCanvasSkills[skillId]) {
+            skillId = newCanvasSkillId();
+            nextCanvasSkills = {
+              ...nextCanvasSkills,
+              [skillId]: {
+                ...item.skill,
+                id: skillId,
+                canvasId: options?.canvasId ?? item.skill.canvasId,
+                createdAt: Date.now(),
+              },
+            };
+          }
+
+          const nodeId = newCanvasSkillNodeId();
+          nextCanvasSkillNodes = {
+            ...nextCanvasSkillNodes,
+            [nodeId]: {
+              id: nodeId,
+              skillId,
+              position,
+              ...(item.container.size
+                ? { size: { ...item.container.size } }
+                : {}),
+            },
+          };
+          nextCanvasSkillOrder = [...nextCanvasSkillOrder, nodeId];
+          pastedItems.push({ kind: "skill", id: nodeId });
+        }
+      });
+
+      if (pastedItems.length === 0) return state;
+
+      return {
+        sessionArtifacts: nextSessionArtifacts,
+        canvasArtifactNodes: nextCanvasArtifactNodes,
+        canvasArtifactOrder: nextCanvasArtifactOrder,
+        canvasSkills: nextCanvasSkills,
+        canvasSkillNodes: nextCanvasSkillNodes,
+        canvasSkillOrder: nextCanvasSkillOrder,
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: pastedItems,
+        }),
+        collaborationHasEdits: true,
+      };
+    });
+
+    return pastedItems.length > 0;
   },
 
   createGroupFromSelection: (label) => {
@@ -4208,9 +4521,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   deleteFromCard: (cardId) =>
     set((state) => {
       if (!state.cards[cardId]) return state;
-      const undoPast = pushUndoSnapshot(state);
 
       const toDelete = collectSubtreeIds(state.connections, cardId);
+      cancelCardAsks(toDelete);
+
+      const undoPast = pushUndoSnapshot(state);
       const nextCards = { ...state.cards };
       for (const id of toDelete) {
         delete nextCards[id];

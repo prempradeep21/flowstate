@@ -59,12 +59,13 @@ export function applyContextMenuSelection(
   });
 }
 
+export { canCopyCanvasSelection } from "@/lib/canvasClipboard";
+
 export function hasCanvasSelection(store: CanvasStore): boolean {
   return (
     store.selectedFamilyRootIds.length > 0 || store.canvasSelection.length > 0
   );
 }
-
 /** Whether the current selection would actually remove something from the canvas. */
 export function canRemoveCanvasSelection(store: CanvasStore): boolean {
   if (store.canvasReadOnly) return false;

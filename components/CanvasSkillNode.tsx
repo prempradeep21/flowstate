@@ -47,6 +47,10 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     lastY: number;
     didMove: boolean;
     recordedUndo: boolean;
+    /** Alt held at drag start — first move duplicates and drags the copy. */
+    copyOnDrag: boolean;
+    /** Node actually being dragged (the duplicate when alt-dragging). */
+    targetId: string;
     /** Whole multi-selection moves together when this node is part of it. */
     moveSelection: boolean;
   } | null>(null);
@@ -103,7 +107,9 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       lastY: e.clientY,
       didMove: false,
       recordedUndo: false,
-      moveSelection: inMultiSelection,
+      copyOnDrag: e.altKey,
+      targetId: node.id,
+      moveSelection: inMultiSelection && !e.altKey,
     };
   };
 
@@ -118,6 +124,10 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       recordUndo();
       ds.recordedUndo = true;
     }
+    if (!ds.didMove && ds.copyOnDrag) {
+      const copyId = useCanvasStore.getState().duplicateCanvasSkillNode(node.id);
+      if (copyId) ds.targetId = copyId;
+    }
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -126,7 +136,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     if (ds.moveSelection) {
       st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
     } else {
-      moveCanvasSkill(node.id, screenDx / vpScale, screenDy / vpScale);
+      moveCanvasSkill(ds.targetId, screenDx / vpScale, screenDy / vpScale);
     }
   };
 

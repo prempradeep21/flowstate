@@ -61,7 +61,6 @@ export function ArtifactPanelHeader({
   websiteUrl,
   googleFileKind,
   exportPayload,
-  onExportToast,
 }: {
   kind: ArtifactKind;
   title: string;
@@ -78,7 +77,6 @@ export function ArtifactPanelHeader({
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
   exportPayload?: ArtifactPayload;
-  onExportToast?: (message: string, isError?: boolean) => void;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -243,10 +241,10 @@ export function ArtifactPanelHeader({
         </a>
       ) : null}
 
-      {exportPayload && onExportToast ? (
+      {exportPayload ? (
         <>
           {kind === "code" ? (
-            <ArtifactCodeCopyButton menuVariant={menuVariant} onToast={onExportToast} />
+            <ArtifactCodeCopyButton menuVariant={menuVariant} />
           ) : (
             <ArtifactCopyCodeButton
               kind={kind}
@@ -254,7 +252,6 @@ export function ArtifactPanelHeader({
               title={title}
               artifactId={artifactId}
               menuVariant={menuVariant}
-              onToast={onExportToast}
             />
           )}
           <ArtifactExportMenu
@@ -263,7 +260,6 @@ export function ArtifactPanelHeader({
             title={title}
             artifactId={artifactId}
             menuVariant={menuVariant}
-            onToast={onExportToast}
           />
         </>
       ) : null}

@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import {
   groupCanvasAssets,
   uploadAssetFiles,
-  type AssetUploadError,
 } from "@/lib/attachments";
 import { OFFICE_FILE_ACCEPT } from "@/lib/officeAssetKinds";
 import { setSidebarDragData } from "@/lib/sidebarDnD";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useCanvasStore } from "@/lib/store";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -74,7 +74,6 @@ export function AttachmentsSection() {
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
   const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [errors, setErrors] = useState<AssetUploadError[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const groups = groupCanvasAssets(Object.values(canvasAssets));
@@ -86,7 +85,9 @@ export function AttachmentsSection() {
       user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
     );
     for (const asset of result.assets) addCanvasAsset(asset);
-    setErrors(result.errors);
+    if (result.errors.length > 0) {
+      showUploadErrorsToast(result.errors);
+    }
     setUploading(false);
   };
 
@@ -124,16 +125,6 @@ export function AttachmentsSection() {
           Drop images, spreadsheets, documents, presentations, or code files here
         </p>
       </div>
-
-      {errors.length > 0 && (
-        <div className="mb-3 space-y-1 rounded-canvas border border-red-300/60 bg-red-50 px-2 py-2 text-canvas-body-sm text-red-700">
-          {errors.map((error, index) => (
-            <p key={`${error.code}-${error.fileName ?? index}`}>
-              {error.message}
-            </p>
-          ))}
-        </div>
-      )}
 
       <div className="space-y-3">
         {groups.map((group) => (

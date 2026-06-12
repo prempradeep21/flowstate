@@ -7,6 +7,7 @@ import {
 } from "@/components/CanvasFloatingMenu";
 import { useArtifactExport } from "@/components/artifacts/ArtifactExportContext";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
+import { showAppErrorToast, showAppToast } from "@/lib/appToastStore";
 import { copyTextToClipboard } from "@/lib/artifactExport/clipboard";
 import {
   generateCodeVariant,
@@ -38,14 +39,12 @@ export function ArtifactCopyCodeButton({
   title,
   artifactId,
   menuVariant = "panel",
-  onToast,
 }: {
   kind: ArtifactKind;
   payload: ArtifactPayload;
   title: string;
   artifactId?: string;
   menuVariant?: "canvas" | "panel";
-  onToast?: (message: string, isError?: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -71,7 +70,11 @@ export function ArtifactCopyCodeButton({
     const ctx = buildExportContext(kind, payload, title, artifactId);
     const text = generateCodeVariant(ctx, variant.id);
     const ok = await copyTextToClipboard(text);
-    onToast?.(ok ? `Copied ${variant.label}` : "Copy failed", !ok);
+    if (ok) {
+      showAppToast(`Copied ${variant.label}`);
+    } else {
+      showAppErrorToast("Copy failed");
+    }
     setOpen(false);
   };
 
@@ -123,10 +126,8 @@ export function ArtifactCopyCodeButton({
 
 export function ArtifactCodeCopyButton({
   menuVariant = "panel",
-  onToast,
 }: {
   menuVariant?: "canvas" | "panel";
-  onToast?: (message: string, isError?: boolean) => void;
 }) {
   const exportCtx = useArtifactExport();
   const isCanvas = menuVariant === "canvas";
@@ -141,11 +142,15 @@ export function ArtifactCodeCopyButton({
       "",
     ).codeActiveContent;
     if (!content) {
-      onToast?.("No code to copy", true);
+      showAppErrorToast("No code to copy");
       return;
     }
     const ok = await copyTextToClipboard(content);
-    onToast?.(ok ? "Copied code" : "Copy failed", !ok);
+    if (ok) {
+      showAppToast("Copied code");
+    } else {
+      showAppErrorToast("Copy failed");
+    }
   };
 
   return (

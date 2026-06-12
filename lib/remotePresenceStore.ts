@@ -3,10 +3,27 @@ import type { CollaboratorPresence } from "@/lib/collaborationTypes";
 export type RemotePresenceMap = Readonly<Record<string, CollaboratorPresence>>;
 
 const EMPTY: RemotePresenceMap = {};
+const EMPTY_LAST_SEEN: Readonly<Record<string, number>> = {};
 
 let remotePresence: RemotePresenceMap = EMPTY;
+let lastSeenByUserId: Readonly<Record<string, number>> = EMPTY_LAST_SEEN;
 let version = 0;
 const listeners = new Set<() => void>();
+
+function recordLastSeenFromPresence(next: RemotePresenceMap): void {
+  let changed = false;
+  let nextLastSeen: Record<string, number> | null = null;
+  for (const [userId, presence] of Object.entries(next)) {
+    const previous = lastSeenByUserId[userId] ?? 0;
+    if (presence.updatedAt <= previous) continue;
+    if (!changed) {
+      nextLastSeen = { ...lastSeenByUserId };
+      changed = true;
+    }
+    nextLastSeen![userId] = presence.updatedAt;
+  }
+  if (changed && nextLastSeen) lastSeenByUserId = nextLastSeen;
+}
 
 export function parsePresenceState(
   state: Record<string, CollaboratorPresence[]>,
@@ -33,6 +50,7 @@ export function parsePresenceState(
 }
 
 export function setRemotePresence(next: RemotePresenceMap): void {
+  recordLastSeenFromPresence(next);
   remotePresence = next;
   version += 1;
   for (const listener of listeners) {
@@ -62,4 +80,10 @@ export function getRemotePresenceSnapshot(): RemotePresenceMap {
 
 export function getRemotePresenceVersion(): number {
   return version;
+}
+
+export function getLastSeenByUserIdSnapshot(): Readonly<
+  Record<string, number>
+> {
+  return lastSeenByUserId;
 }
