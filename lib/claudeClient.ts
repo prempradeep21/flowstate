@@ -13,6 +13,7 @@ import {
   CHART_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
   CUSTOM_UI_UPDATING_LABEL,
+  isCustomUiWork,
   resolveInitialThinkingLabel,
   TIMELINE_THINKING_LABEL,
 } from "@/lib/artifactIntent";

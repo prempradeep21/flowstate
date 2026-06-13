@@ -187,6 +187,9 @@ type QaProgressCard = Pick<
   | "responseType"
 >;
 
+type QaAnswerSectionCard = QaProgressCard &
+  Pick<Card, "question" | "outputArtifactId">;
+
 /** Error surfaced only after the turn fully finishes — not while still working. */
 export function isQaResponseFinalError(
   card: QaProgressCard,
@@ -275,7 +278,7 @@ export function shouldShowQaAnswerError(
 
 /** Whether the answer section should render content instead of a placeholder. */
 export function shouldShowQaAnswerSection(
-  card: QaProgressCard,
+  card: QaAnswerSectionCard,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): boolean {
   if (card.status === "empty") return false;

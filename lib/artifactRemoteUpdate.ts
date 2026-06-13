@@ -38,7 +38,7 @@ export interface ArtifactRemoteUpdateContext {
   connections: Connection[];
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   artifactPlugConnections?: ArtifactPlugConnection[];
-  plugComposerAttachments?: Record<string, AttachedArtifactRef[]>;
+  plugComposerAttachments?: Record<string, AttachedArtifactRef>;
 }
 
 function plugContextFromState(ctx: ArtifactRemoteUpdateContext) {

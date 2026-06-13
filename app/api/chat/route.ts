@@ -179,8 +179,8 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
-/** Match client hard cap for Q&A turns (stream + artifact work). */
-export const maxDuration = QA_TURN_TIMEOUT_SECONDS;
+/** Match client hard cap for Q&A turns (stream + artifact work). Keep in sync with QA_TURN_TIMEOUT_SECONDS. */
+export const maxDuration = 180;
 
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
