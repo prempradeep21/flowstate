@@ -104,6 +104,7 @@ import {
   computeArtifactSpawnPosition,
   findCanvasNodeByArtifactId,
   findGeneratingPreviewNode,
+  findPermissionPreviewNode,
   pickAlternateSpawnSide,
   type ArtifactSpawnSide,
 } from "@/lib/canvasArtifacts";
@@ -309,6 +310,10 @@ export interface Card {
   quotedSelection?: string;
   /** Artifacts emitted during the current chat turn (processed on done). */
   pendingEmittedArtifacts?: EmittedArtifact[];
+  /** Wall-clock start when the current question was submitted. */
+  askStartedAt?: number;
+  /** Token usage accumulated for the current question turn. */
+  turnUsage?: { inputTokens: number; outputTokens: number };
 }
 
 export interface FollowUpOptions {
@@ -575,6 +580,7 @@ interface CanvasState {
 
   sessionUsage: { inputTokens: number; outputTokens: number };
   addUsage: (input: number, output: number) => void;
+  addCardTurnUsage: (cardId: string, input: number, output: number) => void;
 
   viewport: Viewport;
   /** Scale used for stroke/chrome compensation; lags during active zoom gestures. */
@@ -1309,6 +1315,25 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         outputTokens: s.sessionUsage.outputTokens + output,
       },
     })),
+  addCardTurnUsage: (cardId, input, output) =>
+    set((s) => {
+      if (!input && !output) return s;
+      const card = s.cards[cardId];
+      if (!card) return s;
+      const prev = card.turnUsage ?? { inputTokens: 0, outputTokens: 0 };
+      return {
+        cards: {
+          ...s.cards,
+          [cardId]: {
+            ...card,
+            turnUsage: {
+              inputTokens: prev.inputTokens + input,
+              outputTokens: prev.outputTokens + output,
+            },
+          },
+        },
+      };
+    }),
   setModel: (model) => set({ selectedModel: model }),
 
   leftPanelCollapsed: true,
@@ -3940,6 +3965,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         answer: "",
         status: "thinking",
         thinkingLabel: "Thinking",
+        askStartedAt: Date.now(),
+        turnUsage: { inputTokens: 0, outputTokens: 0 },
         position: pos,
         size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,
@@ -4065,6 +4092,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   spawnPermissionPreview: (cardId, payload, opts) => {
     const card = get().cards[cardId];
     if (!card) return null;
+
+    const existing = findPermissionPreviewNode(
+      get().canvasArtifactNodes,
+      cardId,
+      payload,
+    );
+    if (existing) {
+      set({ selectedCanvasArtifactId: existing.id });
+      return existing.id;
+    }
 
     const kind = payloadToArtifactKind(payload);
     const placeName =

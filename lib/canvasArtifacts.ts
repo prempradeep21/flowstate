@@ -57,6 +57,30 @@ export function findGeneratingPreviewNode(
   );
 }
 
+/** Whether a pending permission preview already represents this payload. */
+export function permissionPreviewMatchesPayload(
+  preview: NonNullable<CanvasArtifactNode["permissionPreview"]>,
+  payload: ArtifactPayload,
+): boolean {
+  return (
+    preview.status === "pending" &&
+    preview.kind === payloadToArtifactKind(payload) &&
+    preview.title === payload.title
+  );
+}
+
+export function findPermissionPreviewNode(
+  nodes: Record<string, CanvasArtifactNode>,
+  cardId: string,
+  payload?: ArtifactPayload,
+): CanvasArtifactNode | undefined {
+  return Object.values(nodes).find((n) => {
+    if (n.sourceCardId !== cardId || !n.permissionPreview) return false;
+    if (!payload) return n.permissionPreview.status === "pending";
+    return permissionPreviewMatchesPayload(n.permissionPreview, payload);
+  });
+}
+
 function payloadSpawnSize(payload?: ArtifactPayload): { w: number; h: number } {
   if (!payload) {
     return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };

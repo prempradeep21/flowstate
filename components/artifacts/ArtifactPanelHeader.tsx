@@ -16,7 +16,7 @@ import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
-export interface TodoEditControls {
+export interface ArtifactEditControls {
   canEdit: boolean;
   isEditing: boolean;
   isDirty: boolean;
@@ -24,7 +24,12 @@ export interface TodoEditControls {
   onSave: () => void;
   onDiscard: () => void;
   onCancelEdit: () => void;
+  /** When true, dirty edit mode shows Save only (no Discard). */
+  saveOnly?: boolean;
 }
+
+/** @deprecated Use ArtifactEditControls */
+export type TodoEditControls = ArtifactEditControls;
 
 function ExternalLinkIcon({ className }: { className?: string }) {
   return (
@@ -57,6 +62,7 @@ export function ArtifactPanelHeader({
   onRemoveFromCanvas,
   contributorProfiles,
   todoEditControls,
+  stickyEditControls,
   isVideo = false,
   websiteUrl,
   googleFileKind,
@@ -72,7 +78,8 @@ export function ArtifactPanelHeader({
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   contributorProfiles?: CollaboratorProfile[];
-  todoEditControls?: TodoEditControls;
+  todoEditControls?: ArtifactEditControls;
+  stickyEditControls?: ArtifactEditControls;
   isVideo?: boolean;
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
@@ -127,12 +134,14 @@ export function ArtifactPanelHeader({
       ? Boolean(onExpand || onRemoveFromCanvas)
       : false;
 
-  const showTodoEdit =
-    todoEditControls?.canEdit && !todoEditControls.isEditing;
-  const showTodoSaveDiscard =
-    todoEditControls?.isEditing && todoEditControls.isDirty;
-  const showTodoCancel =
-    todoEditControls?.isEditing && !todoEditControls.isDirty;
+  const editControls = todoEditControls ?? stickyEditControls;
+
+  const showArtifactEdit =
+    editControls?.canEdit && !editControls.isEditing;
+  const showArtifactSaveDiscard =
+    editControls?.isEditing && editControls.isDirty;
+  const showArtifactCancel =
+    editControls?.isEditing && !editControls.isDirty;
 
   const ctaClass =
     "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
@@ -178,38 +187,40 @@ export function ArtifactPanelHeader({
         {title}
       </h2>
 
-      {showTodoEdit && (
+      {showArtifactEdit && (
         <button
           type="button"
-          onClick={todoEditControls.onEdit}
+          onClick={editControls.onEdit}
           className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
         >
           Edit
         </button>
       )}
 
-      {showTodoCancel && (
+      {showArtifactCancel && (
         <button
           type="button"
-          onClick={todoEditControls.onCancelEdit}
+          onClick={editControls.onCancelEdit}
           className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
         >
           Cancel
         </button>
       )}
 
-      {showTodoSaveDiscard && (
+      {showArtifactSaveDiscard && (
         <div className="flex shrink-0 items-center gap-2">
+          {!editControls.saveOnly && (
+            <button
+              type="button"
+              onClick={editControls.onDiscard}
+              className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+            >
+              Discard
+            </button>
+          )}
           <button
             type="button"
-            onClick={todoEditControls.onDiscard}
-            className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={todoEditControls.onSave}
+            onClick={editControls.onSave}
             className={`${ctaClass} bg-canvas-accent text-white hover:opacity-90`}
           >
             Save

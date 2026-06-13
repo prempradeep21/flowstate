@@ -40,7 +40,9 @@ const DAY_MONTH_DATE = new RegExp(
   "i",
 );
 const SCHEDULE_INTENT =
-  /\b(schedule|appointment|deadline|meeting\s+on|calendar|event\s+on|on\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?|from\s+.+?\s+to\s+)\b/i;
+  /\b(?:schedule|appointment|deadline|meeting\s+on|event\s+on|on\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?|from\s+.+?\s+to\s+)\b/i;
+const CALENDAR_REQUEST =
+  /\b(?:show|build|create|make|give\s+me|need|open)\b.{0,40}\bcalendar\b|\bcalendar\s+(?:for|of|view|grid)\b|\bon\s+my\s+calendar\b|\bmy\s+calendar\b/i;
 const CALENDAR_ARTIFACT =
   /\bcalendar\s+(artifact|view|component)\b/i;
 
@@ -52,6 +54,7 @@ export function detectCalendarIntent(question: string): boolean {
     NUMERIC_DATE.test(q) ||
     MONTH_DAY_DATE.test(q) ||
     DAY_MONTH_DATE.test(q) ||
+    CALENDAR_REQUEST.test(q) ||
     SCHEDULE_INTENT.test(q) ||
     CALENDAR_ARTIFACT.test(q)
   );
@@ -127,6 +130,23 @@ export function detectCustomUiIntent(question: string): boolean {
     CUSTOM_VISUAL_TWEAK.test(q)
   );
 }
+
+export function detectInlineSourceInQuestion(question: string): boolean {
+  const q = question.trim();
+  if (!q) return false;
+  return (
+    /import\s+[\s\S]{0,160}\bfrom\s+['"]react['"]/i.test(q) ||
+    /export\s+(default\s+)?function\s+\w+/i.test(q) ||
+    (/\buseState\s*\(/.test(q) && /\breturn\s*\(/.test(q))
+  );
+}
+
+export const CUSTOM_UI_INLINE_CODE_NOTE = `
+MANDATORY — Inline source code detected in the user message:
+- You MUST call emit_artifact with type "custom" and put the converted vanilla UI in data.html, data.css, and optional data.js.
+- Prose descriptions alone do NOT create an artifact — nothing appears on the canvas until emit_artifact succeeds with non-empty data.html.
+- Keep the text reply to one short sentence; put ALL markup, styles, and scripts in the tool payload.
+`.trim();
 
 /** True when the turn should produce or update a custom UI artifact. */
 export function isCustomUiWork(
@@ -227,18 +247,98 @@ MANDATORY — Chart / trend request detected:
 
 export const CHART_THINKING_LABEL = "Gathering data and building chart…";
 
+const APPENDED_CONTEXT_MARKERS = [
+  "\n\nAttached asset context:",
+  "\n\nAttached skill context:",
+] as const;
+
+/** User-authored question only — strips asset/skill blocks appended for the model. */
+export function stripAppendedQuestionContext(question: string): string {
+  let q = question;
+  for (const marker of APPENDED_CONTEXT_MARKERS) {
+    const index = q.indexOf(marker);
+    if (index >= 0) q = q.slice(0, index);
+  }
+  return q.trim();
+}
+
+const EXPLICIT_ARTIFACT_KIND: Array<[RegExp, ArtifactKind]> = [
+  [/\bcustom\s+(?:ui|UI)\s+artifact\b/i, "custom"],
+  [
+    /\b(?:interactive|custom)\s+(?:ui|UI)\s+(?:artifact|component)\b/i,
+    "custom",
+  ],
+  [/\btodo\s+(?:artifact|list|component)\b/i, "todo"],
+  [/\btimeline\s+(?:artifact|view|component)\b/i, "timeline"],
+  [/\bcalendar\s+(?:artifact|view|component)\b/i, "calendar"],
+  [/\bchart\s+(?:artifact|view|component)\b/i, "chart"],
+  [/\bmap\s+artifact\b/i, "map"],
+];
+
+/** When the user names the artifact type directly, e.g. "custom UI artifact". */
+export function detectExplicitArtifactKind(
+  question: string,
+): ArtifactKind | null {
+  const q = stripAppendedQuestionContext(question);
+  if (!q) return null;
+  for (const [pattern, kind] of EXPLICIT_ARTIFACT_KIND) {
+    if (pattern.test(q)) return kind;
+  }
+  return null;
+}
+
+const THINKING_LABEL_BY_KIND: Partial<Record<ArtifactKind, string>> = {
+  todo: "Checking boxes…",
+  calendar: CALENDAR_THINKING_LABEL,
+  timeline: TIMELINE_THINKING_LABEL,
+  chart: CHART_THINKING_LABEL,
+  custom: CUSTOM_UI_THINKING_LABEL,
+  map: MAP_THINKING_LABEL,
+};
+
+/**
+ * Primary artifact kind for loading copy and pending-artifact hints.
+ * Explicit user requests and custom UI beat incidental keyword matches
+ * (e.g. the word "calendar" in attached rules or system docs).
+ */
+export function resolvePrimaryArtifactKind(
+  question: string,
+  editingPayload?: { type?: string } | null,
+): ArtifactKind | null {
+  const q = stripAppendedQuestionContext(question);
+  if (!q) return null;
+
+  const explicit = detectExplicitArtifactKind(q);
+  if (explicit) return explicit;
+
+  if (isCustomUiWork(q, editingPayload)) return "custom";
+  if (detectTodoListIntent(q)) return "todo";
+  if (detectTimelineIntent(q)) return "timeline";
+  if (detectChartIntent(q)) return "chart";
+  if (detectTravelMapIntent(q)) return "map";
+  if (detectCalendarIntent(q)) return "calendar";
+  if (detectSpecificPlaceIntent(q)) return "streetview";
+  return null;
+}
+
+/** Status copy shown while the model turn is in flight. */
+export function resolveInitialThinkingLabel(
+  question: string,
+  editingPayload?: { type?: string } | null,
+): string {
+  const kind = resolvePrimaryArtifactKind(question, editingPayload);
+  if (kind === "custom" && editingPayload?.type === "custom") {
+    return CUSTOM_UI_UPDATING_LABEL;
+  }
+  if (kind && THINKING_LABEL_BY_KIND[kind]) {
+    return THINKING_LABEL_BY_KIND[kind]!;
+  }
+  return "Thinking";
+}
+
 /** Best-effort artifact kind the user explicitly asked for in their message. */
 export function detectUserRequestedArtifactKind(
   question: string,
 ): ArtifactKind | null {
-  const q = question.trim();
-  if (!q) return null;
-  if (detectTodoListIntent(q)) return "todo";
-  if (detectTimelineIntent(q)) return "timeline";
-  if (detectCalendarIntent(q)) return "calendar";
-  if (detectChartIntent(q)) return "chart";
-  if (detectCustomUiIntent(q)) return "custom";
-  if (detectTravelMapIntent(q)) return "map";
-  if (detectSpecificPlaceIntent(q)) return "streetview";
-  return null;
+  return resolvePrimaryArtifactKind(question);
 }

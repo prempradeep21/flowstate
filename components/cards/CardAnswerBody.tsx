@@ -5,6 +5,7 @@ import { AnswerTextScrollRegion } from "@/components/cards/AnswerTextScrollRegio
 import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import { QaRetryPlaceholder } from "@/components/cards/QaRetryPlaceholder";
 import { TextCardBody } from "@/components/cards/TextCardBody";
+import { isCardAskInFlight } from "@/lib/cardAskRegistry";
 import {
   formatQaResponseErrorMessage,
   formatQaResponseMissingMessage,
@@ -49,7 +50,9 @@ export function CardAnswerBody({
   const showError = shouldShowQaAnswerError(card, canvasArtifactNodes);
   const showMissing = isQaResponseFinalMissing(card, canvasArtifactNodes);
   const showActiveTurn =
-    showPendingPlaceholder || isQaResponsePending(card.status);
+    showPendingPlaceholder ||
+    isQaResponsePending(card.status) ||
+    isCardAskInFlight(card.id);
   const scrollKey = `${card.id}:${card.question}`;
   const answerContent = showText ? (
     <TextCardBody
@@ -62,7 +65,7 @@ export function CardAnswerBody({
       onExplainClick={onExplainClick}
     />
   ) : showActiveTurn ? (
-    <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
+    <PendingAnswerPlaceholder cardId={card.id} thinkingLabel={pendingLabel} />
   ) : showError ? (
     <QaRetryPlaceholder
       message={formatQaResponseErrorMessage(card.answer)}
@@ -75,7 +78,7 @@ export function CardAnswerBody({
     />
   ) : null;
 
-  if (!showPreview && !answerContent) return null;
+  if (!showPreview && !answerContent && !(showMissing && showText)) return null;
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -90,6 +93,12 @@ export function CardAnswerBody({
             {answerContent}
           </AnswerTextScrollRegion>
         )
+      ) : null}
+      {showMissing && showText ? (
+        <QaRetryPlaceholder
+          message={formatQaResponseMissingMessage(card)}
+          onTryAgain={onTryAgain}
+        />
       ) : null}
     </div>
   );

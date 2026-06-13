@@ -26,6 +26,7 @@ export function ArtifactContentStage({
   showControls = true,
   showFontControls = true,
   artifactId,
+  canvasChrome = false,
 }: {
   children: ReactNode;
   className?: string;
@@ -38,6 +39,7 @@ export function ArtifactContentStage({
   /** When false, hides Aa font scale controls (e.g. audio speed toolbar only). */
   showFontControls?: boolean;
   artifactId?: string;
+  canvasChrome?: boolean;
 }) {
   const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
   const onCanvasSizeChange = useArtifactCanvasSizeReport();
@@ -96,6 +98,7 @@ export function ArtifactContentStage({
           fontScale={fontScale}
           onFontScaleChange={setFontScale}
           showFontControls={showFontControls}
+          canvasChrome={canvasChrome}
         >
           {controls}
         </ArtifactControlsBar>

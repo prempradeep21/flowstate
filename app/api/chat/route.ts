@@ -12,24 +12,22 @@ import { fetchChartData } from "@/lib/chartDataFetch";
 import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
   CALENDAR_INTENT_SYSTEM_NOTE,
-  CALENDAR_THINKING_LABEL,
   CHART_INTENT_SYSTEM_NOTE,
-  CHART_THINKING_LABEL,
   CUSTOM_UI_EDIT_SYSTEM_NOTE,
+  CUSTOM_UI_INLINE_CODE_NOTE,
   CUSTOM_UI_INTENT_SYSTEM_NOTE,
-  CUSTOM_UI_THINKING_LABEL,
-  CUSTOM_UI_UPDATING_LABEL,
   detectCalendarIntent,
   detectChartIntent,
-  detectCustomUiIntent,
+  detectInlineSourceInQuestion,
   detectTimelineIntent,
   detectTodoListIntent,
   detectTravelMapIntent,
   isCustomUiWork,
-  MAP_THINKING_LABEL,
+  resolveInitialThinkingLabel,
+  resolvePrimaryArtifactKind,
+  stripAppendedQuestionContext,
   TIMELINE_EDIT_SYSTEM_NOTE,
   TIMELINE_INTENT_SYSTEM_NOTE,
-  TIMELINE_THINKING_LABEL,
   TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
 import {
@@ -44,6 +42,10 @@ import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
+import {
+  QA_TURN_TIMEOUT_MS,
+  QA_TURN_TIMEOUT_SECONDS,
+} from "@/lib/qaTurnLimits";
 
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
@@ -177,8 +179,8 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
-/** Allow long custom UI tool-use turns on serverless hosts. */
-export const maxDuration = 120;
+/** Match client hard cap for Q&A turns (stream + artifact work). */
+export const maxDuration = QA_TURN_TIMEOUT_SECONDS;
 
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -257,11 +259,13 @@ export async function POST(req: Request) {
   }
   userContent.push({ type: "text", text: question });
 
-  const todoIntent = detectTodoListIntent(question);
-  const calendarIntent = detectCalendarIntent(question);
-  const timelineIntent = detectTimelineIntent(question);
-  const travelMapIntent = detectTravelMapIntent(question);
-  const chartIntent = detectChartIntent(question);
+  const intentQuestion = stripAppendedQuestionContext(question);
+
+  const todoIntent = detectTodoListIntent(intentQuestion);
+  const calendarIntent = detectCalendarIntent(intentQuestion);
+  const timelineIntent = detectTimelineIntent(intentQuestion);
+  const travelMapIntent = detectTravelMapIntent(intentQuestion);
+  const chartIntent = detectChartIntent(intentQuestion);
 
   const editingPayload =
     editingArtifact?.payload &&
@@ -271,7 +275,8 @@ export async function POST(req: Request) {
       : null;
 
   const editingCustom = editingPayload?.type === "custom";
-  const customUiIntent = isCustomUiWork(question, editingPayload);
+  const customUiIntent = isCustomUiWork(intentQuestion, editingPayload);
+  const inlineSourceIntent = detectInlineSourceInQuestion(intentQuestion);
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
@@ -298,10 +303,25 @@ export async function POST(req: Request) {
 
   const readable = new ReadableStream({
     async start(controller) {
-      const emit = (data: object) =>
+      const emit = (data: object) => {
+        if (closed) return;
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
 
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
+      let closed = false;
+      const closeStream = () => {
+        if (closed) return;
+        closed = true;
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      };
+      const hardTimeout = setTimeout(() => {
+        emit({
+          error: `Request timed out after ${QA_TURN_TIMEOUT_SECONDS / 60} minutes.`,
+        });
+        closeStream();
+      }, QA_TURN_TIMEOUT_MS);
 
       try {
         const fastCustom = (() => {
@@ -342,25 +362,22 @@ export async function POST(req: Request) {
           });
           emit({ text: fastCustom.text });
         } else {
-        if (calendarIntent) {
-          emit({ thinking: CALENDAR_THINKING_LABEL });
-          emit({ pendingArtifact: { type: "calendar" } });
-        } else if (timelineIntent) {
-          emit({ thinking: TIMELINE_THINKING_LABEL });
-          emit({ pendingArtifact: { type: "timeline" } });
-        } else if (customUiIntent) {
+        const primaryKind = resolvePrimaryArtifactKind(
+          question,
+          editingPayload,
+        );
+        if (
+          primaryKind &&
+          (primaryKind === "calendar" ||
+            primaryKind === "timeline" ||
+            primaryKind === "custom" ||
+            primaryKind === "map" ||
+            primaryKind === "chart")
+        ) {
           emit({
-            thinking: editingCustom
-              ? CUSTOM_UI_UPDATING_LABEL
-              : CUSTOM_UI_THINKING_LABEL,
+            thinking: resolveInitialThinkingLabel(question, editingPayload),
           });
-          emit({ pendingArtifact: { type: "custom" } });
-        } else if (travelMapIntent) {
-          emit({ thinking: MAP_THINKING_LABEL });
-          emit({ pendingArtifact: { type: "map" } });
-        } else if (chartIntent) {
-          emit({ thinking: CHART_THINKING_LABEL });
-          emit({ pendingArtifact: { type: "chart" } });
+          emit({ pendingArtifact: { type: primaryKind } });
         }
 
         // Tool-use loop: Claude may call tools multiple times before a final reply.
@@ -380,6 +397,9 @@ export async function POST(req: Request) {
             chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
             customUiIntent && !editingArtifact
               ? CUSTOM_UI_INTENT_SYSTEM_NOTE
+              : null,
+            inlineSourceIntent && !editingArtifact
+              ? CUSTOM_UI_INLINE_CODE_NOTE
               : null,
             editingNote || null,
           ]
@@ -425,6 +445,14 @@ export async function POST(req: Request) {
           const msg = await stream.finalMessage();
           totalUsage.inputTokens += msg.usage.input_tokens;
           totalUsage.outputTokens += msg.usage.output_tokens;
+          if (msg.usage.input_tokens || msg.usage.output_tokens) {
+            emit({
+              usage: {
+                inputTokens: msg.usage.input_tokens,
+                outputTokens: msg.usage.output_tokens,
+              },
+            });
+          }
 
           if (msg.stop_reason !== "tool_use") break;
 
@@ -614,8 +642,15 @@ export async function POST(req: Request) {
             { role: "user" as const, content: toolResults },
           ];
         }
+        if (customUiIntent && !artifactEmitted) {
+          emit({
+            error:
+              "Custom UI was not saved — no valid artifact was emitted. Try again with a smaller code snippet.",
+          });
+        }
         }
       } catch (err) {
+        if (closed) return;
         let msg = err instanceof Error ? err.message : "Unknown error";
         try {
           const inner = JSON.parse(msg);
@@ -624,15 +659,13 @@ export async function POST(req: Request) {
           /* not JSON */
         }
         if (customUiIntent) {
-          msg = `${msg} Custom UI builds can take up to 2 minutes — try a smaller change (e.g. "change colors only") or retry.`;
+          msg = `${msg} Custom UI builds can take up to ${QA_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
         }
         emit({ error: msg });
       } finally {
-        if (totalUsage.inputTokens || totalUsage.outputTokens) {
-          emit({ usage: totalUsage });
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
+        clearTimeout(hardTimeout);
+        if (closed) return;
+        closeStream();
       }
     },
   });

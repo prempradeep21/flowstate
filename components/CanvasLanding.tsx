@@ -15,6 +15,7 @@ import {
 } from "@/lib/motion/performance";
 import { LANDING_STACK_WIDTH } from "@/lib/canvasLandingState";
 import { LANDING_ARTIFACT_SUGGESTIONS } from "@/lib/landingSuggestions";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 
 const PILL_DELAYS = [280, 320, 360, 400, 440] as const;
@@ -57,6 +58,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
       pendingFiles: options?.pendingFiles,
+      ...turnMetricsOnSubmit(),
     });
     setDraft("");
   };

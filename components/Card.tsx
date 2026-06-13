@@ -11,6 +11,7 @@ import {
 } from "react";
 import { AnswerSelectionMenu } from "@/components/AnswerSelectionMenu";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
+import { CardQuestionText } from "@/components/cards/CardQuestionText";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -31,12 +32,12 @@ import {
   getExplainRangeRect,
 } from "@/lib/answerTextRange";
 import {
-  QA_COLLAPSED_QUESTION_TEXT_MAX_WIDTH_PX,
   qaInsetStyle,
 } from "@/lib/design/canvasInsets";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { askClaude } from "@/lib/claudeClient";
-import { registerCardAsk } from "@/lib/cardAskRegistry";
+import { registerCardAsk, beginCardAsk, endCardAsk } from "@/lib/cardAskRegistry";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import type { AskHandle } from "@/lib/dummyLLM";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -46,6 +47,10 @@ import {
   handleStreamArtifact,
   shouldEarlySpawnArtifact,
 } from "@/lib/artifactGeneration";
+import {
+  clearQaTurnTimeout,
+  startQaTurnTimeout,
+} from "@/lib/qaTurnTimeout";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
 import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
@@ -99,10 +104,8 @@ interface CardProps {
 }
 
 /**
- * Long questions cap at 4 lines with internal scroll:
- * 18px heading × 1.375 (leading-snug) × 4 lines.
+ * Long questions cap at 4 lines with internal scroll — see CardQuestionText.
  */
-const QUESTION_MAX_HEIGHT = Math.ceil(18 * 1.375 * 4);
 
 function CardInner({ card }: CardProps) {
   const { user, members, accessInfo, stampContributor, onlineUserIds } = useAuth();
@@ -490,6 +493,16 @@ function CardInner({ card }: CardProps) {
     'textarea, button, input, select, [contenteditable="true"], [data-selectable-text]';
 
   const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
+
+  useEffect(() => {
+    if (!turnInProgress) {
+      clearQaTurnTimeout(card.id);
+      return;
+    }
+    startQaTurnTimeout(card.id);
+    return () => clearQaTurnTimeout(card.id);
+  }, [turnInProgress, card.id]);
+
   const showStatusBadge =
     turnInProgress || isQaResponseFinalError(card, canvasArtifactNodes);
   const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
@@ -574,7 +587,15 @@ function CardInner({ card }: CardProps) {
   useEffect(() => {
     if (card.status !== "done") return;
     if (card.artifactPayload && !card.outputArtifactId) {
-      finalizeCardResponse(card.id, {});
+      const nodes = useCanvasStore.getState().canvasArtifactNodes;
+      const awaitingApproval = Object.values(nodes).some(
+        (n) =>
+          n.sourceCardId === card.id &&
+          n.permissionPreview?.status === "pending",
+      );
+      if (!awaitingApproval) {
+        finalizeCardResponse(card.id, {});
+      }
       return;
     }
     if (card.outputArtifactId && !card.outputArtifactVersionId) {
@@ -623,6 +644,10 @@ function CardInner({ card }: CardProps) {
     askHandleRef.current?.cancel();
     startedFor.current = card.question;
     const generation = askGenerationRef.current;
+    if (!useCanvasStore.getState().cards[card.id]?.askStartedAt) {
+      updateCard(card.id, turnMetricsOnSubmit());
+    }
+    const askToken = beginCardAsk(card.id);
     askHandleRef.current = askClaude(
       card.id,
       card.parentConversationId ?? null,
@@ -674,10 +699,12 @@ function CardInner({ card }: CardProps) {
           handleStreamArtifact(card.id, artifact);
         },
         onDone: ({ responseType }) => {
-          if (generation !== askGenerationRef.current) return;
-          finalizeCardResponse(card.id, {
-            responseType: responseType ?? card.responseType ?? "text",
-          });
+          if (generation === askGenerationRef.current) {
+            finalizeCardResponse(card.id, {
+              responseType: responseType ?? card.responseType ?? "text",
+            });
+          }
+          endCardAsk(card.id, askToken);
           requestAnimationFrame(() => {
             const state = useCanvasStore.getState();
             const hasBottomChild = state.connections.some(
@@ -740,6 +767,7 @@ function CardInner({ card }: CardProps) {
       pendingFiles: options?.pendingFiles,
       quotedSelection: undefined,
       answerExplains: undefined,
+      ...turnMetricsOnSubmit(),
     });
   };
 
@@ -1066,15 +1094,10 @@ function CardInner({ card }: CardProps) {
                       }
                     />
                     <QuestionAttachments card={card} />
-                    <div
-                      data-selectable-text
-                      className="min-w-0 cursor-text break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink line-clamp-2 overflow-hidden"
-                      style={{
-                        maxWidth: QA_COLLAPSED_QUESTION_TEXT_MAX_WIDTH_PX,
-                      }}
-                    >
-                      {card.question}
-                    </div>
+                    <CardQuestionText
+                      question={card.question}
+                      collapsed
+                    />
                   </>
                 ) : (
                   <>
@@ -1106,13 +1129,7 @@ function CardInner({ card }: CardProps) {
                       }
                     />
                     <QuestionAttachments card={card} />
-                    <div
-                      data-selectable-text
-                      className="w-full min-w-0 cursor-text overflow-y-auto break-words whitespace-pre-wrap text-canvas-heading font-semibold leading-snug text-canvas-ink"
-                      style={{ maxHeight: QUESTION_MAX_HEIGHT }}
-                    >
-                      {card.question}
-                    </div>
+                    <CardQuestionText question={card.question} collapsed={false} />
                   </>
                 )}
               </QaQuestionSection>

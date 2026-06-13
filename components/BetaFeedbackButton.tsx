@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { ImageIcon, PlusIcon } from "@/components/MenuIcons";
+import { ImageIcon, PlusIcon, ScreenshotIcon } from "@/components/MenuIcons";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { captureAppScreenshot } from "@/lib/feedback/captureAppScreenshot";
 import {
   MAX_FEEDBACK_IMAGES,
   uploadFeedbackImages,
@@ -24,12 +25,16 @@ function createPendingImage(file: File): PendingImage {
   };
 }
 
+const imagePillClassName =
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-50";
+
 export function BetaFeedbackButton() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [capturingScreenshot, setCapturingScreenshot] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -55,13 +60,14 @@ export function BetaFeedbackButton() {
     setError(null);
     setSubmitted(false);
     setDragOver(false);
+    setCapturingScreenshot(false);
   }, [clearPendingImages]);
 
   const close = useCallback(() => {
-    if (busy) return;
+    if (busy || capturingScreenshot) return;
     setOpen(false);
     resetForm();
-  }, [busy, resetForm]);
+  }, [busy, capturingScreenshot, resetForm]);
 
   const addImageFiles = useCallback((files: File[]) => {
     const next: PendingImage[] = [];
@@ -84,6 +90,31 @@ export function BetaFeedbackButton() {
       return combined;
     });
   }, []);
+
+  const handleCaptureScreenshot = useCallback(async () => {
+    if (busy || capturingScreenshot || pendingImages.length >= MAX_FEEDBACK_IMAGES) {
+      return;
+    }
+
+    setCapturingScreenshot(true);
+    setError(null);
+    try {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+      const file = await captureAppScreenshot();
+      if (!file) {
+        throw new Error("Could not capture a screenshot.");
+      }
+      addImageFiles([file]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not capture a screenshot.",
+      );
+    } finally {
+      setCapturingScreenshot(false);
+    }
+  }, [addImageFiles, busy, capturingScreenshot, pendingImages.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -215,8 +246,15 @@ export function BetaFeedbackButton() {
     }
   }, [busy, clearPendingImages, close, message, pendingImages, user?.id]);
 
+  const imageActionsDisabled =
+    busy || capturingScreenshot || pendingImages.length >= MAX_FEEDBACK_IMAGES;
+
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div
+      ref={rootRef}
+      data-feedback-capture-exclude
+      className="relative shrink-0"
+    >
       <div className="rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
         <div className="floating-chrome-padding flex items-center">
           <button
@@ -241,7 +279,7 @@ export function BetaFeedbackButton() {
         <MotionFlowSize
           role="dialog"
           aria-label="Beta suggestion"
-          className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),320px)] rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card"
+          className="absolute right-0 top-full z-50 mt-2 flex w-[min(calc(100vw-2rem),320px)] flex-col rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card"
         >
           <h3 className="mb-1 text-canvas-body-sm font-semibold text-canvas-ink">
             Beta suggestion
@@ -272,7 +310,7 @@ export function BetaFeedbackButton() {
                       <button
                         type="button"
                         aria-label={`Remove ${image.file.name || "image"}`}
-                        disabled={busy}
+                        disabled={busy || capturingScreenshot}
                         onClick={() => removePendingImage(image.id)}
                         className="absolute right-0 top-0 bg-canvas-ink/60 px-1 text-canvas-micro text-white disabled:opacity-50"
                       >
@@ -284,7 +322,7 @@ export function BetaFeedbackButton() {
               )}
 
               <div
-                className={`mb-3 rounded-canvas border bg-canvas-bg transition-colors ${
+                className={`mb-2 rounded-canvas border bg-canvas-bg transition-colors ${
                   dragOver
                     ? "border-canvas-accent ring-1 ring-canvas-accent/30"
                     : "border-canvas-border"
@@ -300,40 +338,57 @@ export function BetaFeedbackButton() {
                   onPaste={onPaste}
                   rows={4}
                   placeholder="Share an idea, bug, or improvement…"
-                  disabled={busy}
+                  disabled={busy || capturingScreenshot}
                   className="w-full resize-none bg-transparent px-3 py-2 text-canvas-body-sm text-canvas-ink outline-none disabled:opacity-60"
                 />
               </div>
 
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                multiple
-                className="hidden"
-                onChange={onImagePick}
-              />
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={onImagePick}
+                />
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={imageActionsDisabled}
+                  className={imagePillClassName}
+                >
+                  <ImageIcon />
+                  Attach Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCaptureScreenshot()}
+                  disabled={imageActionsDisabled}
+                  className={imagePillClassName}
+                >
+                  <ScreenshotIcon />
+                  {capturingScreenshot ? "Capturing…" : "Capture Screenshot"}
+                </button>
+              </div>
 
               {error && (
                 <p className="mb-2 text-canvas-compact text-canvas-danger">
                   {error}
                 </p>
               )}
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={busy || pendingImages.length >= MAX_FEEDBACK_IMAGES}
-                  className="inline-flex items-center gap-1.5 rounded-canvas border border-canvas-border px-2.5 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ImageIcon />
-                  Attach image
-                </button>
-                <div className="flex gap-2">
+
+              <div className="mt-auto pt-1">
+                {user?.email && (
+                  <p className="mb-3 text-canvas-micro text-canvas-muted">
+                    Sending as {user.email}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={close}
-                    disabled={busy}
+                    disabled={busy || capturingScreenshot}
                     className="rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-bg disabled:opacity-50"
                   >
                     Cancel
@@ -341,23 +396,14 @@ export function BetaFeedbackButton() {
                   <button
                     type="button"
                     onClick={() => void handleSubmit()}
-                    disabled={busy || !message.trim()}
+                    disabled={busy || capturingScreenshot || !message.trim()}
                     className="rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busy ? "Sending…" : "Submit"}
                   </button>
                 </div>
               </div>
-              <p className="mt-2 text-canvas-micro text-canvas-muted">
-                Paste, drag, or drop images into the text box.
-              </p>
             </>
-          )}
-
-          {user?.email && !submitted && (
-            <p className="mt-3 text-canvas-micro text-canvas-muted">
-              Sending as {user.email}
-            </p>
           )}
         </MotionFlowSize>
       )}

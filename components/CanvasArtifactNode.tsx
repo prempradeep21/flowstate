@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
+import { ArtifactRemoteUpdateStroke } from "@/components/artifacts/ArtifactRemoteUpdateStroke";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -26,6 +27,7 @@ import {
   MAX_TIMELINE_ARTIFACT_WIDTH,
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
+import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
@@ -42,7 +44,12 @@ import {
   ARTIFACT_CANVAS_CHROME_OPACITY,
   ARTIFACT_CANVAS_CONTAINER_FILL,
   ARTIFACT_CANVAS_PADDING_CHROME,
+  artifactKindUsesCanvasContainerFill,
+  artifactKindUsesCanvasPaddingChrome,
 } from "@/lib/artifactCanvasChrome";
+import {
+  findRemoteArtifactUpdatingCardId,
+} from "@/lib/artifactRemoteUpdate";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
@@ -86,6 +93,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
+  const [stickyEditing, setStickyEditing] = useState(false);
   const [chromeHover, setChromeHover] = useState(false);
 
   /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
@@ -123,6 +131,18 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const preview = node.permissionPreview;
   const generatingPreview = node.generatingPreview;
+  const remoteUpdatingCardId = useCanvasStore((s) => {
+    if (!node.artifactId || preview || generatingPreview) return null;
+    return findRemoteArtifactUpdatingCardId(node.artifactId, node.sourceCardId, {
+      cards: s.cards,
+      cardOrder: s.cardOrder,
+      sessionArtifacts: s.sessionArtifacts,
+      connections: s.connections,
+      canvasArtifactNodes: s.canvasArtifactNodes,
+      artifactPlugConnections: s.artifactPlugConnections,
+      plugComposerAttachments: s.plugComposerAttachments,
+    });
+  });
   const art = node.artifactId
     ? sessionArtifacts[node.artifactId]
     : undefined;
@@ -165,7 +185,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       const next =
         artForBounds?.kind === "streetview"
           ? clampStreetViewArtifactSize(targetW)
-          : clampArtifactSize(targetW, targetH, clampOpts);
+          : artForBounds?.kind === "stickynote"
+            ? clampStickyNoteArtifactSize(targetW, targetH)
+            : clampArtifactSize(targetW, targetH, clampOpts);
       if (
         Math.abs(next.w - bounds.w) > 1 ||
         Math.abs(next.h - bounds.h) > 1
@@ -176,8 +198,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     [node.id],
   );
   const sourceCard = cards[node.sourceCardId];
+  const remoteUpdatingCard =
+    remoteUpdatingCardId != null ? cards[remoteUpdatingCardId] : undefined;
   const plugAccent =
     (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
+  const remoteUpdateAccent =
+    (remoteUpdatingCard &&
+      threads[remoteUpdatingCard.threadId]?.accentColour) ??
+    plugAccent;
 
   const artifactPlugWorld = (side: "left" | "right") => {
     const anchor = plugAnchorAt(
@@ -267,7 +295,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           ? clampStreetViewArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
             )
-          : clampArtifactSize(
+          : art?.kind === "stickynote"
+            ? clampStickyNoteArtifactSize(
+                rs.startW + (sx * screenDx) / vpScale,
+                rs.startH + (sy * screenDy) / vpScale,
+              )
+            : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
               art?.kind === "timeline"
@@ -373,9 +406,13 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
+  const usesContainerFill =
+    !!art && artifactKindUsesCanvasContainerFill(art.kind);
+  const usesPaddingChrome =
+    !!art && artifactKindUsesCanvasPaddingChrome(art.kind);
   const contentInteractive = isSelected || isPermissionPreview;
-  /** Hover or selection keeps chrome, fill, plugs, and resize grips visible. */
-  const chromeVisible = chromeHover || isSelected;
+  /** Hover, selection, or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
+  const chromeVisible = chromeHover || isSelected || isPermissionPreview;
 
   return (
     <div
@@ -383,8 +420,10 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       data-canvas-artifact
       data-canvas-node-id={node.id}
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
-      {...(chromeReveal ? { "data-chrome-reveal": "" } : {})}
+      {...(isPermissionPreview ? { "data-permission-preview": "" } : {})}
+      {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
       {...(chromeVisible ? { "data-chrome-hover": "" } : {})}
+      {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerEnter={syncChromeHover}
@@ -445,15 +484,17 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         worldWidth={width}
         className={
           isPermissionPreview
-            ? `flex h-full flex-col overflow-hidden rounded-canvas border p-5 ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
+            ? `relative flex h-full flex-col overflow-hidden rounded-canvas border p-5 ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
                 isSelected
                   ? ARTIFACT_CANVAS_CASING_SELECTED
                   : ARTIFACT_CANVAS_CASING_DEFAULT
               }`
-            : `flex h-full flex-col rounded-canvas ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} transition-shadow ${
+            : `relative flex h-full flex-col rounded-canvas transition-shadow ${
+                usesContainerFill ? ARTIFACT_CANVAS_CONTAINER_FILL : ""
+              } ${usesPaddingChrome ? ARTIFACT_CANVAS_PADDING_CHROME : ""} ${
                   isRepoArtifact ? "overflow-visible" : "overflow-hidden"
                 } ${
-                  todoEditing
+                  todoEditing || stickyEditing
                     ? "border-2 border-dashed border-canvas-accent"
                     : isSelected
                       ? ARTIFACT_CANVAS_CASING_SELECTED
@@ -461,6 +502,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
                 }`
         }
       >
+        {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
+          <ArtifactRemoteUpdateStroke accentColour={remoteUpdateAccent} />
+        ) : null}
         {isPermissionPreview && preview ? (
           <ArtifactPermissionPrompt
             kind={preview.kind}
@@ -490,8 +534,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
+            onStickyEditingChange={setStickyEditing}
             onArtifactContentAreaSizeChange={
-              art.kind !== "repo" && art.kind !== "audio"
+              art.kind !== "repo" &&
+              art.kind !== "audio" &&
+              art.kind !== "stickynote"
                 ? handleArtifactContentAreaSize
                 : undefined
             }

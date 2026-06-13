@@ -8,6 +8,7 @@ import {
 import { detectUserRequestedArtifactKind } from "@/lib/artifactIntent";
 import {
   computeArtifactSpawnPosition,
+  findPermissionPreviewNode,
   getNodesForCard,
   pickAlternateSpawnSide,
   type ArtifactSpawnSide,
@@ -116,6 +117,9 @@ function spawnPayloadWithPosition(
   payload: ArtifactPayload,
 ): void {
   const store = useCanvasStore.getState();
+  if (findPermissionPreviewNode(store.canvasArtifactNodes, cardId, payload)) {
+    return;
+  }
   const position = computeArtifactSpawnPosition(
     cardId,
     store.canvasArtifactNodes,
@@ -141,6 +145,16 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
 
   const rawPayloads = payloadsForTurn(card);
   if (rawPayloads.length === 0) return null;
+
+  const pendingQueue = card.pendingEmittedArtifacts?.length ?? 0;
+  if (
+    pendingQueue === 0 &&
+    rawPayloads.every((payload) =>
+      findPermissionPreviewNode(state.canvasArtifactNodes, cardId, payload),
+    )
+  ) {
+    return card.outputArtifactId ?? null;
+  }
 
   const plugCtx = plugContextFromState(state);
   const editingArtifactId =
@@ -325,6 +339,11 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
 
     spawnPayloadWithPosition(cardId, payload);
   }
+
+  useCanvasStore.getState().updateCard(cardId, {
+    artifactPayload: undefined,
+    pendingEmittedArtifacts: undefined,
+  });
 
   return artifactId;
 }

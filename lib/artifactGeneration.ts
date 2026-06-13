@@ -5,6 +5,7 @@ import {
   processArtifactSpawnQueue,
 } from "@/lib/processArtifactSpawnQueue";
 export { shouldEarlySpawnArtifact } from "@/lib/processArtifactSpawnQueue";
+import { isCardAskInFlight } from "@/lib/cardAskRegistry";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
   getLatestVersion,
@@ -92,11 +93,12 @@ export function finalizeCardResponse(
   const card = state.cards[cardId];
   if (!card) return null;
 
+  if (isCardAskInFlight(cardId)) return null;
+
   const hasQueue =
     (card.pendingEmittedArtifacts?.length ?? 0) > 0 || !!card.artifactPayload;
 
   if (!hasQueue) {
-    useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
     useCanvasStore.setState((current) => {
       const base = current.cards[cardId];
       if (!base) return current;
@@ -113,11 +115,11 @@ export function finalizeCardResponse(
         },
       };
     });
+    useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
     return null;
   }
 
   const artifactId = processArtifactSpawnQueue(cardId);
-
   useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
 
   if (opts.responseType) {

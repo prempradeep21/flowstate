@@ -55,7 +55,7 @@ export type ArtifactKind =
   | "audio"
   | "stickynote";
 
-export type StickyNoteColorId = "yellow" | "pink" | "blue" | "green" | "orange";
+export type StickyNoteColorId = "turbo" | "violet" | "haiti" | "chalk";
 
 export interface StickyNoteArtifactData {
   text: string;

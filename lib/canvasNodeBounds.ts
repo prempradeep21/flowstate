@@ -20,6 +20,8 @@ import { streetViewArtifactHeightForWidth, STREET_VIEW_NODE_CHROME_PX } from "@/
 import {
   STICKY_NOTE_ARTIFACT_HEIGHT,
   STICKY_NOTE_ARTIFACT_WIDTH,
+  clampStickyNoteArtifactSize,
+  stickyNoteContentFloors,
 } from "@/lib/stickyNoteArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
@@ -73,6 +75,8 @@ export function getArtifactContentFloors(
         return audioArtifactContentFloors(payload.data.durationMs);
       }
       return audioArtifactContentFloors(0);
+    case "stickynote":
+      return stickyNoteContentFloors();
     default:
       return null;
   }
@@ -238,10 +242,10 @@ export function getDefaultArtifactSize(
       }
       return { w: MIN_ARTIFACT_WIDTH, h: AUDIO_ARTIFACT_HEIGHT };
     case "stickynote":
-      return {
-        w: STICKY_NOTE_ARTIFACT_WIDTH,
-        h: STICKY_NOTE_ARTIFACT_HEIGHT,
-      };
+      return clampStickyNoteArtifactSize(
+        STICKY_NOTE_ARTIFACT_WIDTH,
+        STICKY_NOTE_ARTIFACT_HEIGHT,
+      );
     default:
       return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   }

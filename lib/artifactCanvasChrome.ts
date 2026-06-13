@@ -26,6 +26,24 @@ export function artifactKindUsesCanvasSurfaceFill(kind: ArtifactKind): boolean {
   return CANVAS_SURFACE_FILL_KINDS.has(kind);
 }
 
+/** Kinds whose canvas body is self-contained — no outer container gradient fill. */
+const NAKED_CANVAS_ARTIFACT_KINDS = new Set<ArtifactKind>([
+  "stickynote",
+  "streetview",
+  "images",
+  "website",
+  "google-doc",
+  "embed",
+]);
+
+export function artifactKindUsesCanvasContainerFill(kind: ArtifactKind): boolean {
+  return !NAKED_CANVAS_ARTIFACT_KINDS.has(kind);
+}
+
+export function artifactKindUsesCanvasPaddingChrome(kind: ArtifactKind): boolean {
+  return kind !== "stickynote";
+}
+
 /** Vertical chrome overhead of a canvas artifact node: 16px padding ×2 + 56px header band + 22px header gap. */
 export const ARTIFACT_CANVAS_CHROME_HEIGHT_PX = 110;
 

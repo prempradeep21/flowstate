@@ -6,13 +6,13 @@ import {
 } from "@/lib/manualArtifactDefaults";
 
 describe("createManualArtifactPayload", () => {
-  it("creates sticky note with empty text and default yellow", () => {
+  it("creates sticky note with empty text and default turbo", () => {
     const payload = createManualArtifactPayload("stickynote");
     expect(payload.type).toBe("stickynote");
     if (payload.type !== "stickynote") return;
     expect(payload.title).toBe("Sticky note");
     expect(payload.data.text).toBe("");
-    expect(payload.data.colorId).toBe("yellow");
+    expect(payload.data.colorId).toBe("turbo");
   });
 
   it("creates todo with three placeholder tasks", () => {

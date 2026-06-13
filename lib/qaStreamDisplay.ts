@@ -1,3 +1,5 @@
+import { isCardAskInFlight } from "@/lib/cardAskRegistry";
+import { detectUserRequestedArtifactKind } from "@/lib/artifactIntent";
 import type { CanvasArtifactNode, Card, CardStatus } from "@/lib/store";
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
@@ -18,18 +20,56 @@ export const QA_ANSWER_HEIGHT_PX = 650;
 function hasStructuredContent(
   card: Pick<
     Card,
-    "artifactPayload" | "outputArtifactId" | "images" | "responseType"
+    | "status"
+    | "artifactPayload"
+    | "outputArtifactId"
+    | "images"
+    | "responseType"
+    | "pendingEmittedArtifacts"
   >,
 ): boolean {
   const type = card.responseType ?? "text";
-  return !!(
-    card.artifactPayload ||
-    card.outputArtifactId ||
-    (type !== "text" && STRUCTURED_RESPONSE_TYPES.has(type)) ||
-    (card.images &&
-      card.images.length > 0 &&
-      (type === "image" || type === "images"))
-  );
+  if (card.artifactPayload || card.outputArtifactId) return true;
+  if (
+    card.images &&
+    card.images.length > 0 &&
+    (type === "image" || type === "images")
+  ) {
+    return true;
+  }
+  if ((card.pendingEmittedArtifacts?.length ?? 0) > 0) return true;
+  // responseType alone is not enough once the turn finishes — avoid empty preview chrome.
+  if (card.status === "thinking" || card.status === "streaming") {
+    return type !== "text" && STRUCTURED_RESPONSE_TYPES.has(type);
+  }
+  return false;
+}
+
+function hasCommittedArtifactForCard(
+  card: Pick<Card, "id" | "outputArtifactId" | "images" | "responseType">,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
+  if (card.outputArtifactId) return true;
+  const type = card.responseType ?? "text";
+  if (
+    card.images &&
+    card.images.length > 0 &&
+    (type === "image" || type === "images")
+  ) {
+    return true;
+  }
+  if (!canvasArtifactNodes) return false;
+  for (const node of Object.values(canvasArtifactNodes)) {
+    if (
+      node.sourceCardId === card.id &&
+      node.artifactId &&
+      !node.permissionPreview &&
+      !node.generatingPreview
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasGeneratingPreviewNode(
@@ -39,6 +79,32 @@ function hasGeneratingPreviewNode(
   if (!canvasArtifactNodes) return false;
   for (const node of Object.values(canvasArtifactNodes)) {
     if (node.sourceCardId === cardId && node.generatingPreview) return true;
+  }
+  return false;
+}
+
+function hasPermissionPreviewNode(
+  cardId: string,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
+  if (!canvasArtifactNodes) return false;
+  for (const node of Object.values(canvasArtifactNodes)) {
+    if (node.sourceCardId === cardId && node.permissionPreview) return true;
+  }
+  return false;
+}
+
+function hasPendingArtifactMaterialization(
+  card: Pick<Card, "artifactPayload" | "outputArtifactId" | "images" | "responseType">,
+): boolean {
+  if (card.artifactPayload) return true;
+  if (
+    card.images &&
+    card.images.length > 0 &&
+    (card.responseType === "image" || card.responseType === "images") &&
+    !card.outputArtifactId
+  ) {
+    return true;
   }
   return false;
 }
@@ -103,8 +169,8 @@ export function formatQaResponseMissingMessage(
   ) {
     return "The theme update did not finish. Your existing custom UI on the canvas is unchanged — try again.";
   }
-  if (/\bcustom\b|\bui\b|\bcomponent\b|\bhtml\b/i.test(q)) {
-    return "The custom UI build did not finish. Nothing was saved for this card — try again or ask for a smaller change.";
+  if (/\bcustom\b|\bui\b|\bcomponent\b|\bhtml\b|\bwith this code\b/i.test(q)) {
+    return "The custom UI build did not finish — the assistant replied in text but no artifact was saved. Try again or paste a smaller snippet.";
   }
   return "No response came through. The connection may have timed out.";
 }
@@ -136,7 +202,7 @@ export function isQaResponseFinalMissing(
   card: QaResponseCard,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): boolean {
-  if (!isQaResponseMissing(card)) return false;
+  if (!isQaResponseMissing(card, canvasArtifactNodes)) return false;
   return !isQaTurnInProgress(card, canvasArtifactNodes);
 }
 
@@ -145,24 +211,43 @@ type QaResponseCard = Pick<
   | "id"
   | "status"
   | "answer"
+  | "question"
   | "artifactPayload"
   | "outputArtifactId"
   | "images"
   | "responseType"
+  | "pendingEmittedArtifacts"
 >;
 
 /** Turn finished but nothing was rendered (timeout, dropped stream, or bad persist). */
-export function isQaResponseMissing(card: QaResponseCard): boolean {
+export function isQaResponseMissing(
+  card: QaResponseCard,
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
+): boolean {
   if (card.status !== "done") return false;
   if (hasQaResponseError(card)) return false;
-  return !shouldShowQaAnswerText(card) && !shouldShowQaArtifactPreview(card);
+
+  const requestedKind = detectUserRequestedArtifactKind(card.question);
+  if (requestedKind) {
+    return !hasCommittedArtifactForCard(card, canvasArtifactNodes);
+  }
+
+  return (
+    !shouldShowQaAnswerText(card) &&
+    !shouldShowQaArtifactPreview(card)
+  );
 }
 
 /** Show artifact/image preview once structured payload is parsed. */
 export function shouldShowQaArtifactPreview(
   card: Pick<
     Card,
-    "status" | "artifactPayload" | "outputArtifactId" | "images" | "responseType"
+    | "status"
+    | "artifactPayload"
+    | "outputArtifactId"
+    | "images"
+    | "responseType"
+    | "pendingEmittedArtifacts"
   >,
 ): boolean {
   if (card.status === "empty") return false;
@@ -213,6 +298,18 @@ export function isQaResponsePending(status: CardStatus | undefined): boolean {
 }
 
 /**
+ * True from question submit until the answer outcome is known (success or failure).
+ * Artifact materialization after the stream finishes is excluded.
+ */
+export function isChatAnswerInProgress(
+  card: Pick<Card, "id" | "status">,
+): boolean {
+  if (card.status === "empty") return false;
+  if (isCardAskInFlight(card.id)) return true;
+  return card.status === "thinking" || card.status === "streaming";
+}
+
+/**
  * True while the LLM turn is still in flight or artifacts are still being
  * parsed / materialized. Keeps status chrome visible until the card is fully ready.
  */
@@ -226,13 +323,17 @@ export function isQaTurnInProgress(
     | "pendingEmittedArtifacts"
     | "images"
     | "responseType"
+    | "thinkingLabel"
   >,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): boolean {
   if (card.status === "empty") return false;
+  if (isCardAskInFlight(card.id)) return true;
   if (card.status === "thinking" || card.status === "streaming") return true;
   if ((card.pendingEmittedArtifacts?.length ?? 0) > 0) return true;
+  if (hasPendingArtifactMaterialization(card)) return true;
   if (hasGeneratingPreviewNode(card.id, canvasArtifactNodes)) return true;
+  if (hasPermissionPreviewNode(card.id, canvasArtifactNodes)) return true;
   return false;
 }
 

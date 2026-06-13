@@ -20,7 +20,7 @@ export function QaStatusBadge({
   );
   return (
     <div
-      className="flex shrink-0 items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card/95 px-2.5 py-1 shadow-sm backdrop-blur-sm"
+      className="flex shrink-0 items-center gap-2 rounded-full border border-canvas-border/80 bg-canvas-card px-2.5 py-1 shadow-sm"
       aria-live="polite"
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">

@@ -13,10 +13,7 @@ import {
   CHART_THINKING_LABEL,
   CUSTOM_UI_THINKING_LABEL,
   CUSTOM_UI_UPDATING_LABEL,
-  detectCalendarIntent,
-  detectCustomUiIntent,
-  detectTimelineIntent,
-  isCustomUiWork,
+  resolveInitialThinkingLabel,
   TIMELINE_THINKING_LABEL,
 } from "@/lib/artifactIntent";
 import {
@@ -27,6 +24,7 @@ import {
   useCanvasStore,
 } from "./store";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
+import { QA_TURN_TIMEOUT_MS } from "@/lib/qaTurnLimits";
 
 const MAX_ASSET_TEXT_CONTEXT_CHARS = 60_000;
 
@@ -62,6 +60,11 @@ async function registerConversation(
   });
 }
 
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  return err instanceof Error && err.name === "AbortError";
+}
+
 export function askClaude(
   cardId: string,
   parentConversationId: string | null,
@@ -73,28 +76,29 @@ export function askClaude(
   const controller = new AbortController();
   let responseType: ResponseType = "text";
   let receivedContent = false;
+  let hardTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  const clearHardTimeout = () => {
+    if (hardTimeoutId !== undefined) {
+      clearTimeout(hardTimeoutId);
+      hardTimeoutId = undefined;
+    }
+  };
 
   const run = async () => {
     if (cancelled) return;
+    hardTimeoutId = setTimeout(() => {
+      cancelled = true;
+      controller.abort(
+        new DOMException("Q&A request timed out", "AbortError"),
+      );
+    }, QA_TURN_TIMEOUT_MS);
     const editingArtifact = resolveEditingPayloadForApi(cardId);
     const customWork = isCustomUiWork(
       question,
       editingArtifact?.payload as { type?: string } | null,
     );
-    cb.onThinking(
-      detectCalendarIntent(question)
-        ? CALENDAR_THINKING_LABEL
-        : detectTimelineIntent(question)
-          ? TIMELINE_THINKING_LABEL
-          : customWork
-            ? editingArtifact?.payload &&
-              typeof editingArtifact.payload === "object" &&
-              "type" in editingArtifact.payload &&
-              (editingArtifact.payload as { type?: string }).type === "custom"
-              ? CUSTOM_UI_UPDATING_LABEL
-              : CUSTOM_UI_THINKING_LABEL
-            : "Thinking",
-    );
+    cb.onThinking(resolveInitialThinkingLabel(question, editingArtifact?.payload as { type?: string } | null));
     try {
       const state = useCanvasStore.getState();
       const card = state.cards[cardId];
@@ -223,6 +227,8 @@ export function askClaude(
           ? `${question}\n\n${contextBlocks.join("\n\n")}`
           : question;
 
+      if (cancelled) return;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -327,6 +333,7 @@ export function askClaude(
               cb.onThinking?.(TIMELINE_THINKING_LABEL);
             } else if (parsed.pendingArtifact?.type === "custom") {
               cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
+              cb.onResponseType?.("custom");
             } else if (parsed.pendingArtifact?.type === "map") {
               cb.onThinking?.("Preparing map…");
             } else if (parsed.pendingArtifact?.type === "chart") {
@@ -334,9 +341,10 @@ export function askClaude(
             } else if (parsed.thinking) {
               cb.onThinking(parsed.thinking);
             } else if (parsed.usage) {
-              useCanvasStore
-                .getState()
-                .addUsage(parsed.usage.inputTokens, parsed.usage.outputTokens);
+              const { inputTokens, outputTokens } = parsed.usage;
+              const store = useCanvasStore.getState();
+              store.addUsage(inputTokens, outputTokens);
+              store.addCardTurnUsage(cardId, inputTokens, outputTokens);
             } else if (parsed.error) {
               receivedContent = true;
               cb.onThinking?.("Request failed");
@@ -353,13 +361,13 @@ export function askClaude(
         }
       }
     } catch (err) {
-      if (!cancelled) {
-        receivedContent = true;
-        const msg = err instanceof Error ? err.message : String(err);
-        cb.onThinking?.("Request failed");
-        cb.onToken(`⚠️ ${msg}`);
-      }
+      if (cancelled || isAbortError(err)) return;
+      receivedContent = true;
+      const msg = err instanceof Error ? err.message : String(err);
+      cb.onThinking?.("Request failed");
+      cb.onToken(`⚠️ ${msg}`);
     } finally {
+      clearHardTimeout();
       if (!cancelled) {
         if (!receivedContent) {
           cb.onThinking?.("Request failed");
@@ -374,12 +382,16 @@ export function askClaude(
     }
   };
 
-  run();
+  void run().catch((err) => {
+    if (cancelled || isAbortError(err)) return;
+    console.error("[askClaude] unexpected error", err);
+  });
 
   return {
     cancel: () => {
       cancelled = true;
-      controller.abort();
+      clearHardTimeout();
+      controller.abort(new DOMException("Q&A request cancelled", "AbortError"));
     },
   };
 }

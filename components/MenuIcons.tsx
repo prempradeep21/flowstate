@@ -206,6 +206,29 @@ export function ImageIcon() {
   );
 }
 
+export function ScreenshotIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <rect
+        x="2.5"
+        y="3.5"
+        width="11"
+        height="9"
+        rx="1.25"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+      <circle cx="8" cy="8" r="2.25" stroke="currentColor" strokeWidth="1.25" />
+      <path
+        d="M5.25 2.5h5.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function GifIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

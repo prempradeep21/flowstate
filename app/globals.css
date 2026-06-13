@@ -285,11 +285,20 @@ body::-webkit-scrollbar-corner {
 }
 
 .canvas-translucent-fill {
-  background: radial-gradient(
+  /* Solid base stops animated canvas backgrounds from shimmering through text. */
+  background-color: rgb(var(--canvas-card) / 0.94);
+  background-image: radial-gradient(
     circle at center,
-    rgb(var(--canvas-card) / 0.1) 0%,
-    rgb(var(--canvas-card) / 0.3) 100%
+    rgb(var(--canvas-card) / 0.08) 0%,
+    rgb(var(--canvas-card) / 0.18) 100%
   );
+}
+
+/** Question copy sits above the diffused accent band — own layer, no blur bleed. */
+.qa-question-text {
+  position: relative;
+  z-index: 20;
+  isolation: isolate;
 }
 
 /** Canvas artifact — outer container fill hides until hover/reveal; padding stays
@@ -307,7 +316,7 @@ body::-webkit-scrollbar-corner {
   transition-duration: 200ms;
 }
 
-.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill {
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]):not([data-permission-preview]) .artifact-canvas-container-fill {
   background: transparent !important;
 }
 
@@ -318,6 +327,22 @@ body::-webkit-scrollbar-corner {
     rgb(var(--canvas-card) / 0.1) 0%,
     rgb(var(--canvas-card) / 0.3) 100%
   );
+}
+
+/** Permission suggestions always show the container fill so the ghost artefact has form. */
+.group\/artifact[data-permission-preview] .artifact-canvas-container-fill {
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--canvas-card) / 0.1) 0%,
+    rgb(var(--canvas-card) / 0.3) 100%
+  );
+}
+
+/** Naked artifacts (sticky notes, street view, media) supply their own surface. */
+.group\/artifact[data-naked-artifact] .artifact-canvas-container-fill,
+.group\/artifact[data-naked-artifact][data-chrome-hover] .artifact-canvas-container-fill,
+.group\/artifact[data-naked-artifact][data-chrome-reveal] .artifact-canvas-container-fill {
+  background: transparent !important;
 }
 
 /** Permanent solid artifact fill (theme token flips with html[data-theme]). */
@@ -404,6 +429,60 @@ body::-webkit-scrollbar-corner {
     border-color: rgb(var(--canvas-muted) / 0.45);
     box-shadow: 0 0 0 1px rgb(var(--canvas-muted) / 0.12);
   }
+}
+
+/* Output artefact stroke while another chat builds the next version */
+@keyframes artifact-remote-stroke-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes artifact-remote-stroke-breathe {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.artifact-remote-update-stroke__ring {
+  padding: 1.5px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 55deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 62%, transparent) 95deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 135deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 235deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 38%, transparent) 275deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 315deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation:
+    artifact-remote-stroke-spin 5.5s linear infinite,
+    artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
+}
+
+.artifact-remote-update-stroke__glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--artifact-update-stroke) 14%, transparent),
+    0 0 14px color-mix(in srgb, var(--artifact-update-stroke) 16%, transparent);
+  animation: artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
 }
 
 @keyframes todo-row-in {

@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
+import { LiveDrakkar } from "@/components/LiveDrakkar";
 import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
@@ -60,6 +61,8 @@ export function AppRightPanel() {
   return (
 
     <div className="pointer-events-auto absolute right-3 top-3 z-40 flex items-start gap-2">
+
+      <LiveDrakkar />
 
       <BetaFeedbackButton />
 

@@ -1015,14 +1015,14 @@ export function Canvas({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [closePie, pieStateRef]);
 
-  // S (enter sticky note placement) — same rules as T for focused inputs.
+  // S — pie-menu accelerator only (east / sticky note). No global shortcut.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "KeyS" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
+      if (!pieStateRef.current) return;
 
-      // Pie accelerator — S fires the east sector via this same path.
-      if (pieStateRef.current) closePie();
+      closePie();
 
       const target = e.target as HTMLElement | null;
       if (target) {

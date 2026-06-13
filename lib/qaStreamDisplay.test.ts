@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
+import {
+  beginCardAsk,
+  endCardAsk,
+  isCardAskInFlight,
+  cancelCardAsk,
+} from "@/lib/cardAskRegistry";
 import {
   hasQaResponseError,
   isQaResponseFinalError,
   isQaResponseFinalMissing,
   isQaResponseMissing,
   isQaTurnInProgress,
+  isChatAnswerInProgress,
   resolveQaStatusLabel,
   shouldShowQaAnswerSection,
   shouldShowQaAnswerText,
@@ -27,6 +34,10 @@ function baseCard(overrides: Partial<Card> = {}): Card {
 }
 
 describe("qaStreamDisplay", () => {
+  afterEach(() => {
+    cancelCardAsk("c1");
+  });
+
   it("withholds text while streaming", () => {
     const card = baseCard({ answer: "Partial response…" });
     expect(shouldShowQaAnswerText(card)).toBe(false);
@@ -104,6 +115,67 @@ describe("qaStreamDisplay", () => {
     expect(isQaResponseFinalMissing(card, nodes)).toBe(false);
     expect(shouldShowQaAnswerSection(card, nodes)).toBe(false);
     expect(resolveQaStatusLabel(card, nodes)).toBe("Building artifact…");
+  });
+
+  it("withholds missing state while the card ask is still in flight", () => {
+    const card = baseCard({
+      status: "done",
+      answer: "",
+      question: "Update the custom UI colors",
+    });
+    const token = beginCardAsk("c1");
+    expect(isQaTurnInProgress(card)).toBe(true);
+    expect(isQaResponseFinalMissing(card)).toBe(false);
+    expect(shouldShowQaAnswerSection(card)).toBe(false);
+    expect(resolveQaStatusLabel(card)).toBe("Putting it together…");
+    endCardAsk("c1", token);
+    expect(isQaResponseFinalMissing(card)).toBe(true);
+  });
+
+  it("withholds missing state while artifact payload is pending materialization", () => {
+    const card = baseCard({
+      status: "done",
+      answer: "",
+      responseType: "custom",
+      outputArtifactId: "art_existing",
+      artifactPayload: {
+        type: "custom",
+        title: "Game",
+        data: { html: "<div></div>" },
+      },
+    });
+    expect(isQaTurnInProgress(card)).toBe(true);
+    expect(isQaResponseFinalMissing(card)).toBe(false);
+    expect(shouldShowQaArtifactPreview(card)).toBe(true);
+  });
+
+  it("does not treat responseType alone as a finished artifact preview", () => {
+    const card = baseCard({
+      status: "done",
+      responseType: "custom",
+      answer: "Here is your custom UI…",
+      question: "Build a custom UI artifact with this code",
+    });
+    expect(shouldShowQaArtifactPreview(card)).toBe(false);
+    expect(isQaResponseMissing(card)).toBe(true);
+    expect(isQaResponseFinalMissing(card)).toBe(true);
+  });
+
+  it("treats chat answer progress separately from artifact materialization", () => {
+    const card = baseCard({ status: "done", answer: "Ready" });
+    const nodes = {
+      n1: {
+        id: "n1",
+        artifactId: "",
+        versionId: "",
+        sourceCardId: "c1",
+        position: { x: 0, y: 0 },
+        size: { w: 100, h: 100 },
+        generatingPreview: { kind: "table" as const, title: "Table" },
+      },
+    };
+    expect(isChatAnswerInProgress(card)).toBe(false);
+    expect(isQaTurnInProgress(card, nodes)).toBe(true);
   });
 
   it("detects surfaced API errors only after the turn finishes", () => {

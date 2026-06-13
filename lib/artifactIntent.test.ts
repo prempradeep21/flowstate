@@ -4,6 +4,9 @@ import {
   detectChartIntent,
   detectCustomUiIntent,
   detectUserRequestedArtifactKind,
+  resolveInitialThinkingLabel,
+  resolvePrimaryArtifactKind,
+  stripAppendedQuestionContext,
 } from "@/lib/artifactIntent";
 
 describe("detectCustomUiIntent", () => {
@@ -78,5 +81,30 @@ describe("detectUserRequestedArtifactKind", () => {
     expect(detectUserRequestedArtifactKind("Visualize EV sales since 2018")).toBe(
       "chart",
     );
+  });
+
+  it("prefers explicit custom UI over incidental calendar mentions", () => {
+    const q =
+      "Build a custom UI artifact — interactive OSM road map with location search.";
+    expect(detectUserRequestedArtifactKind(q)).toBe("custom");
+    expect(resolveInitialThinkingLabel(q)).toBe("Building custom component…");
+  });
+
+  it("ignores calendar in appended skill context", () => {
+    const q =
+      "Build a custom UI artifact — interactive OSM road map with location search.\n\nAttached skill context:\n\nDo not use custom for date calendars — use type calendar.";
+    expect(stripAppendedQuestionContext(q)).toBe(
+      "Build a custom UI artifact — interactive OSM road map with location search.",
+    );
+    expect(resolvePrimaryArtifactKind(q)).toBe("custom");
+    expect(resolveInitialThinkingLabel(q)).toBe("Building custom component…");
+  });
+
+  it("does not treat instructional calendar mentions as calendar intent", () => {
+    expect(
+      detectCalendarIntent(
+        "Do not use custom for date calendars — use type calendar.",
+      ),
+    ).toBe(false);
   });
 });
