@@ -34,6 +34,16 @@ export function isLocalhostHostname(hostname: string): boolean {
   );
 }
 
+/**
+ * The Electron Mac app serves Next.js from `http://localhost:<port>`, so its
+ * hostname looks like localhost-dev. This flag (baked at build time for the
+ * desktop build) marks it as a real production client: full read/write, no
+ * localhost-dev safety guards. A plain `npm run dev` browser leaves it unset.
+ */
+export function isDesktopApp(): boolean {
+  return process.env.NEXT_PUBLIC_IS_DESKTOP?.trim().toLowerCase() === "true";
+}
+
 export type LocalSupabaseSafety =
   | { kind: "not_local" }
   | { kind: "unconfigured" }
@@ -55,6 +65,11 @@ export function classifyLocalSupabaseSafety(
   },
 ): LocalSupabaseSafety {
   if (!isLocalhostHostname(hostname)) {
+    return { kind: "not_local" };
+  }
+
+  // The desktop app runs on localhost but is a normal production client.
+  if (isDesktopApp()) {
     return { kind: "not_local" };
   }
 
