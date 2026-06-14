@@ -20,8 +20,8 @@ import {
   QA_TURN_TIMEOUT_MS_ACTIVE,
 } from "@/lib/qaTurnLimits";
 
-/** Generous static cap for Cursor SDK custom UI runs (Next.js requires a literal). */
-export const maxDuration = 900;
+/** Vercel Hobby/Pro cap (Next.js requires a literal). */
+export const maxDuration = 300;
 
 interface IncomingFile {
   name: string;
