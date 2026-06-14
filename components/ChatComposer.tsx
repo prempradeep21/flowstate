@@ -23,6 +23,10 @@ import { useGoogleConnection } from "@/hooks/useGoogleConnection";
 import { useGooglePicker } from "@/hooks/useGooglePicker";
 import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
+import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import {
   AttachedArtifactRef,
@@ -79,10 +83,42 @@ export function ChatComposer({
   const plugSkillAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerSkillAttachments[cardId] : undefined,
   );
+  const storedComposerDraft = useCanvasStore((s) =>
+    cardId ? s.composerDraftsByCardId[cardId] : undefined,
+  );
+  const setComposerDraft = useCanvasStore((s) => s.setComposerDraft);
+  const clearComposerDraft = useCanvasStore((s) => s.clearComposerDraft);
 
   const [internalDraft, setInternalDraft] = useState("");
-  const draft = draftValue ?? internalDraft;
-  const setDraft = onDraftChange ?? setInternalDraft;
+  const draft =
+    draftValue ??
+    (cardId ? storedComposerDraft ?? "" : internalDraft);
+  const setDraft = useCallback(
+    (value: string | ((prev: string) => string)) => {
+      const next =
+        typeof value === "function"
+          ? value(
+              draftValue ??
+                (cardId ? storedComposerDraft ?? "" : internalDraft),
+            )
+          : value;
+      if (onDraftChange) {
+        onDraftChange(next);
+      } else if (cardId) {
+        setComposerDraft(cardId, next);
+      } else {
+        setInternalDraft(next);
+      }
+    },
+    [
+      cardId,
+      draftValue,
+      internalDraft,
+      onDraftChange,
+      setComposerDraft,
+      storedComposerDraft,
+    ],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
@@ -104,6 +140,12 @@ export function ChatComposer({
   useEffect(() => {
     if (autoFocus) textarea.ref.current?.focus();
   }, [autoFocus, textarea.ref]);
+
+  useEffect(() => {
+    if (!cardId || draft.trim().length === 0) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [cardId, draft]);
 
   const addAttachment = (ref: AttachedArtifactRef) => {
     setAttached((prev) => {
@@ -197,7 +239,11 @@ export function ChatComposer({
       pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
       pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
     });
-    setDraft("");
+    if (cardId) {
+      clearComposerDraft(cardId);
+    } else {
+      setDraft("");
+    }
     setAttached([]);
     setAttachedAssets([]);
     setPendingImages([]);

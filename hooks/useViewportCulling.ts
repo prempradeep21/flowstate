@@ -87,6 +87,11 @@ export function useViewportCulling(
           else alwaysVisibleLabels.add(item.id);
         }
 
+        for (const id of Object.keys(state.composerDraftsByCardId)) {
+          const draft = state.composerDraftsByCardId[id]?.trim();
+          if (draft) alwaysVisibleCards.add(id);
+        }
+
         setVisible(
           queryVisibleNodes(
             {
@@ -146,7 +151,8 @@ export function useViewportCulling(
         state.selectedCanvasAssetId !== prevState.selectedCanvasAssetId ||
         state.selectedCanvasGifId !== prevState.selectedCanvasGifId ||
         state.selectedCanvasSkillId !== prevState.selectedCanvasSkillId ||
-        state.selectedCanvasTextLabelId !== prevState.selectedCanvasTextLabelId
+        state.selectedCanvasTextLabelId !== prevState.selectedCanvasTextLabelId ||
+        state.composerDraftsByCardId !== prevState.composerDraftsByCardId
       ) {
         update();
       }

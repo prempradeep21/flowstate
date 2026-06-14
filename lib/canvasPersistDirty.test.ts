@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  areCanvasPersistSlicesEqual,
   classifyCanvasPersistChange,
   pickCanvasPersistSlice,
   type CanvasPersistSlice,
@@ -30,6 +31,8 @@ function emptySlice(overrides: Partial<CanvasPersistSlice> = {}): CanvasPersistS
     canvasTextLabelOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
+    canvasStrokes: {},
+    canvasStrokeOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
     ...overrides,
@@ -161,5 +164,17 @@ describe("classifyCanvasPersistChange", () => {
       persist: true,
       contentEdit: false,
     });
+  });
+
+  it("detects equal persist slices regardless of object identity", () => {
+    const a = emptySlice({
+      cards: { c1: baseCard },
+      cardOrder: ["c1"],
+    });
+    const b = emptySlice({
+      cards: { c1: { ...baseCard } },
+      cardOrder: ["c1"],
+    });
+    expect(areCanvasPersistSlicesEqual(a, b)).toBe(true);
   });
 });

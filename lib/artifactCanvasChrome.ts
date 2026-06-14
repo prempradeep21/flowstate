@@ -17,7 +17,6 @@ const CANVAS_SURFACE_FILL_KINDS = new Set<ArtifactKind>([
   "chart",
   "custom",
   "timeline",
-  "3d",
   "map",
   "audio",
 ]);
@@ -34,6 +33,7 @@ const NAKED_CANVAS_ARTIFACT_KINDS = new Set<ArtifactKind>([
   "website",
   "google-doc",
   "embed",
+  "3d",
 ]);
 
 export function artifactKindUsesCanvasContainerFill(kind: ArtifactKind): boolean {

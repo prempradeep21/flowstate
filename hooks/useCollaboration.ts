@@ -45,6 +45,12 @@ import {
   setRemotePresence,
 } from "@/lib/remotePresenceStore";
 import { parseCanvasSnapshot } from "@/lib/canvasSnapshot";
+import {
+  areCanvasPersistSlicesEqual,
+  pickCanvasPersistSlice,
+  pickCanvasPersistSliceFromSnapshot,
+} from "@/lib/canvasPersistDirty";
+import { hasActiveLocalEdits } from "@/lib/localEditGuard";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
 
@@ -58,6 +64,8 @@ interface UseCollaborationOptions {
   isRemoteUpdateRef: React.MutableRefObject<boolean>;
   isDirtyRef?: React.MutableRefObject<boolean>;
   isHydratingRef?: React.MutableRefObject<boolean>;
+  /** Last known row `updated_at` from load/save — skips self-echo realtime events. */
+  canvasUpdatedAtRef?: React.MutableRefObject<string | null>;
 }
 
 export function useCollaboration({
@@ -70,6 +78,7 @@ export function useCollaboration({
   isRemoteUpdateRef,
   isDirtyRef,
   isHydratingRef,
+  canvasUpdatedAtRef,
 }: UseCollaborationOptions) {
   const [sharedCanvases, setSharedCanvases] = useState<SharedCanvasMeta[]>([]);
   const [pendingInvites, setPendingInvites] = useState<CanvasInvite[]>([]);
@@ -89,9 +98,102 @@ export function useCollaboration({
   const pendingRemoteSnapshotRef = useRef<ReturnType<
     typeof parseCanvasSnapshot
   > | null>(null);
+  const pendingRemoteUpdatedAtRef = useRef<string | null>(null);
 
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
   const getSnapshotSource = useCanvasStore((s) => s.getCanvasSnapshotSource);
+
+  const applyPendingRemoteSnapshot = useCallback(() => {
+    const pending = pendingRemoteSnapshotRef.current;
+    if (!pending || isDirtyRef?.current || hasActiveLocalEdits()) return;
+    if (useCanvasStore.getState().activeCanvasStrokeId) return;
+
+    pendingRemoteSnapshotRef.current = null;
+    const updatedAt = pendingRemoteUpdatedAtRef.current;
+    pendingRemoteUpdatedAtRef.current = null;
+
+    const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+    const incomingSlice = pickCanvasPersistSliceFromSnapshot(pending);
+    if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
+      if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      return;
+    }
+
+    isRemoteUpdateRef.current = true;
+    hydrateFromSnapshot(pending, {
+      applyViewport: false,
+      preserveEphemeral: true,
+    });
+    if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+    requestAnimationFrame(() => {
+      isRemoteUpdateRef.current = false;
+    });
+  }, [
+    canvasUpdatedAtRef,
+    hydrateFromSnapshot,
+    isDirtyRef,
+    isRemoteUpdateRef,
+  ]);
+
+  const considerRemoteSnapshot = useCallback(
+    (parsed: NonNullable<ReturnType<typeof parseCanvasSnapshot>>, updatedAt?: string) => {
+      if (localReadOnly) return;
+
+      if (isHydratingRef?.current) return;
+
+      const reveal = useCanvasStore.getState().canvasLoadReveal;
+      if (reveal?.phase === "pending" || reveal?.phase === "running") {
+        return;
+      }
+
+      if (
+        updatedAt &&
+        canvasUpdatedAtRef?.current &&
+        updatedAt === canvasUpdatedAtRef.current
+      ) {
+        return;
+      }
+
+      const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+      const incomingSlice = pickCanvasPersistSliceFromSnapshot(parsed);
+      if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
+        if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+        return;
+      }
+
+      if (isDirtyRef?.current || hasActiveLocalEdits()) {
+        pendingRemoteSnapshotRef.current = parsed;
+        pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        return;
+      }
+
+      if (useCanvasStore.getState().activeCanvasStrokeId) {
+        pendingRemoteSnapshotRef.current = parsed;
+        pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        return;
+      }
+
+      pendingRemoteSnapshotRef.current = null;
+      pendingRemoteUpdatedAtRef.current = null;
+      isRemoteUpdateRef.current = true;
+      hydrateFromSnapshot(parsed, {
+        applyViewport: false,
+        preserveEphemeral: true,
+      });
+      if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      requestAnimationFrame(() => {
+        isRemoteUpdateRef.current = false;
+      });
+    },
+    [
+      canvasUpdatedAtRef,
+      hydrateFromSnapshot,
+      isDirtyRef,
+      isHydratingRef,
+      isRemoteUpdateRef,
+      localReadOnly,
+    ],
+  );
 
   const activeCanvasRole: CanvasRole | null = accessInfo?.role ?? null;
   const canEdit = canEditCanvas(activeCanvasRole);
@@ -191,19 +293,21 @@ export function useCollaboration({
 
   useEffect(() => {
     const onCanvasSaved = () => {
-      const pending = pendingRemoteSnapshotRef.current;
-      if (!pending || isDirtyRef?.current) return;
-      pendingRemoteSnapshotRef.current = null;
-      isRemoteUpdateRef.current = true;
-      hydrateFromSnapshot(pending, { applyViewport: false });
-      requestAnimationFrame(() => {
-        isRemoteUpdateRef.current = false;
-      });
+      applyPendingRemoteSnapshot();
     };
     window.addEventListener("flowstate:canvas-saved", onCanvasSaved);
     return () =>
       window.removeEventListener("flowstate:canvas-saved", onCanvasSaved);
-  }, [hydrateFromSnapshot, isDirtyRef, isRemoteUpdateRef]);
+  }, [applyPendingRemoteSnapshot]);
+
+  useEffect(() => {
+    const onLocalEditsEnded = () => {
+      applyPendingRemoteSnapshot();
+    };
+    window.addEventListener("flowstate:local-edits-ended", onLocalEditsEnded);
+    return () =>
+      window.removeEventListener("flowstate:local-edits-ended", onLocalEditsEnded);
+  }, [applyPendingRemoteSnapshot]);
 
   useEffect(() => {
     const tearDownChannels = () => {
@@ -302,8 +406,6 @@ export function useCollaboration({
             filter: `id=eq.${activeCanvasId}`,
           },
           (payload) => {
-            if (localReadOnly) return;
-
             const row = payload.new as {
               state?: unknown;
               updated_at?: string;
@@ -311,26 +413,7 @@ export function useCollaboration({
             const parsed = parseCanvasSnapshot(row.state);
             if (!parsed) return;
 
-            if (isHydratingRef?.current) return;
-
-            const reveal = useCanvasStore.getState().canvasLoadReveal;
-            if (
-              reveal?.phase === "pending" ||
-              reveal?.phase === "running"
-            ) {
-              return;
-            }
-
-            if (isDirtyRef?.current) {
-              pendingRemoteSnapshotRef.current = parsed;
-              return;
-            }
-
-            isRemoteUpdateRef.current = true;
-            hydrateFromSnapshot(parsed, { applyViewport: false });
-            requestAnimationFrame(() => {
-              isRemoteUpdateRef.current = false;
-            });
+            considerRemoteSnapshot(parsed, row.updated_at);
           },
         )
         .subscribe();
@@ -356,8 +439,7 @@ export function useCollaboration({
   }, [
     accessInfo,
     activeCanvasId,
-    hydrateFromSnapshot,
-    isDirtyRef,
+    considerRemoteSnapshot,
     isHydratingRef,
     isRemoteUpdateRef,
     localReadOnly,

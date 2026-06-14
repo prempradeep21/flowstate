@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flushSave,
     isDirtyRef,
     isHydratingRef,
+    canvasUpdatedAtRef,
     localReadOnly,
   } = useCanvasPersistence({
     user,
@@ -115,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isRemoteUpdateRef,
     isDirtyRef,
     isHydratingRef,
+    canvasUpdatedAtRef,
   });
 
   const duplicateCanvas = useCallback(

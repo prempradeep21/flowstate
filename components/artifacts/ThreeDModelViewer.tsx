@@ -46,18 +46,18 @@ export function ThreeDModelViewer({
         const height = Math.max(mount.clientHeight, 1);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x141820);
 
         const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 200);
         camera.position.set(0, 0.8, 2.4);
 
         const renderer = new THREE.WebGLRenderer({
           antialias: true,
-          alpha: false,
+          alpha: true,
           powerPreference: "high-performance",
         });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(width, height);
+        renderer.setClearColor(0x000000, 0);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         mount.appendChild(renderer.domElement);
 
@@ -157,7 +157,7 @@ export function ThreeDModelViewer({
   return (
     <div
       ref={containerRef}
-      className={`relative h-full w-full overflow-hidden bg-canvas-stageDark ${className}`}
+      className={`relative h-full w-full overflow-hidden bg-transparent ${className}`}
       onPointerDown={(e) => {
         if (interactive) e.stopPropagation();
       }}
@@ -167,7 +167,7 @@ export function ThreeDModelViewer({
     >
       {status === "loading" && (
         <div
-          className="pointer-events-none absolute inset-0 flex items-center justify-center text-canvas-compact text-white/50"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center text-canvas-compact text-canvas-muted"
           aria-live="polite"
         >
           Loading model…
@@ -177,12 +177,12 @@ export function ThreeDModelViewer({
         <div
           className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center"
         >
-          <p className="text-canvas-body-sm text-white/60">Could not load model</p>
+          <p className="text-canvas-body-sm text-canvas-muted">Could not load model</p>
           <a
             href={modelUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="max-w-full truncate text-canvas-compact text-violet-300 hover:underline"
+            className="max-w-full truncate text-canvas-compact text-canvas-accent hover:underline"
           >
             Open {format.toUpperCase()} file
           </a>

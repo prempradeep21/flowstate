@@ -15,6 +15,10 @@ import {
   stickyNoteContentFloors,
   stickyNoteThemeColors,
 } from "@/lib/stickyNoteArtifact";
+import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
 import { useCanvasStore } from "@/lib/store";
 
 export type StickyNoteArtifactActions = {
@@ -88,12 +92,18 @@ export function StickyNoteArtifactContent({
   const isEditing = stickyContext?.isEditing ?? false;
   const [draft, setDraft] = useState(payload);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isDirty = !payloadsEqual(draft, payload);
 
   useEffect(() => {
+    if (isDirty) return;
     setDraft(payload);
-  }, [payload]);
+  }, [payload, isDirty]);
 
-  const isDirty = !payloadsEqual(draft, payload);
+  useEffect(() => {
+    if (!isEditing || !isDirty) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [isEditing, isDirty]);
 
   useEffect(() => {
     stickyContext?.onDirtyChange?.(isDirty);

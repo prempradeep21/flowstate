@@ -31,14 +31,14 @@ export function ThreeDCardBody({ card, isStreaming }: ThreeDCardBodyProps) {
         title={payload.title}
         description={payload.description}
       >
-        <ArtifactMediaViewport className="bg-canvas-stageDark">
+        <ArtifactMediaViewport className="bg-transparent">
           <ThreeDModelViewer
             modelUrl={modelUrl}
             format={format}
             interactive
             className="min-h-[200px]"
           />
-          <span className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-canvas-micro uppercase text-white/70">
+          <span className="absolute bottom-2 right-2 rounded bg-canvas-card/80 px-1.5 py-0.5 text-canvas-micro uppercase text-canvas-muted backdrop-blur-sm">
             {format}
           </span>
         </ArtifactMediaViewport>

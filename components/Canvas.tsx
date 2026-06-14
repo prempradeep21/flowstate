@@ -1807,11 +1807,6 @@ export function Canvas({
       <CanvasBackgroundLayer />
       <CanvasViewport>
         <PlugConnectorLayer />
-        <CanvasDrawingLayer
-          strokes={canvasStrokes}
-          strokeOrder={canvasStrokeOrder}
-          activeStrokeId={activeCanvasStrokeId}
-        />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
         {groupList.map((group) => (
@@ -1882,6 +1877,11 @@ export function Canvas({
           ) : null,
         )}
         <Connections />
+        <CanvasDrawingLayer
+          strokes={canvasStrokes}
+          strokeOrder={canvasStrokeOrder}
+          activeStrokeId={activeCanvasStrokeId}
+        />
         {placement && <GhostCard world={placement} />}
         {textPlacement && <GhostTextLabel world={textPlacement} />}
         {imagePlacement && <GhostImage world={imagePlacement} />}

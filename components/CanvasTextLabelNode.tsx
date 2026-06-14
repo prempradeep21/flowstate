@@ -21,6 +21,10 @@ import {
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { classifyPastedText } from "@/lib/urlDetection";
 import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
+import {
   useCanvasStore,
   type CanvasTextLabel,
 } from "@/lib/store";
@@ -158,8 +162,15 @@ export function CanvasTextLabelNode({
   const containerWidth = hasFixedWidth ? label.width : undefined;
 
   useEffect(() => {
+    if (editing) return;
     setDraft(label.text);
-  }, [label.text]);
+  }, [label.text, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [editing]);
 
   useEffect(() => {
     if (!editing) return;

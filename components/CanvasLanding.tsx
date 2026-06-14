@@ -25,8 +25,9 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
   const { user, authLoading } = useAuth();
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const updateCard = useCanvasStore((s) => s.updateCard);
+  const setComposerDraft = useCanvasStore((s) => s.setComposerDraft);
+  const clearComposerDraft = useCanvasStore((s) => s.clearComposerDraft);
   const card = useCanvasStore((s) => s.cards[cardId]);
-  const [draft, setDraft] = useState("");
   const [skipMotion, setSkipMotion] = useState(false);
   const showSignIn = !authLoading && !user;
 
@@ -60,7 +61,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       pendingFiles: options?.pendingFiles,
       ...turnMetricsOnSubmit(),
     });
-    setDraft("");
+    clearComposerDraft(cardId);
   };
 
   const focusComposer = () => {
@@ -116,7 +117,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
             key={suggestion.kind}
             type="button"
             onClick={() => {
-              setDraft(suggestion.prompt);
+              setComposerDraft(cardId, suggestion.prompt);
               focusComposer();
             }}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
@@ -141,8 +142,6 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
           placeholder="Ask anything"
           autoFocus
           disabled={isPending}
-          draftValue={draft}
-          onDraftChange={setDraft}
           onSubmit={onSubmit}
         />
       </div>

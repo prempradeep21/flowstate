@@ -682,6 +682,10 @@ interface CanvasState {
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
   plugComposerAssetAttachments: Record<string, AttachedAssetRef>;
   plugComposerSkillAttachments: Record<string, AttachedSkillRef>;
+  /** Unsubmitted composer text per card — session-only, not persisted. */
+  composerDraftsByCardId: Record<string, string>;
+  setComposerDraft: (cardId: string, draft: string) => void;
+  clearComposerDraft: (cardId: string) => void;
   artifactPlugConnections: ArtifactPlugConnection[];
   skillPlugConnections: SkillPlugConnection[];
 
@@ -1015,7 +1019,12 @@ interface CanvasState {
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
   hydrateFromSnapshot: (
     snapshot: CanvasSnapshot,
-    options?: { applyViewport?: boolean; canvasReveal?: boolean },
+    options?: {
+      applyViewport?: boolean;
+      canvasReveal?: boolean;
+      /** Keep selection, open panels, and composer drafts during collab sync. */
+      preserveEphemeral?: boolean;
+    },
   ) => void;
   canvasReadOnly: boolean;
   setCanvasReadOnly: (readOnly: boolean) => void;
@@ -1806,7 +1815,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasStrokes: {},
   canvasStrokeOrder: [],
   pencilToolActive: false,
-  pencilColor: PENCIL_COLORS[0],
+  pencilColor: "#F0F0F0",
   activeCanvasStrokeId: null,
   setPencilToolActive: (active) =>
     set({
@@ -1898,6 +1907,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   plugComposerAttachments: {},
   plugComposerAssetAttachments: {},
   plugComposerSkillAttachments: {},
+  composerDraftsByCardId: {},
+
+  setComposerDraft: (cardId, draft) =>
+    set((state) => ({
+      composerDraftsByCardId: {
+        ...state.composerDraftsByCardId,
+        [cardId]: draft,
+      },
+    })),
+
+  clearComposerDraft: (cardId) =>
+    set((state) => {
+      if (!(cardId in state.composerDraftsByCardId)) return state;
+      const next = { ...state.composerDraftsByCardId };
+      delete next[cardId];
+      return { composerDraftsByCardId: next };
+    }),
   artifactPlugConnections: [],
   skillPlugConnections: [],
 
@@ -4925,7 +4951,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasStrokes: {},
       canvasStrokeOrder: [],
       pencilToolActive: false,
-      pencilColor: PENCIL_COLORS[0],
+      pencilColor: "#F0F0F0",
       activeCanvasStrokeId: null,
       canvasGifNodes: {},
       canvasGifOrder: [],
@@ -5040,6 +5066,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
       }
 
+      const preserveEphemeral = options?.preserveEphemeral === true;
+
       return {
         viewport,
         viewportSettledScale: viewport.scale,
@@ -5063,40 +5091,79 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSkills: { ...snapshotNorm.canvasSkills },
         canvasSkillNodes: { ...snapshotNorm.canvasSkillNodes },
         canvasSkillOrder: [...(snapshotNorm.canvasSkillOrder ?? [])],
-        canvasLoadReveal,
-        activeThreadId: threadOrder[0] ?? null,
-        openArtifactCardId: null,
-        openGroupArtifactId: null,
-        openSessionArtifactId: null,
-        openSessionArtifactVersionId: null,
-        selectedCanvasArtifactId: null,
-        selectedCanvasAssetId: null,
+        canvasLoadReveal: preserveEphemeral ? state.canvasLoadReveal : canvasLoadReveal,
+        activeThreadId: preserveEphemeral ? state.activeThreadId : (threadOrder[0] ?? null),
+        openArtifactCardId: preserveEphemeral ? state.openArtifactCardId : null,
+        openGroupArtifactId: preserveEphemeral ? state.openGroupArtifactId : null,
+        openSessionArtifactId: preserveEphemeral ? state.openSessionArtifactId : null,
+        openSessionArtifactVersionId: preserveEphemeral
+          ? state.openSessionArtifactVersionId
+          : null,
+        selectedCanvasArtifactId: preserveEphemeral
+          ? state.selectedCanvasArtifactId
+          : null,
+        selectedCanvasAssetId: preserveEphemeral ? state.selectedCanvasAssetId : null,
         canvasTextLabels: { ...snapshotNorm.canvasTextLabels },
         canvasTextLabelOrder: [...(snapshotNorm.canvasTextLabelOrder ?? [])],
-        canvasStrokes: { ...(snapshotNorm.canvasStrokes ?? {}) },
-        canvasStrokeOrder: [...(snapshotNorm.canvasStrokeOrder ?? [])],
-        pencilToolActive: false,
-        activeCanvasStrokeId: null,
+        canvasStrokes: preserveEphemeral
+          ? {
+              ...(snapshotNorm.canvasStrokes ?? {}),
+              ...state.canvasStrokes,
+            }
+          : { ...(snapshotNorm.canvasStrokes ?? {}) },
+        canvasStrokeOrder: preserveEphemeral
+          ? Array.from(
+              new Set([
+                ...(snapshotNorm.canvasStrokeOrder ?? []),
+                ...state.canvasStrokeOrder,
+              ]),
+            )
+          : [...(snapshotNorm.canvasStrokeOrder ?? [])],
+        pencilToolActive: preserveEphemeral ? state.pencilToolActive : false,
+        activeCanvasStrokeId: preserveEphemeral ? state.activeCanvasStrokeId : null,
         canvasGifNodes: { ...snapshotNorm.canvasGifNodes },
         canvasGifOrder: [...(snapshotNorm.canvasGifOrder ?? [])],
-        selectedCanvasTextLabelId: null,
-        selectedFamilyRootIds: [],
-        canvasSelection: [],
-        activeGroupId: null,
-        undoPast: [],
+        selectedCanvasGifId: preserveEphemeral ? state.selectedCanvasGifId : null,
+        selectedCanvasSkillId: preserveEphemeral ? state.selectedCanvasSkillId : null,
+        selectedCanvasTextLabelId: preserveEphemeral
+          ? state.selectedCanvasTextLabelId
+          : null,
+        selectedFamilyRootIds: preserveEphemeral ? state.selectedFamilyRootIds : [],
+        canvasSelection: preserveEphemeral ? state.canvasSelection : [],
+        collapsedBranchThreadIds: preserveEphemeral
+          ? state.collapsedBranchThreadIds
+          : state.collapsedBranchThreadIds,
+        collapsedCardIds: preserveEphemeral ? state.collapsedCardIds : state.collapsedCardIds,
+        activeGroupId: preserveEphemeral ? state.activeGroupId : null,
+        undoPast: preserveEphemeral ? state.undoPast : [],
         globalOrigin,
         uploadedAttachments: JSON.parse(
           JSON.stringify(snapshotNorm.uploadedAttachments),
         ) as UploadedAttachment[],
-        plugDrag: null,
-        plugComposerAttachments: {},
-        plugComposerAssetAttachments: {},
-        plugComposerSkillAttachments: {},
-        artifactPlugConnections: [],
-        skillPlugConnections: [],
-        canvasPlacementRequest: null,
-        activeCanvasPlacement: null,
-        artifactPlacementRequest: null,
+        plugDrag: preserveEphemeral ? state.plugDrag : null,
+        plugComposerAttachments: preserveEphemeral
+          ? state.plugComposerAttachments
+          : {},
+        plugComposerAssetAttachments: preserveEphemeral
+          ? state.plugComposerAssetAttachments
+          : {},
+        plugComposerSkillAttachments: preserveEphemeral
+          ? state.plugComposerSkillAttachments
+          : {},
+        composerDraftsByCardId: preserveEphemeral
+          ? state.composerDraftsByCardId
+          : {},
+        artifactPlugConnections: preserveEphemeral
+          ? state.artifactPlugConnections
+          : [],
+        skillPlugConnections: preserveEphemeral ? state.skillPlugConnections : [],
+        canvasPlacementRequest: preserveEphemeral
+          ? state.canvasPlacementRequest
+          : null,
+        activeCanvasPlacement: preserveEphemeral ? state.activeCanvasPlacement : null,
+        artifactPlacementRequest: preserveEphemeral
+          ? state.artifactPlacementRequest
+          : null,
         collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,
       };
     });

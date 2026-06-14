@@ -1,4 +1,5 @@
 import type { Card, SessionArtifact } from "@/lib/store";
+import type { CanvasSnapshot } from "@/lib/canvasSnapshot";
 
 /** Store slices compared when deciding whether to persist canvas state. */
 export interface CanvasPersistSlice {
@@ -24,6 +25,8 @@ export interface CanvasPersistSlice {
   canvasTextLabelOrder: string[];
   canvasGifNodes?: Record<string, unknown>;
   canvasGifOrder?: string[];
+  canvasStrokes?: Record<string, unknown>;
+  canvasStrokeOrder?: string[];
   uploadedAttachments: unknown[];
   collaborationHasEdits: boolean;
 }
@@ -54,9 +57,44 @@ export function pickCanvasPersistSlice(
     canvasTextLabelOrder: state.canvasTextLabelOrder,
     canvasGifNodes: state.canvasGifNodes ?? {},
     canvasGifOrder: state.canvasGifOrder ?? [],
+    canvasStrokes: state.canvasStrokes ?? {},
+    canvasStrokeOrder: state.canvasStrokeOrder ?? [],
     uploadedAttachments: state.uploadedAttachments,
     collaborationHasEdits: state.collaborationHasEdits,
   };
+}
+
+export function pickCanvasPersistSliceFromSnapshot(
+  snapshot: CanvasSnapshot,
+): CanvasPersistSlice {
+  return pickCanvasPersistSlice({
+    viewport: snapshot.viewport,
+    cards: snapshot.cards,
+    cardOrder: snapshot.cardOrder,
+    connections: snapshot.connections,
+    threads: snapshot.threads,
+    threadOrder: snapshot.threadOrder,
+    groups: snapshot.groups,
+    connectorStyle: snapshot.connectorStyle,
+    canvasBackgroundStyle: snapshot.canvasBackgroundStyle,
+    canvasTheme: snapshot.canvasTheme,
+    selectedModel: snapshot.selectedModel,
+    viewMode: snapshot.viewMode,
+    sessionArtifacts: snapshot.sessionArtifacts,
+    canvasAssets: snapshot.canvasAssets ?? {},
+    canvasArtifactNodes: snapshot.canvasArtifactNodes ?? {},
+    canvasArtifactOrder: snapshot.canvasArtifactOrder ?? [],
+    canvasAssetNodes: snapshot.canvasAssetNodes ?? {},
+    canvasAssetOrder: snapshot.canvasAssetOrder ?? [],
+    canvasTextLabels: snapshot.canvasTextLabels ?? {},
+    canvasTextLabelOrder: snapshot.canvasTextLabelOrder ?? [],
+    canvasGifNodes: snapshot.canvasGifNodes ?? {},
+    canvasGifOrder: snapshot.canvasGifOrder ?? [],
+    canvasStrokes: snapshot.canvasStrokes ?? {},
+    canvasStrokeOrder: snapshot.canvasStrokeOrder ?? [],
+    uploadedAttachments: snapshot.uploadedAttachments ?? [],
+    collaborationHasEdits: snapshot.collaborationHasEdits ?? false,
+  });
 }
 
 function cardsQuestionEdit(
@@ -147,6 +185,8 @@ export function isViewportOnlyChange(
     prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
     prev.canvasGifNodes === next.canvasGifNodes &&
     prev.canvasGifOrder === next.canvasGifOrder &&
+    prev.canvasStrokes === next.canvasStrokes &&
+    prev.canvasStrokeOrder === next.canvasStrokeOrder &&
     prev.uploadedAttachments === next.uploadedAttachments &&
     prev.collaborationHasEdits === next.collaborationHasEdits
   );
@@ -178,4 +218,15 @@ export function classifyCanvasPersistChange(
     // must use the priority save path — never the slow viewport debounce.
     contentEdit: persist && !viewportOnly,
   };
+}
+
+/** True when persisted canvas content is unchanged (ignores object identity). */
+export function areCanvasPersistSlicesEqual(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  return (
+    JSON.stringify(pickCanvasPersistSlice(prev)) ===
+    JSON.stringify(pickCanvasPersistSlice(next))
+  );
 }

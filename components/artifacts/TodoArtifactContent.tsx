@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import type { ArtifactPayload, TodoItem, TodoPriority } from "@/lib/artifactTypes";
+import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
 import { useCanvasStore } from "@/lib/store";
 import {
   cloneTodoPayload,
@@ -269,6 +273,12 @@ export function TodoArtifactContent({
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isEditing || !isDirty) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [isEditing, isDirty]);
 
   const { done, total } = todoCompletionStats(
     readOnly ? payload.data.items : draft.data.items,

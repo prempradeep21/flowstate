@@ -32,7 +32,7 @@ export function ThreeDArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full w-full overflow-hidden rounded-canvas bg-canvas-stageDark">
+      <div className="h-full w-full overflow-hidden rounded-canvas bg-transparent">
         {viewer}
       </div>
     );
@@ -44,7 +44,7 @@ export function ThreeDArtifactContent({
         fill
         artifactId={artifactId}
         showControls={showControls}
-        className="h-full min-h-0"
+        className="h-full min-h-0 !bg-transparent"
       >
         {viewer}
       </ArtifactContentStage>
@@ -55,7 +55,7 @@ export function ThreeDArtifactContent({
     <ArtifactContentStage
       artifactId={artifactId}
       showControls={showControls}
-      className="aspect-[4/3]"
+      className="aspect-[4/3] !bg-transparent"
     >
       <div className="min-h-[280px] h-full">{viewer}</div>
     </ArtifactContentStage>

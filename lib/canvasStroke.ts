@@ -1,4 +1,5 @@
 export const PENCIL_COLORS = [
+  "#F0F0F0",
   "#111111",
   "#E53935",
   "#1E88E5",

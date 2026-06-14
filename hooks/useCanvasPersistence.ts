@@ -1055,6 +1055,7 @@ export function useCanvasPersistence({
     loadCanvasForUser,
     loadCanvasRow,
     canvasIdRef,
+    canvasUpdatedAtRef,
     isDirtyRef,
     isHydratingRef,
     activeCanvasId,
