@@ -47,7 +47,7 @@ export function htmlDocumentToCustomData(html: string): CustomArtifactData | nul
 }
 
 const ATTACHED_HTML_RE =
-  /(?:Attached asset context:|Asset:)[^\n]*\(text\/html\)\n([\s\S]*?)(?:\n\n(?:Attached asset context:|Attached skill context:|$)|$)/i;
+  /(?:Attached asset context:|Asset:)[^\n]*(?:\(text\/html\)|\.html\)|\(text\/plain\))[^\n]*\n([\s\S]*?)(?:\n\n(?:Attached asset context:|Attached skill context:|$)|$)/i;
 
 const ATTACHED_FILE_HTML_RE =
   /Attached file: [^\n]+\n([\s\S]*?)(?:\n\n|\[File truncated|$)/i;
@@ -55,7 +55,12 @@ const ATTACHED_FILE_HTML_RE =
 /** Extract HTML pasted from canvas asset/file attachments in the user question. */
 export function extractAttachedHtmlFromQuestion(question: string): string | null {
   const assetMatch = question.match(ATTACHED_HTML_RE);
-  if (assetMatch?.[1]?.trim()) return assetMatch[1].trim();
+  if (assetMatch?.[1]?.trim()) {
+    const body = assetMatch[1].trim();
+    if (/<html[\s>]|<body[\s>]|<div[\s>]|<!doctype/i.test(body)) {
+      return body;
+    }
+  }
 
   const fileMatch = question.match(ATTACHED_FILE_HTML_RE);
   if (fileMatch?.[1]?.trim() && /<html[\s>]|<body[\s>]|<div[\s>]/i.test(fileMatch[1])) {
@@ -148,7 +153,6 @@ export function tryImportAttachedHtmlAsCustom(
   question: string,
   fallbackTitle = "Imported UI",
 ): CustomArtifactPayload | null {
-  if (!wantsHtmlAsCustomUi(question)) return null;
   const raw = extractAttachedHtmlFromQuestion(question);
   if (!raw) return null;
 

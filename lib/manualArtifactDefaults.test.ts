@@ -90,6 +90,15 @@ describe("createManualArtifactPayload", () => {
     expect(payload.data.items).toEqual([]);
     expect(payload.title).toBe("Untitled gallery");
   });
+
+  it("creates 3D model with sample GLB", () => {
+    const payload = createManualArtifactPayload("3d");
+    expect(payload.type).toBe("3d");
+    if (payload.type !== "3d") return;
+    expect(payload.title).toBe("3D model");
+    expect(payload.data.format).toBe("glb");
+    expect(payload.data.modelUrl).toContain(".glb");
+  });
 });
 
 describe("manualArtifactSourceCardId", () => {

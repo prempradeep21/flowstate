@@ -46,7 +46,7 @@ export function AnswerTextScrollRegion({
       ref={scrollRef}
       data-answer-scroll
       onWheel={handleAnswerWheel}
-      className={`min-w-0 overflow-y-auto overscroll-y-contain ${className}`}
+      className={`min-w-0 w-full overflow-y-auto overscroll-y-contain ${className}`}
       style={{ maxHeight: QA_ANSWER_HEIGHT_PX }}
       onScroll={() => {
         const el = scrollRef.current;

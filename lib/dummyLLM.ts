@@ -183,6 +183,7 @@ export interface AskCallbacks {
   onImages?: (images: { url: string; thumb: string; alt: string }[]) => void;
   onArtifact?: (artifact: EmittedArtifact) => void;
   onResponseType?: (type: ResponseType) => void;
+  onSdkBuildStages?: (stages: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[]) => void;
   onDone: (meta: AskDoneMeta) => void;
 }
 

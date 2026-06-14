@@ -4,6 +4,10 @@ import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
 import {
+  DEFAULT_3D_SAMPLE_URL,
+  MANUAL_3D_SOURCE_CARD_ID,
+} from "@/lib/threeDArtifact";
+import {
   defaultStickyNoteColorId,
   MANUAL_STICKY_NOTE_SOURCE_CARD_ID,
 } from "@/lib/stickyNoteArtifact";
@@ -23,7 +27,8 @@ export type ManualArtifactType =
   | "chart"
   | "map"
   | "streetview"
-  | "images";
+  | "images"
+  | "3d";
 
 function todayIsoDate(): string {
   const d = new Date();
@@ -59,6 +64,8 @@ export function manualArtifactSourceCardId(type: ManualArtifactType): string {
       return MANUAL_MAP_SOURCE_CARD_ID;
     case "images":
       return MANUAL_IMAGES_SOURCE_CARD_ID;
+    case "3d":
+      return MANUAL_3D_SOURCE_CARD_ID;
   }
 }
 
@@ -178,6 +185,15 @@ export function createManualArtifactPayload(
         type: "images",
         title: "Untitled gallery",
         data: { items: [] },
+      };
+    case "3d":
+      return {
+        type: "3d",
+        title: "3D model",
+        data: {
+          modelUrl: DEFAULT_3D_SAMPLE_URL,
+          format: "glb",
+        },
       };
   }
 }

@@ -1,29 +1,27 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { ArtefactIcon, ChatBubbleIcon } from "@/components/MenuIcons";
 import { computeLiveDrakkarCounts } from "@/lib/liveDrakkar";
 import { useCanvasStore } from "@/lib/store";
 
 function DrakkarStat({
   icon,
-  label,
   count,
+  label,
 }: {
   icon: ReactNode;
-  label: string;
   count: number;
+  label: string;
 }) {
   return (
     <div
       className="flex items-center gap-1.5 text-canvas-ink"
-      title={`${count} ${label.toLowerCase()} in progress`}
+      title={`${count} ${label} in progress`}
+      aria-label={`${count} ${label} in progress`}
     >
       <span className="text-canvas-muted">{icon}</span>
       <span className="tabular-nums text-canvas-body-sm font-medium">{count}</span>
-      <span className="hidden text-canvas-body-sm text-canvas-muted sm:inline">
-        {label}
-      </span>
     </div>
   );
 }
@@ -60,13 +58,13 @@ export function LiveDrakkar() {
       <div className="floating-chrome-padding flex items-center gap-3">
         <DrakkarStat
           icon={<ChatBubbleIcon />}
-          label="Chats"
+          label="chats"
           count={counts.chatsInProgress}
         />
         <span className="h-4 w-px shrink-0 bg-canvas-border" aria-hidden />
         <DrakkarStat
           icon={<ArtefactIcon />}
-          label="Artifacts"
+          label="artifacts"
           count={counts.artifactsInProgress}
         />
       </div>

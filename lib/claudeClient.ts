@@ -25,7 +25,15 @@ import {
   useCanvasStore,
 } from "./store";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
-import { QA_TURN_TIMEOUT_MS } from "@/lib/qaTurnLimits";
+import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
+import {
+  QA_TURN_TIMEOUT_ENABLED,
+  QA_TURN_TIMEOUT_MS_ACTIVE,
+} from "@/lib/qaTurnLimits";
+
+/** On unless explicitly disabled — custom UI needs the Cursor SDK route. */
+export const CUSTOM_UI_SDK_ENABLED =
+  process.env.NEXT_PUBLIC_CUSTOM_UI_SDK !== "false";
 
 const MAX_ASSET_TEXT_CONTEXT_CHARS = 60_000;
 
@@ -88,12 +96,14 @@ export function askClaude(
 
   const run = async () => {
     if (cancelled) return;
-    hardTimeoutId = setTimeout(() => {
-      cancelled = true;
-      controller.abort(
-        new DOMException("Q&A request timed out", "AbortError"),
-      );
-    }, QA_TURN_TIMEOUT_MS);
+    if (QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0) {
+      hardTimeoutId = setTimeout(() => {
+        cancelled = true;
+        controller.abort(
+          new DOMException("Q&A request timed out", "AbortError"),
+        );
+      }, QA_TURN_TIMEOUT_MS_ACTIVE);
+    }
     const editingArtifact = resolveEditingPayloadForApi(cardId);
     const customWork = isCustomUiWork(
       question,
@@ -230,7 +240,10 @@ export function askClaude(
 
       if (cancelled) return;
 
-      const res = await fetch("/api/chat", {
+      const useCustomUiSdk = CUSTOM_UI_SDK_ENABLED && customWork;
+      const apiPath = useCustomUiSdk ? "/api/custom-ui" : "/api/chat";
+
+      const res = await fetch(apiPath, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -333,14 +346,21 @@ export function askClaude(
             } else if (parsed.pendingArtifact?.type === "timeline") {
               cb.onThinking?.(TIMELINE_THINKING_LABEL);
             } else if (parsed.pendingArtifact?.type === "custom") {
-              cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
+              if (!useCustomUiSdk) {
+                cb.onThinking?.(CUSTOM_UI_THINKING_LABEL);
+              }
               cb.onResponseType?.("custom");
             } else if (parsed.pendingArtifact?.type === "map") {
               cb.onThinking?.("Preparing map…");
             } else if (parsed.pendingArtifact?.type === "chart") {
               cb.onThinking?.(CHART_THINKING_LABEL);
-            } else if (parsed.thinking) {
-              cb.onThinking(parsed.thinking);
+            } else if (parsed.thinking || parsed.sdkBuildStages) {
+              if (typeof parsed.thinking === "string" && parsed.thinking) {
+                cb.onThinking(parsed.thinking);
+              }
+              if (Array.isArray(parsed.sdkBuildStages) && parsed.sdkBuildStages.length > 0) {
+                cb.onSdkBuildStages?.(parsed.sdkBuildStages as SdkBuildStage[]);
+              }
             } else if (parsed.usage) {
               const { inputTokens, outputTokens } = parsed.usage;
               const store = useCanvasStore.getState();

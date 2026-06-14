@@ -4,8 +4,12 @@ import {
   appendPendingEmittedArtifact,
   processArtifactSpawnQueue,
 } from "@/lib/processArtifactSpawnQueue";
-export { shouldEarlySpawnArtifact } from "@/lib/processArtifactSpawnQueue";
+export {
+  ensureEarlyCanvasPlaceholder,
+  shouldEarlySpawnArtifact,
+} from "@/lib/processArtifactSpawnQueue";
 import { isCardAskInFlight } from "@/lib/cardAskRegistry";
+import { notifyArtifactFailureForCard } from "@/lib/artifactUpdateNotify";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
   getLatestVersion,
@@ -109,6 +113,7 @@ export function finalizeCardResponse(
             ...base,
             status: "done",
             thinkingLabel: undefined,
+            sdkBuildStages: undefined,
             pendingFiles: undefined,
             responseType: opts.responseType ?? base.responseType ?? "text",
           },
@@ -116,6 +121,7 @@ export function finalizeCardResponse(
       };
     });
     useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
+    notifyArtifactFailureForCard(cardId);
     return null;
   }
 
@@ -127,6 +133,8 @@ export function finalizeCardResponse(
       responseType: opts.responseType,
     });
   }
+
+  notifyArtifactFailureForCard(cardId);
 
   return artifactId;
 }

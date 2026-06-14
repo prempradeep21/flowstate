@@ -1,44 +1,8 @@
 "use client";
 
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { ThreeDModelViewer } from "@/components/artifacts/ThreeDModelViewer";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
-
-function ThreeDInner({
-  modelUrl,
-  format,
-  compact = false,
-}: {
-  modelUrl: string;
-  format: string;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={`flex h-full w-full flex-col items-center justify-center bg-canvas-stageDark text-center ${
-        compact ? "p-3" : "p-6"
-      }`}
-    >
-      <p className={`text-white/70 ${compact ? "text-canvas-micro" : "text-canvas-body-sm"}`}>
-        3D model preview
-      </p>
-      {!compact && (
-        <>
-          <a
-            href={modelUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 max-w-full truncate text-canvas-compact text-violet-300 hover:underline"
-          >
-            Open {format.toUpperCase()} model
-          </a>
-          <p className="mt-4 text-canvas-caption text-white/40">
-            Embed viewer loads in a future update; model URL is ready.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
 
 export function ThreeDArtifactContent({
   payload,
@@ -46,17 +10,32 @@ export function ThreeDArtifactContent({
   sidebar = false,
   artifactId,
   showControls = true,
+  allowInteraction = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "3d" }>;
   fill?: boolean;
   sidebar?: boolean;
   artifactId?: string;
   showControls?: boolean;
+  allowInteraction?: boolean;
 }) {
   const { modelUrl, format = "glb" } = payload.data;
 
+  const viewer = (
+    <ThreeDModelViewer
+      modelUrl={modelUrl}
+      format={format}
+      interactive={allowInteraction}
+      className={sidebar ? "min-h-[80px]" : "min-h-[200px]"}
+    />
+  );
+
   if (sidebar) {
-    return <ThreeDInner modelUrl={modelUrl} format={format} compact />;
+    return (
+      <div className="h-full w-full overflow-hidden rounded-canvas bg-canvas-stageDark">
+        {viewer}
+      </div>
+    );
   }
 
   if (fill) {
@@ -67,7 +46,7 @@ export function ThreeDArtifactContent({
         showControls={showControls}
         className="h-full min-h-0"
       >
-        <ThreeDInner modelUrl={modelUrl} format={format} />
+        {viewer}
       </ArtifactContentStage>
     );
   }
@@ -78,9 +57,7 @@ export function ThreeDArtifactContent({
       showControls={showControls}
       className="aspect-[4/3]"
     >
-      <div className="min-h-[280px] h-full">
-        <ThreeDInner modelUrl={modelUrl} format={format} />
-      </div>
+      <div className="min-h-[280px] h-full">{viewer}</div>
     </ArtifactContentStage>
   );
 }

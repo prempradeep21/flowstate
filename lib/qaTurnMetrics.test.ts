@@ -15,7 +15,9 @@ describe("qaTurnMetrics", () => {
   });
 
   it("formatElapsedMs shows seconds then minutes", () => {
-    expect(formatElapsedMs(450)).toBe("0.5s");
+    expect(formatElapsedMs(450)).toBe("0s");
+    expect(formatElapsedMs(1500)).toBe("2s");
+    expect(formatElapsedMs(6500)).toBe("7s");
     expect(formatElapsedMs(65_000)).toBe("1:05");
   });
 

@@ -12,7 +12,7 @@ export function turnMetricsOnSubmit(): Pick<Card, "askStartedAt" | "turnUsage"> 
 
 export function formatElapsedMs(ms: number): string {
   if (ms < 60_000) {
-    return `${(ms / 1000).toFixed(1)}s`;
+    return `${Math.max(0, Math.round(ms / 1000))}s`;
   }
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);

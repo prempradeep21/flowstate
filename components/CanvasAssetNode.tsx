@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
+import { AssetKindIcon } from "@/components/canvas/AssetKindIcon";
 import { OfficeAssetPreview } from "@/components/canvas/OfficeAssetPreview";
 import {
   cornerResizeSigns,
@@ -40,54 +41,6 @@ import { isPreviewableOfficeKind } from "@/lib/officeAssetKinds";
 const DRAG_THRESHOLD_PX = 4;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
-
-function AssetKindIcon({
-  kind,
-}: {
-  kind: "document" | "code" | "spreadsheet" | "word" | "presentation";
-}) {
-  if (kind === "code") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <path d="M11 9 6 14l5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M17 9l5 5-5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m15 7-2 14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (kind === "spreadsheet") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <rect x="6" y="5" width="16" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M6 11h16M6 16h16M11 11v12M16 11v12" stroke="currentColor" strokeWidth="1.7" />
-      </svg>
-    );
-  }
-  if (kind === "presentation") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <rect x="5" y="7" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M9 21h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (kind === "word") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <path d="M8 4.5h8l4 4V23a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 8 23V4.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-        <path d="M16 4.5v4h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-        <path d="M10 14h8M10 18h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <path d="M8 4.5h8l4 4V23a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 8 23V4.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M16 4.5v4h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M11 14h6M11 18h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
@@ -373,15 +326,25 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
               }}
             >
               <span
-                className="flex shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted"
+                className="flex shrink-0 items-center justify-center rounded-canvas bg-canvas-artifactIconBg text-canvas-muted"
                 style={{
                   width: CANVAS_ASSET_ICON_SIZE_PX,
                   height: CANVAS_ASSET_ICON_SIZE_PX,
                 }}
               >
-                <AssetKindIcon kind={asset.kind} />
+                <AssetKindIcon
+                  kind={
+                    asset.kind === "code" ||
+                    asset.kind === "spreadsheet" ||
+                    asset.kind === "word" ||
+                    asset.kind === "presentation"
+                      ? asset.kind
+                      : "document"
+                  }
+                  className="h-7 w-7"
+                />
               </span>
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 shrink">
                 <span
                   className="line-clamp-2 block break-words text-canvas-body font-medium leading-snug text-canvas-ink"
                   style={{ maxWidth: CANVAS_ASSET_TITLE_MAX_WIDTH_PX }}

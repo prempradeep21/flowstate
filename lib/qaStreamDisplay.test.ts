@@ -117,6 +117,22 @@ describe("qaStreamDisplay", () => {
     expect(resolveQaStatusLabel(card, nodes)).toBe("Building artifact…");
   });
 
+  it("prefers active Cursor SDK stage labels over generic thinking copy", () => {
+    const card = baseCard({
+      status: "thinking",
+      thinkingLabel: "Thinking",
+      sdkBuildStages: [
+        { id: "connect", label: "Connecting to Cursor agent…", status: "done" },
+        {
+          id: "ui-editor",
+          label: "Apply requested changes",
+          status: "active",
+        },
+      ],
+    });
+    expect(resolveQaStatusLabel(card)).toBe("Apply requested changes");
+  });
+
   it("withholds missing state while the card ask is still in flight", () => {
     const card = baseCard({
       status: "done",

@@ -41,7 +41,8 @@ export function artifactKindUsesCanvasContainerFill(kind: ArtifactKind): boolean
 }
 
 export function artifactKindUsesCanvasPaddingChrome(kind: ArtifactKind): boolean {
-  return kind !== "stickynote";
+  // Repo hub-and-spoke sizes its own stage; padding would desync collapsed bounds from the hub.
+  return kind !== "stickynote" && kind !== "repo";
 }
 
 /** Vertical chrome overhead of a canvas artifact node: 16px padding ×2 + 56px header band + 22px header gap. */

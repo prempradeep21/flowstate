@@ -45,6 +45,25 @@ export function LayoutGridIcon() {
   );
 }
 
+export function PencilIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M10.5 3.5 12.5 5.5 6.25 11.75 3.5 12.5l.75-2.75L10.5 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.25 4.75 11.25 6.75"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function UndoIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
@@ -200,6 +219,30 @@ export function ImageIcon() {
         stroke="currentColor"
         strokeWidth="1.25"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function Model3DIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 16 16"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+    >
+      <path
+        d="M8 2.5 12.5 5v6L8 13.5 3.5 11V5L8 2.5Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 8l4.5-2.5M8 8v5.5M8 8L3.5 5.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
         strokeLinejoin="round"
       />
     </svg>

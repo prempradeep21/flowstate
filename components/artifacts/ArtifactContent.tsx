@@ -136,6 +136,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             artifactId={artifactId}
             showControls={!isSidebar}
+            allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
           />
         );
       }

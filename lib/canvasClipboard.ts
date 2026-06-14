@@ -14,6 +14,7 @@ import { MANUAL_STICKY_NOTE_SOURCE_CARD_ID } from "@/lib/stickyNoteArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
 import { MANUAL_TODO_SOURCE_CARD_ID } from "@/lib/todoArtifact";
 import { MANUAL_WEBSITE_SOURCE_CARD_ID } from "@/lib/websiteArtifact";
+import { MANUAL_3D_SOURCE_CARD_ID } from "@/lib/threeDArtifact";
 import type { CanvasNodesState, CanvasSelectionItem } from "@/lib/canvasSelection";
 import {
   createSessionArtifactFromPayload,
@@ -128,6 +129,8 @@ function pasteSourceCardIdForKind(kind: ArtifactKind): string {
       return MANUAL_STICKY_NOTE_SOURCE_CARD_ID;
     case "audio":
       return MANUAL_AUDIO_SOURCE_CARD_ID;
+    case "3d":
+      return MANUAL_3D_SOURCE_CARD_ID;
     case "website":
       return MANUAL_WEBSITE_SOURCE_CARD_ID;
     case "repo":

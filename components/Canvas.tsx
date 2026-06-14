@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   collectCanvasItemsInWorldRect,
   mergeCanvasSelections,
@@ -43,6 +44,8 @@ import {
 import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { isAudioFile } from "@/lib/audioArtifact";
 import { getAudioFilesFromDataTransfer } from "@/lib/audioFileImport";
+import { getThreeDFilesFromDataTransfer } from "@/lib/threeDFileImport";
+import { isThreeDModelFile } from "@/lib/threeDArtifact";
 import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
@@ -71,6 +74,7 @@ import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasGifNode } from "@/components/CanvasGifNode";
 import { CanvasSkillNode } from "@/components/CanvasSkillNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
+import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
@@ -177,6 +181,14 @@ export function Canvas({
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
+  const canvasStrokes = useCanvasStore((s) => s.canvasStrokes);
+  const canvasStrokeOrder = useCanvasStore((s) => s.canvasStrokeOrder);
+  const activeCanvasStrokeId = useCanvasStore((s) => s.activeCanvasStrokeId);
+  const pencilToolActive = useCanvasStore((s) => s.pencilToolActive);
+  const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
+  const beginCanvasStroke = useCanvasStore((s) => s.beginCanvasStroke);
+  const appendCanvasStrokePoint = useCanvasStore((s) => s.appendCanvasStrokePoint);
+  const finishCanvasStroke = useCanvasStore((s) => s.finishCanvasStroke);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
   const removeSelectedFromCanvas = useCanvasStore(
@@ -194,6 +206,9 @@ export function Canvas({
   );
   const createAudioArtifactFromFile = useCanvasStore(
     (s) => s.createAudioArtifactFromFile,
+  );
+  const createThreeDArtifactFromFile = useCanvasStore(
+    (s) => s.createThreeDArtifactFromFile,
   );
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const groups = useCanvasStore((s) => s.groups);
@@ -235,6 +250,17 @@ export function Canvas({
   const [containerReady, setContainerReady] = useState(false);
 
   useEffect(() => {
+    if (!pencilToolActive) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setPencilToolActive(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pencilToolActive, setPencilToolActive]);
+
+  useEffect(() => {
     if (canvasLoadReveal?.phase !== "pending") return;
     if (!persistenceReady || isSwitchingCanvas) return;
     startCanvasLoadReveal();
@@ -274,6 +300,9 @@ export function Canvas({
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
   );
+  const drawingState = useRef<{ pointerId: number; strokeId: string } | null>(
+    null,
+  );
   const marqueeState = useRef<{
     pointerId: number;
     startX: number;
@@ -308,6 +337,10 @@ export function Canvas({
   );
   const [artifactPlacement, setArtifactPlacement] =
     useState<ArtifactPlacementState | null>(null);
+  const [placementScreen, setPlacementScreen] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [autoEditLabelId, setAutoEditLabelId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
@@ -334,6 +367,7 @@ export function Canvas({
   const canvasPlacementRequest = useCanvasStore((s) => s.canvasPlacementRequest);
 
   const beginPlacementAtCursor = (tool: "question" | "text") => {
+    if (useCanvasStore.getState().canvasReadOnly) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const canvasPtr = canvasPointerRef.current;
@@ -359,6 +393,7 @@ export function Canvas({
   };
 
   const beginArtifactPlacementAtCursor = (artifactType: ManualArtifactType) => {
+    if (useCanvasStore.getState().canvasReadOnly) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const canvasPtr = canvasPointerRef.current;
@@ -376,7 +411,12 @@ export function Canvas({
     setImagePlacement(null);
     setGifPlacement(null);
     setArtifactPlacement({ artifactType, ...pos });
+    setPlacementScreen({ x: clientX, y: clientY });
   };
+
+  useEffect(() => {
+    if (!artifactPlacement) setPlacementScreen(null);
+  }, [artifactPlacement]);
 
   // Hold-Z pie menu — north fires question placement, west fires text
   // placement (same code path as the Q/T shortcuts and toolbar buttons).
@@ -748,6 +788,7 @@ export function Canvas({
         }
       }
       if (artifactPlacementRef.current) {
+        setPlacementScreen({ x: e.clientX, y: e.clientY });
         const world = computeWorldFromClient(e.clientX, e.clientY);
         if (world) {
           setArtifactPlacement((prev) =>
@@ -838,6 +879,7 @@ export function Canvas({
         if (artifactPlacementRef.current) {
           e.preventDefault();
           setArtifactPlacement(null);
+          setPlacementScreen(null);
         }
         setContextMenu(null);
         useCanvasStore.getState().clearSelection();
@@ -925,6 +967,8 @@ export function Canvas({
       if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
 
+      if (useCanvasStore.getState().canvasReadOnly) return;
+
       // Pie accelerator — Q while the pie is held open fires the north
       // sector through this same code path; just dismiss the pie first.
       if (pieStateRef.current) closePie();
@@ -981,6 +1025,8 @@ export function Canvas({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "KeyT" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
+
+      if (useCanvasStore.getState().canvasReadOnly) return;
 
       // Pie accelerator — T fires the west sector via this same path.
       if (pieStateRef.current) closePie();
@@ -1119,6 +1165,7 @@ export function Canvas({
           position: { x: world.x - w / 2, y: world.y - h / 2 },
         });
         setArtifactPlacement(null);
+        setPlacementScreen(null);
         return;
       }
 
@@ -1136,6 +1183,7 @@ export function Canvas({
       }
 
       if (!placementRef.current) return;
+      if (useCanvasStore.getState().canvasReadOnly) return;
       e.preventDefault();
       e.stopPropagation();
       const world =
@@ -1206,6 +1254,38 @@ export function Canvas({
 
     for (let index = 0; index < files.length; index++) {
       const result = await createAudioArtifactFromFile(files[index]!, {
+        uploadContext,
+        position: world,
+        index,
+        recordUndo: index === 0,
+      });
+      if ("error" in result) {
+        errors.push(result.error);
+      } else {
+        created++;
+      }
+    }
+
+    if (errors.length > 0) {
+      showUploadErrorsToast(errors);
+    }
+    return created > 0;
+  };
+
+  const importThreeDAtWorld = async (
+    files: File[],
+    world: { x: number; y: number },
+  ) => {
+    if (!files.length) return false;
+    const uploadContext =
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null;
+    const errors: AssetUploadError[] = [];
+    let created = 0;
+
+    for (let index = 0; index < files.length; index++) {
+      const result = await createThreeDArtifactFromFile(files[index]!, {
         uploadContext,
         position: world,
         index,
@@ -1329,10 +1409,20 @@ export function Canvas({
     const audioFiles = getAudioFilesFromDataTransfer(e.dataTransfer);
     if (audioFiles.length > 0) {
       await importAudioAtWorld(audioFiles, world);
+      return;
+    }
+
+    const threeDFiles = getThreeDFilesFromDataTransfer(e.dataTransfer);
+    if (threeDFiles.length > 0) {
+      await importThreeDAtWorld(threeDFiles, world);
+      return;
     }
 
     const otherFiles = Array.from(e.dataTransfer.files).filter(
-      (file) => !isAudioFile(file) && !isImageMime(file.type),
+      (file) =>
+        !isAudioFile(file) &&
+        !isImageMime(file.type) &&
+        !isThreeDModelFile(file),
     );
     if (otherFiles.length > 0) {
       const result = await uploadAssetFiles(
@@ -1578,6 +1668,15 @@ export function Canvas({
     const el = e.currentTarget as HTMLDivElement;
     el.setPointerCapture(e.pointerId);
 
+    const store = useCanvasStore.getState();
+    if (store.pencilToolActive && !store.canvasReadOnly) {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const strokeId = store.beginCanvasStroke(world);
+      drawingState.current = { pointerId: e.pointerId, strokeId };
+      return;
+    }
+
     if (spaceHeldRef.current) {
       panState.current = {
         pointerId: e.pointerId,
@@ -1608,6 +1707,13 @@ export function Canvas({
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     canvasPointerRef.current = { x: e.clientX, y: e.clientY };
 
+    const ds = drawingState.current;
+    if (ds && ds.pointerId === e.pointerId) {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (world) appendCanvasStrokePoint(ds.strokeId, world);
+      return;
+    }
+
     const ms = marqueeState.current;
     if (ms && ms.pointerId === e.pointerId) {
       const x = Math.min(ms.startX, e.clientX);
@@ -1631,6 +1737,18 @@ export function Canvas({
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = drawingState.current;
+    if (ds && ds.pointerId === e.pointerId) {
+      finishCanvasStroke(ds.strokeId);
+      drawingState.current = null;
+      try {
+        (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     const ms = marqueeState.current;
     if (ms && ms.pointerId === e.pointerId) {
       const w = Math.abs(e.clientX - ms.startX);
@@ -1679,14 +1797,21 @@ export function Canvas({
         gifPlacement ||
         artifactPlacement
           ? "cursor-crosshair"
-          : spaceHeld
-            ? "cursor-grab active:cursor-grabbing"
-            : "cursor-crosshair"
+          : pencilToolActive
+            ? "canvas-pencil-cursor"
+            : spaceHeld
+              ? "cursor-grab active:cursor-grabbing"
+              : "cursor-crosshair"
       }`}
     >
       <CanvasBackgroundLayer />
       <CanvasViewport>
         <PlugConnectorLayer />
+        <CanvasDrawingLayer
+          strokes={canvasStrokes}
+          strokeOrder={canvasStrokeOrder}
+          activeStrokeId={activeCanvasStrokeId}
+        />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
         {groupList.map((group) => (
@@ -1797,6 +1922,16 @@ export function Canvas({
         avatarUrl={user?.user_metadata?.avatar_url as string | undefined}
       />
       <CanvasPieMenu state={pieState} />
+      {artifactPlacement &&
+        placementScreen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ArtifactCursorGhost
+            artifactType={artifactPlacement.artifactType}
+            screen={placementScreen}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1892,6 +2027,42 @@ function GhostArtifact({ world }: { world: ArtifactPlacementState }) {
       <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-canvas-muted">
         <ArtifactTypeIcon kind={kind} className="h-6 w-6" />
         <span className="text-center text-canvas-body-sm font-medium">{label}</span>
+      </div>
+    </div>
+  );
+}
+
+function ArtifactCursorGhost({
+  artifactType,
+  screen,
+}: {
+  artifactType: ManualArtifactType;
+  screen: { x: number; y: number };
+}) {
+  const payload = createManualArtifactPayload(artifactType);
+  const kind = payloadToArtifactKind(payload);
+  const label =
+    MANUAL_ARTIFACT_MENU_ITEMS.find(
+      (entry) =>
+        entry.pick.kind === "artifact" &&
+        entry.pick.artifactType === artifactType,
+    )?.label ?? "Artefact";
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-card"
+      style={{
+        left: screen.x,
+        top: screen.y,
+        transform: "translate(-50%, -50%)",
+        width: 120,
+        height: 88,
+      }}
+    >
+      <div className="flex h-full flex-col items-center justify-center gap-1.5 p-2 text-canvas-muted">
+        <ArtifactTypeIcon kind={kind} className="h-5 w-5" />
+        <span className="text-center text-canvas-caption font-medium">{label}</span>
       </div>
     </div>
   );

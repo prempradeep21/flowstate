@@ -24,13 +24,24 @@ export const REPO_HUB_HOLD_MS = 1000;
 export const REPO_WIDGETS_AFTER_CONNECTORS_MS = 280;
 export const REPO_SPOKE_STAGGER_MS = 120;
 
-/** Taller hub — room for stars/forks + collapse CTA. */
-export const REPO_HUB = { cx: 540, cy: 380, w: 168, h: 192 };
+/** Taller hub — room for stars/forks + collapse CTA (1.5× grab area for drag). */
+export const REPO_HUB = { cx: 540, cy: 380, w: 252, h: 288 };
 
 /** Collapsed canvas bounds — wraps the hub with light padding. */
 export const REPO_COLLAPSED_PADDING = 12;
 export const REPO_COLLAPSED_WIDTH = REPO_HUB.w + REPO_COLLAPSED_PADDING * 2;
 export const REPO_COLLAPSED_HEIGHT = REPO_HUB.h + REPO_COLLAPSED_PADDING * 2;
+
+/** Collapsed artifact size from measured hub dimensions (ResizeObserver in RepoArtifactContent). */
+export function computeRepoCollapsedSize(
+  hubW: number,
+  hubH: number,
+): { w: number; h: number } {
+  return {
+    w: hubW + REPO_COLLAPSED_PADDING * 2,
+    h: hubH + REPO_COLLAPSED_PADDING * 2,
+  };
+}
 
 /** Pointer target for dragging the repo artifact on canvas (hub only). */
 export const REPO_DRAG_HANDLE_ATTR = "data-repo-drag-handle";
@@ -64,12 +75,14 @@ export function repoCollapsePositionDelta(
   currentW: number,
   currentH: number,
   targetH: number,
+  collapsedW = REPO_COLLAPSED_WIDTH,
+  collapsedH = REPO_COLLAPSED_HEIGHT,
 ): { dx: number; dy: number } {
   const expandedHubCy = targetH / 2;
   if (collapsed) {
     return {
-      dx: REPO_HUB.cx - REPO_COLLAPSED_WIDTH / 2,
-      dy: expandedHubCy - REPO_COLLAPSED_HEIGHT / 2,
+      dx: REPO_HUB.cx - collapsedW / 2,
+      dy: expandedHubCy - collapsedH / 2,
     };
   }
   return {
@@ -80,7 +93,6 @@ export function repoCollapsePositionDelta(
 
 export type RepoSpokeId =
   | "overview"
-  | "audience"
   | "fileStructure"
   | "media"
   | "preview"
@@ -104,7 +116,6 @@ export interface RepoSpokeLayout extends RepoSpokeDefinition {
 /** Conservative estimates until ResizeObserver reports real card heights. */
 export const REPO_SPOKE_DEFAULT_HEIGHTS: Record<RepoSpokeId, number> = {
   overview: 320,
-  audience: 200,
   fileStructure: 380,
   media: 280,
   preview: 180,
@@ -116,7 +127,6 @@ export const REPO_SPOKE_DEFAULT_HEIGHTS: Record<RepoSpokeId, number> = {
 export function getRepoSpokeDefinitions(hasDisplayableMedia: boolean): RepoSpokeDefinition[] {
   const left: RepoSpokeDefinition[] = [
     { id: "overview", title: "Overview", hubSide: "left" },
-    { id: "audience", title: "Who it's for", hubSide: "left" },
     { id: "fileStructure", title: "Files", hubSide: "left" },
   ];
   if (hasDisplayableMedia) {

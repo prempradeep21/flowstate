@@ -1,3 +1,4 @@
+import type { CanvasStroke } from "@/lib/canvasStroke";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
@@ -51,6 +52,8 @@ export interface CanvasSnapshot {
   canvasSkillOrder?: string[];
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
+  canvasStrokes?: Record<string, CanvasStroke>;
+  canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
@@ -81,6 +84,8 @@ export interface CanvasSnapshotSource {
   canvasSkillOrder?: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
+  canvasStrokes?: Record<string, CanvasStroke>;
+  canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
   uploadedAttachments: UploadedAttachment[];
@@ -191,6 +196,10 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasTextLabels),
     ) as Record<string, CanvasTextLabel>,
     canvasTextLabelOrder: [...source.canvasTextLabelOrder],
+    canvasStrokes: JSON.parse(
+      JSON.stringify(source.canvasStrokes ?? {}),
+    ) as Record<string, CanvasStroke>,
+    canvasStrokeOrder: [...(source.canvasStrokeOrder ?? [])],
     canvasGifNodes: JSON.parse(
       JSON.stringify(source.canvasGifNodes ?? {}),
     ) as Record<string, CanvasGifNode>,
@@ -296,6 +305,14 @@ export function mergeCanvasSnapshots(
       remote.canvasTextLabelOrder ?? [],
       local.canvasTextLabelOrder ?? [],
     ),
+    canvasStrokes: mergeRecordPreferLocal(
+      remote.canvasStrokes ?? {},
+      local.canvasStrokes ?? {},
+    ),
+    canvasStrokeOrder: mergeOrder(
+      remote.canvasStrokeOrder ?? [],
+      local.canvasStrokeOrder ?? [],
+    ),
     canvasGifNodes: mergeRecordPreferLocal(
       remote.canvasGifNodes ?? {},
       local.canvasGifNodes ?? {},
@@ -351,6 +368,8 @@ export function buildEmptyCanvasSnapshot(
     canvasSkillOrder: [],
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
+    canvasStrokes: {},
+    canvasStrokeOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
     uploadedAttachments: [],
@@ -515,6 +534,8 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.canvasTextLabels,
     ),
     canvasTextLabelOrder: normalizeStringArray(snapshot.canvasTextLabelOrder),
+    canvasStrokes: normalizeRecord<CanvasStroke>(snapshot.canvasStrokes),
+    canvasStrokeOrder: normalizeStringArray(snapshot.canvasStrokeOrder),
     canvasGifNodes: normalizeRecord<CanvasGifNode>(snapshot.canvasGifNodes),
     canvasGifOrder: normalizeStringArray(snapshot.canvasGifOrder),
     uploadedAttachments: Array.isArray(snapshot.uploadedAttachments)

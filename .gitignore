@@ -16,6 +16,7 @@
 /.next-showcase/
 /.next-playground/
 /.next-build-check/
+/.next-build-verify/
 /.next-repo-explorer/
 /.next-artifact-catalog/
 /.next-vercel-check/

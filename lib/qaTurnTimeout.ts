@@ -1,8 +1,16 @@
 import { cancelCardAsk } from "@/lib/cardAskRegistry";
+import { findGeneratingPreviewNode } from "@/lib/canvasArtifacts";
+import {
+  notifyArtifactFailureForCard,
+  pushArtifactErrorUpdate,
+} from "@/lib/artifactUpdateNotify";
 import { isCustomUiWork } from "@/lib/artifactIntent";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
-import { QA_TURN_TIMEOUT_MS } from "@/lib/qaTurnLimits";
+import {
+  QA_TURN_TIMEOUT_ENABLED,
+  QA_TURN_TIMEOUT_MS_ACTIVE,
+} from "@/lib/qaTurnLimits";
 import { useCanvasStore } from "@/lib/store";
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -45,6 +53,10 @@ export function expireQaTurn(cardId: string): void {
   if (!isQaTurnInProgress(card, state.canvasArtifactNodes)) return;
 
   cancelCardAsk(cardId);
+  const previewNode = findGeneratingPreviewNode(
+    state.canvasArtifactNodes,
+    cardId,
+  );
   clearCardTurnPreviews(cardId);
 
   useCanvasStore.getState().updateCard(cardId, {
@@ -55,16 +67,29 @@ export function expireQaTurn(cardId: string): void {
     pendingEmittedArtifacts: undefined,
     pendingFiles: undefined,
   });
+
+  if (previewNode?.generatingPreview) {
+    pushArtifactErrorUpdate({
+      cardId,
+      kind: previewNode.generatingPreview.kind,
+      title: previewNode.generatingPreview.title,
+      detail: "Timed out",
+      nodeId: previewNode.id,
+    });
+  } else {
+    notifyArtifactFailureForCard(cardId);
+  }
 }
 
 export function startQaTurnTimeout(cardId: string): void {
+  if (!QA_TURN_TIMEOUT_ENABLED || QA_TURN_TIMEOUT_MS_ACTIVE <= 0) return;
   clearQaTurnTimeout(cardId);
   timers.set(
     cardId,
     setTimeout(() => {
       timers.delete(cardId);
       expireQaTurn(cardId);
-    }, QA_TURN_TIMEOUT_MS),
+    }, QA_TURN_TIMEOUT_MS_ACTIVE),
   );
 }
 

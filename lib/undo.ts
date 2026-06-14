@@ -12,6 +12,7 @@ import type {
 } from "@/lib/store";
 
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import type { CanvasStroke } from "@/lib/canvasStroke";
 
 
 
@@ -74,6 +75,10 @@ export interface GraphSnapshot {
   canvasTextLabelOrder: string[];
 
   selectedCanvasTextLabelId: string | null;
+
+  canvasStrokes: Record<string, CanvasStroke>;
+
+  canvasStrokeOrder: string[];
 
 }
 
@@ -142,6 +147,10 @@ export function captureGraphSnapshot(state: GraphSnapshotSource): GraphSnapshot 
     canvasTextLabelOrder: state.canvasTextLabelOrder,
 
     selectedCanvasTextLabelId: state.selectedCanvasTextLabelId,
+
+    canvasStrokes: state.canvasStrokes ?? {},
+
+    canvasStrokeOrder: state.canvasStrokeOrder ?? [],
 
   };
 
@@ -212,6 +221,10 @@ export function graphSnapshotFromState<T extends GraphSnapshotSource>(
     canvasTextLabelOrder: state.canvasTextLabelOrder,
 
     selectedCanvasTextLabelId: state.selectedCanvasTextLabelId,
+
+    canvasStrokes: state.canvasStrokes ?? {},
+
+    canvasStrokeOrder: state.canvasStrokeOrder ?? [],
 
   });
 

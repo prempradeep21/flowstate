@@ -221,6 +221,8 @@ export function useCanvasPersistence({
             canvasSkillOrder: merged.canvasSkillOrder,
             canvasTextLabels: merged.canvasTextLabels ?? {},
             canvasTextLabelOrder: merged.canvasTextLabelOrder ?? [],
+            canvasStrokes: merged.canvasStrokes ?? {},
+            canvasStrokeOrder: merged.canvasStrokeOrder ?? [],
             canvasGifNodes: merged.canvasGifNodes,
             canvasGifOrder: merged.canvasGifOrder,
             uploadedAttachments: merged.uploadedAttachments ?? [],

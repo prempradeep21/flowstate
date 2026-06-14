@@ -13,10 +13,20 @@ import type {
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
 import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
+import type { CanvasStroke } from "@/lib/canvasStroke";
+import {
+  PENCIL_COLORS,
+  PENCIL_STROKE_WIDTH,
+} from "@/lib/canvasStroke";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
+import {
+  isCardSourcedArtifactBuild,
+  pushArtifactReadyUpdate,
+} from "@/lib/artifactUpdateNotify";
 import { collectSubtreeIds } from "@/lib/canvasSubtree";
 import { cancelCardAsks } from "@/lib/cardAskRegistry";
+import { seedCustomUiTurnState } from "@/lib/customUiTurnSeed";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -33,6 +43,10 @@ import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
 import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
+import {
+  DEFAULT_ASSET_ICON_HEIGHT,
+  estimateAssetIconNodeWidth,
+} from "@/lib/canvasAssetBounds";
 import {
   CANVAS_ARTIFACT_WIDTH,
   clampArtifactSize,
@@ -106,6 +120,7 @@ import {
   findGeneratingPreviewNode,
   findPermissionPreviewNode,
   pickAlternateSpawnSide,
+  scheduleCanvasArtifactFocus,
   type ArtifactSpawnSide,
 } from "@/lib/canvasArtifacts";
 import {
@@ -168,9 +183,15 @@ import {
 import { extractWaveformPeaks } from "@/lib/audioWaveform";
 import {
   uploadAudioFile,
+  uploadThreeDModelFile,
   type AssetUploadContext,
   type AssetUploadError,
 } from "@/lib/attachments";
+import {
+  createThreeDPayload,
+  MANUAL_3D_SOURCE_CARD_ID,
+  threeDFormatFromFile,
+} from "@/lib/threeDArtifact";
 import {
   graphSnapshotFromState,
   GraphSnapshot,
@@ -314,6 +335,8 @@ export interface Card {
   askStartedAt?: number;
   /** Token usage accumulated for the current question turn. */
   turnUsage?: { inputTokens: number; outputTokens: number };
+  /** Cursor SDK custom UI pipeline stages (live build progress). */
+  sdkBuildStages?: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[];
 }
 
 export interface FollowUpOptions {
@@ -489,6 +512,8 @@ export interface CanvasTextLabel {
   width?: number;
 }
 
+export type { CanvasStroke } from "@/lib/canvasStroke";
+
 export type CanvasGifCategory = "gif" | "sticker";
 
 export interface CanvasGifNode {
@@ -609,6 +634,19 @@ interface CanvasState {
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   selectedCanvasTextLabelId: string | null;
+  canvasStrokes: Record<string, CanvasStroke>;
+  canvasStrokeOrder: string[];
+  pencilToolActive: boolean;
+  pencilColor: string;
+  activeCanvasStrokeId: string | null;
+  setPencilToolActive: (active: boolean) => void;
+  setPencilColor: (color: string) => void;
+  beginCanvasStroke: (point: { x: number; y: number }) => string;
+  appendCanvasStrokePoint: (
+    strokeId: string,
+    point: { x: number; y: number },
+  ) => void;
+  finishCanvasStroke: (strokeId: string) => void;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasTheme: CanvasTheme;
@@ -805,6 +843,18 @@ interface CanvasState {
     },
   ) => { artifactId: string; versionId: string };
   createAudioArtifactFromFile: (
+    file: File,
+    opts?: {
+      uploadContext: AssetUploadContext | null;
+      position?: { x: number; y: number };
+      index?: number;
+      recordUndo?: boolean;
+    },
+  ) => Promise<
+    | { artifactId: string; versionId: string }
+    | { error: AssetUploadError }
+  >;
+  createThreeDArtifactFromFile: (
     file: File,
     opts?: {
       uploadContext: AssetUploadContext | null;
@@ -1029,6 +1079,10 @@ function newCanvasSkillId() {
 
 function newCanvasTextLabelId() {
   return newId("ctxt");
+}
+
+function newCanvasStrokeId() {
+  return newId("stroke");
 }
 
 function newCanvasGifNodeId() {
@@ -1411,12 +1465,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             h:
               Math.min(480, Math.max(180, asset.width ?? 360)) / previewAspect,
           }
-        : undefined;
+        : {
+            w: estimateAssetIconNodeWidth(asset.name),
+            h: DEFAULT_ASSET_ICON_HEIGHT,
+          };
       const node: CanvasAssetNode = {
         id,
         assetId,
         position: opts?.position ?? { x: 0, y: 0 },
-        ...(size ? { size } : {}),
+        size,
       };
       return {
         canvasAssetNodes: { ...state.canvasAssetNodes, [id]: node },
@@ -1746,6 +1803,63 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasTextLabels: {},
   canvasTextLabelOrder: [],
   selectedCanvasTextLabelId: null,
+  canvasStrokes: {},
+  canvasStrokeOrder: [],
+  pencilToolActive: false,
+  pencilColor: PENCIL_COLORS[0],
+  activeCanvasStrokeId: null,
+  setPencilToolActive: (active) =>
+    set({
+      pencilToolActive: active,
+      activeCanvasStrokeId: null,
+    }),
+  setPencilColor: (color) => set({ pencilColor: color }),
+  beginCanvasStroke: (point) => {
+    get().recordUndo();
+    const id = newCanvasStrokeId();
+    const stroke: CanvasStroke = {
+      id,
+      points: [{ ...point }],
+      color: get().pencilColor,
+      width: PENCIL_STROKE_WIDTH,
+    };
+    set((state) => ({
+      canvasStrokes: { ...state.canvasStrokes, [id]: stroke },
+      canvasStrokeOrder: [...state.canvasStrokeOrder, id],
+      activeCanvasStrokeId: id,
+    }));
+    return id;
+  },
+  appendCanvasStrokePoint: (strokeId, point) =>
+    set((state) => {
+      const stroke = state.canvasStrokes[strokeId];
+      if (!stroke) return state;
+      const last = stroke.points[stroke.points.length - 1];
+      if (last && last.x === point.x && last.y === point.y) return state;
+      return {
+        canvasStrokes: {
+          ...state.canvasStrokes,
+          [strokeId]: {
+            ...stroke,
+            points: [...stroke.points, { ...point }],
+          },
+        },
+      };
+    }),
+  finishCanvasStroke: (strokeId) =>
+    set((state) => {
+      if (state.activeCanvasStrokeId !== strokeId) return state;
+      const stroke = state.canvasStrokes[strokeId];
+      if (!stroke || stroke.points.length < 2) {
+        const { [strokeId]: _removed, ...rest } = state.canvasStrokes;
+        return {
+          canvasStrokes: rest,
+          canvasStrokeOrder: state.canvasStrokeOrder.filter((id) => id !== strokeId),
+          activeCanvasStrokeId: null,
+        };
+      }
+      return { activeCanvasStrokeId: null };
+    }),
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
   canvasTheme: "dark",
@@ -2963,7 +3077,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       MANUAL_TODO_SOURCE_CARD_ID,
     );
-    get().openSessionArtifact(artifactId, versionId);
     get().spawnCanvasArtifact(artifactId, versionId, {
       focus: true,
       payload,
@@ -2989,7 +3102,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       size,
     });
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3085,7 +3197,61 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       size,
     });
-    get().openSessionArtifact(artifactId, versionId);
+    return { artifactId, versionId };
+  },
+
+  createThreeDArtifactFromFile: async (file, opts) => {
+    const format = threeDFormatFromFile(file);
+    if (!format) {
+      return {
+        error: {
+          fileName: file.name,
+          code: "unsupported-type",
+          message: `${file.name} is not a supported 3D model (GLB or GLTF).`,
+        },
+      };
+    }
+
+    const uploadResult = await uploadThreeDModelFile(
+      file,
+      opts?.uploadContext ?? null,
+    );
+    if ("error" in uploadResult) {
+      return { error: uploadResult.error };
+    }
+
+    const payload = createThreeDPayload({
+      fileName: uploadResult.upload.fileName,
+      modelUrl: uploadResult.upload.publicUrl,
+      format,
+    });
+
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_3D_SOURCE_CARD_ID,
+    );
+
+    const size = getDefaultArtifactSize("3d", payload);
+    const index = opts?.index ?? 0;
+    const offset = index * 28;
+    const spawnPosition = opts?.position
+      ? {
+          x: opts.position.x - size.w / 2 + offset,
+          y: opts.position.y - size.h / 2 + offset,
+        }
+      : undefined;
+
+    get().spawnCanvasArtifact(artifactId, versionId, {
+      position: spawnPosition,
+      focus: index === 0,
+      payload,
+      size,
+    });
     return { artifactId, versionId };
   },
 
@@ -3108,7 +3274,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3133,7 +3298,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3157,7 +3321,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       },
     };
     get().spawnCanvasArtifact(artifactId, versionId, spawnOpts);
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3183,7 +3346,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -3422,7 +3584,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (art?.kind === "table") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().spawnCanvasArtifact(targetId, latest.id);
           get().removeGeneratingArtifactPreview(cardId);
           return { artifactId: targetId, versionId: latest.id };
         }
@@ -3464,7 +3626,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (art?.kind === "custom") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().spawnCanvasArtifact(targetId, latest.id);
           get().removeGeneratingArtifactPreview(cardId);
           return { artifactId: targetId, versionId: latest.id };
         }
@@ -3636,6 +3798,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let nodeId: string | null = null;
     let isNewNode = false;
     let sourceCardId = "";
+    let notifyReady = false;
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
       if (!art) return state;
@@ -3676,6 +3839,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (generatingNode) {
         nodeId = generatingNode.id;
         isNewNode = false;
+        notifyReady = isCardSourcedArtifactBuild(
+          ver.sourceCardId,
+          state.cards,
+        );
         const nextNode: CanvasArtifactNode = {
           ...generatingNode,
           artifactId,
@@ -3697,6 +3864,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const id = newCanvasArtifactNodeId();
       nodeId = id;
       isNewNode = true;
+      notifyReady = isCardSourcedArtifactBuild(ver.sourceCardId, state.cards);
       const position =
         opts?.position ??
         computeArtifactSpawnPosition(
@@ -3736,6 +3904,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
     if (sourceCardId) {
       get().removeGeneratingArtifactPreview(sourceCardId);
+    }
+    if (notifyReady && nodeId) {
+      pushArtifactReadyUpdate(artifactId, nodeId);
+    }
+    if (nodeId && opts?.focus) {
+      scheduleCanvasArtifactFocus(nodeId);
     }
     return nodeId;
   },
@@ -3958,13 +4132,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.connections,
           state.cardOrder,
         );
+      const customUiSeed = seedCustomUiTurnState(
+        question,
+        inheritedArtifactId,
+        attachedArtifacts,
+        state.sessionArtifacts,
+      );
       const child: Card = {
         id,
         threadId: parent.threadId,
         question,
         answer: "",
         status: "thinking",
-        thinkingLabel: "Thinking",
+        thinkingLabel: customUiSeed?.thinkingLabel ?? "Thinking",
+        sdkBuildStages: customUiSeed?.sdkBuildStages,
         askStartedAt: Date.now(),
         turnUsage: { inputTokens: 0, outputTokens: 0 },
         position: pos,
@@ -4710,6 +4891,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkillOrder: state.canvasSkillOrder,
       canvasTextLabels: state.canvasTextLabels,
       canvasTextLabelOrder: state.canvasTextLabelOrder,
+      canvasStrokes: state.canvasStrokes,
+      canvasStrokeOrder: state.canvasStrokeOrder,
       canvasGifNodes: state.canvasGifNodes,
       canvasGifOrder: state.canvasGifOrder,
       uploadedAttachments: state.uploadedAttachments,
@@ -4739,6 +4922,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkillOrder: [],
       canvasTextLabels: {},
       canvasTextLabelOrder: [],
+      canvasStrokes: {},
+      canvasStrokeOrder: [],
+      pencilToolActive: false,
+      pencilColor: PENCIL_COLORS[0],
+      activeCanvasStrokeId: null,
       canvasGifNodes: {},
       canvasGifOrder: [],
       uploadedAttachments: [],
@@ -4885,6 +5073,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         selectedCanvasAssetId: null,
         canvasTextLabels: { ...snapshotNorm.canvasTextLabels },
         canvasTextLabelOrder: [...(snapshotNorm.canvasTextLabelOrder ?? [])],
+        canvasStrokes: { ...(snapshotNorm.canvasStrokes ?? {}) },
+        canvasStrokeOrder: [...(snapshotNorm.canvasStrokeOrder ?? [])],
+        pencilToolActive: false,
+        activeCanvasStrokeId: null,
         canvasGifNodes: { ...snapshotNorm.canvasGifNodes },
         canvasGifOrder: [...(snapshotNorm.canvasGifOrder ?? [])],
         selectedCanvasTextLabelId: null,

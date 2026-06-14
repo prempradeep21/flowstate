@@ -116,8 +116,9 @@ export const TODO_ARTIFACT_HEIGHT = 440;
 export const CODE_ARTIFACT_HEIGHT = 420;
 /** Author-defined widgets get a taller stage than the generic default. */
 export const CUSTOM_ARTIFACT_HEIGHT = 380;
-/** Image / video grids and website previews. */
+/** Image / video grids, website previews, and 3D model viewers. */
 export const MEDIA_ARTIFACT_HEIGHT = 400;
+export const THREE_D_ARTIFACT_HEIGHT = 400;
 export const MAP_ARTIFACT_HEIGHT = 380;
 /** Default street-view height for a {@link CANVAS_ARTIFACT_WIDTH} node (square circle body). */
 export const STREET_VIEW_ARTIFACT_HEIGHT =
@@ -234,6 +235,8 @@ export function getDefaultArtifactSize(
     case "website":
     case "google-doc":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
+    case "3d":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: THREE_D_ARTIFACT_HEIGHT };
     case "map":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MAP_ARTIFACT_HEIGHT };
     case "audio":

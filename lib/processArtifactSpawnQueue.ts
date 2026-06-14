@@ -6,8 +6,10 @@ import {
   type ResponseType,
 } from "@/lib/artifactTypes";
 import { detectUserRequestedArtifactKind } from "@/lib/artifactIntent";
+import type { ArtifactKind } from "@/lib/artifactTypes";
 import {
   computeArtifactSpawnPosition,
+  findGeneratingPreviewNode,
   findPermissionPreviewNode,
   getNodesForCard,
   pickAlternateSpawnSide,
@@ -25,6 +27,10 @@ import {
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
+import {
+  notifyArtifactFailureForCard,
+  pushArtifactErrorUpdate,
+} from "@/lib/artifactUpdateNotify";
 import type { Card } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
 
@@ -225,6 +231,12 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
       );
 
       if (!materialized) {
+        pushArtifactErrorUpdate({
+          cardId,
+          kind: payloadToArtifactKind(autoPayload),
+          title: autoPayload.title,
+          detail: "Couldn't generate",
+        });
         return {
           cards: {
             ...current.cards,
@@ -279,7 +291,6 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
           : "right";
 
       store.spawnCanvasArtifact(artifactId, versionId, {
-        focus: true,
         payload: autoPayload,
         ...(alreadyOnCanvas ? {} : { side }),
       });
@@ -340,6 +351,8 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
     spawnPayloadWithPosition(cardId, payload);
   }
 
+  notifyArtifactFailureForCard(cardId);
+
   useCanvasStore.getState().updateCard(cardId, {
     artifactPayload: undefined,
     pendingEmittedArtifacts: undefined,
@@ -368,12 +381,15 @@ export function appendPendingEmittedArtifact(
     responseType: emitted.type === "video" ? "images" : emitted.type,
     thinkingLabel: `Building ${emitted.type}…`,
   });
+
+  const kind = payloadToArtifactKind(applied);
+  ensureEarlyCanvasPlaceholder(cardId, kind, applied.title);
 }
 
 /** Whether an early placeholder spawn is allowed for this artifact kind. */
 export function shouldEarlySpawnArtifact(
   cardId: string,
-  kind: "table" | "custom",
+  kind: ArtifactKind,
 ): boolean {
   const state = useCanvasStore.getState();
   const card = state.cards[cardId];
@@ -384,5 +400,36 @@ export function shouldEarlySpawnArtifact(
 
   if (countMaterializedSpawnsForCard(cardId) > 0) return false;
 
+  if (findGeneratingPreviewNode(state.canvasArtifactNodes, cardId)) return false;
+
+  if (findPermissionPreviewNode(state.canvasArtifactNodes, cardId)) return false;
+
   return true;
+}
+
+/** Place a loading artifact node beside the card as soon as the turn starts. */
+export function ensureEarlyCanvasPlaceholder(
+  cardId: string,
+  kind: ArtifactKind,
+  title?: string,
+): void {
+  if (!shouldEarlySpawnArtifact(cardId, kind)) return;
+
+  const store = useCanvasStore.getState();
+  if (kind === "table") {
+    store.ensurePendingTableArtifact(cardId);
+    return;
+  }
+  if (kind === "custom") {
+    store.ensurePendingCustomArtifact(cardId);
+    return;
+  }
+
+  const card = store.cards[cardId];
+  const resolvedTitle =
+    title?.trim() ||
+    card?.artifactPayload?.title ||
+    card?.question.slice(0, 48) ||
+    kind;
+  store.spawnGeneratingArtifactPreview(cardId, kind, resolvedTitle);
 }

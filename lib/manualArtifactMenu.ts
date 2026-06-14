@@ -26,5 +26,6 @@ export const MANUAL_ARTIFACT_MENU_ITEMS: ManualArtifactMenuEntry[] = [
   { pick: { kind: "artifact", artifactType: "map" }, label: "Map", iconKind: "map" },
   { pick: { kind: "artifact", artifactType: "streetview" }, label: "Street view", iconKind: "streetview" },
   { pick: { kind: "artifact", artifactType: "images" }, label: "Images", iconKind: "images" },
+  { pick: { kind: "artifact", artifactType: "3d" }, label: "3D model", iconKind: "3d" },
   { pick: { kind: "question" }, label: "Add question", iconKind: "question" },
 ];

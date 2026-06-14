@@ -26,6 +26,7 @@ import {
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
 import { useAnswerTextSelection } from "@/hooks/useAnswerTextSelection";
+import { useCardAsk } from "@/hooks/useCardAsk";
 import { useLateralBranchesFromCard } from "@/hooks/useLateralBranchesFromCard";
 import {
   anchorYRelativeToCard,
@@ -35,18 +36,11 @@ import {
   qaInsetStyle,
 } from "@/lib/design/canvasInsets";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
-import { askClaude } from "@/lib/claudeClient";
-import { registerCardAsk, beginCardAsk, endCardAsk } from "@/lib/cardAskRegistry";
-import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
-import type { AskHandle } from "@/lib/dummyLLM";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
-import {
-  finalizeCardResponse,
-  handleStreamArtifact,
-  shouldEarlySpawnArtifact,
-} from "@/lib/artifactGeneration";
+import { finalizeCardResponse } from "@/lib/artifactGeneration";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import {
   clearQaTurnTimeout,
   startQaTurnTimeout,
@@ -146,7 +140,6 @@ function CardInner({ card }: CardProps) {
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
   const plugDrag = useCanvasStore((s) => s.plugDrag);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
-  const selectedModel = useCanvasStore((s) => s.selectedModel);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const isSelected = useCanvasStore((s) =>
     isCardInSelectedFamilies(s, card.id, s.selectedFamilyRootIds),
@@ -263,13 +256,10 @@ function CardInner({ card }: CardProps) {
   } | null>(null);
   const DRAG_THRESHOLD_PX = 5;
 
-  const startedFor = useRef<string | null>(null);
-  const askGenerationRef = useRef(0);
-  const askHandleRef = useRef<AskHandle | null>(null);
-
   const cardRef = useRef<HTMLDivElement | null>(null);
   const answerTextRef = useRef<HTMLDivElement | null>(null);
   const explainRunRef = useRef<QuickExplainHandle | null>(null);
+  const { restartAsk } = useCardAsk(card.id, card.status === "thinking");
   const [openExplainId, setOpenExplainId] = useState<string | null>(null);
   const [explainAnchorY, setExplainAnchorY] = useState<number | null>(null);
   const [optimisticExplain, setOptimisticExplain] =
@@ -487,6 +477,7 @@ function CardInner({ card }: CardProps) {
     cardWidth,
     isChatCollapsed ? "1" : "0",
     shouldShowQaAnswerText(card) ? "1" : "0",
+    String(card.sdkBuildStages?.length ?? 0),
   ].join("|");
 
   const TEXT_SELECTABLE =
@@ -616,124 +607,26 @@ function CardInner({ card }: CardProps) {
   ]);
 
   useEffect(() => {
-    return () => {
-      askHandleRef.current?.cancel();
-      askHandleRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    return registerCardAsk(card.id, {
-      cancel: () => {
-        askHandleRef.current?.cancel();
-        askHandleRef.current = null;
-        askGenerationRef.current += 1;
-      },
+    if (turnInProgress) return;
+    if (!card.thinkingLabel && !(card.sdkBuildStages?.length ?? 0)) return;
+    updateCard(card.id, {
+      thinkingLabel: undefined,
+      sdkBuildStages: undefined,
     });
-  }, [card.id]);
-
-  useEffect(() => {
-    if (card.status !== "thinking") {
-      startedFor.current = null;
-    }
-  }, [card.status]);
-
-  useEffect(() => {
-    if (card.status !== "thinking") return;
-    if (startedFor.current === card.question) return;
-    askHandleRef.current?.cancel();
-    startedFor.current = card.question;
-    const generation = askGenerationRef.current;
-    if (!useCanvasStore.getState().cards[card.id]?.askStartedAt) {
-      updateCard(card.id, turnMetricsOnSubmit());
-    }
-    const askToken = beginCardAsk(card.id);
-    askHandleRef.current = askClaude(
-      card.id,
-      card.parentConversationId ?? null,
-      card.question,
-      selectedModel,
-      {
-        onThinking: (label) => {
-          if (generation !== askGenerationRef.current) return;
-          updateCard(card.id, {
-            status: "thinking",
-            thinkingLabel: label,
-          });
-          if (/building table/i.test(label)) {
-            if (shouldEarlySpawnArtifact(card.id, "table")) {
-              useCanvasStore.getState().ensurePendingTableArtifact(card.id);
-            }
-          } else if (
-            /building custom|updating custom|applying theme|importing html/i.test(
-              label,
-            )
-          ) {
-            if (shouldEarlySpawnArtifact(card.id, "custom")) {
-              useCanvasStore.getState().ensurePendingCustomArtifact(card.id);
-            }
-          }
-        },
-        onToken: (next) => {
-          if (generation !== askGenerationRef.current) return;
-          const current = useCanvasStore.getState().cards[card.id];
-          updateCard(card.id, {
-            status: "streaming",
-            answer: next,
-            thinkingLabel: current?.thinkingLabel,
-          });
-        },
-        onImages: (images) => {
-          if (generation !== askGenerationRef.current) return;
-          updateCard(card.id, {
-            images,
-            responseType: "image",
-          });
-        },
-        onResponseType: (responseType) => {
-          if (generation !== askGenerationRef.current) return;
-          updateCard(card.id, { responseType });
-        },
-        onArtifact: (artifact) => {
-          if (generation !== askGenerationRef.current) return;
-          handleStreamArtifact(card.id, artifact);
-        },
-        onDone: ({ responseType }) => {
-          if (generation === askGenerationRef.current) {
-            finalizeCardResponse(card.id, {
-              responseType: responseType ?? card.responseType ?? "text",
-            });
-          }
-          endCardAsk(card.id, askToken);
-          requestAnimationFrame(() => {
-            const state = useCanvasStore.getState();
-            const hasBottomChild = state.connections.some(
-              (c) =>
-                c.from === card.id &&
-                (c.fromSide === "bottom" || c.fromSide == null),
-            );
-            if (hasBottomChild) {
-              state.relayoutFollowUpChainFromParent(card.id);
-            }
-          });
-        },
-      },
-    );
-  }, [card.question, card.id, updateCard, selectedModel]);
-
-  useEffect(() => {
-    if (turnInProgress || !card.thinkingLabel) return;
-    updateCard(card.id, { thinkingLabel: undefined });
-  }, [turnInProgress, card.id, card.thinkingLabel, updateCard]);
+  }, [
+    turnInProgress,
+    card.id,
+    card.thinkingLabel,
+    card.sdkBuildStages,
+    updateCard,
+  ]);
 
   const submitQuestion = (question: string, options?: FollowUpOptions) => {
     const q = question.trim();
     if (!q || turnInProgress || !canEdit) return;
     recordUndo();
     if (user?.id) stampContributor(user.id, card.id);
-    askHandleRef.current?.cancel();
-    askGenerationRef.current += 1;
-    startedFor.current = null;
+    restartAsk();
     const st = useCanvasStore.getState();
     const attachedFromPlug = resolveCardAttachedArtifactRefs(card.id, {
       cards: st.cards,

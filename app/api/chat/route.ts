@@ -43,7 +43,8 @@ import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
 import {
-  QA_TURN_TIMEOUT_MS,
+  QA_TURN_TIMEOUT_ENABLED,
+  QA_TURN_TIMEOUT_MS_ACTIVE,
   QA_TURN_TIMEOUT_SECONDS,
 } from "@/lib/qaTurnLimits";
 
@@ -179,7 +180,7 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
-/** Match client hard cap for Q&A turns (stream + artifact work). Keep in sync with QA_TURN_TIMEOUT_SECONDS. */
+/** Match client hard cap for Q&A turns when enabled. Keep in sync with QA_TURN_TIMEOUT_SECONDS. */
 export const maxDuration = 180;
 
 export async function POST(req: Request) {
@@ -316,12 +317,15 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       };
-      const hardTimeout = setTimeout(() => {
-        emit({
-          error: `Request timed out after ${QA_TURN_TIMEOUT_SECONDS / 60} minutes.`,
-        });
-        closeStream();
-      }, QA_TURN_TIMEOUT_MS);
+      const hardTimeout =
+        QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0
+          ? setTimeout(() => {
+              emit({
+                error: `Request timed out after ${QA_TURN_TIMEOUT_SECONDS / 60} minutes.`,
+              });
+              closeStream();
+            }, QA_TURN_TIMEOUT_MS_ACTIVE)
+          : null;
 
       try {
         const fastCustom = (() => {
@@ -663,7 +667,7 @@ export async function POST(req: Request) {
         }
         emit({ error: msg });
       } finally {
-        clearTimeout(hardTimeout);
+        if (hardTimeout) clearTimeout(hardTimeout);
         if (closed) return;
         closeStream();
       }

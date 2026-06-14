@@ -2,6 +2,7 @@
 
 import { CardArtifactPreview } from "@/components/artifacts/CardArtifactPreview";
 import { AnswerTextScrollRegion } from "@/components/cards/AnswerTextScrollRegion";
+import { CustomUiBuildProgress } from "@/components/cards/CustomUiBuildProgress";
 import { PendingAnswerPlaceholder } from "@/components/cards/PendingAnswerPlaceholder";
 import { QaRetryPlaceholder } from "@/components/cards/QaRetryPlaceholder";
 import { TextCardBody } from "@/components/cards/TextCardBody";
@@ -53,6 +54,8 @@ export function CardAnswerBody({
     showPendingPlaceholder ||
     isQaResponsePending(card.status) ||
     isCardAskInFlight(card.id);
+  const sdkStages = card.sdkBuildStages;
+  const showSdkProgress = showActiveTurn && (sdkStages?.length ?? 0) > 0;
   const scrollKey = `${card.id}:${card.question}`;
   const answerContent = showText ? (
     <TextCardBody
@@ -63,6 +66,12 @@ export function CardAnswerBody({
       answerExplains={answerExplains}
       textRootRef={textRootRef}
       onExplainClick={onExplainClick}
+    />
+  ) : showSdkProgress ? (
+    <CustomUiBuildProgress
+      cardId={card.id}
+      stages={sdkStages!}
+      thinkingLabel={pendingLabel}
     />
   ) : showActiveTurn ? (
     <PendingAnswerPlaceholder cardId={card.id} thinkingLabel={pendingLabel} />

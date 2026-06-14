@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
+import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
 import { SendIconButton } from "@/components/SendIconButton";
@@ -424,7 +425,7 @@ export function ChatComposer({
                   key={ref.artifactId}
                   className={
                     isCanvas
-                      ? "min-w-0 w-full"
+                      ? "max-w-full self-start"
                       : "min-w-[calc(50%-4px)] max-w-full shrink-0"
                   }
                 >
@@ -445,24 +446,16 @@ export function ChatComposer({
               const asset = canvasAssets[ref.assetId];
               if (!asset) return null;
               return (
-                <span
+                <AssetAttachmentPill
                   key={ref.assetId}
-                  className="inline-flex max-w-[180px] shrink-0 items-center rounded-canvas border border-canvas-border px-2 py-1 text-[11px] text-canvas-muted"
-                >
-                  <span className="truncate">{asset.name}</span>
-                  <button
-                    type="button"
-                    className="ml-1"
-                    aria-label={`Remove ${asset.name}`}
-                    onClick={() =>
-                      setAttachedAssets((prev) =>
-                        prev.filter((r) => r.assetId !== ref.assetId),
-                      )
-                    }
-                  >
-                    x
-                  </button>
-                </span>
+                  name={asset.name}
+                  kind={asset.kind}
+                  onRemove={() =>
+                    setAttachedAssets((prev) =>
+                      prev.filter((r) => r.assetId !== ref.assetId),
+                    )
+                  }
+                />
               );
             })}
             {attachedSkills.map((ref) => {
@@ -500,21 +493,14 @@ export function ChatComposer({
               </div>
             ))}
             {pendingFiles.map((f, i) => (
-              <span
+              <AssetAttachmentPill
                 key={i}
-                className="inline-flex items-center rounded-canvas border border-canvas-border px-2 py-1 text-canvas-caption text-canvas-muted"
-              >
-                {f.name}
-                <button
-                  type="button"
-                  className="ml-1"
-                  onClick={() =>
-                    setPendingFiles((p) => p.filter((_, j) => j !== i))
-                  }
-                >
-                  ×
-                </button>
-              </span>
+                name={f.name}
+                kind="document"
+                onRemove={() =>
+                  setPendingFiles((p) => p.filter((_, j) => j !== i))
+                }
+              />
             ))}
           </div>
         )}

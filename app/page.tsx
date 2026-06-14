@@ -8,6 +8,7 @@ import { Canvas } from "@/components/Canvas";
 import { CanvasMinimap } from "@/components/CanvasMinimap";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
+import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { CanvasSoundMuteButton } from "@/components/CanvasSoundMuteButton";
 import { ShareModal } from "@/components/ShareModal";
@@ -43,7 +44,10 @@ export default function Page() {
           {viewMode === "canvas" ? (
             <Canvas key={canvasKey} containerRef={canvasContainerRef} />
           ) : (
-            <ChatView key={canvasKey} />
+            <>
+              <ChatView key={canvasKey} />
+              <CardAskOrchestrator />
+            </>
           )}
           {isSwitchingCanvas && (
             <CanvasSwitchOverlay

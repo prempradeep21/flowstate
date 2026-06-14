@@ -9,17 +9,16 @@ import {
   WHAT_IT_IS_LIMITS,
   whatItIsLooksLikeRawReadme,
 } from "@/lib/github/overviewCopyLimits";
-import { mergeAudienceCopy } from "@/lib/github/readmeSummary";
 import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import {
   REPO_ARTIFACT_WIDTH,
-  REPO_COLLAPSED_HEIGHT,
-  REPO_COLLAPSED_WIDTH,
   REPO_DRAG_HANDLE_ATTR,
+  REPO_HUB,
   REPO_SPOKE_BODY_MAX_HEIGHT,
   REPO_SPOKE_MAX_HEIGHT,
   computeRepoArtifactHeight,
+  computeRepoCollapsedSize,
   getRepoSpokeDefinitions,
   positionRepoSpokes,
   REPO_HUB_HOLD_MS,
@@ -31,8 +30,6 @@ import {
   type RepoSpokeId,
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
-import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
-import { useArtifactFontScale } from "@/hooks/useArtifactFontScale";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
@@ -156,8 +153,6 @@ function spokeIcon(id: RepoSpokeId): string {
   switch (id) {
     case "overview":
       return "◎";
-    case "audience":
-      return "◎";
     case "fileStructure":
       return "▤";
     case "media":
@@ -195,7 +190,6 @@ function resolveOverviewText(
 function spokeStatus(explorer: RepoExplorerData, spokeId: RepoSpokeId): WidgetStatus {
   switch (spokeId) {
     case "overview":
-    case "audience":
       return explorer.overview.status;
     case "fileStructure":
       return explorer.fileStructure.status;
@@ -227,7 +221,7 @@ function SpokeBody({
 
   if (
     loading ||
-    (status === "loading" && spokeId !== "overview" && spokeId !== "audience")
+    (status === "loading" && spokeId !== "overview")
   ) {
     return <SpokeSkeleton lines={spokeId === "overview" ? 5 : 4} />;
   }
@@ -276,14 +270,6 @@ function SpokeBody({
             </div>
           ) : null}
         </div>
-      );
-    }
-    case "audience": {
-      const audience = explorer.overview.ai?.whoItsFor;
-      const text = audience ? mergeAudienceCopy(audience) : "";
-      if (!text || text.length < 32) return <SpokeSkeleton lines={3} />;
-      return (
-        <p className="text-canvas-body-sm leading-relaxed text-canvas-ink">{text}</p>
       );
     }
     case "fileStructure": {
@@ -604,7 +590,7 @@ function RepoSpokeCard({
         initial={{ opacity: 0 }}
         animate={{
           opacity:
-            visible && (dataReady || spoke.id === "overview" || spoke.id === "audience")
+            visible && (dataReady || spoke.id === "overview")
               ? 1
               : 0.35,
         }}
@@ -614,7 +600,7 @@ function RepoSpokeCard({
           spokeId={spoke.id}
           explorer={explorer}
           streamingOverview={streamingOverview}
-          loading={!dataReady && spoke.id !== "overview" && spoke.id !== "audience"}
+          loading={!dataReady && spoke.id !== "overview"}
         />
       </m.div>
     </m.div>
@@ -703,15 +689,11 @@ function useRepoEnrichment(
           setStreamingOverview(polishWhatItIsCopy(data.overview.ai.whatItIs));
         }
 
-        const audienceMerged = data.overview.ai?.whoItsFor
-          ? mergeAudienceCopy(data.overview.ai.whoItsFor)
-          : "";
-        const audienceThin = audienceMerged.length < 48;
         const summaryThin =
           !data.overview.ai?.whatItIs ||
           data.overview.ai.whatItIs.length < WHAT_IT_IS_LIMITS.minChars;
 
-        if (audienceThin || summaryThin) {
+        if (summaryThin) {
           try {
             const sumRes = await fetch(summaryUrl, { cache: "no-store" });
             if (sumRes.ok) {
@@ -775,6 +757,8 @@ export function RepoArtifactContent({
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenSpokes, setHiddenSpokes] = useState<Set<RepoSpokeId>>(() => new Set());
   const [spokeHeights, setSpokeHeights] = useState<Partial<Record<RepoSpokeId, number>>>({});
+  const hubRef = useRef<HTMLDivElement>(null);
+  const [hubSize, setHubSize] = useState<{ w: number; h: number } | null>(null);
   const { streamingOverview, dataReady } = useRepoEnrichment(
     artifactId,
     repoUrl,
@@ -796,6 +780,20 @@ export function RepoArtifactContent({
       window.clearTimeout(t2);
     };
   }, [reduceMotion]);
+
+  useEffect(() => {
+    const el = hubRef.current;
+    if (!el) return;
+    const sync = () => {
+      const w = Math.round(el.offsetWidth);
+      const h = Math.round(el.offsetHeight);
+      setHubSize((prev) => (prev?.w === w && prev?.h === h ? prev : { w, h }));
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const hasDisplayableMedia =
     (explorer.media.data?.displayableItems?.length ?? 0) > 0;
@@ -826,7 +824,13 @@ export function RepoArtifactContent({
     setCollapsed((prev) => !prev);
   }, []);
 
-  const layoutW = collapsed ? REPO_COLLAPSED_WIDTH : REPO_ARTIFACT_WIDTH;
+  const hubDimensions = hubSize ?? { w: REPO_HUB.w, h: REPO_HUB.h };
+  const collapsedSize = useMemo(
+    () => computeRepoCollapsedSize(hubDimensions.w, hubDimensions.h),
+    [hubDimensions.h, hubDimensions.w],
+  );
+
+  const layoutW = collapsed ? collapsedSize.w : REPO_ARTIFACT_WIDTH;
   const activeDefinitions = useMemo(
     () => spokeDefinitions.filter((s) => !hiddenSpokes.has(s.id)),
     [hiddenSpokes, spokeDefinitions],
@@ -836,10 +840,13 @@ export function RepoArtifactContent({
     () => computeRepoArtifactHeight(activeDefinitions, spokeHeights),
     [activeDefinitions, spokeHeights],
   );
-  const layoutH = collapsed ? REPO_COLLAPSED_HEIGHT : expandedH;
+  const layoutH = collapsed ? collapsedSize.h : expandedH;
   const hub = useMemo(
-    () => repoHubForBounds(layoutW, layoutH, collapsed),
-    [collapsed, layoutH, layoutW],
+    () => {
+      const base = repoHubForBounds(layoutW, layoutH, collapsed);
+      return { ...base, w: hubDimensions.w, h: hubDimensions.h };
+    },
+    [collapsed, hubDimensions.h, hubDimensions.w, layoutH, layoutW],
   );
 
   useEffect(() => {
@@ -855,6 +862,8 @@ export function RepoArtifactContent({
       bounds.w,
       bounds.h,
       expandedH,
+      collapsedSize.w,
+      collapsedSize.h,
     );
     if (dx !== 0 || dy !== 0) {
       st.moveCanvasArtifact(node.id, dx, dy);
@@ -862,10 +871,10 @@ export function RepoArtifactContent({
     st.setCanvasArtifactSize(
       node.id,
       collapsed
-        ? { w: REPO_COLLAPSED_WIDTH, h: REPO_COLLAPSED_HEIGHT }
+        ? { w: collapsedSize.w, h: collapsedSize.h }
         : { w: REPO_ARTIFACT_WIDTH, h: expandedH },
     );
-  }, [artifactId, collapsed, expandedH, fill]);
+  }, [artifactId, collapsed, collapsedSize.h, collapsedSize.w, expandedH, fill]);
 
   const connectors = useMemo(
     () =>
@@ -880,7 +889,6 @@ export function RepoArtifactContent({
   const spokesRevealed = phase === "widgets" || Boolean(reduceMotion);
   const showConnectors = (phase !== "hub" || Boolean(reduceMotion)) && !collapsed;
   const showWidgets = spokesRevealed && !collapsed;
-  const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
 
   return (
     <div
@@ -890,15 +898,8 @@ export function RepoArtifactContent({
         height: layoutH,
         minWidth: layoutW,
         minHeight: layoutH,
-        ["--artifact-font-scale" as string]: String(fontScale),
       }}
     >
-      <div className="absolute inset-x-0 top-0 z-50">
-        <ArtifactControlsBar
-          fontScale={fontScale}
-          onFontScaleChange={setFontScale}
-        />
-      </div>
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
         aria-hidden
@@ -940,6 +941,7 @@ export function RepoArtifactContent({
       </svg>
 
       <m.div
+        ref={hubRef}
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
         className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-card"
         style={{

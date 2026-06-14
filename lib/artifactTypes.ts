@@ -5,6 +5,7 @@ import { normalizeCustomArtifactData } from "@/lib/customArtifact";
 import type { RepoExplorerData } from "@/lib/github/types";
 import { normalizeMapArtifactData } from "@/lib/mapArtifact";
 import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
+import { normalizeThreeDArtifactData } from "@/lib/threeDArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
@@ -415,7 +416,9 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
       return {
         type: "3d",
         ...base,
-        data: artifact.data as unknown as ThreeDArtifactData,
+        data: normalizeThreeDArtifactData(
+          artifact.data as Record<string, unknown>,
+        ),
       };
     case "todo":
       return {

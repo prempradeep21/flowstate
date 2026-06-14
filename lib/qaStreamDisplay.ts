@@ -1,5 +1,6 @@
 import { isCardAskInFlight } from "@/lib/cardAskRegistry";
 import { detectUserRequestedArtifactKind } from "@/lib/artifactIntent";
+import { resolveActiveSdkBuildStageLabel } from "@/lib/cursorSdk/sdkStageLabels";
 import type { CanvasArtifactNode, Card, CardStatus } from "@/lib/store";
 
 const STRUCTURED_RESPONSE_TYPES = new Set([
@@ -414,12 +415,16 @@ export function resolveQaStatusLabel(
     | "pendingEmittedArtifacts"
     | "images"
     | "responseType"
+    | "sdkBuildStages"
   >,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): string {
   if (isQaResponseFinalError(card, canvasArtifactNodes)) {
     return "Couldn't finish";
   }
+
+  const sdkStageLabel = resolveActiveSdkBuildStageLabel(card.sdkBuildStages);
+  if (sdkStageLabel) return sdkStageLabel;
 
   const engaging = engagingThinkingLabel(card.thinkingLabel);
   if (engaging) return engaging;
@@ -462,6 +467,7 @@ export function resolveQaStatusBadgeLabel(
     | "pendingEmittedArtifacts"
     | "images"
     | "responseType"
+    | "sdkBuildStages"
   >,
   canvasArtifactNodes?: Record<string, CanvasArtifactNode>,
 ): string {

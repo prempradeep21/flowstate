@@ -2,12 +2,17 @@
   "name": "flowstate",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.4.0"
+  },
   "scripts": {
     "dev": "node scripts/dev.js",
     "dev:showcase": "node scripts/showcase-dev.js",
     "dev:spec": "node scripts/spec-viewer-dev.js",
     "dev:repo-explorer": "node scripts/repo-explorer-dev.js",
     "dev:artifact-catalog": "node scripts/artifact-catalog-dev.js",
+    "dev:ui-instructions": "node scripts/ui-instructions-viewer-dev.js",
+    "ui-instructions:compile": "node scripts/extract-ui-instructions.js && node scripts/compile-ui-instructions-md.js",
     "chronology:sync": "node scripts/generate-chronology.js --sync",
     "dev:clean": "node scripts/clean-dev.js",
     "build": "next build",
@@ -21,6 +26,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@cursor/sdk": "^1.0.18",
     "@firecms/neat": "^0.9.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",

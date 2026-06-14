@@ -10,6 +10,20 @@ const TWITTER_HOSTS = new Set([
   "mobile.x.com",
 ]);
 
+const PROFILE_PATH_BLOCKLIST = new Set([
+  "status",
+  "i",
+  "intent",
+  "search",
+  "hashtag",
+  "home",
+  "explore",
+  "notifications",
+  "messages",
+  "settings",
+  "compose",
+]);
+
 export function parseTweetId(url: URL): string | null {
   const parts = url.pathname.split("/").filter(Boolean);
   const statusIdx = parts.findIndex((p) => p === "status");
@@ -18,38 +32,57 @@ export function parseTweetId(url: URL): string | null {
   return /^[0-9]+$/.test(id) ? id : null;
 }
 
+/** Profile URLs like https://x.com/elonmusk (not /status/…). */
+export function parseTwitterScreenName(url: URL): string | null {
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts.length !== 1) return null;
+  const screenName = parts[0].split("?")[0];
+  if (!screenName || PROFILE_PATH_BLOCKLIST.has(screenName.toLowerCase())) {
+    return null;
+  }
+  if (!/^[A-Za-z0-9_]{1,15}$/.test(screenName)) return null;
+  return screenName;
+}
+
 export const twitterProvider: EmbedProvider = {
   id: "twitter",
   match(url) {
     if (!TWITTER_HOSTS.has(url.hostname.toLowerCase())) return false;
-    return parseTweetId(url) !== null;
+    return parseTweetId(url) !== null || parseTwitterScreenName(url) !== null;
   },
   async resolve(url) {
     const tweetId = parseTweetId(url);
-    if (!tweetId) throw new Error("Invalid tweet URL");
+    if (tweetId) {
+      let title = "Post on X";
+      let embedHeight = 420;
 
-    // Twitter oEmbed returns a blockquote + widgets.js, not an iframe. Rendering
-    // that HTML without the external script only shows unstyled quote text.
-    // Always use the official embed iframe for the full tweet card UI.
-    let title = "Post on X";
-    let embedHeight = 420;
+      const oembedEndpoint = `https://publish.twitter.com/oembed?url=${encodeURIComponent(
+        url.toString(),
+      )}&omit_script=1&dnt=true&hide_thread=true`;
+      const data = await fetchOembedJson(oembedEndpoint);
+      if (data?.title?.trim()) {
+        title = data.title.trim();
+      }
+      if (typeof data?.height === "number" && data.height > 0) {
+        embedHeight = Math.max(280, Math.min(900, data.height));
+      }
 
-    const oembedEndpoint = `https://publish.twitter.com/oembed?url=${encodeURIComponent(
-      url.toString(),
-    )}&omit_script=1&dnt=true&hide_thread=true`;
-    const data = await fetchOembedJson(oembedEndpoint);
-    if (data?.title?.trim()) {
-      title = data.title.trim();
+      return {
+        title,
+        embedWidth: 550,
+        embedHeight,
+        iframeSrc: `https://platform.twitter.com/embed/Tweet.html?id=${tweetId}&dnt=true`,
+      };
     }
-    if (typeof data?.height === "number" && data.height > 0) {
-      embedHeight = Math.max(280, Math.min(900, data.height));
-    }
+
+    const screenName = parseTwitterScreenName(url);
+    if (!screenName) throw new Error("Invalid X/Twitter URL");
 
     return {
-      title,
+      title: `@${screenName} on X`,
       embedWidth: 550,
-      embedHeight,
-      iframeSrc: `https://platform.twitter.com/embed/Tweet.html?id=${tweetId}&dnt=true`,
+      embedHeight: 600,
+      iframeSrc: `https://platform.twitter.com/embed/Timeline.html?screenName=${encodeURIComponent(screenName)}&dnt=true`,
     };
   },
 };

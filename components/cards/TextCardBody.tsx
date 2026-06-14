@@ -145,7 +145,7 @@ export function TextCardBody({
   const bodyClass =
     plainClamp
       ? `min-w-0 cursor-text select-text break-words whitespace-pre-wrap text-canvas-body-lg leading-relaxed text-canvas-ink ${RICH_TEXT_CLASS}`
-      : `min-w-0 cursor-text text-canvas-body-lg leading-relaxed text-canvas-ink ${RICH_TEXT_CLASS}`;
+      : `min-w-0 w-full cursor-text break-words text-canvas-body-lg leading-relaxed text-canvas-ink ${RICH_TEXT_CLASS}`;
 
   const content = plainClamp ? (
     <>
