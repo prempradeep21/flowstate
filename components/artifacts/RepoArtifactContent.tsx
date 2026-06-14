@@ -31,6 +31,8 @@ import {
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
+import { EditableArtifactTitle } from "@/components/artifacts/EditableArtifactTitle";
+import { artifactRenameTitle } from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
 type RepoPayload = Extract<ArtifactPayload, { type: "repo" }>;
@@ -747,11 +749,22 @@ export function RepoArtifactContent({
   artifactId?: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const { repoUrl, displayTitle, explorer } = payload.data;
-  const title =
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
+  const sessionArtifact = useCanvasStore((s) =>
+    artifactId ? s.sessionArtifacts[artifactId] : undefined,
+  );
+  const renameSessionArtifactTitle = useCanvasStore(
+    (s) => s.renameSessionArtifactTitle,
+  );
+  const { repoUrl, displayTitle, explorer, owner, repo } = payload.data;
+  const defaultSlug = `${owner}/${repo}`;
+  const autoTitle =
     explorer.overview.data?.name ??
     explorer.overview.data?.fullName ??
     displayTitle;
+  const storedTitle = payload.title?.trim();
+  const title =
+    storedTitle && storedTitle !== defaultSlug ? storedTitle : autoTitle;
 
   const [phase, setPhase] = useState<RepoRevealPhase>("hub");
   const [collapsed, setCollapsed] = useState(false);
@@ -965,18 +978,32 @@ export function RepoArtifactContent({
           <span className="text-canvas-micro font-medium text-canvas-muted/90">Drag</span>
         </div>
         <div className="artifact-content-body relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
-          <a
-            href={repoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-no-drag
-            className="flex flex-col items-center rounded-canvas-sm px-2 py-1 transition-colors hover:bg-canvas-artifactStage/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
-          >
-            <GitHubLogo className="h-9 w-9 text-canvas-ink" />
-            <p className="mt-1.5 line-clamp-2 text-canvas-body-sm font-medium leading-snug text-canvas-accent hover:underline">
-              {title}
-            </p>
-          </a>
+          <div className="flex flex-col items-center rounded-canvas-sm px-2 py-1">
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-no-drag
+              className="transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+              aria-label={`Open ${title} on GitHub`}
+            >
+              <GitHubLogo className="h-9 w-9 text-canvas-ink" />
+            </a>
+            <EditableArtifactTitle
+              as="p"
+              displayTitle={title}
+              renameTitle={
+                sessionArtifact
+                  ? artifactRenameTitle(sessionArtifact)
+                  : payload.title || displayTitle
+              }
+              canRename={Boolean(artifactId && !canvasReadOnly)}
+              onRename={(next) => {
+                if (artifactId) renameSessionArtifactTitle(artifactId, next);
+              }}
+              className="mt-1.5 line-clamp-2 text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
+            />
+          </div>
           {explorer.overview.data ? (
             <p className="mt-1 text-canvas-compact tabular-nums text-canvas-muted">
               ★ {explorer.overview.data.stars.toLocaleString()} ·{" "}

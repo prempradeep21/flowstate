@@ -14,6 +14,12 @@ export const STICKY_NOTE_COLOR_IDS: StickyNoteColorId[] = [
   "chalk",
 ];
 
+/** User-facing palette — yellow and dark gray only. */
+export const STICKY_NOTE_PICKER_COLOR_IDS: StickyNoteColorId[] = [
+  "turbo",
+  "haiti",
+];
+
 /** Quantus Palette 2025 — theme-agnostic sticky note fills. */
 export const STICKY_NOTE_PALETTE: Record<
   StickyNoteColorId,
@@ -28,10 +34,12 @@ export const STICKY_NOTE_PALETTE: Record<
 /** Maps pre-Quantus color ids to the current palette. */
 const LEGACY_STICKY_NOTE_COLOR_IDS: Record<string, StickyNoteColorId> = {
   yellow: "turbo",
-  pink: "violet",
+  pink: "haiti",
   blue: "haiti",
-  green: "chalk",
+  green: "turbo",
   orange: "turbo",
+  violet: "haiti",
+  chalk: "turbo",
 };
 
 export const STICKY_NOTE_ARTIFACT_WIDTH = 240;
@@ -90,7 +98,7 @@ export function stickyNoteThemeColors(
 
 function normalizeColorId(value: unknown): StickyNoteColorId {
   if (typeof value === "string") {
-    if (STICKY_NOTE_COLOR_IDS.includes(value as StickyNoteColorId)) {
+    if (STICKY_NOTE_PICKER_COLOR_IDS.includes(value as StickyNoteColorId)) {
       return value as StickyNoteColorId;
     }
     const legacy = LEGACY_STICKY_NOTE_COLOR_IDS[value];
@@ -123,7 +131,9 @@ export function normalizeStickyNotePayload(
 export function nextStickyNoteColorId(
   current: StickyNoteColorId,
 ): StickyNoteColorId {
-  const idx = STICKY_NOTE_COLOR_IDS.indexOf(current);
-  const next = idx < 0 ? 0 : (idx + 1) % STICKY_NOTE_COLOR_IDS.length;
-  return STICKY_NOTE_COLOR_IDS[next] ?? "turbo";
+  const normalized = normalizeColorId(current);
+  const idx = STICKY_NOTE_PICKER_COLOR_IDS.indexOf(normalized);
+  const next =
+    idx < 0 ? 0 : (idx + 1) % STICKY_NOTE_PICKER_COLOR_IDS.length;
+  return STICKY_NOTE_PICKER_COLOR_IDS[next] ?? "turbo";
 }

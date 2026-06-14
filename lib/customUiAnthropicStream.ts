@@ -14,6 +14,7 @@ import {
   stripAppendedQuestionContext,
 } from "@/lib/artifactIntent";
 import type { CustomArtifactPayload } from "@/lib/customArtifactShortcuts";
+import type { AskAttachmentFile } from "@/lib/askAttachments";
 
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
@@ -44,6 +45,7 @@ const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
 export interface CustomUiAnthropicStreamInput {
   question: string;
   history: { question: string; answer: string }[];
+  files?: AskAttachmentFile[];
   editingArtifact?: { artifactId: string; payload: unknown } | null;
   model?: string;
   emit: (data: object) => void;
@@ -109,8 +111,36 @@ export async function streamCustomUiViaAnthropic(
       { role: "user" as const, content: question },
       { role: "assistant" as const, content: answer },
     ]),
-    { role: "user" as const, content: input.question },
   ];
+
+  const userContent: Anthropic.ContentBlockParam[] = [];
+  for (const file of input.files ?? []) {
+    if (file.mimeType.startsWith("image/")) {
+      const mediaType = file.mimeType as
+        | "image/jpeg"
+        | "image/png"
+        | "image/gif"
+        | "image/webp";
+      userContent.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data: file.base64 },
+      });
+    } else if (file.mimeType === "application/pdf") {
+      userContent.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: file.base64,
+        },
+      } as unknown as Anthropic.ContentBlockParam);
+    }
+  }
+  userContent.push({ type: "text", text: input.question });
+  messages.push({
+    role: "user" as const,
+    content: userContent.length === 1 ? input.question : userContent,
+  });
 
   input.emit({ thinking: "Building custom UI…" });
 

@@ -43,10 +43,7 @@ import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
 import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
-import {
-  DEFAULT_ASSET_ICON_HEIGHT,
-  estimateAssetIconNodeWidth,
-} from "@/lib/canvasAssetBounds";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import {
   CANVAS_ARTIFACT_WIDTH,
   clampArtifactSize,
@@ -129,6 +126,7 @@ import {
   getLatestVersion,
   getVersionById,
   normalizePayloadForRegistry,
+  patchArtifactPayloadTitle,
   resolveArtifactTargetId,
   resolveEditingArtifactId,
   resolveInheritedArtifactIdForParent,
@@ -916,6 +914,7 @@ interface CanvasState {
     versionId: string,
     patch: { title: string; thumb?: string },
   ) => void;
+  renameSessionArtifactTitle: (artifactId: string, title: string) => void;
   patchEmbedArtifact: (
     artifactId: string,
     versionId: string,
@@ -1460,24 +1459,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!asset) return state;
       const id = newCanvasAssetNodeId();
       nodeId = id;
-      const previewAspect =
-        asset.kind === "image" && asset.aspectRatio
-          ? asset.aspectRatio
-          : asset.kind === "spreadsheet" ||
-              asset.kind === "word" ||
-              asset.kind === "presentation"
-            ? 4 / 3
-            : null;
-      const size = previewAspect
-        ? {
-            w: Math.min(480, Math.max(180, asset.width ?? 360)),
-            h:
-              Math.min(480, Math.max(180, asset.width ?? 360)) / previewAspect,
-          }
-        : {
-            w: estimateAssetIconNodeWidth(asset.name),
-            h: DEFAULT_ASSET_ICON_HEIGHT,
-          };
+      const bounds = getCanvasAssetBounds({}, asset);
+      const size = { w: bounds.w, h: bounds.h };
       const node: CanvasAssetNode = {
         id,
         assetId,
@@ -1939,9 +1922,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   toggleBranchThreadCollapsed: (branchThreadId) =>
     set((state) => {
-      const collapsed = state.collapsedBranchThreadIds.includes(branchThreadId);
+      const wasCollapsed =
+        state.collapsedBranchThreadIds.includes(branchThreadId);
+      if (wasCollapsed) {
+        touchThreadInactivity(branchThreadId);
+      }
       return {
-        collapsedBranchThreadIds: collapsed
+        collapsedBranchThreadIds: wasCollapsed
           ? state.collapsedBranchThreadIds.filter((id) => id !== branchThreadId)
           : [...state.collapsedBranchThreadIds, branchThreadId],
       };
@@ -1949,9 +1936,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   toggleCardCollapsed: (cardId) =>
     set((state) => {
-      const collapsed = state.collapsedCardIds.includes(cardId);
+      const wasCollapsed = state.collapsedCardIds.includes(cardId);
+      const card = state.cards[cardId];
+      if (wasCollapsed && card?.threadId) {
+        touchThreadInactivity(card.threadId);
+      }
       return {
-        collapsedCardIds: collapsed
+        collapsedCardIds: wasCollapsed
           ? state.collapsedCardIds.filter((id) => id !== cardId)
           : [...state.collapsedCardIds, cardId],
       };
@@ -3518,6 +3509,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           [artifactId]: {
             ...art,
             title,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
+  renameSessionArtifactTitle: (artifactId, title) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art) return state;
+      const versions = art.versions.map((v) => ({
+        ...v,
+        payload: patchArtifactPayloadTitle(v.payload, trimmed),
+      }));
+      return {
+        collaborationHasEdits: true,
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title: trimmed,
             versions,
           },
         },

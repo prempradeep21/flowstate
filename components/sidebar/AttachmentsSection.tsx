@@ -5,24 +5,12 @@ import {
   groupCanvasAssets,
   uploadAssetFiles,
 } from "@/lib/attachments";
+import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
 import { OFFICE_FILE_ACCEPT } from "@/lib/officeAssetKinds";
 import { setSidebarDragData } from "@/lib/sidebarDnD";
 import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useCanvasStore } from "@/lib/store";
 import { useAuth } from "@/components/AuthProvider";
-
-function AssetIcon({
-  kind,
-}: {
-  kind: "image" | "document" | "code" | "spreadsheet" | "word" | "presentation";
-}) {
-  if (kind === "code") return <span aria-hidden>{"</>"}</span>;
-  if (kind === "spreadsheet") return <span aria-hidden>xls</span>;
-  if (kind === "presentation") return <span aria-hidden>ppt</span>;
-  if (kind === "word") return <span aria-hidden>doc</span>;
-  if (kind === "document") return <span aria-hidden>doc</span>;
-  return <span aria-hidden>img</span>;
-}
 
 function DraggableAssetRow({ id }: { id: string }) {
   const asset = useCanvasStore((s) => s.canvasAssets[id]);
@@ -40,13 +28,8 @@ function DraggableAssetRow({ id }: { id: string }) {
         }}
         className="flex min-w-0 flex-1 cursor-grab items-center gap-2 px-1 py-1 text-canvas-body text-canvas-ink active:cursor-grabbing"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-canvas bg-canvas-bg text-[10px] uppercase text-canvas-muted">
-          {asset.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={asset.publicUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <AssetIcon kind={asset.kind} />
-          )}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-canvas bg-canvas-bg">
+          <AssetContentPreview asset={asset} layout="sidebar" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate">{asset.name}</span>

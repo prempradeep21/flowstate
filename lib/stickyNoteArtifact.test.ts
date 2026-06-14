@@ -21,10 +21,10 @@ describe("stickyNoteArtifact", () => {
 
   it("preserves text and valid color", () => {
     expect(
-      normalizeStickyNoteArtifactData({ text: "Hello", colorId: "violet" }),
+      normalizeStickyNoteArtifactData({ text: "Hello", colorId: "haiti" }),
     ).toEqual({
       text: "Hello",
-      colorId: "violet",
+      colorId: "haiti",
     });
   });
 
@@ -34,18 +34,24 @@ describe("stickyNoteArtifact", () => {
     ).toBe(defaultStickyNoteColorId());
   });
 
-  it("migrates legacy color ids to Quantus palette", () => {
+  it("migrates legacy and retired color ids to yellow or dark gray", () => {
     expect(normalizeStickyNoteArtifactData({ colorId: "yellow" }).colorId).toBe(
       "turbo",
     );
     expect(normalizeStickyNoteArtifactData({ colorId: "pink" }).colorId).toBe(
-      "violet",
+      "haiti",
     );
     expect(normalizeStickyNoteArtifactData({ colorId: "blue" }).colorId).toBe(
       "haiti",
     );
     expect(normalizeStickyNoteArtifactData({ colorId: "green" }).colorId).toBe(
-      "chalk",
+      "turbo",
+    );
+    expect(normalizeStickyNoteArtifactData({ colorId: "violet" }).colorId).toBe(
+      "haiti",
+    );
+    expect(normalizeStickyNoteArtifactData({ colorId: "chalk" }).colorId).toBe(
+      "turbo",
     );
   });
 
@@ -62,17 +68,9 @@ describe("stickyNoteArtifact", () => {
   it("returns the same colors regardless of canvas theme", () => {
     const colors = stickyNoteThemeColors("turbo");
     expect(colors).toEqual({ bg: "#F0E100", ink: "#18102B" });
-    expect(stickyNoteThemeColors("violet")).toEqual({
-      bg: "#834DFB",
-      ink: "#F5F3FF",
-    });
     expect(stickyNoteThemeColors("haiti")).toEqual({
       bg: "#18102B",
       ink: "#F5F3FF",
-    });
-    expect(stickyNoteThemeColors("chalk")).toEqual({
-      bg: "#F5F3FF",
-      ink: "#18102B",
     });
   });
 

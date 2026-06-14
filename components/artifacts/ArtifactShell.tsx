@@ -8,11 +8,11 @@ import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/Art
 import { ArtifactExportProvider } from "@/components/artifacts/ArtifactExportContext";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
-import type { StickyNoteArtifactActions } from "@/components/artifacts/StickyNoteArtifactContent";
 import { useAuth } from "@/components/AuthProvider";
 import { artifactContributorProfiles } from "@/lib/contributorProfiles";
 import {
   artifactDisplayTitle,
+  artifactRenameTitle,
   getLatestVersion,
   getVersionById,
   type SessionArtifact,
@@ -37,7 +37,6 @@ export function ArtifactShell({
   onExpand,
   onRemoveFromCanvas,
   onTodoEditingChange,
-  onStickyEditingChange,
   catalogPreview = false,
   sourceCardId,
   onArtifactContentAreaSizeChange,
@@ -51,7 +50,6 @@ export function ArtifactShell({
   onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   onTodoEditingChange?: (editing: boolean) => void;
-  onStickyEditingChange?: (editing: boolean) => void;
   /** Dev catalog: enable edits and interaction without canvas chrome. */
   catalogPreview?: boolean;
   /** Card that spawned this artifact — enables Ask a question from selection. */
@@ -64,13 +62,13 @@ export function ArtifactShell({
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
   const [isTodoDirty, setIsTodoDirty] = useState(false);
-  const [isStickyEditing, setIsStickyEditing] = useState(false);
-  const [isStickyDirty, setIsStickyDirty] = useState(false);
   const todoActionsRef = useRef<TodoArtifactActions | null>(null);
-  const stickyActionsRef = useRef<StickyNoteArtifactActions | null>(null);
   const { members, accessInfo } = useAuth();
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
+  const renameSessionArtifactTitle = useCanvasStore(
+    (s) => s.renameSessionArtifactTitle,
+  );
   const readOnly = catalogPreview ? false : canvasReadOnly;
 
   const cards = useCanvasStore((s) => s.cards);
@@ -117,8 +115,8 @@ export function ArtifactShell({
   const displayPayload = streamingPayload ?? activeVersion?.payload;
 
   const isLatest = versionId === sessionArtifact.latestVersionId;
+  const isStreamingTitle = Boolean(streamingPayload?.title);
   const isTodo = sessionArtifact.kind === "todo";
-  const isSticky = sessionArtifact.kind === "stickynote";
   const isMap = sessionArtifact.kind === "map";
   const isCalendar = sessionArtifact.kind === "calendar";
   const isTimeline = sessionArtifact.kind === "timeline";
@@ -134,17 +132,11 @@ export function ArtifactShell({
     setCodeTitleOverride(null);
     setIsTodoEditing(catalogPreview && sessionArtifact.kind === "todo");
     setIsTodoDirty(false);
-    setIsStickyEditing(false);
-    setIsStickyDirty(false);
   }, [catalogPreview, sessionArtifact.id, sessionArtifact.kind, versionId]);
 
   useEffect(() => {
     onTodoEditingChange?.(isTodoEditing);
   }, [isTodoEditing, onTodoEditingChange]);
-
-  useEffect(() => {
-    onStickyEditingChange?.(isStickyEditing);
-  }, [isStickyEditing, onStickyEditingChange]);
 
   const handleVersionChange = useCallback(
     (nextVersionId: string) => {
@@ -155,30 +147,16 @@ export function ArtifactShell({
         if (!ok) return;
         todoActionsRef.current?.discard();
       }
-      if (isStickyEditing && isStickyDirty) {
-        const ok = window.confirm(
-          "You have unsaved changes. Discard them and switch version?",
-        );
-        if (!ok) return;
-        stickyActionsRef.current?.discard();
-      }
       setIsTodoEditing(false);
       setIsTodoDirty(false);
-      setIsStickyEditing(false);
-      setIsStickyDirty(false);
       onVersionChange(nextVersionId);
     },
-    [isStickyDirty, isStickyEditing, isTodoDirty, isTodoEditing, onVersionChange],
+    [isTodoDirty, isTodoEditing, onVersionChange],
   );
 
   const exitTodoEditMode = useCallback(() => {
     setIsTodoEditing(false);
     setIsTodoDirty(false);
-  }, []);
-
-  const exitStickyEditMode = useCallback(() => {
-    setIsStickyEditing(false);
-    setIsStickyDirty(false);
   }, []);
 
   if (!activeVersion || !displayPayload) return null;
@@ -210,6 +188,11 @@ export function ArtifactShell({
           kind={sessionArtifact.kind}
           isVideo={isVideo}
           title={title}
+          renameTitle={artifactRenameTitle(sessionArtifact)}
+          canRenameTitle={!readOnly && !isStreamingTitle}
+          onRenameTitle={(next) =>
+            renameSessionArtifactTitle(sessionArtifact.id, next)
+          }
           artifactId={sessionArtifact.id}
           versions={sessionArtifact.versions}
           activeVersionId={activeVersion.id}
@@ -306,20 +289,6 @@ export function ArtifactShell({
                   }
                 : undefined
             }
-            stickyContext={
-              isSticky
-                ? {
-                    isEditing: isStickyEditing,
-                    onDirtyChange: setIsStickyDirty,
-                    onActionsReady: (actions) => {
-                      stickyActionsRef.current = actions;
-                    },
-                    onRequestEdit: () => setIsStickyEditing(true),
-                    onDone: exitStickyEditMode,
-                    onSaved: exitStickyEditMode,
-                  }
-                : undefined
-            }
             mapCanEdit={canEditMap}
             calendarCanEdit={canEditCalendar}
             timelineCanEdit={canEditTimeline}
@@ -330,7 +299,7 @@ export function ArtifactShell({
           <ArtifactTextSelection
             artifactId={sessionArtifact.id}
             sourceCardId={sourceCardId}
-            enabled={!isTodoEditing && !isStickyEditing}
+            enabled={!isTodoEditing}
             className={
               isCanvasLayout ? "flex min-h-0 flex-1 flex-col overflow-visible" : ""
             }
@@ -360,20 +329,6 @@ export function ArtifactShell({
                     }
                   : undefined
               }
-              stickyContext={
-              isSticky
-                ? {
-                    isEditing: isStickyEditing,
-                    onDirtyChange: setIsStickyDirty,
-                    onActionsReady: (actions) => {
-                      stickyActionsRef.current = actions;
-                    },
-                    onRequestEdit: () => setIsStickyEditing(true),
-                    onDone: exitStickyEditMode,
-                    onSaved: exitStickyEditMode,
-                  }
-                : undefined
-            }
             mapCanEdit={canEditMap}
               calendarCanEdit={canEditCalendar}
               timelineCanEdit={canEditTimeline}

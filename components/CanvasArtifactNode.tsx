@@ -93,7 +93,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
-  const [stickyEditing, setStickyEditing] = useState(false);
   const [chromeHover, setChromeHover] = useState(false);
 
   /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
@@ -494,7 +493,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
               } ${usesPaddingChrome ? ARTIFACT_CANVAS_PADDING_CHROME : ""} ${
                   isRepoArtifact ? "overflow-visible" : "overflow-hidden"
                 } ${
-                  todoEditing || stickyEditing
+                  todoEditing
                     ? "border-2 border-dashed border-canvas-accent"
                     : isSelected
                       ? ARTIFACT_CANVAS_CASING_SELECTED
@@ -534,7 +533,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
-            onStickyEditingChange={setStickyEditing}
             onArtifactContentAreaSizeChange={
               art.kind !== "repo" &&
               art.kind !== "audio" &&

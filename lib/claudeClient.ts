@@ -6,6 +6,7 @@ import {
   AskHandle,
 } from "@/lib/dummyLLM";
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
+import { collectAskAttachments } from "@/lib/askAttachments";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import {
@@ -20,11 +21,8 @@ import {
 import {
   ClaudeModel,
   CardImage,
-  CanvasAsset,
-  PendingFileAttachment,
   useCanvasStore,
 } from "./store";
-import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
 import {
   QA_TURN_TIMEOUT_ENABLED,
@@ -34,27 +32,6 @@ import {
 /** On unless explicitly disabled — custom UI needs the Cursor SDK route. */
 export const CUSTOM_UI_SDK_ENABLED =
   process.env.NEXT_PUBLIC_CUSTOM_UI_SDK !== "false";
-
-const MAX_ASSET_TEXT_CONTEXT_CHARS = 60_000;
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-function isTextAsset(asset: CanvasAsset): boolean {
-  return (
-    asset.kind === "code" ||
-    asset.mimeType.startsWith("text/") ||
-    asset.mimeType === "application/json"
-  );
-}
 
 async function registerConversation(
   conversationId: string,
@@ -122,123 +99,21 @@ export function askClaude(
         cardId,
       );
 
-      const files: PendingFileAttachment[] = [];
-      const assetTextContexts: string[] = [];
-      const skillTextContexts: string[] = [];
-      for (const file of card?.pendingFiles ?? []) {
-        if (
-          file.mimeType.startsWith("text/") ||
-          file.mimeType === "application/json"
-        ) {
-          try {
-            const bytes = Uint8Array.from(atob(file.base64), (c) =>
-              c.charCodeAt(0),
-            );
-            const raw = new TextDecoder().decode(bytes);
-            const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
-            const text = truncated
-              ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
-              : raw;
-            assetTextContexts.push(
-              `Attached file: ${file.name}\n${text}${
-                truncated ? "\n[File truncated due to size limit]" : ""
-              }`,
-            );
-          } catch {
-            assetTextContexts.push(`Attached file: ${file.name} could not be read.`);
-          }
-          continue;
-        }
-        files.push(file);
-      }
-      if (card) {
-        for (const img of getQuestionAttachedImages(card)) {
-          if (img.url.startsWith("data:")) {
-            const m = img.url.match(/^data:([^;]+);base64,(.+)$/);
-            if (m) {
-              files.push({
-                name: "image.png",
-                mimeType: m[1],
-                base64: m[2],
-              });
-            }
-          }
-        }
-      }
-
-      for (const ref of card?.attachedAssets ?? []) {
-        const asset = state.canvasAssets[ref.assetId];
-        if (!asset?.publicUrl) continue;
-        try {
-          const response = await fetch(asset.publicUrl);
-          if (!response.ok) continue;
-          const blob = await response.blob();
-          if (asset.mimeType.startsWith("image/") || asset.mimeType === "application/pdf") {
-            files.push({
-              name: asset.name,
-              mimeType: asset.mimeType,
-              base64: await blobToBase64(blob),
-            });
-          } else if (isTextAsset(asset)) {
-            const raw = await blob.text();
-            const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
-            const text = truncated
-              ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
-              : raw;
-            assetTextContexts.push(
-              `Asset: ${asset.name} (${asset.mimeType})\n${text}${
-                truncated ? "\n[Asset truncated due to size limit]" : ""
-              }`,
-            );
-          }
-        } catch {
-          assetTextContexts.push(
-            `Asset: ${asset.name} (${asset.mimeType}) could not be loaded.`,
-          );
-        }
-      }
-
-      for (const ref of card?.attachedSkills ?? []) {
-        const skill = state.canvasSkills[ref.skillId];
-        if (!skill?.publicUrl) continue;
-        try {
-          const response = await fetch(skill.publicUrl);
-          if (!response.ok) continue;
-          const raw = await response.text();
-          const truncated = raw.length > MAX_ASSET_TEXT_CONTEXT_CHARS;
-          const text = truncated
-            ? raw.slice(0, MAX_ASSET_TEXT_CONTEXT_CHARS)
-            : raw;
-          skillTextContexts.push(
-            `Skill: ${skill.title}\n${text}${
-              truncated ? "\n[Skill truncated due to size limit]" : ""
-            }`,
-          );
-        } catch {
-          skillTextContexts.push(
-            `Skill: ${skill.title} could not be loaded.`,
-          );
-        }
-      }
-
-      await registerConversation(cardId, parentConversationId);
-      const contextBlocks: string[] = [];
-      if (assetTextContexts.length > 0) {
-        contextBlocks.push(
-          `Attached asset context:\n\n${assetTextContexts.join("\n\n---\n\n")}`,
-        );
-      }
-      if (skillTextContexts.length > 0) {
-        contextBlocks.push(
-          `Attached skill context:\n\n${skillTextContexts.join("\n\n---\n\n")}`,
-        );
-      }
-      const questionWithAssetContext =
-        contextBlocks.length > 0
-          ? `${question}\n\n${contextBlocks.join("\n\n")}`
-          : question;
+      const { questionWithContext, files } = await collectAskAttachments(
+        cardId,
+        question,
+        {
+          cards: state.cards,
+          connections: state.connections,
+          canvasAssets: state.canvasAssets,
+          canvasSkills: state.canvasSkills,
+          sessionArtifacts: state.sessionArtifacts,
+        },
+      );
 
       if (cancelled) return;
+
+      await registerConversation(cardId, parentConversationId);
 
       const useCustomUiSdk = CUSTOM_UI_SDK_ENABLED && customWork;
       const apiPath = useCustomUiSdk ? "/api/custom-ui" : "/api/chat";
@@ -251,10 +126,17 @@ export function askClaude(
         body: JSON.stringify({
           conversationId: cardId,
           parentConversationId,
-          question: questionWithAssetContext,
+          question: questionWithContext,
           model,
           history,
-          files: files.length > 0 ? files.map((f) => ({ name: f.name, type: f.mimeType, data: f.base64 })) : undefined,
+          files: files?.length
+            ? files.map((f) => ({
+                name: f.name,
+                type: f.mimeType,
+                data: f.base64,
+                turnLabel: f.turnLabel,
+              }))
+            : undefined,
           editingArtifact,
         }),
         signal: controller.signal,

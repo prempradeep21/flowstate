@@ -106,6 +106,43 @@ function artifactPayloadContext(payload: ArtifactPayload): string {
 }
 
 /** Text sent to the model, including notes for images and structured artifacts. */
+export function formatQuestionForContext(
+  card: Card,
+): string {
+  const question = card.question.trim();
+  if (!question) return question;
+
+  const notes: string[] = [];
+  const attachedImages = getQuestionAttachedImages(card);
+  if (attachedImages.length > 0) {
+    const alts = attachedImages.map((img) => img.alt).filter(Boolean);
+    notes.push(
+      alts.length > 0
+        ? `[User attached ${attachedImages.length} image(s): ${alts.join("; ")}]`
+        : `[User attached ${attachedImages.length} image(s) to this question]`,
+    );
+  }
+  if (card.attachedArtifacts?.length) {
+    notes.push(
+      `[User attached ${card.attachedArtifacts.length} artifact reference(s)]`,
+    );
+  }
+  if (card.attachedAssets?.length) {
+    notes.push(
+      `[User attached ${card.attachedAssets.length} file asset(s)]`,
+    );
+  }
+  if (card.attachedSkills?.length) {
+    notes.push(`[User attached ${card.attachedSkills.length} skill(s)]`);
+  }
+  if (card.pendingFiles?.length) {
+    notes.push(`[User attached ${card.pendingFiles.length} uploaded file(s)]`);
+  }
+
+  return notes.length > 0 ? `${question}\n\n${notes.join("\n")}` : question;
+}
+
+/** Text sent to the model, including notes for images and structured artifacts. */
 export function formatAnswerForContext(
   card: Card,
   sessionArtifacts: Record<string, SessionArtifact> = {},
@@ -149,6 +186,42 @@ function lateralSourceId(
 }
 
 /**
+ * Root-to-leaf ancestor card ids for a card (excluding the card itself).
+ */
+export function collectAncestorCardIds(
+  graph: HistoryGraph,
+  cardId: string,
+): string[] {
+  const ids: string[] = [];
+  const visited = new Set<string>();
+
+  let parentId: string | null =
+    graph.cards[cardId]?.parentConversationId ??
+    graph.cards[cardId]?.parentCardId ??
+    null;
+
+  if (!parentId) {
+    parentId = lateralSourceId(graph, cardId);
+  }
+
+  const chain: string[] = [];
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    chain.push(parentId);
+    const parent = graph.cards[parentId];
+    if (!parent) break;
+
+    const nextViaCard =
+      parent.parentConversationId ?? parent.parentCardId ?? null;
+    parentId = nextViaCard ?? lateralSourceId(graph, parentId);
+  }
+
+  chain.reverse();
+  ids.push(...chain);
+  return ids;
+}
+
+/**
  * All ancestor Q&A for a card: vertical chain (parentCardId) plus lateral
  * branch source (parentConversationId / side connection).
  */
@@ -185,7 +258,10 @@ export function buildAncestorHistory(
       parent.outputArtifactId;
 
     if (parent.question.trim() && hasContent) {
-      history.unshift({ question: parent.question.trim(), answer });
+      history.unshift({
+        question: formatQuestionForContext(parent),
+        answer,
+      });
     }
 
     const nextViaCard =

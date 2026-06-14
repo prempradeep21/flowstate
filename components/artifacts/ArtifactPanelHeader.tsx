@@ -7,6 +7,7 @@ import {
   useCanvasFloatingMenuPosition,
 } from "@/components/CanvasFloatingMenu";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { EditableArtifactTitle } from "@/components/artifacts/EditableArtifactTitle";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import { ArtifactCopyCodeButton, ArtifactCodeCopyButton } from "@/components/artifacts/ArtifactCopyCodeButton";
 import { ArtifactExportMenu } from "@/components/artifacts/ArtifactExportMenu";
@@ -53,6 +54,9 @@ function ExternalLinkIcon({ className }: { className?: string }) {
 export function ArtifactPanelHeader({
   kind,
   title,
+  renameTitle,
+  canRenameTitle = false,
+  onRenameTitle,
   artifactId,
   versions,
   activeVersionId,
@@ -70,6 +74,9 @@ export function ArtifactPanelHeader({
 }: {
   kind: ArtifactKind;
   title: string;
+  renameTitle?: string;
+  canRenameTitle?: boolean;
+  onRenameTitle?: (title: string) => void;
   artifactId?: string;
   versions: ArtifactVersion[];
   activeVersionId: string;
@@ -183,9 +190,12 @@ export function ArtifactPanelHeader({
           />
         </span>
       </span>
-      <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
-        {title}
-      </h2>
+      <EditableArtifactTitle
+        displayTitle={title}
+        renameTitle={renameTitle ?? title}
+        canRename={canRenameTitle && Boolean(onRenameTitle)}
+        onRename={(next) => onRenameTitle?.(next)}
+      />
 
       {showArtifactEdit && (
         <button
@@ -234,7 +244,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
         >
           Visit website
           <ExternalLinkIcon />
@@ -245,7 +255,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
         >
           Open in Google
           <ExternalLinkIcon />

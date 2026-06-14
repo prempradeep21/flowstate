@@ -54,7 +54,6 @@ export function ArtifactContent({
   versionId,
   onCodeActiveFileChange,
   todoContext,
-  stickyContext,
   mapCanEdit = false,
   calendarCanEdit = false,
   timelineCanEdit = false,
@@ -73,16 +72,6 @@ export function ArtifactContent({
     isEditing: boolean;
     onDirtyChange?: (dirty: boolean) => void;
     onActionsReady?: (actions: import("@/components/artifacts/TodoArtifactContent").TodoArtifactActions) => void;
-    onSaved?: () => void;
-  };
-  stickyContext?: {
-    isEditing: boolean;
-    onDirtyChange?: (dirty: boolean) => void;
-    onActionsReady?: (
-      actions: import("@/components/artifacts/StickyNoteArtifactContent").StickyNoteArtifactActions,
-    ) => void;
-    onRequestEdit?: () => void;
-    onDone?: () => void;
     onSaved?: () => void;
   };
   mapCanEdit?: boolean;
@@ -342,7 +331,6 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             canvasContentInteractive={canvasInteractive}
-            stickyContext={stickyContext}
           />
         );
       }

@@ -27,11 +27,21 @@ interface IncomingFile {
   name: string;
   type: string;
   data: string;
+  turnLabel?: string;
 }
 
 interface HistoryMessage {
   question: string;
   answer: string;
+}
+
+function mapIncomingFiles(files?: IncomingFile[]) {
+  return (files ?? []).map((file) => ({
+    name: file.name,
+    mimeType: file.type,
+    base64: file.data,
+    turnLabel: file.turnLabel,
+  }));
 }
 
 function canUseAnthropicFallback(): boolean {
@@ -58,11 +68,13 @@ export async function POST(req: Request) {
   const body = (await req.json()) as {
     question: string;
     history?: HistoryMessage[];
+    files?: IncomingFile[];
     editingArtifact?: { artifactId: string; payload: unknown };
     model?: string;
   };
 
-  const { question, history: rawHistory = [], editingArtifact, model } = body;
+  const { question, history: rawHistory = [], files, editingArtifact, model } = body;
+  const attachmentFiles = mapIncomingFiles(files);
   const intentQuestion = stripAppendedQuestionContext(question);
   const editingPayload =
     editingArtifact?.payload &&
@@ -117,6 +129,7 @@ export async function POST(req: Request) {
         const fallback = await streamCustomUiViaAnthropic({
           question,
           history: rawHistory,
+          files: attachmentFiles,
           editingArtifact,
           model,
           emit,
@@ -198,6 +211,7 @@ export async function POST(req: Request) {
         const result = await runCustomUiGenerator({
           question,
           history: rawHistory,
+          files: attachmentFiles,
           editingArtifact,
           onProgress: (payload) => emit(payload),
           onArtifact: (artifact) => {

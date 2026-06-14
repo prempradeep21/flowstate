@@ -133,6 +133,55 @@ export function artifactDisplayTitle(
   return v.payload.title || artifact.title;
 }
 
+/** User-facing title stored on the artifact (not e.g. active code file path). */
+export function artifactRenameTitle(artifact: SessionArtifact): string {
+  return artifact.title.trim() || "Untitled";
+}
+
+/** Apply a user rename across payload top-level and kind-specific title fields. */
+export function patchArtifactPayloadTitle(
+  payload: ArtifactPayload,
+  title: string,
+): ArtifactPayload {
+  const trimmed = title.trim();
+  if (!trimmed) return payload;
+
+  switch (payload.type) {
+    case "website":
+      return {
+        ...payload,
+        title: trimmed,
+        data: { ...payload.data, title: trimmed },
+      };
+    case "google-doc":
+      return {
+        ...payload,
+        title: trimmed,
+        data: { ...payload.data, title: trimmed },
+      };
+    case "images": {
+      const items = payload.data.items.map((item, i) =>
+        i === 0 && item.kind === "youtube" ? { ...item, title: trimmed } : item,
+      );
+      return { ...payload, title: trimmed, data: { ...payload.data, items } };
+    }
+    case "repo":
+      return {
+        ...payload,
+        title: trimmed,
+        data: { ...payload.data, displayTitle: trimmed },
+      };
+    case "embed":
+      return {
+        ...payload,
+        title: trimmed,
+        data: { ...payload.data, title: trimmed },
+      };
+    default:
+      return { ...payload, title: trimmed };
+  }
+}
+
 export function previewLabelForCard(
   artifacts: Record<string, SessionArtifact>,
   card: Card,

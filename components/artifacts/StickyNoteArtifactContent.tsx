@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import type {
   ArtifactPayload,
   StickyNoteColorId,
@@ -9,22 +8,12 @@ import type {
 import {
   STICKY_NOTE_BODY_DEFAULT_HEIGHT,
   STICKY_NOTE_BODY_MIN_HEIGHT,
-  STICKY_NOTE_COLOR_IDS,
-  STICKY_NOTE_PALETTE,
+  STICKY_NOTE_PICKER_COLOR_IDS,
   normalizeStickyNotePayload,
   stickyNoteContentFloors,
   stickyNoteThemeColors,
 } from "@/lib/stickyNoteArtifact";
-import {
-  decrementLocalEditGuard,
-  incrementLocalEditGuard,
-} from "@/lib/localEditGuard";
 import { useCanvasStore } from "@/lib/store";
-
-export type StickyNoteArtifactActions = {
-  save: () => void;
-  discard: () => void;
-};
 
 function ColorSwatch({
   colorId,
@@ -42,13 +31,13 @@ function ColorSwatch({
     <button
       type="button"
       disabled={disabled}
-      aria-label={`${colorId} note`}
+      aria-label={colorId === "turbo" ? "Yellow note" : "Dark gray note"}
       aria-pressed={selected}
       onClick={onSelect}
-      className={`h-5 w-5 rounded-full border transition-transform ${
+      className={`h-4 w-4 rounded-full border ${
         selected
-          ? "scale-110 border-canvas-ink/50 ring-2 ring-canvas-ink/25"
-          : "border-canvas-ink/15 hover:scale-105"
+          ? "border-canvas-ink/50 ring-1 ring-canvas-ink/25"
+          : "border-canvas-ink/20"
       } ${disabled ? "cursor-default opacity-60" : "cursor-pointer"}`}
       style={{ backgroundColor: bg }}
       data-no-drag
@@ -69,130 +58,76 @@ export function StickyNoteArtifactContent({
   fill = false,
   sidebar = false,
   canvasContentInteractive = true,
-  stickyContext,
 }: {
   payload: Extract<ArtifactPayload, { type: "stickynote" }>;
   artifactId?: string;
   fill?: boolean;
   sidebar?: boolean;
   canvasContentInteractive?: boolean;
-  stickyContext?: {
-    isEditing: boolean;
-    onDirtyChange?: (dirty: boolean) => void;
-    onActionsReady?: (actions: StickyNoteArtifactActions) => void;
-    onRequestEdit?: () => void;
-    onDone?: () => void;
-    onSaved?: () => void;
-  };
 }) {
   const saveStickyNoteArtifactVersion = useCanvasStore(
     (s) => s.saveStickyNoteArtifactVersion,
   );
 
-  const isEditing = stickyContext?.isEditing ?? false;
   const [draft, setDraft] = useState(payload);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isDirty = !payloadsEqual(draft, payload);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isDirty) return;
-    setDraft(payload);
-  }, [payload, isDirty]);
-
-  useEffect(() => {
-    if (!isEditing || !isDirty) return;
-    incrementLocalEditGuard();
-    return () => decrementLocalEditGuard();
-  }, [isEditing, isDirty]);
-
-  useEffect(() => {
-    stickyContext?.onDirtyChange?.(isDirty);
-  }, [isDirty, stickyContext]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    const id = window.requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      const len = textareaRef.current?.value.length ?? 0;
-      textareaRef.current?.setSelectionRange(len, len);
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [isEditing]);
-
-  const canInteract = !sidebar && canvasContentInteractive;
-  const readOnly = !isEditing || !canInteract;
-  const colors = stickyNoteThemeColors(draft.data.colorId);
-
-  const handleSave = useCallback(() => {
-    if (!artifactId || !isDirty) return;
-    const nextPayload = normalizeStickyNotePayload(draft);
-    saveStickyNoteArtifactVersion(artifactId, nextPayload);
-    stickyContext?.onSaved?.();
-  }, [
-    artifactId,
-    draft,
-    isDirty,
-    saveStickyNoteArtifactVersion,
-    stickyContext,
-  ]);
-
-  const handleDiscard = useCallback(() => {
     setDraft(payload);
   }, [payload]);
 
-  useEffect(() => {
-    stickyContext?.onActionsReady?.({
-      save: handleSave,
-      discard: handleDiscard,
-    });
-  }, [handleDiscard, handleSave, stickyContext]);
-
-  const toolbarBtn =
-    "flex h-9 shrink-0 items-center rounded-full px-4 text-canvas-body-sm font-medium transition-colors";
-
-  const editControl = !isEditing ? (
-    <button
-      type="button"
-      onClick={() => stickyContext?.onRequestEdit?.()}
-      className={`${toolbarBtn} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
-      data-no-drag
-    >
-      Edit
-    </button>
-  ) : isDirty ? (
-    <button
-      type="button"
-      onClick={handleSave}
-      className={`${toolbarBtn} bg-canvas-accent text-white hover:opacity-90`}
-      data-no-drag
-    >
-      Save
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={() => stickyContext?.onDone?.()}
-      className={`${toolbarBtn} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
-      data-no-drag
-    >
-      Cancel
-    </button>
+  const persist = useCallback(
+    (next: Extract<ArtifactPayload, { type: "stickynote" }>) => {
+      if (!artifactId) return;
+      const normalized = normalizeStickyNotePayload(next);
+      if (payloadsEqual(normalized, payload)) return;
+      saveStickyNoteArtifactVersion(artifactId, normalized);
+    },
+    [artifactId, payload, saveStickyNoteArtifactVersion],
   );
 
-  const handleExitEdit = useCallback(() => {
-    if (isDirty) handleDiscard();
-    stickyContext?.onDone?.();
-  }, [handleDiscard, isDirty, stickyContext]);
+  const schedulePersist = useCallback(
+    (next: Extract<ArtifactPayload, { type: "stickynote" }>) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => persist(next), 400);
+    },
+    [persist],
+  );
+
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    },
+    [],
+  );
+
+  const canInteract = !sidebar && canvasContentInteractive;
+  const colors = stickyNoteThemeColors(draft.data.colorId);
 
   const handleColorSelect = (nextColorId: StickyNoteColorId) => {
-    if (readOnly) return;
-    setDraft((prev) => ({
-      ...prev,
-      data: { ...prev.data, colorId: nextColorId },
-    }));
+    if (!canInteract) return;
+    const next = {
+      ...draft,
+      data: { ...draft.data, colorId: nextColorId },
+    };
+    setDraft(next);
+    persist(next);
   };
 
-  const displayText = draft.data.text.trim() || (sidebar ? "" : "Write a note…");
+  const handleTextChange = (text: string) => {
+    const next = { ...draft, data: { ...draft.data, text } };
+    setDraft(next);
+    schedulePersist(next);
+  };
+
+  const handleBlur = () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    persist(draft);
+  };
+
   const contentFloors = stickyNoteContentFloors();
   const bodyMinHeight = fill
     ? STICKY_NOTE_BODY_DEFAULT_HEIGHT
@@ -209,51 +144,43 @@ export function StickyNoteArtifactContent({
         minWidth: fill ? contentFloors.minWidth : undefined,
         minHeight: bodyMinHeight,
       }}
-      onDoubleClick={() => {
-        if (canInteract && !isEditing) stickyContext?.onRequestEdit?.();
-      }}
     >
-      {isEditing && canInteract ? (
+      {canInteract ? (
         <textarea
-          ref={textareaRef}
           value={draft.data.text}
-          onChange={(e) => {
-            setDraft((prev) => ({
-              ...prev,
-              data: { ...prev.data, text: e.target.value },
-            }));
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              if (isDirty) {
-                handleSave();
-              } else {
-                handleExitEdit();
-              }
-            }
-          }}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onBlur={handleBlur}
           placeholder="Write a note…"
           data-selectable-text
-          className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-4 pb-2 pt-4 text-[15px] leading-relaxed outline-none placeholder:opacity-50"
+          className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-4 py-4 text-[15px] leading-relaxed outline-none placeholder:opacity-50"
           style={{ color: colors.ink }}
         />
       ) : (
         <div
-          className={`flex-1 overflow-y-auto px-4 pb-2 pt-4 text-[15px] leading-relaxed ${
+          className={`flex-1 overflow-y-auto px-4 py-4 text-[15px] leading-relaxed ${
             !draft.data.text.trim() ? "opacity-50" : ""
           } ${sidebar ? "line-clamp-4" : "whitespace-pre-wrap break-words"}`}
           data-selectable-text
         >
-          {displayText}
+          {draft.data.text.trim() || (sidebar ? "" : "Write a note…")}
         </div>
       )}
 
-      <div className="flex items-center justify-end px-4 pb-3 pt-0">
-        <span className="text-[10px] font-medium uppercase tracking-wide opacity-35">
-          {STICKY_NOTE_PALETTE[draft.data.colorId]?.label ?? "Turbo"}
-        </span>
-      </div>
+      {canInteract ? (
+        <div
+          className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5"
+          data-no-drag
+        >
+          {STICKY_NOTE_PICKER_COLOR_IDS.map((id) => (
+            <ColorSwatch
+              key={id}
+              colorId={id}
+              selected={id === draft.data.colorId}
+              onSelect={() => handleColorSelect(id)}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -262,32 +189,10 @@ export function StickyNoteArtifactContent({
   }
 
   return (
-    <ArtifactContentStage
-      fill={fill}
-      artifactId={artifactId}
-      showControls={canInteract}
-      canvasChrome={fill}
-      className="!bg-transparent min-h-0 flex-1"
-      controls={
-        canInteract ? (
-          <>
-            <div className="flex min-w-0 items-center gap-2">
-              {STICKY_NOTE_COLOR_IDS.map((id) => (
-                <ColorSwatch
-                  key={id}
-                  colorId={id}
-                  selected={id === draft.data.colorId}
-                  disabled={readOnly}
-                  onSelect={() => handleColorSelect(id)}
-                />
-              ))}
-              {editControl}
-            </div>
-          </>
-        ) : undefined
-      }
+    <div
+      className={`min-h-0 flex-1 ${fill ? "flex flex-col" : ""}`}
     >
       {noteBody}
-    </ArtifactContentStage>
+    </div>
   );
 }

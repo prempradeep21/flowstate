@@ -74,6 +74,20 @@ export function getLastCanvasClipboard(): CanvasClipboardPayload | null {
   return lastCanvasClipboard;
 }
 
+function rememberCanvasClipboardPayload(
+  payload: CanvasClipboardPayload,
+): CanvasClipboardPayload {
+  lastCanvasClipboard = payload;
+  return payload;
+}
+
+/** Drop in-memory cache when the system clipboard holds non-canvas plain text. */
+function invalidateCanvasClipboardCacheIfExternalPlainText(raw: string): void {
+  if (raw.trim() && !parseCanvasClipboardPayload(raw)) {
+    lastCanvasClipboard = null;
+  }
+}
+
 export function getCopyableSelectionItems(
   state: CanvasNodesState & {
     canvasSelection: CanvasSelectionItem[];
@@ -382,17 +396,22 @@ export function readCanvasClipboardFromDataTransfer(
   dataTransfer: DataTransfer | null | undefined,
 ): CanvasClipboardPayload | null {
   if (!dataTransfer) return null;
-  const raw =
-    dataTransfer.getData(CANVAS_CLIPBOARD_MIME) ||
-    dataTransfer.getData("text/plain");
-  const parsed = parseCanvasClipboardPayload(raw);
-  if (parsed) return parsed;
+
+  const customRaw = dataTransfer.getData(CANVAS_CLIPBOARD_MIME);
+  if (customRaw) {
+    const parsed = parseCanvasClipboardPayload(customRaw);
+    if (parsed) return rememberCanvasClipboardPayload(parsed);
+  }
+
+  const plain = dataTransfer.getData("text/plain");
+  const parsed = parseCanvasClipboardPayload(plain);
+  if (parsed) return rememberCanvasClipboardPayload(parsed);
+
+  invalidateCanvasClipboardCacheIfExternalPlainText(plain);
   return null;
 }
 
 export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | null> {
-  if (lastCanvasClipboard) return lastCanvasClipboard;
-
   if (typeof navigator !== "undefined" && navigator.clipboard?.read) {
     try {
       const items = await navigator.clipboard.read();
@@ -401,15 +420,33 @@ export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | nu
           const blob = await item.getType(CANVAS_CLIPBOARD_MIME);
           const raw = await blob.text();
           const parsed = parseCanvasClipboardPayload(raw);
-          if (parsed) return parsed;
+          if (parsed) return rememberCanvasClipboardPayload(parsed);
         }
+      }
+      for (const item of items) {
         if (item.types.includes("text/plain")) {
           const blob = await item.getType("text/plain");
           const raw = await blob.text();
           const parsed = parseCanvasClipboardPayload(raw);
-          if (parsed) return parsed;
+          if (parsed) return rememberCanvasClipboardPayload(parsed);
+          invalidateCanvasClipboardCacheIfExternalPlainText(raw);
+          return null;
         }
       }
+      lastCanvasClipboard = null;
+      return null;
+    } catch {
+      // Fall through to in-memory cache when read permission is denied.
+    }
+  }
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+    try {
+      const raw = await navigator.clipboard.readText();
+      const parsed = parseCanvasClipboardPayload(raw);
+      if (parsed) return rememberCanvasClipboardPayload(parsed);
+      invalidateCanvasClipboardCacheIfExternalPlainText(raw);
+      return null;
     } catch {
       // Fall through to in-memory cache.
     }
@@ -421,7 +458,7 @@ export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | nu
 export async function writeCanvasClipboard(
   payload: CanvasClipboardPayload,
 ): Promise<boolean> {
-  lastCanvasClipboard = payload;
+  rememberCanvasClipboardPayload(payload);
   const json = JSON.stringify(payload);
 
   if (typeof navigator !== "undefined" && navigator.clipboard?.write) {

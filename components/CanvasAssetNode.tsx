@@ -7,8 +7,7 @@ import {
   useState,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
-import { AssetKindIcon } from "@/components/canvas/AssetKindIcon";
-import { OfficeAssetPreview } from "@/components/canvas/OfficeAssetPreview";
+import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -30,13 +29,8 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
-import {
-  CANVAS_ASSET_ICON_SIZE_PX,
-  CANVAS_ASSET_TITLE_MAX_WIDTH_PX,
-} from "@/lib/design/canvasInsets";
-import { canvasSpacing } from "@/lib/design/tokens";
 import { isGodViewMode } from "@/lib/zoomDisplay";
-import { isPreviewableOfficeKind } from "@/lib/officeAssetKinds";
+import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 
 const DRAG_THRESHOLD_PX = 4;
 const INTERACTIVE =
@@ -57,17 +51,19 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
-  const [officeInteractive, setOfficeInteractive] = useState(false);
+  const [contentInteractive, setContentInteractive] = useState(false);
 
   const asset = assets[node.assetId];
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
-  const hasRichPreview =
-    asset?.kind === "image" ||
-    (asset ? isPreviewableOfficeKind(asset.kind) : false);
+  const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
+  const previewKind = asset ? resolvePreviewKind(asset) : null;
+  const needsClickToInteract = previewKind
+    ? previewRequiresClickToInteract(previewKind)
+    : false;
   const godView = isGodViewMode(scale);
 
   useEffect(() => {
-    if (!isSelected) setOfficeInteractive(false);
+    if (!isSelected) setContentInteractive(false);
   }, [isSelected]);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -295,68 +291,23 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          {asset.kind === "image" ? (
-            // No backdrop fill — transparent PNGs float directly on the canvas.
-            <div className="h-full w-full overflow-hidden rounded-canvas">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={asset.publicUrl}
-                alt={asset.name}
-                draggable={false}
-                className="h-full w-full object-contain"
-              />
-            </div>
-          ) : isPreviewableOfficeKind(asset.kind) ? (
-            <div className="h-full w-full overflow-hidden rounded-canvas">
-              <OfficeAssetPreview
-                asset={asset}
-                interactive={officeInteractive && isSelected}
-                onActivate={() => setOfficeInteractive(true)}
-                noDrag={isSelected}
-              />
-            </div>
-          ) : (
-            <div
-              className="flex h-full w-full items-center rounded-canvas"
-              style={{
-                gap: canvasSpacing.compact,
-                padding: canvasSpacing.compact,
-                paddingLeft: canvasSpacing.section,
-                paddingRight: canvasSpacing.section,
-              }}
-            >
-              <span
-                className="flex shrink-0 items-center justify-center rounded-canvas bg-canvas-artifactIconBg text-canvas-muted"
-                style={{
-                  width: CANVAS_ASSET_ICON_SIZE_PX,
-                  height: CANVAS_ASSET_ICON_SIZE_PX,
-                }}
-              >
-                <AssetKindIcon
-                  kind={
-                    asset.kind === "code" ||
-                    asset.kind === "spreadsheet" ||
-                    asset.kind === "word" ||
-                    asset.kind === "presentation"
-                      ? asset.kind
-                      : "document"
-                  }
-                  className="h-7 w-7"
-                />
-              </span>
-              <span className="min-w-0 shrink">
-                <span
-                  className="line-clamp-2 block break-words text-canvas-body font-medium leading-snug text-canvas-ink"
-                  style={{ maxWidth: CANVAS_ASSET_TITLE_MAX_WIDTH_PX }}
-                >
-                  {asset.name}
-                </span>
-                <span className="block text-canvas-caption uppercase tracking-wide text-canvas-muted">
-                  {asset.kind}
-                </span>
-              </span>
-            </div>
-          )}
+          <div className="h-full w-full overflow-hidden rounded-canvas">
+            <AssetContentPreview
+              asset={asset}
+              layout="canvas"
+              interactive={
+                needsClickToInteract
+                  ? contentInteractive && isSelected
+                  : isSelected
+              }
+              onActivate={
+                needsClickToInteract
+                  ? () => setContentInteractive(true)
+                  : undefined
+              }
+              noDrag={isSelected}
+            />
+          </div>
         </CanvasSharpContent>
 
         {!canvasReadOnly && (

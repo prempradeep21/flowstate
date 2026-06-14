@@ -11,6 +11,8 @@ import {
 } from "@/lib/cursorSdk/customUiPrompt";
 import { SdkBuildProgressTracker } from "@/lib/cursorSdk/sdkStageLabels";
 import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
+import { buildSdkUserMessage } from "@/lib/cursorSdk/sdkUserMessage";
+import type { AskAttachmentFile } from "@/lib/askAttachments";
 import { extractAssistantText } from "@/lib/cursorSdk/extractAssistantText";
 import {
   getCursorSdkRuntimeIssue,
@@ -61,6 +63,7 @@ function withTimeout<T>(
 export interface RunCustomUiGeneratorInput {
   question: string;
   history: CustomUiHistoryMessage[];
+  files?: AskAttachmentFile[];
   editingArtifact?: { artifactId: string; payload: unknown } | null;
   onProgress: (payload: {
     thinking: string;
@@ -204,7 +207,7 @@ async function runAgentOnce(
   apiKey: string,
   onCapture: (payload: CustomArtifactPayload) => void,
   sandboxEnabled: boolean,
-  prompt: string,
+  userMessage: string | import("@cursor/sdk").SDKUserMessage,
   progress: SdkBuildProgressTracker,
   assistantEvents: SDKMessage[],
   signal?: AbortSignal,
@@ -237,7 +240,7 @@ async function runAgentOnce(
     try {
       progress.pulseConnect("Sending build prompt…");
       run = await withTimeout(
-        agent.send(prompt, { local: { force: true } }),
+        agent.send(userMessage, { local: { force: true } }),
         AGENT_START_TIMEOUT_MS,
         "AGENT_START_TIMEOUT",
         signal,
@@ -346,6 +349,7 @@ export async function runCustomUiGenerator(
     history: input.history,
     editingPayload,
   });
+  const userMessage = buildSdkUserMessage(prompt, input.files ?? []);
 
   let sandboxEnabled = resolveSandboxEnabled();
 
@@ -361,7 +365,7 @@ export async function runCustomUiGenerator(
           apiKey,
           onCapture,
           sandboxEnabled,
-          prompt,
+          userMessage,
           progress,
           assistantEvents,
           input.signal,

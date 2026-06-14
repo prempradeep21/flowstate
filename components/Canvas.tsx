@@ -24,8 +24,6 @@ import {
   resolveCanvasContextHit,
 } from "@/lib/canvasContextSelection";
 import {
-  getLastCanvasClipboard,
-  parseCanvasClipboardPayload,
   readCanvasClipboardFromDataTransfer,
 } from "@/lib/canvasClipboard";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
@@ -929,41 +927,6 @@ export function Canvas({
         return;
       }
 
-      if (mod && e.code === "KeyV" && !e.altKey) {
-        const target = e.target as HTMLElement | null;
-        if (target) {
-          const tag = target.tagName;
-          if (tag === "INPUT" || tag === "TEXTAREA") return;
-          if (target.isContentEditable) return;
-        }
-        if (useCanvasStore.getState().canvasReadOnly) return;
-
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const canvasPtr = canvasPointerRef.current;
-        const cursor = cursorRef.current;
-        const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
-        const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
-        const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
-        const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
-        const world = computeWorldFromClient(clientX, clientY);
-        if (!world) return;
-
-        const payload = getLastCanvasClipboard();
-        if (payload) {
-          const pasted = useCanvasStore.getState().pasteCanvasClipboardAt(
-            world,
-            payload,
-            { canvasId: activeCanvasId ?? undefined },
-          );
-          if (pasted) {
-            e.preventDefault();
-            setContextMenu(null);
-          }
-        }
-        return;
-      }
-
       if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
 
@@ -1325,15 +1288,7 @@ export function Canvas({
       const world = computeWorldFromClient(clientX, clientY);
       if (!world) return;
 
-      let internalPayload = readCanvasClipboardFromDataTransfer(e.clipboardData);
-      if (!internalPayload) {
-        const plain = e.clipboardData?.getData("text/plain") ?? "";
-        const plainIsOurs =
-          plain.trim().length > 0 && parseCanvasClipboardPayload(plain);
-        if (!plainIsOurs) {
-          internalPayload = getLastCanvasClipboard();
-        }
-      }
+      const internalPayload = readCanvasClipboardFromDataTransfer(e.clipboardData);
       if (internalPayload && !useCanvasStore.getState().canvasReadOnly) {
         const pasted = useCanvasStore.getState().pasteCanvasClipboardAt(
           world,

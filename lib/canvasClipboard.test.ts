@@ -6,6 +6,8 @@ import {
   computePastePosition,
   getCopyableSelectionItems,
   parseCanvasClipboardPayload,
+  readCanvasClipboardFromDataTransfer,
+  writeCanvasClipboard,
 } from "@/lib/canvasClipboard";
 import type { CanvasNodesState } from "@/lib/canvasSelection";
 import {
@@ -279,5 +281,88 @@ describe("parseCanvasClipboardPayload", () => {
     expect(parseCanvasClipboardPayload("")).toBeNull();
     expect(parseCanvasClipboardPayload("{}")).toBeNull();
     expect(parseCanvasClipboardPayload('{"version":2,"items":[]}')).toBeNull();
+  });
+});
+
+describe("readCanvasClipboardFromDataTransfer", () => {
+  function mockDataTransfer(data: Record<string, string>): DataTransfer {
+    return {
+      getData(type: string) {
+        return data[type] ?? "";
+      },
+    } as DataTransfer;
+  }
+
+  it("returns canvas payload from custom mime", async () => {
+    const payload = buildCanvasClipboardPayload(
+      baseCanvasState({
+        canvasSelection: [],
+      }),
+    );
+    expect(payload).toBeNull();
+
+    const art = createSessionArtifactFromPayload(
+      { type: "todo", title: "List", data: { items: [] } },
+      "__manual__",
+    );
+    const built = buildCanvasClipboardPayload(
+      baseCanvasState({
+        sessionArtifacts: { [art.id]: art },
+        canvasArtifactNodes: {
+          n1: {
+            id: "n1",
+            artifactId: art.id,
+            versionId: art.latestVersionId,
+            sourceCardId: "__manual__",
+            position: { x: 0, y: 0 },
+          },
+        },
+        canvasSelection: [{ kind: "artifact", id: "n1" }],
+      }),
+    );
+    expect(built).not.toBeNull();
+
+    await writeCanvasClipboard(built!);
+
+    const fromMime = readCanvasClipboardFromDataTransfer(
+      mockDataTransfer({
+        "application/x-flowstate-canvas-clipboard": JSON.stringify(built),
+      }),
+    );
+    expect(fromMime).toEqual(built);
+  });
+
+  it("clears in-memory cache when plain text is external", async () => {
+    const art = createSessionArtifactFromPayload(
+      { type: "todo", title: "List", data: { items: [] } },
+      "__manual__",
+    );
+    const built = buildCanvasClipboardPayload(
+      baseCanvasState({
+        sessionArtifacts: { [art.id]: art },
+        canvasArtifactNodes: {
+          n1: {
+            id: "n1",
+            artifactId: art.id,
+            versionId: art.latestVersionId,
+            sourceCardId: "__manual__",
+            position: { x: 0, y: 0 },
+          },
+        },
+        canvasSelection: [{ kind: "artifact", id: "n1" }],
+      }),
+    );
+    expect(built).not.toBeNull();
+    await writeCanvasClipboard(built!);
+
+    const external = readCanvasClipboardFromDataTransfer(
+      mockDataTransfer({ "text/plain": "https://example.com/page" }),
+    );
+    expect(external).toBeNull();
+
+    const afterExternal = readCanvasClipboardFromDataTransfer(
+      mockDataTransfer({ "text/plain": "" }),
+    );
+    expect(afterExternal).toBeNull();
   });
 });
