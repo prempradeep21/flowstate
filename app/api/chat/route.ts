@@ -1,15 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { ARTIFACT_PROMPT } from "@/lib/artifactPrompt";
-import {
-  CUSTOM_ARTIFACT_MAX_BYTES,
-  customArtifactByteSize,
-  normalizeCustomArtifactData,
-} from "@/lib/customArtifact";
-import { geocodeMapArtifact } from "@/lib/geocoding";
-import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
-import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
-import { fetchChartData } from "@/lib/chartDataFetch";
-import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
   CALENDAR_INTENT_SYSTEM_NOTE,
   CALENDAR_THINKING_LABEL,
@@ -28,28 +17,18 @@ import {
   TIMELINE_THINKING_LABEL,
   TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
-import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
-import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { loadMcpConfig } from "@/lib/mcpConfig";
-import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
-import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
-
-const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
-  name: "search_images",
-  description:
-    "Search for and display EXISTING real-world photos from Wikimedia Commons. Use ONLY when the user wants to see real photographs of places, landmarks, people, or things — NOT for AI image generation or creative/artistic image requests. For generation requests, use a connected image-generation MCP tool instead.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      query: { type: "string", description: "The image search query" },
-      count: {
-        type: "number",
-        description: "Number of images to show (default 4, max 6)",
-      },
-    },
-    required: ["query"],
-  },
-};
+import { getMcpTools } from "@/lib/mcpManager";
+import type { McpToolsResult } from "@/lib/mcpManager";
+import { getModelProvider, modelSupportsTools } from "@/lib/models";
+import type {
+  NeutralContentPart,
+  NeutralMessage,
+  NeutralToolDef,
+} from "@/lib/llm/provider";
+import { BUILTIN_TOOLS, createToolExecutor } from "@/lib/llm/tools";
+import { anthropicProvider } from "@/lib/llm/anthropicProvider";
+import { openrouterProvider } from "@/lib/llm/openrouterProvider";
 
 const BASE_SYSTEM =
   `You are a helpful AI assistant with access to tools.\n\n` +
@@ -59,136 +38,35 @@ const BASE_SYSTEM =
   `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
   ARTIFACT_PROMPT;
 
-const FETCH_CHART_DATA_TOOL: Anthropic.Tool = {
-  name: "fetch_chart_data",
-  description:
-    "Research numeric data for a chart visualization. Call before emit_artifact type chart when the user did not supply complete numbers.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      topic: { type: "string", description: "Subject to research" },
-      chartType: {
-        type: "string",
-        enum: ["bar", "area", "line", "pie", "gauge"],
-        description: "Intended chart type",
-      },
-      timeRange: {
-        type: "string",
-        description: "Optional range e.g. 2018-2024",
-      },
-      unit: {
-        type: "string",
-        description: "Optional unit e.g. USD, hours, %",
-      },
-    },
-    required: ["topic", "chartType"],
-  },
-};
-
-const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
-  name: "emit_artifact",
-  description:
-    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, calendars, timelines, charts, or to-do lists. Put brief context in your text reply; put structured content here.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      type: {
-        type: "string",
-        enum: ["table", "code", "video", "custom", "3d", "map", "streetview", "todo", "calendar", "timeline", "chart"],
-        description: "Artifact type to render on the card",
-      },
-      title: { type: "string", description: "Card artifact title" },
-      description: {
-        type: "string",
-        description: "Optional short subtitle",
-      },
-      data: {
-        type: "object",
-        description:
-          "Type-specific payload. For custom: { html, css?, js? }. For table: { columns, rows }. For 3d: { modelUrl, format? }. For map: { place: { name } }. For todo: { items: [{ label, checked, dueDate?, priority? }] }.",
-      },
-    },
-    required: ["type", "title", "data"],
-  },
-};
-
-async function fetchWikimedia(
-  query: string,
-  count: number,
-): Promise<{ url: string; thumb: string; alt: string }[]> {
-  const url = new URL("https://commons.wikimedia.org/w/api.php");
-  url.searchParams.set("action", "query");
-  url.searchParams.set("generator", "search");
-  url.searchParams.set("gsrsearch", query);
-  url.searchParams.set("gsrnamespace", "6");
-  url.searchParams.set("gsrlimit", String(Math.min(count * 2, 12)));
-  url.searchParams.set("prop", "imageinfo");
-  url.searchParams.set("iiprop", "url|extmetadata");
-  url.searchParams.set("iiurlwidth", "800");
-  url.searchParams.set("format", "json");
-  url.searchParams.set("origin", "*");
-
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": "FlowstateApp/1.0" },
-  });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  const pages = Object.values(
-    (data?.query?.pages ?? {}) as Record<string, unknown>,
-  ) as Record<string, unknown>[];
-
-  return pages
-    .filter((p) => {
-      const info = (p.imageinfo as Record<string, unknown>[])?.[0];
-      if (!info) return false;
-      return /\.(jpe?g|png|webp)/i.test((info.url as string) ?? "");
-    })
-    .slice(0, count)
-    .map((p) => {
-      const info = (p.imageinfo as Record<string, unknown>[])[0];
-      return {
-        url: info.url as string,
-        thumb: (info.thumburl as string) || (info.url as string),
-        alt: ((p.title as string) ?? query)
-          .replace("File:", "")
-          .replace(/_/g, " "),
-      };
-    });
-}
-
-function mcpImages(imgs: McpImage[]) {
-  return imgs.map((img) => {
-    const dataUrl = `data:${img.mimeType};base64,${img.data}`;
-    return { url: dataUrl, thumb: dataUrl, alt: "Generated image", generated: true };
-  });
-}
-
-const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
+const EMPTY_MCP: McpToolsResult = { tools: [], registry: new Map() };
 
 /** Allow long tool-use turns (tables, charts) on serverless hosts. */
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: "ANTHROPIC_API_KEY is not configured" },
-      { status: 500 },
-    );
-  }
-  const anthropic = new Anthropic({ apiKey });
-
   interface IncomingFile { name: string; type: string; data: string; }
   interface HistoryMessage { question: string; answer: string; }
-  const { question, model, files, history: rawHistory, editingArtifact } = await req.json() as {
-    conversationId: string;
-    question: string;
-    model: string;
-    files?: IncomingFile[];
-    history?: HistoryMessage[];
-    editingArtifact?: { artifactId: string; payload: unknown };
-  };
+  const { question, model, files, history: rawHistory, editingArtifact } =
+    (await req.json()) as {
+      conversationId: string;
+      question: string;
+      model: string;
+      files?: IncomingFile[];
+      history?: HistoryMessage[];
+      editingArtifact?: { artifactId: string; payload: unknown };
+    };
+
+  // Pick the provider + its API key from the selected model.
+  const provider = getModelProvider(model);
+  const apiKey =
+    provider === "anthropic"
+      ? process.env.ANTHROPIC_API_KEY
+      : process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    const envName =
+      provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENROUTER_API_KEY";
+    return Response.json({ error: `${envName} is not configured` }, { status: 500 });
+  }
 
   const MAX_FULL_HISTORY = 8;
   const allHistory: HistoryMessage[] = rawHistory ?? [];
@@ -220,31 +98,22 @@ export async function POST(req: Request) {
     }
   }
 
-  const allTools: Anthropic.Tool[] = [
-    SEARCH_IMAGES_TOOL,
-    FETCH_CHART_DATA_TOOL,
-    EMIT_ARTIFACT_TOOL,
-    ...mcp.anthropicTools,
-  ];
+  // Tool calling drives artifacts; gate it to models that support it.
+  const supportsTools = modelSupportsTools(model);
+  const allTools: NeutralToolDef[] = supportsTools
+    ? [...BUILTIN_TOOLS, ...mcp.tools]
+    : [];
 
-  // Build the content for the current user message.
-  // If files are attached, send them as image/document blocks before the text.
-  const userContent: Anthropic.ContentBlockParam[] = [];
+  // Build the current user message (multimodal parts if files are attached).
+  const userParts: NeutralContentPart[] = [];
   for (const file of files ?? []) {
     if (file.type.startsWith("image/")) {
-      const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-      userContent.push({
-        type: "image",
-        source: { type: "base64", media_type: mediaType, data: file.data },
-      });
+      userParts.push({ type: "image", mediaType: file.type, data: file.data });
     } else if (file.type === "application/pdf") {
-      userContent.push({
-        type: "document",
-        source: { type: "base64", media_type: "application/pdf", data: file.data },
-      } as unknown as Anthropic.ContentBlockParam);
+      userParts.push({ type: "document", mediaType: file.type, data: file.data });
     }
   }
-  userContent.push({ type: "text", text: question });
+  userParts.push({ type: "text", text: question });
 
   const todoIntent = detectTodoListIntent(question);
   const calendarIntent = detectCalendarIntent(question);
@@ -262,20 +131,40 @@ export async function POST(req: Request) {
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
-        editingPayload?.type === "timeline"
-          ? `\n\n${TIMELINE_EDIT_SYSTEM_NOTE}`
-          : ""
+        editingPayload?.type === "timeline" ? `\n\n${TIMELINE_EDIT_SYSTEM_NOTE}` : ""
       }`
     : "";
 
-  let messages: Anthropic.MessageParam[] = [
+  const systemPrompt = [
+    BASE_SYSTEM,
+    systemContext,
+    todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
+    calendarIntent && !editingArtifact ? CALENDAR_INTENT_SYSTEM_NOTE : null,
+    timelineIntent && !editingArtifact ? TIMELINE_INTENT_SYSTEM_NOTE : null,
+    chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
+    editingNote || null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  // Force emit_artifact on the first turn for strong artifact intents.
+  const shouldForceArtifact =
+    supportsTools &&
+    (todoIntent || calendarIntent || timelineIntent || chartIntent) &&
+    (!editingArtifact ||
+      (timelineIntent && editingPayload?.type === "timeline") ||
+      (todoIntent && editingPayload?.type === "todo") ||
+      (calendarIntent && editingPayload?.type === "calendar") ||
+      (chartIntent && editingPayload?.type === "chart"));
+
+  const messages: NeutralMessage[] = [
     ...history.flatMap(({ question: q, answer: a }) => [
       { role: "user" as const, content: q },
       { role: "assistant" as const, content: a },
     ]),
     {
       role: "user" as const,
-      content: userContent.length === 1 ? question : userContent,
+      content: userParts.length === 1 ? question : userParts,
     },
   ];
 
@@ -286,9 +175,8 @@ export async function POST(req: Request) {
       const emit = (data: object) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
-      const totalUsage = { inputTokens: 0, outputTokens: 0 };
-
       try {
+        // Optimistic pending-artifact hints based on detected intent.
         if (calendarIntent) {
           emit({ thinking: CALENDAR_THINKING_LABEL });
           emit({ pendingArtifact: { type: "calendar" } });
@@ -306,248 +194,23 @@ export async function POST(req: Request) {
           emit({ pendingArtifact: { type: "chart" } });
         }
 
-        // Tool-use loop: Claude may call tools multiple times before a final reply.
-        const MAX_TOOL_TURNS = 5;
-        let artifactEmitted = false;
-        for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-          const systemPrompt = [
-            BASE_SYSTEM,
-            systemContext,
-            todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
-            calendarIntent && !editingArtifact
-              ? CALENDAR_INTENT_SYSTEM_NOTE
-              : null,
-            timelineIntent && !editingArtifact
-              ? TIMELINE_INTENT_SYSTEM_NOTE
-              : null,
-            chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
-            editingNote || null,
-          ]
-            .filter(Boolean)
-            .join("\n\n");
-          const stream = anthropic.messages.stream({
-            model,
-            max_tokens: 4096,
-            system: systemPrompt,
-            messages,
-            tools: allTools,
-            ...((todoIntent || calendarIntent || timelineIntent || chartIntent) &&
-            (!editingArtifact ||
-              (timelineIntent && editingPayload?.type === "timeline") ||
-              (todoIntent && editingPayload?.type === "todo") ||
-              (calendarIntent && editingPayload?.type === "calendar") ||
-              (chartIntent && editingPayload?.type === "chart")) &&
-            !artifactEmitted &&
-            turn === 0
-              ? {
-                  tool_choice: {
-                    type: "tool" as const,
-                    name: "emit_artifact",
-                  },
-                }
-              : {}),
-          });
+        const llm = provider === "anthropic" ? anthropicProvider : openrouterProvider;
+        const executeTool = createToolExecutor({ emit, mcp });
 
-          for await (const event of stream) {
-            if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta"
-            ) {
-              emit({ text: event.delta.text });
-            }
-          }
+        const { usage } = await llm.run({
+          model,
+          apiKey,
+          system: systemPrompt,
+          messages,
+          tools: allTools,
+          forceToolFirstTurn: shouldForceArtifact ? "emit_artifact" : undefined,
+          emit,
+          executeTool,
+          signal: req.signal,
+        });
 
-          const msg = await stream.finalMessage();
-          totalUsage.inputTokens += msg.usage.input_tokens;
-          totalUsage.outputTokens += msg.usage.output_tokens;
-
-          if (msg.stop_reason !== "tool_use") break;
-
-          const toolUseBlocks = msg.content.filter(
-            (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-          );
-
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-          for (const block of toolUseBlocks) {
-            const input = block.input as Record<string, unknown>;
-            let resultContent = "";
-
-            try {
-              if (block.name === "fetch_chart_data") {
-                const topic = input.topic as string;
-                const chartType = input.chartType as
-                  | "bar"
-                  | "area"
-                  | "line"
-                  | "pie"
-                  | "gauge";
-                emit({ thinking: `Researching data for "${topic}"…` });
-                const fetched = await fetchChartData({
-                  topic,
-                  chartType,
-                  timeRange:
-                    typeof input.timeRange === "string"
-                      ? input.timeRange
-                      : undefined,
-                  unit:
-                    typeof input.unit === "string" ? input.unit : undefined,
-                });
-                resultContent = JSON.stringify(fetched, null, 2);
-              } else if (block.name === "search_images") {
-                const query = input.query as string;
-                const count =
-                  typeof input.count === "number" ? input.count : 4;
-                emit({ thinking: `Searching Wikimedia for "${query}"…` });
-                const images = await fetchWikimedia(query, count);
-                if (images.length) {
-                  emit({ images });
-                  emit({
-                    responseType: "image",
-                    artifactTitle: query,
-                  });
-                }
-                resultContent = `Fetched ${images.length} photos from Wikimedia Commons for "${query}".`;
-              } else if (block.name === "emit_artifact") {
-                const type = input.type as string;
-                const title = (input.title as string) ?? "Artifact";
-                const description = input.description as string | undefined;
-                let data: Record<string, unknown> =
-                  (input.data as Record<string, unknown>) ?? {};
-
-                if (type === "custom") {
-                  const normalized = normalizeCustomArtifactData(data);
-                  if (!normalized?.html) {
-                    resultContent =
-                      "emit_artifact custom requires non-empty data.html with the UI markup.";
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  if (customArtifactByteSize(normalized) > CUSTOM_ARTIFACT_MAX_BYTES) {
-                    resultContent = `Custom UI exceeds ${CUSTOM_ARTIFACT_MAX_BYTES} byte limit.`;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "map" || type === "streetview") {
-                  const enriched = await geocodeMapArtifact(data);
-                  if (!enriched) {
-                    resultContent =
-                      `emit_artifact ${type} requires data.place.name with a geocodable location (e.g. \"Paris, France\"). Could not geocode the place.`;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  if (type === "streetview") {
-                    const sv = normalizeStreetViewArtifactData({
-                      ...data,
-                      place: enriched.place,
-                    });
-                    data = sv as unknown as Record<string, unknown>;
-                  } else {
-                    data = enriched as unknown as Record<string, unknown>;
-                  }
-                }
-
-                if (type === "todo") {
-                  const normalized = normalizeTodoArtifactData(data);
-                  if (normalized.items.length === 0) {
-                    resultContent =
-                      "emit_artifact todo requires data.items with at least one { label, checked } entry.";
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "calendar") {
-                  data = normalizeCalendarArtifactData(
-                    data,
-                  ) as unknown as Record<string, unknown>;
-                }
-
-                if (type === "timeline") {
-                  data = normalizeTimelineArtifactData(
-                    data,
-                  ) as unknown as Record<string, unknown>;
-                }
-
-                if (type === "chart") {
-                  const normalized = normalizeChartArtifactData(data);
-                  const err = validateChartEmit(normalized);
-                  if (err) {
-                    resultContent = err;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "table") {
-                  emit({ pendingArtifact: { type: "table" } });
-                } else if (type === "custom") {
-                  emit({ pendingArtifact: { type: "custom" } });
-                } else if (type === "chart") {
-                  emit({ pendingArtifact: { type: "chart" } });
-                }
-                emit({ thinking: `Building ${type}…` });
-                emit({
-                  artifact: { type, title, description, data },
-                });
-                artifactEmitted = true;
-                resultContent = `Emitted ${type} artifact "${title}" for the canvas card.`;
-              } else if (mcp.registry.has(block.name)) {
-                const server = mcp.registry.get(block.name)!;
-                emit({ thinking: `Calling ${server.name}: ${block.name}…` });
-                const mcpResult = await callMcpTool(server, block.name, input);
-                if (mcpResult.images.length > 0) {
-                  emit({ images: mcpImages(mcpResult.images) });
-                  emit({ responseType: "image" });
-                }
-                resultContent = mcpResult.text;
-              } else {
-                resultContent = `Unknown tool: ${block.name}`;
-              }
-            } catch (err) {
-              resultContent = `Tool error: ${
-                err instanceof Error ? err.message : String(err)
-              }`;
-            }
-
-            toolResults.push({
-              type: "tool_result" as const,
-              tool_use_id: block.id,
-              content: resultContent,
-            });
-          }
-
-          // Append assistant turn + tool results before next loop iteration.
-          messages = [
-            ...messages,
-            { role: "assistant" as const, content: msg.content },
-            { role: "user" as const, content: toolResults },
-          ];
+        if (usage.inputTokens || usage.outputTokens) {
+          emit({ usage });
         }
       } catch (err) {
         let msg = err instanceof Error ? err.message : "Unknown error";
@@ -559,9 +222,6 @@ export async function POST(req: Request) {
         }
         emit({ error: msg });
       } finally {
-        if (totalUsage.inputTokens || totalUsage.outputTokens) {
-          emit({ usage: totalUsage });
-        }
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       }

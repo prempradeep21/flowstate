@@ -1,5 +1,5 @@
 import type { McpServerConfig } from "@/lib/mcpConfig";
-import type Anthropic from "@anthropic-ai/sdk";
+import type { NeutralToolDef } from "@/lib/llm/provider";
 
 export interface McpImage {
   mimeType: string;
@@ -16,14 +16,15 @@ export interface McpServerHandle {
 }
 
 export interface McpToolsResult {
-  anthropicTools: Anthropic.Tool[];
+  /** Provider-neutral tool definitions exposed to the LLM. */
+  tools: NeutralToolDef[];
   registry: Map<string, McpServerHandle>;
 }
 
 export async function getMcpTools(
   _servers: McpServerConfig[],
 ): Promise<McpToolsResult> {
-  return { anthropicTools: [], registry: new Map() };
+  return { tools: [], registry: new Map() };
 }
 
 export async function callMcpTool(

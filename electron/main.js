@@ -126,9 +126,12 @@ async function startServer() {
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME,
-      // Per-user secret injected from the Keychain (never baked into the build).
+      // Per-user secrets injected from the Keychain (never baked into the build).
       ...(secrets.ANTHROPIC_API_KEY
         ? { ANTHROPIC_API_KEY: secrets.ANTHROPIC_API_KEY }
+        : {}),
+      ...(secrets.OPENROUTER_API_KEY
+        ? { OPENROUTER_API_KEY: secrets.OPENROUTER_API_KEY }
         : {}),
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
@@ -188,7 +191,7 @@ function createSettingsWindow(isFirstRun) {
   }
   settingsWindow = new BrowserWindow({
     width: 520,
-    height: 360,
+    height: 480,
     resizable: false,
     title: "Flowstate Settings",
     parent: mainWindow || undefined,
@@ -212,12 +215,18 @@ function createSettingsWindow(isFirstRun) {
 // ---------------------------------------------------------------------------
 ipcMain.handle("settings:get", () => {
   const secrets = readSecrets();
-  return { hasAnthropicKey: Boolean(secrets.ANTHROPIC_API_KEY) };
+  return {
+    hasAnthropicKey: Boolean(secrets.ANTHROPIC_API_KEY),
+    hasOpenrouterKey: Boolean(secrets.OPENROUTER_API_KEY),
+  };
 });
 
-ipcMain.handle("settings:save", async (_event, { anthropicKey }) => {
+ipcMain.handle("settings:save", async (_event, { anthropicKey, openrouterKey }) => {
   if (typeof anthropicKey === "string") {
     writeSecret("ANTHROPIC_API_KEY", anthropicKey.trim());
+  }
+  if (typeof openrouterKey === "string") {
+    writeSecret("OPENROUTER_API_KEY", openrouterKey.trim());
   }
   // Restart the embedded server so the new key takes effect (prod only).
   if (!isDev && serverChild) {
