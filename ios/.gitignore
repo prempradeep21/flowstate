@@ -1,0 +1,13 @@
+# Xcode / generated project
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+.swiftpm/
+
+# Secrets — copy Config/Secrets.example.xcconfig to Config/Secrets.xcconfig and fill in
+Config/Secrets.xcconfig
+
+# macOS
+.DS_Store
