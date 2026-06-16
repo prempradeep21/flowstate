@@ -5,8 +5,12 @@
   "engines": {
     "node": ">=20.4.0"
   },
+  "main": "electron/main.js",
   "scripts": {
     "dev": "node scripts/dev.js",
+    "electron:dev": "ELECTRON_DEV=1 concurrently -k -n next,electron \"next dev -p 3000\" \"wait-on http://localhost:3000 && electron electron/main.js\"",
+    "prepare:standalone": "node scripts/prepare-standalone.js",
+    "dist:mac": "NEXT_PUBLIC_IS_DESKTOP=true next build && npm run prepare:standalone && electron-builder --mac",
     "dev:showcase": "node scripts/showcase-dev.js",
     "dev:spec": "node scripts/spec-viewer-dev.js",
     "dev:repo-explorer": "node scripts/repo-explorer-dev.js",
@@ -69,11 +73,15 @@
     "@types/react-dom": "^18.3.7",
     "@types/three": "^0.184.1",
     "autoprefixer": "^10.5.0",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.18",
     "postcss": "^8.5.14",
     "tailwindcss": "^3.4.19",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wait-on": "^8.0.1"
   }
 }

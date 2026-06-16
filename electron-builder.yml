@@ -1,0 +1,32 @@
+appId: com.flowstate.desktop
+productName: Flowstate
+directories:
+  output: dist
+  buildResources: build
+
+# The Electron shell itself. The Next.js server is shipped as an unpacked
+# resource (below) so the forked Node process can execute server.js.
+files:
+  - electron/**
+  - package.json
+
+extraResources:
+  - from: .next/standalone
+    to: standalone
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+  # Drops to a default Electron icon if build/icon.icns is absent (fine for the pilot).
+  # --- Pilot: unsigned local build (no Apple Developer account needed). ---
+  identity: null
+  # --- Track B (publishing): uncomment + provide Apple credentials via env. ---
+  # hardenedRuntime: true
+  # gatekeeperAssess: false
+  # entitlements: build/entitlements.mac.plist
+  # entitlementsInherit: build/entitlements.mac.plist
+
+# afterSign: build/notarize.js   # Track B: notarytool / @electron/notarize

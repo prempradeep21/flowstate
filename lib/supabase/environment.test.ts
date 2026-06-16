@@ -58,4 +58,17 @@ describe("classifyLocalSupabaseSafety", () => {
       }),
     ).toEqual({ kind: "not_local" });
   });
+
+  it("treats the desktop app on localhost as a normal client", () => {
+    const prev = process.env.NEXT_PUBLIC_IS_DESKTOP;
+    process.env.NEXT_PUBLIC_IS_DESKTOP = "true";
+    expect(
+      classifyLocalSupabaseSafety("localhost", {
+        deploymentEnv: "production",
+        projectRef: "abc123",
+        supabaseConfigured: true,
+      }),
+    ).toEqual({ kind: "not_local" });
+    process.env.NEXT_PUBLIC_IS_DESKTOP = prev;
+  });
 });
