@@ -59,6 +59,7 @@ export function ArtifactContent({
   timelineCanEdit = false,
   catalogPreview = false,
   canvasContentInteractive = true,
+  hideControls = false,
 }: {
   payload: ArtifactPayload;
   layout?: ArtifactLayout;
@@ -80,12 +81,16 @@ export function ArtifactContent({
   catalogPreview?: boolean;
   /** Canvas: artifact body is interactable only when the node is selected. */
   canvasContentInteractive?: boolean;
+  /** Force-hide per-artifact controls (font size, chart/style pickers) — e.g.
+   *  the read-only mobile renderer. */
+  hideControls?: boolean;
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
   const isCanvas = layout === "canvas";
   const fill = isCanvas || isSidebar;
   const canvasInteractive = catalogPreview || canvasContentInteractive;
+  const showControls = !isSidebar && !hideControls;
 
   switch (kind) {
     case "table":
@@ -97,7 +102,7 @@ export function ArtifactContent({
             versionId={versionId}
             fill={fill}
             sidebar={isSidebar}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -111,7 +116,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowMediaInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -124,7 +129,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
           />
         );
@@ -139,7 +144,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             layout={layout}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -155,7 +160,7 @@ export function ArtifactContent({
             fill={fill}
             onActiveFileChange={onCodeActiveFileChange}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -182,7 +187,7 @@ export function ArtifactContent({
             layout={layout}
             forceInteractive={canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
         return layout === "canvas" ? (
@@ -236,7 +241,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -317,7 +322,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }

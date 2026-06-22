@@ -12,6 +12,10 @@ final class CanvasListViewModel: ObservableObject {
     private let repo = CanvasRepository()
 
     func load(userId: String) async {
+        if DemoStore.isActive {
+            phase = .loaded(DemoStore.canvases())
+            return
+        }
         phase = .loading
         do {
             let canvases = try await repo.fetchCanvasList(userId: userId)
@@ -56,9 +60,9 @@ struct CanvasListView: View {
                 ArtifactFeedView(canvas: canvas)
             }
             .searchable(text: $query, prompt: "Search canvases")
-            .refreshable { if let uid = auth.userId { await vm.load(userId: uid) } }
+            .refreshable { await vm.load(userId: auth.userId ?? "") }
         }
-        .task { if let uid = auth.userId { await vm.load(userId: uid) } }
+        .task { await vm.load(userId: auth.userId ?? "") }
     }
 }
 

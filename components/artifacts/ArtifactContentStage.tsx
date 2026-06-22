@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
+import { useHideArtifactControls } from "@/components/artifacts/ArtifactControlsVisibility";
 import { useArtifactExportOptional } from "@/components/artifacts/ArtifactExportContext";
 import {
   useArtifactCanvasSizeReport,
@@ -42,6 +43,8 @@ export function ArtifactContentStage({
   canvasChrome?: boolean;
 }) {
   const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
+  // Read-only mobile renderer forces all control strips off.
+  const effectiveShowControls = showControls && !useHideArtifactControls();
   const onCanvasSizeChange = useArtifactCanvasSizeReport();
   const exportCtx = useArtifactExportOptional();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -66,7 +69,7 @@ export function ArtifactContentStage({
     stageRef,
     bodyRef,
     fontScale,
-    showControls,
+    showControls: effectiveShowControls,
     fill,
     onCanvasSizeChange,
     onAutoSize: onCanvasSizeChange ? undefined : handleAutoSize,
@@ -93,7 +96,7 @@ export function ArtifactContentStage({
       } ${className}`}
       style={stageStyle}
     >
-      {showControls ? (
+      {effectiveShowControls ? (
         <ArtifactControlsBar
           fontScale={fontScale}
           onFontScaleChange={setFontScale}

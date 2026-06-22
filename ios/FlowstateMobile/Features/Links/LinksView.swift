@@ -12,6 +12,10 @@ final class LinksViewModel: ObservableObject {
     private let repo = CanvasRepository()
 
     func load(userId: String) async {
+        if DemoStore.isActive {
+            phase = .loaded(DemoStore.links())
+            return
+        }
         phase = .loading
         do {
             phase = .loaded(try await repo.fetchAllLinks(userId: userId))
@@ -45,9 +49,9 @@ struct LinksView: View {
                 }
             }
             .navigationTitle("Links")
-            .refreshable { if let uid = auth.userId { await vm.load(userId: uid) } }
+            .refreshable { await vm.load(userId: auth.userId ?? "") }
         }
-        .task { if let uid = auth.userId { await vm.load(userId: uid) } }
+        .task { await vm.load(userId: auth.userId ?? "") }
     }
 }
 

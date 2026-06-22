@@ -11,7 +11,16 @@ final class ArtifactFeedViewModel: ObservableObject {
     @Published var phase: Phase = .loading
     private let repo = CanvasRepository()
 
+    /// Use artifacts supplied directly (offline demo).
+    func setLoaded(_ artifacts: [Artifact]) {
+        phase = .loaded(artifacts)
+    }
+
     func load(canvasId: String) async {
+        if DemoStore.isActive {
+            phase = .loaded(DemoStore.artifacts())
+            return
+        }
         phase = .loading
         do {
             phase = .loaded(try await repo.fetchArtifacts(canvasId: canvasId))

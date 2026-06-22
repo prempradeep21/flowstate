@@ -63,7 +63,10 @@ enum JSONValue: Codable, Equatable {
     /// Re-encode to a JSON string (used to inject payloads into the WebView).
     func jsonString() -> String {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
+        // .sortedKeys makes the output deterministic across calls — critical so
+        // the WebView render URL is byte-stable and the view isn't recreated
+        // (which would reload the page) on every SwiftUI re-render.
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
         guard let data = try? encoder.encode(self),
               let s = String(data: data, encoding: .utf8) else { return "null" }
         return s

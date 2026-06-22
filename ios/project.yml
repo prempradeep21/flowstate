@@ -33,7 +33,8 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: FlowstateMobile/Resources/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.flowstate.mobile
+        PRODUCT_BUNDLE_IDENTIFIER: com.ravisalugu.flowstate
+        DEVELOPMENT_TEAM: W6V795295F
         SWIFT_VERSION: "5.10"
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_USER_SCRIPT_SANDBOXING: YES

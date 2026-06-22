@@ -22,9 +22,21 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- Allow http to the local dev server (WEB_HOST=localhost:PORT) for the
+	     WebView artifact renderer during development/demo. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- Allow landscape so wide artifacts (tables, calendars) can be viewed in
+	     a horizontal format that fills the screen. The web renderer's
+	     fit-to-viewport logic re-fits on orientation change. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<!-- Injected from Secrets.xcconfig -->
 	<key>SUPABASE_HOST</key>
@@ -35,15 +47,9 @@
 	<string>$(WEB_HOST)</string>
 	<key>OAUTH_REDIRECT_SCHEME</key>
 	<string>$(OAUTH_REDIRECT_SCHEME)</string>
-	<!-- OAuth callback scheme so Supabase can return to the app -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>$(OAUTH_REDIRECT_SCHEME)</string>
-			</array>
-		</dict>
-	</array>
+	<!-- NOTE: the flowstate:// scheme is intentionally NOT registered in
+	     CFBundleURLTypes. ASWebAuthenticationSession captures the OAuth callback
+	     via its own private callbackURLScheme channel; registering it here makes
+	     iOS hijack the redirect into onOpenURL, which breaks the PKCE exchange. -->
 </dict>
 </plist>
