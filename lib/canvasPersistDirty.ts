@@ -25,6 +25,8 @@ export interface CanvasPersistSlice {
   canvasTextLabelOrder: string[];
   canvasGifNodes?: Record<string, unknown>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, unknown>;
+  canvas3DOrder?: string[];
   canvasStrokes?: Record<string, unknown>;
   canvasStrokeOrder?: string[];
   uploadedAttachments: unknown[];
@@ -57,6 +59,8 @@ export function pickCanvasPersistSlice(
     canvasTextLabelOrder: state.canvasTextLabelOrder,
     canvasGifNodes: state.canvasGifNodes ?? {},
     canvasGifOrder: state.canvasGifOrder ?? [],
+    canvas3DNodes: state.canvas3DNodes ?? {},
+    canvas3DOrder: state.canvas3DOrder ?? [],
     canvasStrokes: state.canvasStrokes ?? {},
     canvasStrokeOrder: state.canvasStrokeOrder ?? [],
     uploadedAttachments: state.uploadedAttachments,
@@ -90,6 +94,8 @@ export function pickCanvasPersistSliceFromSnapshot(
     canvasTextLabelOrder: snapshot.canvasTextLabelOrder ?? [],
     canvasGifNodes: snapshot.canvasGifNodes ?? {},
     canvasGifOrder: snapshot.canvasGifOrder ?? [],
+    canvas3DNodes: snapshot.canvas3DNodes ?? {},
+    canvas3DOrder: snapshot.canvas3DOrder ?? [],
     canvasStrokes: snapshot.canvasStrokes ?? {},
     canvasStrokeOrder: snapshot.canvasStrokeOrder ?? [],
     uploadedAttachments: snapshot.uploadedAttachments ?? [],
@@ -185,6 +191,8 @@ export function isViewportOnlyChange(
     prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
     prev.canvasGifNodes === next.canvasGifNodes &&
     prev.canvasGifOrder === next.canvasGifOrder &&
+    prev.canvas3DNodes === next.canvas3DNodes &&
+    prev.canvas3DOrder === next.canvas3DOrder &&
     prev.canvasStrokes === next.canvasStrokes &&
     prev.canvasStrokeOrder === next.canvasStrokeOrder &&
     prev.uploadedAttachments === next.uploadedAttachments &&

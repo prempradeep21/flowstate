@@ -69,6 +69,10 @@ export type CanvasClipboardPayload = {
 };
 
 let lastCanvasClipboard: CanvasClipboardPayload | null = null;
+let lastCanvasClipboardPlainText: string | null = null;
+let lastCanvasClipboardSystemWriteOk = false;
+/** Plain text left on the system clipboard when a canvas copy could not overwrite it. */
+let staleClipboardPlainBeforeWrite: string | null = null;
 
 export function getLastCanvasClipboard(): CanvasClipboardPayload | null {
   return lastCanvasClipboard;
@@ -81,11 +85,47 @@ function rememberCanvasClipboardPayload(
   return payload;
 }
 
+function clearCanvasClipboardCache(): void {
+  lastCanvasClipboard = null;
+  lastCanvasClipboardPlainText = null;
+  lastCanvasClipboardSystemWriteOk = false;
+  staleClipboardPlainBeforeWrite = null;
+}
+
 /** Drop in-memory cache when the system clipboard holds non-canvas plain text. */
 function invalidateCanvasClipboardCacheIfExternalPlainText(raw: string): void {
   if (raw.trim() && !parseCanvasClipboardPayload(raw)) {
-    lastCanvasClipboard = null;
+    clearCanvasClipboardCache();
   }
+}
+
+function canvasPayloadFromPlainText(raw: string): CanvasClipboardPayload | null {
+  const parsed = parseCanvasClipboardPayload(raw);
+  return parsed ? rememberCanvasClipboardPayload(parsed) : null;
+}
+
+/** Prefer in-memory copy when the system clipboard still holds pre-copy content. */
+function fallbackCanvasClipboardFromMemory(
+  plain: string,
+): CanvasClipboardPayload | null {
+  if (!lastCanvasClipboard) return null;
+
+  if (lastCanvasClipboardSystemWriteOk) {
+    invalidateCanvasClipboardCacheIfExternalPlainText(plain);
+    return null;
+  }
+
+  const trimmed = plain.trim();
+  if (
+    !trimmed ||
+    trimmed === staleClipboardPlainBeforeWrite ||
+    trimmed === lastCanvasClipboardPlainText
+  ) {
+    return lastCanvasClipboard;
+  }
+
+  clearCanvasClipboardCache();
+  return null;
 }
 
 export function getCopyableSelectionItems(
@@ -395,20 +435,19 @@ export function parseCanvasClipboardPayload(
 export function readCanvasClipboardFromDataTransfer(
   dataTransfer: DataTransfer | null | undefined,
 ): CanvasClipboardPayload | null {
-  if (!dataTransfer) return null;
+  if (!dataTransfer) return lastCanvasClipboard;
 
   const customRaw = dataTransfer.getData(CANVAS_CLIPBOARD_MIME);
   if (customRaw) {
-    const parsed = parseCanvasClipboardPayload(customRaw);
-    if (parsed) return rememberCanvasClipboardPayload(parsed);
+    const parsed = canvasPayloadFromPlainText(customRaw);
+    if (parsed) return parsed;
   }
 
   const plain = dataTransfer.getData("text/plain");
-  const parsed = parseCanvasClipboardPayload(plain);
-  if (parsed) return rememberCanvasClipboardPayload(parsed);
+  const parsed = canvasPayloadFromPlainText(plain);
+  if (parsed) return parsed;
 
-  invalidateCanvasClipboardCacheIfExternalPlainText(plain);
-  return null;
+  return fallbackCanvasClipboardFromMemory(plain);
 }
 
 export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | null> {
@@ -433,7 +472,7 @@ export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | nu
           return null;
         }
       }
-      lastCanvasClipboard = null;
+      clearCanvasClipboardCache();
       return null;
     } catch {
       // Fall through to in-memory cache when read permission is denied.
@@ -443,8 +482,8 @@ export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | nu
   if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
     try {
       const raw = await navigator.clipboard.readText();
-      const parsed = parseCanvasClipboardPayload(raw);
-      if (parsed) return rememberCanvasClipboardPayload(parsed);
+      const parsed = canvasPayloadFromPlainText(raw);
+      if (parsed) return parsed;
       invalidateCanvasClipboardCacheIfExternalPlainText(raw);
       return null;
     } catch {
@@ -455,11 +494,24 @@ export async function readCanvasClipboard(): Promise<CanvasClipboardPayload | nu
   return lastCanvasClipboard;
 }
 
+async function snapshotStaleClipboardPlainText(): Promise<void> {
+  staleClipboardPlainBeforeWrite = null;
+  if (typeof navigator === "undefined" || !navigator.clipboard?.readText) return;
+  try {
+    staleClipboardPlainBeforeWrite = await navigator.clipboard.readText();
+  } catch {
+    staleClipboardPlainBeforeWrite = null;
+  }
+}
+
 export async function writeCanvasClipboard(
   payload: CanvasClipboardPayload,
 ): Promise<boolean> {
   rememberCanvasClipboardPayload(payload);
   const json = JSON.stringify(payload);
+  lastCanvasClipboardPlainText = json;
+  lastCanvasClipboardSystemWriteOk = false;
+  staleClipboardPlainBeforeWrite = null;
 
   if (typeof navigator !== "undefined" && navigator.clipboard?.write) {
     try {
@@ -471,10 +523,23 @@ export async function writeCanvasClipboard(
           "text/plain": plain,
         }),
       ]);
+      lastCanvasClipboardSystemWriteOk = true;
       return true;
     } catch {
-      // In-memory cache still holds the payload.
+      // Fall through to text/plain-only write.
     }
+  }
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(json);
+      lastCanvasClipboardSystemWriteOk = true;
+      return true;
+    } catch {
+      await snapshotStaleClipboardPlainText();
+    }
+  } else {
+    await snapshotStaleClipboardPlainText();
   }
 
   return lastCanvasClipboard !== null;

@@ -149,12 +149,16 @@ function EmbedFrame({
   const { iframeSrc, embedHtml, embedWidth, embedHeight, title, provider } =
     payload.data;
 
-  const frame = iframeSrc ? (
+  /** On canvas, defer iframe network load until the user opts into interaction. */
+  const loadFrame = Boolean(iframeSrc) && (interactive || !onActivate);
+
+  const frame = loadFrame && iframeSrc ? (
     <iframe
       src={iframeSrc}
       title={title}
       width={embedWidth}
       height={embedHeight}
+      loading="lazy"
       className={`max-h-full max-w-full border-0 bg-white ${
         interactive ? "pointer-events-auto" : "pointer-events-none"
       }`}
@@ -162,6 +166,17 @@ function EmbedFrame({
       referrerPolicy="strict-origin-when-cross-origin"
       allowFullScreen
     />
+  ) : iframeSrc && onActivate ? (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas-bg px-4 text-center"
+      style={{ width: embedWidth, height: embedHeight, maxWidth: "100%", maxHeight: "100%" }}
+    >
+      <ArtifactTypeIcon kind="embed" className="h-8 w-8 text-canvas-muted" />
+      <p className="m-0 text-canvas-caption font-medium text-canvas-ink">{title}</p>
+      <p className="m-0 text-canvas-micro text-canvas-muted">
+        Click to load live preview
+      </p>
+    </div>
   ) : embedHtml && provider !== "twitter" ? (
     <div
       className={`h-full w-full ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}

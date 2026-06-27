@@ -13,6 +13,7 @@ const NODE_SELECTOR: Record<CanvasSelectionKind, string> = {
   artifact: "[data-canvas-artifact]",
   asset: "[data-canvas-asset]",
   gif: "[data-canvas-gif]",
+  "3d": "[data-canvas-3d]",
   skill: "[data-canvas-skill]",
   label: "[data-canvas-text-label]",
 };

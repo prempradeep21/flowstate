@@ -11,6 +11,7 @@
     "dev:spec": "node scripts/spec-viewer-dev.js",
     "dev:repo-explorer": "node scripts/repo-explorer-dev.js",
     "dev:artifact-catalog": "node scripts/artifact-catalog-dev.js",
+    "dev:mobile-sdlc-sandbox": "node scripts/mobile-sdlc-sandbox-dev.js",
     "dev:ui-instructions": "node scripts/ui-instructions-viewer-dev.js",
     "ui-instructions:compile": "node scripts/extract-ui-instructions.js && node scripts/compile-ui-instructions-md.js",
     "chronology:sync": "node scripts/generate-chronology.js --sync",

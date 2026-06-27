@@ -10,6 +10,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasGifNode,
+  Canvas3DNode,
   CanvasSkill,
   CanvasSkillNode,
   CanvasBackgroundStyle,
@@ -56,6 +57,8 @@ export interface CanvasSnapshot {
   canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+  canvas3DOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
   collaborationHasEdits?: boolean;
 }
@@ -88,6 +91,8 @@ export interface CanvasSnapshotSource {
   canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+  canvas3DOrder?: string[];
   uploadedAttachments: UploadedAttachment[];
   collaborationHasEdits: boolean;
 }
@@ -204,6 +209,10 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasGifNodes ?? {}),
     ) as Record<string, CanvasGifNode>,
     canvasGifOrder: [...(source.canvasGifOrder ?? [])],
+    canvas3DNodes: JSON.parse(
+      JSON.stringify(source.canvas3DNodes ?? {}),
+    ) as Record<string, Canvas3DNode>,
+    canvas3DOrder: [...(source.canvas3DOrder ?? [])],
     uploadedAttachments: JSON.parse(
       JSON.stringify(source.uploadedAttachments),
     ) as UploadedAttachment[],
@@ -321,6 +330,14 @@ export function mergeCanvasSnapshots(
       remote.canvasGifOrder ?? [],
       local.canvasGifOrder ?? [],
     ),
+    canvas3DNodes: mergeRecordPreferLocal(
+      remote.canvas3DNodes ?? {},
+      local.canvas3DNodes ?? {},
+    ),
+    canvas3DOrder: mergeOrder(
+      remote.canvas3DOrder ?? [],
+      local.canvas3DOrder ?? [],
+    ),
     uploadedAttachments: [
       ...(remote.uploadedAttachments ?? []),
       ...(local.uploadedAttachments ?? []).filter(
@@ -372,6 +389,8 @@ export function buildEmptyCanvasSnapshot(
     canvasStrokeOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
+    canvas3DNodes: {},
+    canvas3DOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
   };
@@ -538,6 +557,8 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
     canvasStrokeOrder: normalizeStringArray(snapshot.canvasStrokeOrder),
     canvasGifNodes: normalizeRecord<CanvasGifNode>(snapshot.canvasGifNodes),
     canvasGifOrder: normalizeStringArray(snapshot.canvasGifOrder),
+    canvas3DNodes: normalizeRecord<Canvas3DNode>(snapshot.canvas3DNodes),
+    canvas3DOrder: normalizeStringArray(snapshot.canvas3DOrder),
     uploadedAttachments: Array.isArray(snapshot.uploadedAttachments)
       ? (JSON.parse(
           JSON.stringify(snapshot.uploadedAttachments),

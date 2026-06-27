@@ -31,6 +31,8 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
@@ -53,6 +55,8 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
       canvasAssetOrder,
       canvasGifNodes,
       canvasGifOrder,
+      canvas3DNodes,
+      canvas3DOrder,
       canvasSkills,
       canvasSkillNodes,
       canvasSkillOrder,
@@ -73,6 +77,8 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
       canvasAssetOrder,
       canvasGifNodes,
       canvasGifOrder,
+      canvas3DNodes,
+      canvas3DOrder,
       canvasSkills,
       canvasSkillNodes,
       canvasSkillOrder,

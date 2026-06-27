@@ -175,6 +175,40 @@ export function ChatBubbleIcon() {
   );
 }
 
+export function EyeIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M2.5 8s2.25-3.5 5.5-3.5S13.5 8 13.5 8s-2.25 3.5-5.5 3.5S2.5 8 2.5 8Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="8" r="1.75" stroke="currentColor" strokeWidth="1.25" />
+    </svg>
+  );
+}
+
+export function EyeOffIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M3 3 13 13"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.2 6.35A2.25 2.25 0 0 0 8 10.75a2.25 2.25 0 0 0 1.8-.9M4.35 4.75C3.1 5.65 2.2 6.85 1.75 8c0 0 2.25 3.5 6.25 3.5.85 0 1.62-.18 2.3-.48M11.15 11.05c1.25-.9 2.15-2.1 2.6-3.35 0 0-2.25-3.5-6.25-3.5-.55 0-1.08.08-1.58.22"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function TypeIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">

@@ -5,6 +5,8 @@ import {
   ArtefactIcon,
   BranchForkIcon,
   ChatBubbleIcon,
+  EyeIcon,
+  EyeOffIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
@@ -71,6 +73,10 @@ export function CanvasBottomToolbar() {
   const pencilColor = useCanvasStore((s) => s.pencilColor);
   const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
   const setPencilColor = useCanvasStore((s) => s.setPencilColor);
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
+  const toggleChatsGloballyHidden = useCanvasStore(
+    (s) => s.toggleChatsGloballyHidden,
+  );
 
   const showShare =
     Boolean(user && activeCanvasId) && isCanvasOwner(activeCanvasRole);
@@ -231,6 +237,24 @@ export function CanvasBottomToolbar() {
           role="toolbar"
           aria-label="Canvas tools"
         >
+          <button
+            type="button"
+            className={`${toolbarBtn} ${
+              chatsGloballyHidden ? "bg-canvas-bg text-canvas-ink" : ""
+            }`}
+            aria-pressed={chatsGloballyHidden}
+            aria-label={chatsGloballyHidden ? "Show chats" : "Hide chats"}
+            onClick={() => {
+              deactivatePencil();
+              closeSubpanels();
+              toggleChatsGloballyHidden();
+            }}
+          >
+            <span className="text-canvas-muted">
+              {chatsGloballyHidden ? <EyeIcon /> : <EyeOffIcon />}
+            </span>
+            {chatsGloballyHidden ? "Show chats" : "Hide chats"}
+          </button>
           <button
             ref={artefactBtnRef}
             type="button"

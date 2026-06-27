@@ -6,11 +6,17 @@ export function ThreeDModelViewer({
   modelUrl,
   format = "glb",
   interactive = false,
+  autoRotate = false,
+  playAnimations = true,
   className = "",
 }: {
   modelUrl: string;
   format?: string;
   interactive?: boolean;
+  /** Slow idle spin when the viewer is not interactive. */
+  autoRotate?: boolean;
+  /** Loop embedded glTF animation clips when present. */
+  playAnimations?: boolean;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +104,17 @@ export function ThreeDModelViewer({
         camera.position.set(0, fittedHeight * 0.35, fittedDepth * 1.8);
         controls.update();
 
+        const clock = new THREE.Clock();
+        let mixer: InstanceType<typeof THREE.AnimationMixer> | null = null;
+        if (playAnimations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(model);
+          for (const clip of gltf.animations) {
+            const action = mixer.clipAction(clip);
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.play();
+          }
+        }
+
         const resizeObserver = new ResizeObserver(() => {
           if (!mount) return;
           const w = Math.max(mount.clientWidth, 1);
@@ -112,6 +129,11 @@ export function ThreeDModelViewer({
         const animate = () => {
           if (disposed) return;
           animationId = requestAnimationFrame(animate);
+          const delta = clock.getDelta();
+          mixer?.update(delta);
+          if (autoRotate && !interactive) {
+            model.rotation.y += delta * 0.75;
+          }
           controls.update();
           renderer.render(scene, camera);
         };
@@ -120,6 +142,7 @@ export function ThreeDModelViewer({
         cleanupFn = () => {
           resizeObserver.disconnect();
           cancelAnimationFrame(animationId);
+          mixer?.stopAllAction();
           controls.dispose();
           renderer.dispose();
           if (renderer.domElement.parentNode === mount) {
@@ -152,7 +175,7 @@ export function ThreeDModelViewer({
       disposed = true;
       cleanupFn?.();
     };
-  }, [modelUrl, format, interactive]);
+  }, [modelUrl, format, interactive, autoRotate, playAnimations]);
 
   return (
     <div

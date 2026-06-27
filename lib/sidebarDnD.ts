@@ -42,6 +42,13 @@ export type SidebarDragPayload =
       category: CanvasGifCategory;
       aspectRatio: number;
       sourceId: string;
+    }
+  | {
+      kind: "3d";
+      modelUrl: string;
+      format: "glb" | "gltf";
+      title: string;
+      sourceId: string;
     };
 
 export function setSidebarDragData(
@@ -80,6 +87,14 @@ export function parseSidebarDragPayload(
       parsed.url &&
       parsed.sourceId &&
       (parsed.category === "gif" || parsed.category === "sticker")
+    ) {
+      return parsed;
+    }
+    if (
+      parsed.kind === "3d" &&
+      parsed.modelUrl &&
+      parsed.sourceId &&
+      (parsed.format === "glb" || parsed.format === "gltf")
     ) {
       return parsed;
     }

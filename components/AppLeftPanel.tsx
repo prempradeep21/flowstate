@@ -18,6 +18,7 @@ import { useCanvasStore } from "@/lib/store";
 
 export function AppLeftPanel() {
   const collapsed = useCanvasStore((s) => s.leftPanelCollapsed);
+  const viewMode = useCanvasStore((s) => s.viewMode);
   const toggleLeftPanel = useCanvasStore((s) => s.toggleLeftPanel);
   const { activeCanvasId, canvases } = useAuth();
   const activeCanvasTitle =
@@ -121,7 +122,7 @@ export function AppLeftPanel() {
         }
       />
       </aside>
-      {collapsed ? <ArtifactUpdateCenter /> : null}
+      {collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
     </div>
   );
 }

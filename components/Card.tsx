@@ -170,6 +170,7 @@ function CardInner({ card }: CardProps) {
         canvasArtifactOrder: s.canvasArtifactOrder,
         canvasAssetOrder: s.canvasAssetOrder,
         canvasGifOrder: s.canvasGifOrder,
+        canvas3DOrder: s.canvas3DOrder,
         canvasSkillOrder: s.canvasSkillOrder,
         canvasTextLabelOrder: s.canvasTextLabelOrder,
       })
@@ -203,6 +204,7 @@ function CardInner({ card }: CardProps) {
         canvasArtifactOrder: s.canvasArtifactOrder,
         canvasAssetOrder: s.canvasAssetOrder,
         canvasGifOrder: s.canvasGifOrder,
+        canvas3DOrder: s.canvas3DOrder,
         canvasSkillOrder: s.canvasSkillOrder,
         canvasTextLabelOrder: s.canvasTextLabelOrder,
       },

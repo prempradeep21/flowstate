@@ -80,6 +80,7 @@ function backupRichness(snapshot: CanvasSnapshot): number {
     (snapshot.canvasAssetOrder?.length ?? 0) +
     (snapshot.canvasArtifactOrder?.length ?? 0) +
     (snapshot.canvasGifOrder?.length ?? 0) +
+    (snapshot.canvas3DOrder?.length ?? 0) +
     (snapshot.canvasTextLabelOrder?.length ?? 0) +
     Object.keys(snapshot.sessionArtifacts).length
   );

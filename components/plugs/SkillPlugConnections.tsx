@@ -23,12 +23,13 @@ export function SkillPlugConnections() {
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const hideForLoadReveal =
     canvasLoadReveal?.phase === "pending" ||
     canvasLoadReveal?.phase === "running";
   const tuning = RESOLVED_CANVAS_TUNING;
 
-  if (skillPlugConnections.length === 0) return null;
+  if (skillPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
   const strokeWidth = compensatedStrokeWidth(
     BASE_STROKE_SCREEN,

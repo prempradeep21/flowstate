@@ -33,6 +33,7 @@ import {
   uploadedToPending,
 } from "@/lib/sidebarDnD";
 import { DEFAULT_GIF_WIDTH } from "@/lib/canvasGifBounds";
+import { DEFAULT_3D_WIDTH } from "@/lib/canvas3dBounds";
 import { DEFAULT_ASSET_IMAGE_WIDTH, getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { CANVAS_SKILL_SIZE } from "@/lib/canvasSkillBounds";
 import {
@@ -49,6 +50,7 @@ import {
   CANVAS_TEXT_LABEL_FONT_SIZE,
   useCanvasStore,
   type SpawnCanvasGifInput,
+  type SpawnCanvas3DInput,
 } from "@/lib/store";
 import { getArtifactBounds, getDefaultArtifactSize } from "@/lib/canvasNodeBounds";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
@@ -70,6 +72,7 @@ import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
 import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasGifNode } from "@/components/CanvasGifNode";
+import { Canvas3DNode } from "@/components/Canvas3DNode";
 import { CanvasSkillNode } from "@/components/CanvasSkillNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
@@ -139,6 +142,8 @@ interface ImagePlacementState extends PlacementState {
 
 interface GifPlacementState extends SpawnCanvasGifInput, PlacementState {}
 
+interface ThreeDPlacementState extends SpawnCanvas3DInput, PlacementState {}
+
 interface ArtifactPlacementState extends PlacementState {
   artifactType: ManualArtifactType;
 }
@@ -189,14 +194,20 @@ export function Canvas({
   const finishCanvasStroke = useCanvasStore((s) => s.finishCanvasStroke);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const removeSelectedFromCanvas = useCanvasStore(
     (s) => s.removeSelectedFromCanvas,
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
   const spawnCanvasGif = useCanvasStore((s) => s.spawnCanvasGif);
+  const spawnCanvas3D = useCanvasStore((s) => s.spawnCanvas3D);
   const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
   const imagePlacementAssetId = useCanvasStore((s) => s.imagePlacementAssetId);
   const gifPlacementRequest = useCanvasStore((s) => s.gifPlacementRequest);
+  const canvas3dPlacementRequest = useCanvasStore(
+    (s) => s.canvas3dPlacementRequest,
+  );
   const artifactPlacementRequest = useCanvasStore((s) => s.artifactPlacementRequest);
   const createManualArtifact = useCanvasStore((s) => s.createManualArtifact);
   const createVideoArtifactFromUrl = useCanvasStore(
@@ -212,6 +223,7 @@ export function Canvas({
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
   const hiddenCardIds = useHiddenCardIds();
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const bodyFontId = useCanvasStore((s) => s.canvasPreviewBodyFontId);
   const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
   useCanvasFontLoader(bodyFontId, displayFontId);
@@ -224,6 +236,7 @@ export function Canvas({
       canvasArtifactOrder,
       canvasAssetOrder,
       canvasGifOrder,
+      canvas3DOrder,
       canvasSkillOrder,
       canvasTextLabelOrder,
     }),
@@ -333,6 +346,8 @@ export function Canvas({
   const [gifPlacement, setGifPlacement] = useState<GifPlacementState | null>(
     null,
   );
+  const [threeDPlacement, setThreeDPlacement] =
+    useState<ThreeDPlacementState | null>(null);
   const [artifactPlacement, setArtifactPlacement] =
     useState<ArtifactPlacementState | null>(null);
   const [placementScreen, setPlacementScreen] = useState<{
@@ -345,6 +360,7 @@ export function Canvas({
   const textPlacementRef = useRef<PlacementState | null>(null);
   const imagePlacementRef = useRef<ImagePlacementState | null>(null);
   const gifPlacementRef = useRef<GifPlacementState | null>(null);
+  const threeDPlacementRef = useRef<ThreeDPlacementState | null>(null);
   const artifactPlacementRef = useRef<ArtifactPlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
@@ -358,6 +374,9 @@ export function Canvas({
   useEffect(() => {
     gifPlacementRef.current = gifPlacement;
   }, [gifPlacement]);
+  useEffect(() => {
+    threeDPlacementRef.current = threeDPlacement;
+  }, [threeDPlacement]);
   useEffect(() => {
     artifactPlacementRef.current = artifactPlacement;
   }, [artifactPlacement]);
@@ -380,6 +399,7 @@ export function Canvas({
     setContextMenu(null);
     setImagePlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     if (tool === "question") {
       setTextPlacement(null);
@@ -408,6 +428,7 @@ export function Canvas({
     setTextPlacement(null);
     setImagePlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement({ artifactType, ...pos });
     setPlacementScreen({ x: clientX, y: clientY });
   };
@@ -428,6 +449,7 @@ export function Canvas({
           textPlacementRef.current ||
           imagePlacementRef.current ||
           gifPlacementRef.current ||
+          threeDPlacementRef.current ||
           artifactPlacementRef.current ||
           marqueeState.current ||
           panState.current ||
@@ -461,6 +483,7 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     setImagePlacement({
       assetId: asset.id,
@@ -486,8 +509,31 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setImagePlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     setGifPlacement({ ...input, ...pos });
+  };
+
+  const begin3DPlacementAtCursor = (input: SpawnCanvas3DInput) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const pos = placementWorld(world);
+    setContextMenu(null);
+    setPlacement(null);
+    setTextPlacement(null);
+    setImagePlacement(null);
+    setGifPlacement(null);
+    setThreeDPlacement(null);
+    setArtifactPlacement(null);
+    setThreeDPlacement({ ...input, ...pos });
   };
 
   useEffect(() => {
@@ -515,6 +561,13 @@ export function Canvas({
   }, [gifPlacementRequest]);
 
   useEffect(() => {
+    if (!canvas3dPlacementRequest) return;
+    const input = canvas3dPlacementRequest;
+    useCanvasStore.setState({ canvas3dPlacementRequest: null });
+    begin3DPlacementAtCursor(input);
+  }, [canvas3dPlacementRequest]);
+
+  useEffect(() => {
     if (!artifactPlacementRequest) return;
     const pick = artifactPlacementRequest;
     useCanvasStore.setState({ artifactPlacementRequest: null });
@@ -530,13 +583,13 @@ export function Canvas({
       ? "question"
       : artifactPlacement
         ? "artifact"
-        : textPlacement || imagePlacement || gifPlacement
+        : textPlacement || imagePlacement || gifPlacement || threeDPlacement
           ? "text"
           : null;
     if (useCanvasStore.getState().activeCanvasPlacement !== mode) {
       useCanvasStore.setState({ activeCanvasPlacement: mode });
     }
-  }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement]);
+  }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement, threeDPlacement]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -785,6 +838,14 @@ export function Canvas({
           );
         }
       }
+      if (threeDPlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) {
+          setThreeDPlacement((prev) =>
+            prev ? { ...prev, ...placementWorld(world) } : prev,
+          );
+        }
+      }
       if (artifactPlacementRef.current) {
         setPlacementScreen({ x: e.clientX, y: e.clientY });
         const world = computeWorldFromClient(e.clientX, e.clientY);
@@ -874,6 +935,10 @@ export function Canvas({
           e.preventDefault();
           setGifPlacement(null);
         }
+        if (threeDPlacementRef.current) {
+          e.preventDefault();
+          setThreeDPlacement(null);
+        }
         if (artifactPlacementRef.current) {
           e.preventDefault();
           setArtifactPlacement(null);
@@ -952,6 +1017,7 @@ export function Canvas({
         textPlacementRef.current ||
         imagePlacementRef.current ||
         gifPlacementRef.current ||
+        threeDPlacementRef.current ||
         artifactPlacementRef.current
       ) {
         return;
@@ -1006,6 +1072,7 @@ export function Canvas({
         textPlacementRef.current ||
         imagePlacementRef.current ||
         gifPlacementRef.current ||
+        threeDPlacementRef.current ||
         artifactPlacementRef.current
       ) {
         return;
@@ -1045,6 +1112,7 @@ export function Canvas({
         textPlacementRef.current ||
         imagePlacementRef.current ||
         gifPlacementRef.current ||
+        threeDPlacementRef.current ||
         artifactPlacementRef.current
       ) {
         return;
@@ -1071,6 +1139,27 @@ export function Canvas({
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+
+      const threeDPos = threeDPlacementRef.current;
+      if (threeDPos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const w = DEFAULT_3D_WIDTH;
+        spawnCanvas3D(
+          {
+            modelUrl: threeDPos.modelUrl,
+            format: threeDPos.format,
+            title: threeDPos.title,
+            sourceId: threeDPos.sourceId,
+          },
+          {
+            position: { x: threeDPos.x - w / 2, y: threeDPos.y - w / 2 },
+            focus: true,
+          },
+        );
+        setThreeDPlacement(null);
+        return;
+      }
 
       const gifPos = gifPlacementRef.current;
       if (gifPos) {
@@ -1162,7 +1251,7 @@ export function Canvas({
     window.addEventListener("pointerdown", onPointerDown, true);
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
-  }, [createRootCard, createManualArtifact, spawnCanvasAsset, spawnCanvasGif, spawnCanvasTextLabel]);
+  }, [createRootCard, createManualArtifact, spawnCanvasAsset, spawnCanvasGif, spawnCanvas3D, spawnCanvasTextLabel]);
 
   const placeCanvasAsset = (
     assetId: string,
@@ -1445,6 +1534,26 @@ export function Canvas({
       return;
     }
 
+    if (payload.kind === "3d") {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const w = DEFAULT_3D_WIDTH;
+      spawnCanvas3D(
+        {
+          modelUrl: payload.modelUrl,
+          format: payload.format,
+          title: payload.title,
+          sourceId: payload.sourceId,
+        },
+        {
+          position: { x: world.x - w / 2, y: world.y - w / 2 },
+          focus: true,
+        },
+      );
+      setGifPickerOpen(false);
+      return;
+    }
+
     if (payload.kind === "gif") {
       const world = computeWorldFromClient(e.clientX, e.clientY);
       if (!world) return;
@@ -1516,6 +1625,7 @@ export function Canvas({
       textPlacementRef.current ||
       imagePlacementRef.current ||
       gifPlacementRef.current ||
+      threeDPlacementRef.current ||
       artifactPlacementRef.current
     ) {
       return;
@@ -1610,6 +1720,7 @@ export function Canvas({
       textPlacementRef.current ||
       imagePlacementRef.current ||
       gifPlacementRef.current ||
+      threeDPlacementRef.current ||
       artifactPlacementRef.current
     ) {
       return;
@@ -1764,9 +1875,10 @@ export function Canvas({
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
-        {groupList.map((group) => (
-          <GroupBounds key={group.id} group={group} />
-        ))}
+        {!chatsGloballyHidden &&
+          groupList.map((group) => (
+            <GroupBounds key={group.id} group={group} />
+          ))}
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
@@ -1804,6 +1916,14 @@ export function Canvas({
           }
           return <CanvasGifNode key={id} node={node} />;
         })}
+        {canvas3DOrder.map((id) => {
+          const node = canvas3DNodes[id];
+          if (!node) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.threeD.has(id)) {
+            return null;
+          }
+          return <Canvas3DNode key={id} node={node} />;
+        })}
         {canvasSkillOrder.map((id) => {
           const node = canvasSkillNodes[id];
           if (!node) return null;
@@ -1826,11 +1946,12 @@ export function Canvas({
             />
           );
         })}
-        {groupList.map((group) =>
-          group.summaryMarkdown ? (
-            <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
-          ) : null,
-        )}
+        {!chatsGloballyHidden &&
+          groupList.map((group) =>
+            group.summaryMarkdown ? (
+              <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
+            ) : null,
+          )}
         <Connections />
         <CanvasDrawingLayer
           strokes={canvasStrokes}
@@ -1841,13 +1962,16 @@ export function Canvas({
         {textPlacement && <GhostTextLabel world={textPlacement} />}
         {imagePlacement && <GhostImage world={imagePlacement} />}
         {gifPlacement && <GhostGif world={gifPlacement} />}
+        {threeDPlacement && <Ghost3D world={threeDPlacement} />}
         {artifactPlacement && <GhostArtifact world={artifactPlacement} />}
       </CanvasViewport>
       {showLanding &&
+        !chatsGloballyHidden &&
         !placement &&
         !textPlacement &&
         !imagePlacement &&
         !gifPlacement &&
+        !threeDPlacement &&
         !artifactPlacement &&
         landingCardId && <CanvasLandingOverlay cardId={landingCardId} />}
       <SelectionOverlay rect={marqueeRect} />
@@ -1928,6 +2052,27 @@ function GhostImage({ world }: { world: ImagePlacementState }) {
         draggable={false}
         className="h-full w-full object-contain"
       />
+    </div>
+  );
+}
+
+function Ghost3D({ world }: { world: ThreeDPlacementState }) {
+  const w = DEFAULT_3D_WIDTH;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
+      style={{
+        left: world.x - w / 2,
+        top: world.y - w / 2,
+        width: w,
+        height: w,
+      }}
+    >
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-canvas-bg via-canvas-card to-canvas-bg p-2 text-center">
+        <span className="text-[10px] font-medium text-canvas-muted">3D</span>
+        <span className="line-clamp-2 text-[10px] text-canvas-ink">{world.title}</span>
+      </div>
     </div>
   );
 }

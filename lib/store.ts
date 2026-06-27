@@ -531,6 +531,21 @@ export type SpawnCanvasGifInput = Pick<
   "url" | "previewUrl" | "title" | "category" | "aspectRatio" | "sourceId"
 >;
 
+export interface Canvas3DNode {
+  id: string;
+  modelUrl: string;
+  format: "glb" | "gltf";
+  title: string;
+  sourceId: string;
+  position: { x: number; y: number };
+  size?: CardSize;
+}
+
+export type SpawnCanvas3DInput = Pick<
+  Canvas3DNode,
+  "modelUrl" | "format" | "title" | "sourceId"
+>;
+
 /** Horizontal gap between a source card's right edge and a spawned artifact. */
 export const ARTIFACT_SPAWN_GAP_X = 24;
 
@@ -576,6 +591,20 @@ interface CanvasState {
   setCanvasGifSize: (nodeId: string, size: CardSize) => void;
   selectCanvasGif: (nodeId: string | null) => void;
   removeCanvasGifNode: (nodeId: string) => void;
+  canvas3DNodes: Record<string, Canvas3DNode>;
+  canvas3DOrder: string[];
+  selectedCanvas3DId: string | null;
+  canvas3dPlacementRequest: SpawnCanvas3DInput | null;
+  requestCanvas3DPlacement: (input: SpawnCanvas3DInput) => void;
+  spawnCanvas3D: (
+    input: SpawnCanvas3DInput,
+    opts?: { position?: { x: number; y: number }; focus?: boolean },
+  ) => string | null;
+  moveCanvas3D: (nodeId: string, dx: number, dy: number) => void;
+  setCanvas3DSize: (nodeId: string, size: CardSize) => void;
+  selectCanvas3D: (nodeId: string | null) => void;
+  removeCanvas3DNode: (nodeId: string) => void;
+  duplicateCanvas3DNode: (nodeId: string) => string | null;
   addCanvasSkill: (skill: CanvasSkill) => void;
   removeCanvasSkill: (skillId: string) => void;
   spawnCanvasSkill: (
@@ -694,6 +723,8 @@ interface CanvasState {
   collapsedBranchThreadIds: string[];
   /** Card ids with answer + descendant subtree collapsed on canvas (session UI only). */
   collapsedCardIds: string[];
+  /** Session-only: hide every chat card on the canvas. */
+  chatsGloballyHidden: boolean;
   groups: Record<string, BranchGroup>;
   activeGroupId: string | null;
 
@@ -722,6 +753,7 @@ interface CanvasState {
   ) => boolean;
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   toggleCardCollapsed: (cardId: string) => void;
+  toggleChatsGloballyHidden: () => void;
   autoCollapseInactiveThreads: (threadIds: string[]) => void;
   clearSelection: () => void;
   /** Remove the current canvas selection from the canvas (sidebar data is kept). */
@@ -1097,6 +1129,10 @@ function newCanvasGifNodeId() {
   return newId("gifnode");
 }
 
+function newCanvas3DNodeId() {
+  return newId("3dnode");
+}
+
 export const newCardId = () => newId("card");
 export const newExplainId = () => newId("explain");
 const newThreadId = () => newId("thread");
@@ -1269,6 +1305,7 @@ function unifiedSelectionPatch(selection: CanvasSelection) {
     selectedCanvasArtifactId: single?.kind === "artifact" ? single.id : null,
     selectedCanvasAssetId: single?.kind === "asset" ? single.id : null,
     selectedCanvasGifId: single?.kind === "gif" ? single.id : null,
+    selectedCanvas3DId: single?.kind === "3d" ? single.id : null,
     selectedCanvasSkillId: single?.kind === "skill" ? single.id : null,
     selectedCanvasTextLabelId: single?.kind === "label" ? single.id : null,
   };
@@ -1285,6 +1322,7 @@ interface SelectionMoveSlice {
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasAssetNodes: Record<string, CanvasAssetNode>;
   canvasGifNodes: Record<string, CanvasGifNode>;
+  canvas3DNodes: Record<string, Canvas3DNode>;
   canvasSkillNodes: Record<string, CanvasSkillNode>;
   canvasTextLabels: Record<string, CanvasTextLabel>;
 }
@@ -1315,6 +1353,7 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
   let artifacts = state.canvasArtifactNodes;
   let assets = state.canvasAssetNodes;
   let gifs = state.canvasGifNodes;
+  let threeD = state.canvas3DNodes;
   let skills = state.canvasSkillNodes;
   let labels = state.canvasTextLabels;
 
@@ -1348,6 +1387,9 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
       case "gif":
         gifs = moveNodeRecord(gifs, d.id, d.dx, d.dy);
         break;
+      case "3d":
+        threeD = moveNodeRecord(threeD, d.id, d.dx, d.dy);
+        break;
       case "skill":
         skills = moveNodeRecord(skills, d.id, d.dx, d.dy);
         break;
@@ -1362,6 +1404,7 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
     canvasArtifactNodes: artifacts,
     canvasAssetNodes: assets,
     canvasGifNodes: gifs,
+    canvas3DNodes: threeD,
     canvasSkillNodes: skills,
     canvasTextLabels: labels,
   };
@@ -1543,6 +1586,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasGifNodes: {},
   canvasGifOrder: [],
   selectedCanvasGifId: null,
+  canvas3DNodes: {},
+  canvas3DOrder: [],
+  selectedCanvas3DId: null,
+  canvas3dPlacementRequest: null,
   gifPickerOpen: false,
   setGifPickerOpen: (open) => set({ gifPickerOpen: open }),
   imagePlacementAssetId: null,
@@ -1642,6 +1689,98 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             : state.selectedCanvasGifId,
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "gif" && i.id === nodeId),
+        ),
+        collaborationHasEdits: true,
+      };
+    }),
+
+  requestCanvas3DPlacement: (input) =>
+    set({
+      canvas3dPlacementRequest: input,
+      gifPickerOpen: false,
+      viewMode: "canvas",
+    }),
+  spawnCanvas3D: (input, opts) => {
+    let nodeId: string | null = null;
+    set((state) => {
+      const id = newCanvas3DNodeId();
+      nodeId = id;
+      const w = 240;
+      const node: Canvas3DNode = {
+        id,
+        modelUrl: input.modelUrl,
+        format: input.format,
+        title: input.title,
+        sourceId: input.sourceId,
+        position: opts?.position ?? { x: 0, y: 0 },
+        size: { w, h: w },
+      };
+      return {
+        canvas3DNodes: { ...state.canvas3DNodes, [id]: node },
+        canvas3DOrder: [...state.canvas3DOrder, id],
+        ...(opts?.focus
+          ? unifiedSelectionPatch({
+              familyRootIds: [],
+              items: [{ kind: "3d", id }],
+            })
+          : {}),
+        collaborationHasEdits: true,
+      };
+    });
+    return nodeId;
+  },
+  moveCanvas3D: (nodeId, dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const node = state.canvas3DNodes[nodeId];
+      if (!node) return state;
+      return {
+        canvas3DNodes: {
+          ...state.canvas3DNodes,
+          [nodeId]: {
+            ...node,
+            position: {
+              x: node.position.x + dx,
+              y: node.position.y + dy,
+            },
+          },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+  setCanvas3DSize: (nodeId, size) =>
+    set((state) => {
+      const node = state.canvas3DNodes[nodeId];
+      if (!node) return state;
+      const prev = node.size;
+      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      return {
+        canvas3DNodes: {
+          ...state.canvas3DNodes,
+          [nodeId]: { ...node, size },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+  selectCanvas3D: (nodeId) =>
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "3d", id: nodeId }] : [],
+      }),
+    ),
+  removeCanvas3DNode: (nodeId) =>
+    set((state) => {
+      if (!state.canvas3DNodes[nodeId]) return state;
+      const next = { ...state.canvas3DNodes };
+      delete next[nodeId];
+      return {
+        canvas3DNodes: next,
+        canvas3DOrder: state.canvas3DOrder.filter((id) => id !== nodeId),
+        selectedCanvas3DId:
+          state.selectedCanvas3DId === nodeId ? null : state.selectedCanvas3DId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "3d" && i.id === nodeId),
         ),
         collaborationHasEdits: true,
       };
@@ -1914,6 +2053,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasSelection: [],
   collapsedBranchThreadIds: [],
   collapsedCardIds: [],
+  chatsGloballyHidden: false,
   groups: {},
   activeGroupId: null,
 
@@ -1946,6 +2086,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ? state.collapsedCardIds.filter((id) => id !== cardId)
           : [...state.collapsedCardIds, cardId],
       };
+    }),
+
+  toggleChatsGloballyHidden: () =>
+    set((state) => {
+      const next = !state.chatsGloballyHidden;
+      if (next) {
+        return {
+          chatsGloballyHidden: true,
+          selectedFamilyRootIds: [],
+          activeGroupId: null,
+        };
+      }
+      return { chatsGloballyHidden: false };
     }),
 
   autoCollapseInactiveThreads: (threadIds) =>
@@ -1985,6 +2138,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasAssetId: null,
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
+      selectedCanvas3DId: null,
       selectedCanvasSkillId: null,
     }),
 
@@ -2011,6 +2165,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const removedArtifactNodeIds = new Set<string>();
       const removedAssetNodeIds = new Set<string>();
       const removedGifNodeIds = new Set<string>();
+      const removed3DNodeIds = new Set<string>();
       const removedSkillNodeIds = new Set<string>();
       const removedLabelIds = new Set<string>();
 
@@ -2031,6 +2186,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
               removedGifNodeIds.add(item.id);
             }
             break;
+          case "3d":
+            if (state.canvas3DNodes[item.id]) {
+              removed3DNodeIds.add(item.id);
+            }
+            break;
           case "skill":
             if (state.canvasSkillNodes[item.id]) {
               removedSkillNodeIds.add(item.id);
@@ -2049,6 +2209,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         removedArtifactNodeIds.size > 0 ||
         removedAssetNodeIds.size > 0 ||
         removedGifNodeIds.size > 0 ||
+        removed3DNodeIds.size > 0 ||
         removedSkillNodeIds.size > 0 ||
         removedLabelIds.size > 0;
 
@@ -2138,6 +2299,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         );
       }
 
+      let next3DNodes = state.canvas3DNodes;
+      let next3DOrder = state.canvas3DOrder;
+      if (removed3DNodeIds.size > 0) {
+        next3DNodes = { ...state.canvas3DNodes };
+        for (const id of removed3DNodeIds) {
+          delete next3DNodes[id];
+        }
+        next3DOrder = state.canvas3DOrder.filter(
+          (id) => !removed3DNodeIds.has(id),
+        );
+      }
+
       let nextSkillNodes = state.canvasSkillNodes;
       let nextSkillOrder = state.canvasSkillOrder;
       if (removedSkillNodeIds.size > 0) {
@@ -2202,6 +2375,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasAssetOrder: nextAssetOrder,
         canvasGifNodes: nextGifNodes,
         canvasGifOrder: nextGifOrder,
+        canvas3DNodes: next3DNodes,
+        canvas3DOrder: next3DOrder,
         canvasSkillNodes: nextSkillNodes,
         canvasSkillOrder: nextSkillOrder,
         canvasTextLabels: nextLabels,
@@ -2372,6 +2547,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ...unifiedSelectionPatch({
         familyRootIds: [],
         items: [{ kind: "gif", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvas3DNode: (nodeId) => {
+    const node = get().canvas3DNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvas3DNodeId();
+    set((state) => ({
+      canvas3DNodes: {
+        ...state.canvas3DNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvas3DOrder: [...state.canvas3DOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "3d", id }],
       }),
       collaborationHasEdits: true,
     }));
@@ -4936,6 +5135,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasStrokeOrder: state.canvasStrokeOrder,
       canvasGifNodes: state.canvasGifNodes,
       canvasGifOrder: state.canvasGifOrder,
+      canvas3DNodes: state.canvas3DNodes,
+      canvas3DOrder: state.canvas3DOrder,
       uploadedAttachments: state.uploadedAttachments,
       collaborationHasEdits: state.collaborationHasEdits,
     };
@@ -4970,6 +5171,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       activeCanvasStrokeId: null,
       canvasGifNodes: {},
       canvasGifOrder: [],
+      canvas3DNodes: {},
+      canvas3DOrder: [],
       uploadedAttachments: [],
       globalOrigin: null,
       activeThreadId: null,
@@ -4982,6 +5185,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasSkillId: null,
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
+      selectedCanvas3DId: null,
       selectedFamilyRootIds: [],
       canvasSelection: [],
       activeGroupId: null,
@@ -5138,7 +5342,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         activeCanvasStrokeId: preserveEphemeral ? state.activeCanvasStrokeId : null,
         canvasGifNodes: { ...snapshotNorm.canvasGifNodes },
         canvasGifOrder: [...(snapshotNorm.canvasGifOrder ?? [])],
+        canvas3DNodes: { ...snapshotNorm.canvas3DNodes },
+        canvas3DOrder: [...(snapshotNorm.canvas3DOrder ?? [])],
         selectedCanvasGifId: preserveEphemeral ? state.selectedCanvasGifId : null,
+        selectedCanvas3DId: preserveEphemeral ? state.selectedCanvas3DId : null,
         selectedCanvasSkillId: preserveEphemeral ? state.selectedCanvasSkillId : null,
         selectedCanvasTextLabelId: preserveEphemeral
           ? state.selectedCanvasTextLabelId
@@ -5149,6 +5356,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ? state.collapsedBranchThreadIds
           : state.collapsedBranchThreadIds,
         collapsedCardIds: preserveEphemeral ? state.collapsedCardIds : state.collapsedCardIds,
+        chatsGloballyHidden: false,
         activeGroupId: preserveEphemeral ? state.activeGroupId : null,
         undoPast: preserveEphemeral ? state.undoPast : [],
         globalOrigin,

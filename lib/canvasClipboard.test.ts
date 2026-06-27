@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCanvasClipboardPayload,
   canCopyCanvasSelection,
@@ -48,6 +48,8 @@ function baseCanvasState(
     canvasAssetOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
+    canvas3DNodes: {},
+    canvas3DOrder: [],
     canvasSkills: {},
     canvasSkillNodes: {},
     canvasSkillOrder: [],
@@ -332,7 +334,7 @@ describe("readCanvasClipboardFromDataTransfer", () => {
     expect(fromMime).toEqual(built);
   });
 
-  it("clears in-memory cache when plain text is external", async () => {
+  it("falls back to in-memory copy when system write failed and plain text is stale", async () => {
     const art = createSessionArtifactFromPayload(
       { type: "todo", title: "List", data: { items: [] } },
       "__manual__",
@@ -353,10 +355,59 @@ describe("readCanvasClipboardFromDataTransfer", () => {
       }),
     );
     expect(built).not.toBeNull();
+
+    const staleUrl = "https://example.com/page";
+    const mockClipboard = {
+      write: vi.fn().mockRejectedValue(new Error("denied")),
+      writeText: vi.fn().mockRejectedValue(new Error("denied")),
+      readText: vi.fn().mockResolvedValue(staleUrl),
+    };
+    vi.stubGlobal("navigator", { clipboard: mockClipboard });
+
+    await writeCanvasClipboard(built!);
+
+    const pasted = readCanvasClipboardFromDataTransfer(
+      mockDataTransfer({ "text/plain": staleUrl }),
+    );
+    expect(pasted).toEqual(built);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("clears in-memory cache when system write succeeded and plain text is external", async () => {
+    const art = createSessionArtifactFromPayload(
+      { type: "todo", title: "List", data: { items: [] } },
+      "__manual__",
+    );
+    const built = buildCanvasClipboardPayload(
+      baseCanvasState({
+        sessionArtifacts: { [art.id]: art },
+        canvasArtifactNodes: {
+          n1: {
+            id: "n1",
+            artifactId: art.id,
+            versionId: art.latestVersionId,
+            sourceCardId: "__manual__",
+            position: { x: 0, y: 0 },
+          },
+        },
+        canvasSelection: [{ kind: "artifact", id: "n1" }],
+      }),
+    );
+    expect(built).not.toBeNull();
+
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        write: vi.fn().mockResolvedValue(undefined),
+        writeText: vi.fn().mockResolvedValue(undefined),
+        readText: vi.fn(),
+      },
+    });
+
     await writeCanvasClipboard(built!);
 
     const external = readCanvasClipboardFromDataTransfer(
-      mockDataTransfer({ "text/plain": "https://example.com/page" }),
+      mockDataTransfer({ "text/plain": "https://example.com/other" }),
     );
     expect(external).toBeNull();
 
@@ -364,5 +415,7 @@ describe("readCanvasClipboardFromDataTransfer", () => {
       mockDataTransfer({ "text/plain": "" }),
     );
     expect(afterExternal).toBeNull();
+
+    vi.unstubAllGlobals();
   });
 });

@@ -3,6 +3,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasGifNode,
+  Canvas3DNode,
   CanvasSkill,
   CanvasSkillNode,
   CanvasTextLabel,
@@ -68,7 +69,13 @@ export interface GraphSnapshot {
 
   canvasGifOrder?: string[];
 
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+
+  canvas3DOrder?: string[];
+
   selectedCanvasGifId?: string | null;
+
+  selectedCanvas3DId?: string | null;
 
   canvasTextLabels: Record<string, CanvasTextLabel>;
 
@@ -141,6 +148,12 @@ export function captureGraphSnapshot(state: GraphSnapshotSource): GraphSnapshot 
     canvasGifOrder: state.canvasGifOrder ?? [],
 
     selectedCanvasGifId: state.selectedCanvasGifId ?? null,
+
+    canvas3DNodes: state.canvas3DNodes ?? {},
+
+    canvas3DOrder: state.canvas3DOrder ?? [],
+
+    selectedCanvas3DId: state.selectedCanvas3DId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 
@@ -215,6 +228,12 @@ export function graphSnapshotFromState<T extends GraphSnapshotSource>(
     canvasGifOrder: state.canvasGifOrder ?? [],
 
     selectedCanvasGifId: state.selectedCanvasGifId ?? null,
+
+    canvas3DNodes: state.canvas3DNodes ?? {},
+
+    canvas3DOrder: state.canvas3DOrder ?? [],
+
+    selectedCanvas3DId: state.selectedCanvas3DId ?? null,
 
     canvasTextLabels: state.canvasTextLabels,
 

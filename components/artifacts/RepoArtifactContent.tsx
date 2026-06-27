@@ -2,6 +2,7 @@
 
 import { m, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import type { RepoExplorerData, WidgetStatus } from "@/lib/github/types";
 import {
@@ -628,6 +629,11 @@ function useRepoEnrichment(
   explorer: RepoExplorerData,
 ) {
   const patchRepoArtifactExplorer = useCanvasStore((s) => s.patchRepoArtifactExplorer);
+  const selectedArtifactId = useCanvasStore((s) => s.selectedCanvasArtifactId);
+  const sandboxDefer =
+    isMobileSdlcSandboxSessionActive() &&
+    Boolean(artifactId) &&
+    selectedArtifactId !== artifactId;
   const [streamingOverview, setStreamingOverview] = useState(
     () => explorer.overview.ai?.whatItIs ?? "",
   );
@@ -638,6 +644,7 @@ function useRepoEnrichment(
 
   useEffect(() => {
     if (!artifactId || startedRef.current) return;
+    if (sandboxDefer) return;
     if (explorer.enrichmentStatus === "complete") {
       setDataReady(true);
       return;
@@ -733,7 +740,13 @@ function useRepoEnrichment(
         });
       }
     })();
-  }, [artifactId, explorer.enrichmentStatus, patchRepoArtifactExplorer, repoUrl]);
+  }, [
+    artifactId,
+    explorer.enrichmentStatus,
+    patchRepoArtifactExplorer,
+    repoUrl,
+    sandboxDefer,
+  ]);
 
   return { streamingOverview, dataReady };
 }

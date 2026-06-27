@@ -54,6 +54,7 @@ import { clearLandingAnimated } from "@/lib/motion/performance";
 import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
+import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
@@ -225,6 +226,8 @@ export function useCanvasPersistence({
             canvasStrokeOrder: merged.canvasStrokeOrder ?? [],
             canvasGifNodes: merged.canvasGifNodes,
             canvasGifOrder: merged.canvasGifOrder,
+            canvas3DNodes: merged.canvas3DNodes,
+            canvas3DOrder: merged.canvas3DOrder,
             uploadedAttachments: merged.uploadedAttachments ?? [],
             collaborationHasEdits: merged.collaborationHasEdits ?? false,
           };
@@ -302,6 +305,7 @@ export function useCanvasPersistence({
 
     if (
       isArtifactCatalogSessionActive() ||
+      isMobileSdlcSandboxSessionActive() ||
       useCanvasStore.getState().canvasReadOnly
     ) {
       return;
@@ -937,7 +941,7 @@ export function useCanvasPersistence({
     let prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
 
     const scheduleSave = () => {
-      if (isArtifactCatalogSessionActive()) return;
+      if (isArtifactCatalogSessionActive() || isMobileSdlcSandboxSessionActive()) return;
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||
