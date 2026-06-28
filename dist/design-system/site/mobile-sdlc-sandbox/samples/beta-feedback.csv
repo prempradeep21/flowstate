@@ -1,0 +1,5 @@
+id,theme,quote,severity,action_owner
+R1,Onboarding confusion,"I didn't know Hindi was available",high,PM
+R2,Offline gaps,"Expenses didn't save without signal",critical,Eng
+R3,Trust,"Want bank logo on payment screen",medium,Design
+R4,Performance,"App slow on Redmi Note 12",high,Eng

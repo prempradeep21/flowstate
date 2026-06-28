@@ -11,12 +11,15 @@
     "dev:spec": "node scripts/spec-viewer-dev.js",
     "dev:repo-explorer": "node scripts/repo-explorer-dev.js",
     "dev:artifact-catalog": "node scripts/artifact-catalog-dev.js",
+    "dev:design-system": "node scripts/design-system-dev.js",
     "dev:mobile-sdlc-sandbox": "node scripts/mobile-sdlc-sandbox-dev.js",
     "dev:ui-instructions": "node scripts/ui-instructions-viewer-dev.js",
     "ui-instructions:compile": "node scripts/extract-ui-instructions.js && node scripts/compile-ui-instructions-md.js",
     "chronology:sync": "node scripts/generate-chronology.js --sync",
     "dev:clean": "node scripts/clean-dev.js",
     "build": "next build",
+    "export:design-tokens": "node scripts/export-design-tokens.mjs",
+    "export:design-system": "node scripts/export-design-system.mjs",
     "start": "next start",
     "lint": "next lint",
     "supabase:check-env": "node scripts/check-supabase-env.js",
@@ -74,6 +77,7 @@
     "eslint-config-next": "^15.5.18",
     "postcss": "^8.5.14",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^3.2.4"
   }
