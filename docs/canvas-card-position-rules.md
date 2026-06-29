@@ -136,7 +136,7 @@ Used inside `relayoutChildrenOf` and `repairCanvasLayout` — **not** called on 
 - **Who can drag:** Only **root** cards (`parentCardId === null`).
 - **What moves:** `moveSubtree(rootId, dx, dy)` — BFS over **all** outgoing connections (bottom + left/right + any subtree).
 - **Coordinate conversion:** Screen delta ÷ `viewport.scale`.
-- **Threshold:** 5px before drag counts as a move.
+- **Threshold:** Movement begins immediately (0px); any pointer delta updates position on the first `pointermove`.
 - **Blocked when:** Plug drag active, or pointer on plugs / text controls.
 
 Follow-up cards (with `parentCardId` set) are **not** individually draggable.

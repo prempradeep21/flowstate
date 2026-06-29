@@ -237,7 +237,7 @@ export function detectChartIntent(question: string): boolean {
 
 export const CHART_INTENT_SYSTEM_NOTE = `
 MANDATORY — Chart / trend request detected:
-- First call fetch_chart_data to gather real or best-available numeric series for the topic (unless the user already pasted complete numbers in their message).
+- If the user did not paste complete numbers, use web_search first to gather real or best-available numeric series for the topic.
 - Then call emit_artifact with type "chart" and a populated data payload.
 - Pick chartType: line for time trends; area for filled/cumulative trends; bar for category comparison; pie for share-of-whole; gauge for single goal progress.
 - data shape: bar/line/area use data.categories + data.series[{ name, data[] }]; pie uses data.slices[{ name, value }]; gauge uses data.gaugeValue, data.gaugeMax, data.gaugeLabel.

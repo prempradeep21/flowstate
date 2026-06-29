@@ -28,6 +28,7 @@ import {
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
+import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
@@ -50,11 +51,11 @@ import {
 import {
   findRemoteArtifactUpdatingCardId,
 } from "@/lib/artifactRemoteUpdate";
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 
 const TEXT_SELECTABLE =
   'textarea, button, input, select, a, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], [role="menu"], [role="listbox"], [role="option"], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon';
@@ -94,6 +95,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
   const [chromeHover, setChromeHover] = useState(false);
+  const [pointerSessionActive, setPointerSessionActive] = useState(false);
 
   /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
   const syncChromeHover = useCallback(() => {
@@ -259,6 +261,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     if (canvasReadOnly) return;
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    setPointerSessionActive(true);
     dragStateRef.current = {
       pointerId: e.pointerId,
       lastX: e.clientX,
@@ -340,6 +343,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         .duplicateCanvasArtifactNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -361,6 +365,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         // ignore
       }
       resizeStateRef.current = null;
+      setPointerSessionActive(false);
       return;
     }
 
@@ -375,6 +380,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       // ignore
     }
     dragStateRef.current = null;
+    setPointerSessionActive(false);
   };
 
   const handleResizePointerDown = (
@@ -387,6 +393,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     selectCanvasArtifact(node.id);
     const root = nodeRef.current;
     if (root) root.setPointerCapture(e.pointerId);
+    setPointerSessionActive(true);
     resizeStateRef.current = {
       pointerId: e.pointerId,
       corner,
@@ -423,6 +430,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
       {...(chromeVisible ? { "data-chrome-hover": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
+      {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerEnter={syncChromeHover}

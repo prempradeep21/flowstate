@@ -5,6 +5,7 @@ import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { SkillBrainIcon } from "@/components/skills/SkillBrainIcon";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/store";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
 
@@ -128,6 +129,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       const copyId = useCanvasStore.getState().duplicateCanvasSkillNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;

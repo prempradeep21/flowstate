@@ -8,8 +8,9 @@ import { isCustomUiWork } from "@/lib/artifactIntent";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
+  getActiveTurnTimeoutMs,
   QA_TURN_TIMEOUT_ENABLED,
-  QA_TURN_TIMEOUT_MS_ACTIVE,
+  turnTimeoutMinutes,
 } from "@/lib/qaTurnLimits";
 import { useCanvasStore } from "@/lib/store";
 
@@ -19,19 +20,20 @@ export function qaTurnTimeoutMessage(cardId: string): string {
   const state = useCanvasStore.getState();
   const card = state.cards[cardId];
   if (!card) {
-    return "⚠️ This request timed out after 3 minutes.";
+    return "⚠️ This request timed out.";
   }
   const editing = resolveEditingPayloadForApi(cardId);
   const editingPayload = editing?.payload as { type?: string } | null;
   const customWork = isCustomUiWork(card.question, editingPayload);
+  const minutes = turnTimeoutMinutes(customWork);
   const existingCustom =
     editingPayload?.type === "custom" ||
     (card.outputArtifactId != null &&
       state.sessionArtifacts[card.outputArtifactId]?.kind === "custom");
   if (customWork && existingCustom) {
-    return "⚠️ The request timed out after 3 minutes. Your existing artifact on the canvas is unchanged — try again.";
+    return `⚠️ The request timed out after ${minutes} minutes. Your existing artifact on the canvas is unchanged — try again.`;
   }
-  return "⚠️ This request timed out after 3 minutes. Nothing was saved for this turn — use Try again or simplify the request.";
+  return `⚠️ This request timed out after ${minutes} minutes. Nothing was saved for this turn — use Try again or simplify the request.`;
 }
 
 function clearCardTurnPreviews(cardId: string): void {
@@ -82,14 +84,21 @@ export function expireQaTurn(cardId: string): void {
 }
 
 export function startQaTurnTimeout(cardId: string): void {
-  if (!QA_TURN_TIMEOUT_ENABLED || QA_TURN_TIMEOUT_MS_ACTIVE <= 0) return;
+  const state = useCanvasStore.getState();
+  const card = state.cards[cardId];
+  if (!card) return;
+  const editing = resolveEditingPayloadForApi(cardId);
+  const editingPayload = editing?.payload as { type?: string } | null;
+  const customWork = isCustomUiWork(card.question, editingPayload);
+  const timeoutMs = getActiveTurnTimeoutMs(customWork);
+  if (!QA_TURN_TIMEOUT_ENABLED || timeoutMs <= 0) return;
   clearQaTurnTimeout(cardId);
   timers.set(
     cardId,
     setTimeout(() => {
       timers.delete(cardId);
       expireQaTurn(cardId);
-    }, QA_TURN_TIMEOUT_MS_ACTIVE),
+    }, timeoutMs),
   );
 }
 

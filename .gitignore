@@ -22,6 +22,7 @@
 /.next-design-system/
 /.next-design-system-export/
 /.next-vercel-check/
+/.next-mobile-sdlc-sandbox/
 /.design-system-export-stash/
 /out/
 build-vercel-check.log

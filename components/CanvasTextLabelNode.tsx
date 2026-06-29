@@ -16,6 +16,7 @@ import {
   getTextLabelWidth,
   MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -31,7 +32,7 @@ import {
 } from "@/lib/store";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-resize-handle]";
 
@@ -357,6 +358,7 @@ export function CanvasTextLabelNode({
         .duplicateCanvasTextLabel(label.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;

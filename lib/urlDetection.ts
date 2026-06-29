@@ -27,6 +27,23 @@ export function extractUrlFromText(text: string): string | null {
   return normalizeHttpUrl(trimmed);
 }
 
+const URL_IN_TEXT_RE = /https?:\/\/[^\s<>"')\]]+/gi;
+
+/** Extract http(s) URLs embedded in a longer message (deduped, order preserved). */
+export function extractUrlsFromText(text: string): string[] {
+  const matches = text.match(URL_IN_TEXT_RE) ?? [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const raw of matches) {
+    const trimmed = raw.replace(/[.,;:!?)]+$/, "");
+    const normalized = normalizeHttpUrl(trimmed);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    urls.push(normalized);
+  }
+  return urls;
+}
+
 /** Hostname minus www and TLD → title-case fallback (e.g. github.com → Github). */
 export function domainDisplayLabel(url: string): string {
   try {

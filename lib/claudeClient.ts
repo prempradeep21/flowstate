@@ -25,8 +25,8 @@ import {
 } from "./store";
 import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
 import {
+  getActiveTurnTimeoutMs,
   QA_TURN_TIMEOUT_ENABLED,
-  QA_TURN_TIMEOUT_MS_ACTIVE,
 } from "@/lib/qaTurnLimits";
 
 /** On unless explicitly disabled — custom UI needs the Cursor SDK route. */
@@ -73,19 +73,20 @@ export function askClaude(
 
   const run = async () => {
     if (cancelled) return;
-    if (QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0) {
-      hardTimeoutId = setTimeout(() => {
-        cancelled = true;
-        controller.abort(
-          new DOMException("Q&A request timed out", "AbortError"),
-        );
-      }, QA_TURN_TIMEOUT_MS_ACTIVE);
-    }
     const editingArtifact = resolveEditingPayloadForApi(cardId);
     const customWork = isCustomUiWork(
       question,
       editingArtifact?.payload as { type?: string } | null,
     );
+    const turnTimeoutMs = getActiveTurnTimeoutMs(customWork);
+    if (QA_TURN_TIMEOUT_ENABLED && turnTimeoutMs > 0) {
+      hardTimeoutId = setTimeout(() => {
+        cancelled = true;
+        controller.abort(
+          new DOMException("Q&A request timed out", "AbortError"),
+        );
+      }, turnTimeoutMs);
+    }
     cb.onThinking(resolveInitialThinkingLabel(question, editingArtifact?.payload as { type?: string } | null));
     try {
       const state = useCanvasStore.getState();

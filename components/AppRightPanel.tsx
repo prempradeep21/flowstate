@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
 import { LiveDrakkar } from "@/components/LiveDrakkar";
 import { LocalSessionTag } from "@/components/LocalSessionTag";
@@ -66,6 +67,8 @@ export function AppRightPanel() {
       <LocalSessionTag />
 
       <LiveDrakkar />
+
+      <AdminPortalButton />
 
       <BetaFeedbackButton />
 

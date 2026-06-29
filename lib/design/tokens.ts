@@ -6,7 +6,7 @@
 
 /** Primitive canvas palette */
 export const canvasColors = {
-  bg: "#FAFAF8",
+  bg: "#F0F0F0",
   dot: "#8B8A86",
   card: "#FFFFFF",
   border: "#E6E4DF",

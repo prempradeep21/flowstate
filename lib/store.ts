@@ -428,23 +428,11 @@ export interface Viewport {
 export type ConnectorStyle = "curvy" | "orthogonal";
 export type AppViewMode = "canvas" | "chat";
 
-export type CanvasBackgroundStyle =
-  | "grid"
-  | "ambient-gradient"
-  | "sky"
-  | "network"
-  | "rising-sun"
-  | "gradient-grid"
-  | "neat-gradient";
+export type CanvasBackgroundStyle = "grid" | "ambient-gradient";
 
 export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "grid",
   "ambient-gradient",
-  "sky",
-  "network",
-  "rising-sun",
-  "gradient-grid",
-  "neat-gradient",
 ] as const;
 
 export type CanvasTheme = "light" | "dark";

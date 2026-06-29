@@ -16,8 +16,8 @@ import { runCustomUiGenerator } from "@/lib/cursorSdk/customUiGenerator";
 import { getCursorSdkRuntimeIssue } from "@/lib/cursorSdk/runtimeCheck";
 import { initialSdkBuildStages } from "@/lib/cursorSdk/sdkStageLabels";
 import {
+  CUSTOM_UI_TURN_TIMEOUT_MS,
   QA_TURN_TIMEOUT_ENABLED,
-  QA_TURN_TIMEOUT_MS_ACTIVE,
 } from "@/lib/qaTurnLimits";
 
 /** Vercel Hobby/Pro cap (Next.js requires a literal). */
@@ -113,11 +113,11 @@ export async function POST(req: Request) {
       };
 
       const hardTimeout =
-        QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0
+        QA_TURN_TIMEOUT_ENABLED && CUSTOM_UI_TURN_TIMEOUT_MS > 0
           ? setTimeout(() => {
               emit({ error: "Request timed out." });
               closeStream();
-            }, QA_TURN_TIMEOUT_MS_ACTIVE)
+            }, CUSTOM_UI_TURN_TIMEOUT_MS)
           : null;
 
       const runAnthropicFallback = async (note?: string) => {

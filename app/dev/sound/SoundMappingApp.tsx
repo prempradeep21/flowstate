@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SoundEventVolumeSlider } from "@/components/sounds/SoundEventVolumeSlider";
 import { SoundPresetPicker } from "@/components/sounds/SoundPresetPicker";
 import {
   clearDraftSoundMap,
-  createInitialDraftMap,
+  loadDraftSoundMap,
   mergeDraftPreset,
   mergeDraftVolume,
   saveDraftSoundMap,
@@ -119,26 +119,53 @@ function SpecimenDemo({
 }
 
 export function SoundMappingApp() {
-  const [draftMap, setDraftMap] = useState<SoundMapping>(() => createInitialDraftMap());
+  const [draftMap, setDraftMap] = useState<SoundMapping>(() => ({ ...DEFAULT_SOUND_MAP }));
   const [volume, setVolume] = useState(0.7);
   const [muted, setMuted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [expandedSpecimens, setExpandedSpecimens] = useState<Set<SoundEventId>>(
+    () => new Set(),
+  );
+  const [ready, setReady] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    applySoundMap(draftMap);
-    saveDraftSoundMap(draftMap);
-  }, [draftMap]);
-
-  useEffect(() => {
+    const draft = loadDraftSoundMap();
+    const nextMap = draft ? { ...DEFAULT_SOUND_MAP, ...draft } : { ...DEFAULT_SOUND_MAP };
+    setDraftMap(nextMap);
+    applySoundMap(nextMap);
     setVolume(getMasterVolume());
     setMuted(isMasterMuted());
     setReducedMotion(isReducedMotionActive());
+    setReady(true);
+
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => setReducedMotion(mq.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    applySoundMap(draftMap);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveDraftSoundMap(draftMap);
+    }, 300);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [draftMap, ready]);
+
+  const toggleSpecimen = useCallback((eventId: SoundEventId) => {
+    setExpandedSpecimens((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
   }, []);
 
   const groupedEvents = useMemo(() => {
@@ -234,6 +261,14 @@ export function SoundMappingApp() {
   };
 
   const engineMuted = muted || (reducedMotion && isSoundEngineMuted());
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-canvas-bg px-6 text-canvas-body-sm text-canvas-muted">
+        Loading sound mappings…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-canvas-bg text-canvas-ink">
@@ -362,10 +397,22 @@ export function SoundMappingApp() {
                     />
                   </div>
                   <div>
-                    <span className="mb-2 block text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted">
-                      Try it
-                    </span>
-                    <SpecimenDemo eventId={event.id} onTrigger={handleTrigger} />
+                    <button
+                      type="button"
+                      onClick={() => toggleSpecimen(event.id)}
+                      aria-expanded={expandedSpecimens.has(event.id)}
+                      className="mb-2 flex w-full items-center justify-between gap-2 text-left text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted transition-colors hover:text-canvas-ink"
+                    >
+                      <span>Try it</span>
+                      <span aria-hidden>{expandedSpecimens.has(event.id) ? "−" : "+"}</span>
+                    </button>
+                    {expandedSpecimens.has(event.id) ? (
+                      <SpecimenDemo eventId={event.id} onTrigger={handleTrigger} />
+                    ) : (
+                      <p className="text-canvas-compact text-canvas-muted">
+                        Expand to preview the interaction specimen.
+                      </p>
+                    )}
                   </div>
                 </article>
               ))}

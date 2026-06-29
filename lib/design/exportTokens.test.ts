@@ -11,7 +11,7 @@ describe("buildDesignTokenExport", () => {
     expect(tokens.version).toBe("1.0.0");
     expect(tokens.colors.light.accent).toBe("#6B4EFF");
     expect(tokens.colors.dark.accent).toBe("#8E78FF");
-    expect(tokens.cssVariables.light["--canvas-bg"]).toBe("250 250 248");
+    expect(tokens.cssVariables.light["--canvas-bg"]).toBe("240 240 240");
     expect(tokens.threadAccentPalette.length).toBeGreaterThan(0);
   });
 

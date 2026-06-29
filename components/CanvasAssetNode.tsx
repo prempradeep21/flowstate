@@ -19,6 +19,7 @@ import {
   getCanvasAssetBounds,
   resizeAssetMaintainingAspect,
 } from "@/lib/canvasAssetBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -32,7 +33,7 @@ import {
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
 
@@ -196,6 +197,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       const copyId = useCanvasStore.getState().duplicateCanvasAssetNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;

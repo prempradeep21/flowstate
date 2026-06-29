@@ -87,6 +87,7 @@ function fitViewportToCatalog(
 export function useArtifactCatalogCanvas(
   category: ArtifactCatalogCategory,
   containerRef: React.RefObject<HTMLElement | null>,
+  enabled = true,
 ) {
   const persistenceReady = usePersistenceReady();
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
@@ -115,7 +116,7 @@ export function useArtifactCatalogCanvas(
   );
 
   useEffect(() => {
-    if (!persistenceReady) return;
+    if (!enabled || !persistenceReady) return;
 
     if (!sessionStartedRef.current) {
       beginArtifactCatalogSession(
@@ -125,7 +126,7 @@ export function useArtifactCatalogCanvas(
     }
 
     loadCategory(category);
-  }, [persistenceReady, category, loadCategory]);
+  }, [enabled, persistenceReady, category, loadCategory]);
 
   useEffect(() => {
     return () => {

@@ -85,7 +85,7 @@ import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
 import { getCanvasFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
 import { useCanvasPan } from "@/hooks/useCanvasPan";
-import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
+import { useCanvasViewportInput } from "@/hooks/useCanvasViewportInput";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
@@ -306,7 +306,7 @@ export function Canvas({
   }, [cardOrder.length]);
 
   usePlugDragSession(containerRef);
-  useCanvasWheelZoom(containerRef);
+  useCanvasViewportInput(containerRef);
   const queuePan = useCanvasPan();
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
     null,
@@ -794,21 +794,6 @@ export function Canvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, [showLanding, setViewport]);
-
-  // Prevent native page zoom (pinch / Ctrl+wheel) while interacting with the canvas.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const preventGesture = (e: Event) => e.preventDefault();
-    el.addEventListener("gesturestart", preventGesture);
-    el.addEventListener("gesturechange", preventGesture);
-    el.addEventListener("gestureend", preventGesture);
-    return () => {
-      el.removeEventListener("gesturestart", preventGesture);
-      el.removeEventListener("gesturechange", preventGesture);
-      el.removeEventListener("gestureend", preventGesture);
-    };
-  }, []);
 
   // Track cursor position globally; also update ghost position when in placement.
   useEffect(() => {

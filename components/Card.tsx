@@ -35,6 +35,7 @@ import {
 import {
   qaInsetStyle,
 } from "@/lib/design/canvasInsets";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -256,7 +257,7 @@ function CardInner({ card }: CardProps) {
     didMove: boolean;
     moveSelection: boolean;
   } | null>(null);
-  const DRAG_THRESHOLD_PX = 5;
+  const DRAG_THRESHOLD_PX = 0;
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const answerTextRef = useRef<HTMLDivElement | null>(null);
@@ -751,6 +752,7 @@ function CardInner({ card }: CardProps) {
     if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
 
     if (!ds.didMove) {
+      clearSpawnMetaIfDragging(card.id);
       void playSoundThrottled("card-drag-start");
     }
     ds.didMove = true;

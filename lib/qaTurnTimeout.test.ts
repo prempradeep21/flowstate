@@ -6,7 +6,10 @@ import {
   qaTurnTimeoutMessage,
   startQaTurnTimeout,
 } from "@/lib/qaTurnTimeout";
-import { QA_TURN_TIMEOUT_MS } from "@/lib/qaTurnLimits";
+import {
+  CUSTOM_UI_TURN_TIMEOUT_MS,
+  QA_TURN_TIMEOUT_MS,
+} from "@/lib/qaTurnLimits";
 import { useCanvasStore } from "@/lib/store";
 
 function resetStore() {
@@ -109,6 +112,32 @@ describe("qaTurnTimeout", () => {
     vi.advanceTimersByTime(1);
     expect(useCanvasStore.getState().cards.c1.status).toBe("done");
     expect(useCanvasStore.getState().cards.c1.answer).toMatch(/timed out/i);
+  });
+
+  it("uses a longer watchdog for custom UI builds", () => {
+    vi.useFakeTimers();
+    useCanvasStore.setState({
+      cards: {
+        c1: {
+          id: "c1",
+          threadId: "t1",
+          question: "Build a custom UI dashboard",
+          answer: "",
+          status: "thinking",
+          parentCardId: null,
+          parentConversationId: null,
+          position: { x: 0, y: 0 },
+        },
+      },
+    });
+
+    startQaTurnTimeout("c1");
+    vi.advanceTimersByTime(QA_TURN_TIMEOUT_MS);
+    expect(useCanvasStore.getState().cards.c1.status).toBe("thinking");
+
+    vi.advanceTimersByTime(CUSTOM_UI_TURN_TIMEOUT_MS - QA_TURN_TIMEOUT_MS);
+    expect(useCanvasStore.getState().cards.c1.status).toBe("done");
+    expect(useCanvasStore.getState().cards.c1.answer).toMatch(/timed out after 5 minutes/i);
   });
 
   it("no-ops when the turn already finished", () => {

@@ -4,6 +4,7 @@ import {
   classifyPastedUrl,
   domainDisplayLabel,
   extractUrlFromText,
+  extractUrlsFromText,
   normalizeHttpUrl,
 } from "@/lib/urlDetection";
 

@@ -15,6 +15,7 @@ import {
   getCanvasGifBounds,
   resizeGifMaintainingAspect,
 } from "@/lib/canvasGifBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -25,7 +26,7 @@ import {
   type CanvasGifNode as CanvasGifNodeType,
 } from "@/lib/store";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle]";
 
 export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
@@ -144,6 +145,7 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
       const copyId = useCanvasStore.getState().duplicateCanvasGifNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;

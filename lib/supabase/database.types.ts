@@ -224,6 +224,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      usage_analysis_snapshots: {
+        Row: {
+          id: string;
+          computed_at: string;
+          timezone: string;
+          payload: Json;
+          stats: Json;
+        };
+        Insert: {
+          id?: string;
+          computed_at?: string;
+          timezone?: string;
+          payload: Json;
+          stats?: Json;
+        };
+        Update: {
+          id?: string;
+          computed_at?: string;
+          timezone?: string;
+          payload?: Json;
+          stats?: Json;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

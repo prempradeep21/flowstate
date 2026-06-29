@@ -35,30 +35,6 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("ambient-gradient");
   });
 
-  it("preserves sky canvasBackgroundStyle", () => {
-    const snapshot = normalizeCanvasSnapshot({
-      version: 1,
-      canvasBackgroundStyle: "sky",
-    });
-    expect(snapshot.canvasBackgroundStyle).toBe("sky");
-  });
-
-  it("preserves network canvasBackgroundStyle", () => {
-    const snapshot = normalizeCanvasSnapshot({
-      version: 1,
-      canvasBackgroundStyle: "network",
-    });
-    expect(snapshot.canvasBackgroundStyle).toBe("network");
-  });
-
-  it("preserves rising-sun canvasBackgroundStyle", () => {
-    const snapshot = normalizeCanvasSnapshot({
-      version: 1,
-      canvasBackgroundStyle: "rising-sun",
-    });
-    expect(snapshot.canvasBackgroundStyle).toBe("rising-sun");
-  });
-
   it("falls back to grid for removed canvasBackgroundStyle values", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,
@@ -67,27 +43,26 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
-  it("defaults canvasTheme to dark for new snapshots", () => {
-    const snapshot = normalizeCanvasSnapshot({ version: 1 });
-    expect(snapshot.canvasTheme).toBe("dark");
-  });
-
-  it("coerces dark-only backgrounds to grid when theme is light", () => {
+  it("falls back to grid for legacy removed backgrounds like sky", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,
-      canvasTheme: "light",
       canvasBackgroundStyle: "sky",
     });
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
-  it("preserves dark-only backgrounds when theme is dark", () => {
+  it("falls back to grid for legacy removed backgrounds like rising-sun", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,
       canvasTheme: "dark",
       canvasBackgroundStyle: "rising-sun",
     });
-    expect(snapshot.canvasBackgroundStyle).toBe("rising-sun");
+    expect(snapshot.canvasBackgroundStyle).toBe("grid");
+  });
+
+  it("defaults canvasTheme to dark for new snapshots", () => {
+    const snapshot = normalizeCanvasSnapshot({ version: 1 });
+    expect(snapshot.canvasTheme).toBe("dark");
   });
 
   it("drops session artifacts missing versions", () => {

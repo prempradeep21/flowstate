@@ -15,6 +15,7 @@ import {
   getCanvas3DBounds,
   resize3DMaintainingAspect,
 } from "@/lib/canvas3dBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -25,7 +26,7 @@ import {
   type Canvas3DNode as Canvas3DNodeType,
 } from "@/lib/store";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle], canvas";
 
 export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
@@ -139,6 +140,7 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
       const copyId = useCanvasStore.getState().duplicateCanvas3DNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;

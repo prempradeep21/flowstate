@@ -1,5 +1,10 @@
 import { isInsideInteractiveCanvasNode } from "@/lib/canvasNodeInteraction";
-import { isMacOS } from "@/lib/canvasPlatform";
+
+export {
+  isMacTrackpadWheel,
+  isZoomWheel,
+  resolveCanvasWheelAction,
+} from "@/lib/canvasViewportInput";
 
 /** WheelEvent.deltaMode values (mirrors DOM; avoids Node test env dependency). */
 const DOM_DELTA_PIXEL = 0;
@@ -76,28 +81,10 @@ export function wheelDeltaXY(
   };
 }
 
-type WheelRoutingInput = Pick<WheelEvent, "ctrlKey" | "deltaMode">;
-
-/**
- * True for macOS trackpad two-finger scroll (pixel-mode wheel without ctrlKey).
- * Pinch zoom and external mouse wheels are excluded.
- */
-export function isMacTrackpadWheel(
-  e: WheelRoutingInput,
-  macOS: boolean = isMacOS(),
-): boolean {
-  return (
-    macOS &&
-    !e.ctrlKey &&
-    e.deltaMode === DOM_DELTA_PIXEL
-  );
-}
-
-/** Route a canvas wheel event to pan (Mac trackpad scroll) or zoom. */
-export function resolveCanvasWheelAction(
-  e: WheelRoutingInput,
-  macOS: boolean = isMacOS(),
-): "pan" | "zoom" {
-  if (isMacTrackpadWheel(e, macOS)) return "pan";
-  return "zoom";
+/** Pan delta for macOS trackpad scroll — content follows finger (Figma-style). */
+export function wheelTrackpadPanDelta(
+  e: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">,
+): { dx: number; dy: number } {
+  const { dx, dy } = wheelDeltaXY(e);
+  return { dx: 0 - dx, dy: 0 - dy };
 }

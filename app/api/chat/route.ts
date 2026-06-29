@@ -8,7 +8,10 @@ import {
 import { geocodeMapArtifact } from "@/lib/geocoding";
 import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
 import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
-import { fetchChartData } from "@/lib/chartDataFetch";
+import {
+  isAnthropicWebSearchEnabled,
+  WEB_SEARCH_TOOL,
+} from "@/lib/anthropicWebSearch";
 import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
   CALENDAR_INTENT_SYSTEM_NOTE,
@@ -43,10 +46,17 @@ import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
 import {
+  CUSTOM_UI_TURN_TIMEOUT_SECONDS,
   QA_TURN_TIMEOUT_ENABLED,
   QA_TURN_TIMEOUT_MS_ACTIVE,
   QA_TURN_TIMEOUT_SECONDS,
 } from "@/lib/qaTurnLimits";
+import {
+  fetchPagesForChat,
+  formatFetchedPagesContext,
+  shouldAutoFetchUrl,
+} from "@/lib/fetchPageContent";
+import { extractUrlsFromText } from "@/lib/urlDetection";
 
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
@@ -67,37 +77,18 @@ const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
 
 const BASE_SYSTEM =
   `You are a helpful AI assistant with access to tools.\n\n` +
+  `Linked pages:\n` +
+  `- When the user includes a URL, Flowstate may attach fetched page text below their message. Summarize and explain from that attached content when present.\n` +
+  `- Do not say you cannot read or browse a URL when fetched page content is attached.\n` +
+  `- Use web_search only when attached content is missing, failed, or insufficient for the question.\n` +
+  `- Cite the source URL when summarizing fetched or searched content.\n\n` +
   `Image tool guidance:\n` +
   `- To GENERATE or CREATE an AI image (artistic, fictional, stylized), use the image generation MCP tool if one is connected. Do NOT use search_images for generation requests.\n` +
   `- To SHOW real photos of existing places, people, or things, use search_images (Wikimedia).\n` +
   `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
   ARTIFACT_PROMPT;
 
-const FETCH_CHART_DATA_TOOL: Anthropic.Tool = {
-  name: "fetch_chart_data",
-  description:
-    "Research numeric data for a chart visualization. Call before emit_artifact type chart when the user did not supply complete numbers.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      topic: { type: "string", description: "Subject to research" },
-      chartType: {
-        type: "string",
-        enum: ["bar", "area", "line", "pie", "gauge"],
-        description: "Intended chart type",
-      },
-      timeRange: {
-        type: "string",
-        description: "Optional range e.g. 2018-2024",
-      },
-      unit: {
-        type: "string",
-        description: "Optional unit e.g. USD, hours, %",
-      },
-    },
-    required: ["topic", "chartType"],
-  },
-};
+type ChatTool = Anthropic.Tool | typeof WEB_SEARCH_TOOL;
 
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
@@ -234,9 +225,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const allTools: Anthropic.Tool[] = [
+  const webSearchEnabled = isAnthropicWebSearchEnabled();
+  const allTools: ChatTool[] = [
+    ...(webSearchEnabled ? [WEB_SEARCH_TOOL] : []),
     SEARCH_IMAGES_TOOL,
-    FETCH_CHART_DATA_TOOL,
     EMIT_ARTIFACT_TOOL,
     ...mcp.anthropicTools,
   ];
@@ -384,6 +376,31 @@ export async function POST(req: Request) {
           emit({ pendingArtifact: { type: primaryKind } });
         }
 
+        const autoFetchUrls = extractUrlsFromText(intentQuestion).filter(
+          shouldAutoFetchUrl,
+        );
+        if (autoFetchUrls.length > 0) {
+          emit({
+            thinking:
+              autoFetchUrls.length === 1
+                ? "Reading linked page…"
+                : "Reading linked pages…",
+          });
+          const pages = await fetchPagesForChat(autoFetchUrls);
+          const modelQuestion = question + formatFetchedPagesContext(pages);
+          const finalUserContent =
+            userContent.length === 1 && !(files?.length)
+              ? modelQuestion
+              : [
+                  ...userContent.slice(0, -1),
+                  { type: "text" as const, text: modelQuestion },
+                ];
+          messages = [
+            ...messages.slice(0, -1),
+            { role: "user" as const, content: finalUserContent },
+          ];
+        }
+
         // Tool-use loop: Claude may call tools multiple times before a final reply.
         const MAX_TOOL_TURNS = 5;
         let artifactEmitted = false;
@@ -418,13 +435,11 @@ export async function POST(req: Request) {
             ...((todoIntent ||
               calendarIntent ||
               timelineIntent ||
-              chartIntent ||
               customUiIntent) &&
             (!editingArtifact ||
               (timelineIntent && editingPayload?.type === "timeline") ||
               (todoIntent && editingPayload?.type === "todo") ||
               (calendarIntent && editingPayload?.type === "calendar") ||
-              (chartIntent && editingPayload?.type === "chart") ||
               (customUiIntent && editingCustom)) &&
             !artifactEmitted &&
             turn === 0
@@ -444,6 +459,12 @@ export async function POST(req: Request) {
             ) {
               emit({ text: event.delta.text });
             }
+            if (event.type === "content_block_start") {
+              const block = event.content_block as { type?: string; name?: string };
+              if (block.type === "server_tool_use" && block.name === "web_search") {
+                emit({ thinking: "Searching the web…" });
+              }
+            }
           }
 
           const msg = await stream.finalMessage();
@@ -458,7 +479,17 @@ export async function POST(req: Request) {
             });
           }
 
-          if (msg.stop_reason !== "tool_use") break;
+          if (msg.stop_reason !== "tool_use" && msg.stop_reason !== "pause_turn") {
+            break;
+          }
+
+          if (msg.stop_reason === "pause_turn") {
+            messages = [
+              ...messages,
+              { role: "assistant" as const, content: msg.content },
+            ];
+            continue;
+          }
 
           const toolUseBlocks = msg.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
@@ -471,27 +502,7 @@ export async function POST(req: Request) {
             let resultContent = "";
 
             try {
-              if (block.name === "fetch_chart_data") {
-                const topic = input.topic as string;
-                const chartType = input.chartType as
-                  | "bar"
-                  | "area"
-                  | "line"
-                  | "pie"
-                  | "gauge";
-                emit({ thinking: `Researching data for "${topic}"…` });
-                const fetched = await fetchChartData({
-                  topic,
-                  chartType,
-                  timeRange:
-                    typeof input.timeRange === "string"
-                      ? input.timeRange
-                      : undefined,
-                  unit:
-                    typeof input.unit === "string" ? input.unit : undefined,
-                });
-                resultContent = JSON.stringify(fetched, null, 2);
-              } else if (block.name === "search_images") {
+              if (block.name === "search_images") {
                 const query = input.query as string;
                 const count =
                   typeof input.count === "number" ? input.count : 4;
@@ -663,7 +674,7 @@ export async function POST(req: Request) {
           /* not JSON */
         }
         if (customUiIntent) {
-          msg = `${msg} Custom UI builds can take up to ${QA_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
+          msg = `${msg} Custom UI builds can take up to ${CUSTOM_UI_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
         }
         emit({ error: msg });
       } finally {
