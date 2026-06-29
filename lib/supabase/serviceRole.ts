@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
 import type { Database } from "@/lib/supabase/database.types";
 
 export function isServiceRoleConfigured(): boolean {
@@ -23,14 +24,8 @@ export function createServiceRoleClient() {
       autoRefreshToken: false,
       persistSession: false,
     },
+    realtime: { transport: WebSocket },
   };
-
-  if (typeof window === "undefined") {
-    // Node < 22 needs an explicit WebSocket implementation for auth.admin calls.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const WebSocket = require("ws") as typeof import("ws");
-    options.realtime = { transport: WebSocket };
-  }
 
   return createSupabaseClient<Database>(url, key, options);
 }
