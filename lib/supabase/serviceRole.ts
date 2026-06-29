@@ -1,5 +1,4 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import WebSocket from "ws";
 import type { Database } from "@/lib/supabase/database.types";
 
 export function isServiceRoleConfigured(): boolean {
@@ -19,13 +18,10 @@ export function createServiceRoleClient() {
     );
   }
 
-  const options: Parameters<typeof createSupabaseClient<Database>>[2] = {
+  return createSupabaseClient<Database>(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-    realtime: { transport: WebSocket },
-  };
-
-  return createSupabaseClient<Database>(url, key, options);
+  });
 }
