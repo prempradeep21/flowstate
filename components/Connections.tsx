@@ -452,6 +452,9 @@ export function Connections() {
             return null;
           }
 
+          const isConversationLink =
+            from.cardKind === "conversation" && to.cardKind === "conversation";
+
           const {
             fromAnchor: a,
             toAnchor: b,
@@ -466,7 +469,9 @@ export function Connections() {
             fromSide,
             toSide,
             connectorStyle,
-            { trimTargetArrowInset: arrowSize * 1.35 },
+            isConversationLink
+              ? undefined
+              : { trimTargetArrowInset: arrowSize * 1.35 },
           );
 
 
@@ -495,6 +500,8 @@ export function Connections() {
                 viewportScale={viewportSettledScale}
                 opacity={isHovered ? 0.95 : 0.85}
                 hitWidth={hitWidth}
+                showSourcePlug={!isConversationLink}
+                showTargetArrow={!isConversationLink}
                 drawIn={conn.id === recentConnectionId}
                 onDrawComplete={
                   conn.id === recentConnectionId
@@ -502,6 +509,7 @@ export function Connections() {
                     : undefined
                 }
                 onPointerEnter={() =>
+                  !isConversationLink &&
                   showPicker(conn.id, midPointX, midPointY)
                 }
                 onPointerLeave={scheduleHide}

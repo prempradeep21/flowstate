@@ -38,6 +38,7 @@ export function normalizeWebsitePayload(
 export function createWebsitePayload(
   url: string,
   domainLabel: string,
+  extras?: { faviconUrl?: string; previewImageUrl?: string },
 ): Extract<ArtifactPayload, { type: "website" }> {
   return {
     type: "website",
@@ -46,6 +47,8 @@ export function createWebsitePayload(
       url,
       title: domainLabel,
       domainLabel,
+      faviconUrl: extras?.faviconUrl,
+      previewImageUrl: extras?.previewImageUrl,
     },
   };
 }

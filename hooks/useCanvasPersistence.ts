@@ -55,6 +55,7 @@ import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
 import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
+import { isTranscriptImportPlaygroundSessionActive } from "@/lib/transcriptImportPlaygroundSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
@@ -306,6 +307,7 @@ export function useCanvasPersistence({
     if (
       isArtifactCatalogSessionActive() ||
       isMobileSdlcSandboxSessionActive() ||
+      isTranscriptImportPlaygroundSessionActive() ||
       useCanvasStore.getState().canvasReadOnly
     ) {
       return;
@@ -941,7 +943,12 @@ export function useCanvasPersistence({
     let prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
 
     const scheduleSave = () => {
-      if (isArtifactCatalogSessionActive() || isMobileSdlcSandboxSessionActive()) return;
+      if (
+        isArtifactCatalogSessionActive() ||
+        isMobileSdlcSandboxSessionActive() ||
+        isTranscriptImportPlaygroundSessionActive()
+      )
+        return;
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||

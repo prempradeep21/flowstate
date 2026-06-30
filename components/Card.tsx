@@ -12,6 +12,7 @@ import {
 import { AnswerSelectionMenu } from "@/components/AnswerSelectionMenu";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQuestionText } from "@/components/cards/CardQuestionText";
+import { ConversationCardSurface } from "@/components/admin/ConversationCardSurface";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -182,8 +183,9 @@ function CardInner({ card }: CardProps) {
   });
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
+  const isConversation = card.cardKind === "conversation";
   const plugAccent = accent ?? CANVAS_ACCENT;
-  const showBranchPlugs = card.status === "done";
+  const showBranchPlugs = card.status === "done" && !isConversation;
   const receivePlugsActive =
     (plugDrag?.kind === "artifact" ||
       plugDrag?.kind === "asset" ||
@@ -950,6 +952,9 @@ function CardInner({ card }: CardProps) {
           className="flex min-w-0 flex-col"
         >
           {card.status !== "empty" ? (
+            isConversation ? (
+              <ConversationCardSurface card={card} accent={accent} scale={scale} />
+            ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
                 accentColour={accent}
@@ -1056,9 +1061,10 @@ function CardInner({ card }: CardProps) {
                 </>
               )}
             </QaTranslucentSurface>
+            )
           ) : null}
 
-          {card.status === "done" && !hasChildren && !isChatCollapsed && (
+          {card.status === "done" && !hasChildren && !isChatCollapsed && !isConversation && (
             <div
               data-follow-up-footer
               className="relative z-20 shrink-0 border-t border-canvas-border bg-canvas-card px-3 py-2.5"

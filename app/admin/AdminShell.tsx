@@ -25,6 +25,10 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "Ideas",
+    items: [{ href: "/admin/ideas", label: "Groundbreaking ideas" }],
+  },
+  {
     label: "Feedback",
     items: [{ href: "/admin/feedback", label: "Beta suggestions" }],
   },
@@ -49,7 +53,8 @@ export function AdminShell({
   description?: string;
 }) {
   const pathname = usePathname();
-  const isToolRoute = pathname.startsWith("/admin/tools/");
+  const isFullBleedRoute =
+    pathname.startsWith("/admin/tools/") || pathname.includes("/playground");
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas-bg text-canvas-ink">
@@ -116,7 +121,7 @@ export function AdminShell({
 
         <main
           className={`min-h-0 flex-1 ${
-            isToolRoute ? "overflow-hidden" : "overflow-auto"
+            isFullBleedRoute ? "overflow-hidden" : "overflow-auto"
           }`}
         >
           {children}

@@ -35,10 +35,17 @@ export function measureCardSize(
  * Prefers live DOM when mounted so positions and lines stay aligned.
  */
 export function getCanvasCardBounds(
-  card: CardBoundsInput & { id?: string; status?: string },
+  card: CardBoundsInput & { id?: string; status?: string; cardKind?: string },
   tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): { w: number; h: number } {
   const w = tuning.cardWidth;
+  if (
+    card.cardKind === "conversation" &&
+    card.size?.h != null &&
+    card.size.h > 0
+  ) {
+    return { w, h: card.size.h };
+  }
   const storedH = card.size?.h;
   const domH = card.id ? readCardDomHeight(card.id) : null;
 

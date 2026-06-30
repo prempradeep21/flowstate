@@ -302,6 +302,8 @@ export interface BranchOptions {
 export interface Card {
   id: string;
   threadId: string;
+  /** Admin playground only — conversation import cards (not in design system yet). */
+  cardKind?: "qa" | "conversation";
   question: string;
   answer: string;
   status: CardStatus;
@@ -425,7 +427,7 @@ export interface Viewport {
   scale: number;
 }
 
-export type ConnectorStyle = "curvy" | "orthogonal";
+export type ConnectorStyle = "curvy" | "orthogonal" | "straight";
 export type AppViewMode = "canvas" | "chat";
 
 export type CanvasBackgroundStyle = "grid" | "ambient-gradient";

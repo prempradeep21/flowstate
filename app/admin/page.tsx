@@ -21,6 +21,15 @@ const TOOL_CARDS = [
   },
 ] as const;
 
+const IDEA_CARDS = [
+  {
+    href: "/admin/ideas",
+    title: "Groundbreaking ideas",
+    description:
+      "Exploratory concepts with optional playgrounds (admin-only prototypes).",
+  },
+] as const;
+
 const DOC_CARDS = [
   {
     href: "/admin/docs/chronology",
@@ -50,6 +59,28 @@ export default async function AdminDashboardPage() {
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {TOOL_CARDS.map((card) => (
+              <Link
+                key={card.href}
+                href={card.href}
+                className="rounded-canvas border border-canvas-border bg-canvas-card p-4 shadow-card transition-colors hover:border-canvas-accent/40 hover:bg-canvas-bg"
+              >
+                <h3 className="font-display text-lg font-medium text-canvas-ink">
+                  {card.title}
+                </h3>
+                <p className="mt-1 text-canvas-body-sm text-canvas-muted">
+                  {card.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-canvas-body-sm font-semibold uppercase tracking-wider text-canvas-muted">
+            Ideas
+          </h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {IDEA_CARDS.map((card) => (
               <Link
                 key={card.href}
                 href={card.href}

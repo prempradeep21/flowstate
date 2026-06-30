@@ -72,6 +72,7 @@ export interface LayoutCardAnchorInput {
   position: { x: number; y: number };
   size?: { w: number; h: number };
   status?: string;
+  cardKind?: "qa" | "conversation";
 }
 
 /** Resolve plug anchors for a connection (branch child targets question-block center). */
@@ -105,7 +106,9 @@ export function resolveConnectionAnchors(
 
   const lateralBranch = isLateralBranchConnection(fromSide);
   const toPyOverride =
-    lateralBranch && (toSide === "left" || toSide === "right")
+    lateralBranch &&
+    (toSide === "left" || toSide === "right") &&
+    to.cardKind !== "conversation"
       ? branchTargetAnchorY(to.id, to.position.y, toH)
       : undefined;
 
@@ -128,6 +131,35 @@ export function resolveConnectionAnchors(
     toW,
     toH,
   };
+}
+
+/** Card-centre anchors for straight centre-to-centre connectors. */
+export function resolveCardCenterAnchors(
+  from: LayoutCardAnchorInput,
+  to: LayoutCardAnchorInput,
+  tuning: ResolvedCanvasTuning,
+): { fromAnchor: PlugAnchor; toAnchor: PlugAnchor } {
+  const { w: fromW, h: fromH } = getConnectionCardBounds(from, tuning);
+  const { w: toW, h: toH } = getConnectionCardBounds(to, tuning);
+  return {
+    fromAnchor: {
+      px: from.position.x + fromW / 2,
+      py: from.position.y + fromH / 2,
+      tx: 0,
+      ty: 0,
+    },
+    toAnchor: {
+      px: to.position.x + toW / 2,
+      py: to.position.y + toH / 2,
+      tx: 0,
+      ty: 0,
+    },
+  };
+}
+
+function buildStraightPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
+  const d = `M ${a.px} ${a.py} L ${b.px} ${b.py}`;
+  return { d, midX: (a.px + b.px) / 2, midY: (a.py + b.py) / 2 };
 }
 
 function buildCurvyPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
@@ -252,8 +284,7 @@ function buildOrthogonalPath(
     isVerticalSide(fromSide) &&
     isVerticalSide(toSide) &&
     Math.abs(a.px - b.px) < 1;
-  const radius = isShortVertical ? 0 : 10;
-  const d = roundedPolylinePath(points, radius);
+  const d = roundedPolylinePath(points, 0);
   const mid = points[Math.floor(points.length / 2)];
   return { d, midX: mid.x, midY: mid.y };
 }
@@ -289,6 +320,9 @@ export function buildPlugConnectorPath(
     options?.trimTargetArrowInset != null && options.trimTargetArrowInset > 0
       ? trimPlugAnchorForArrow(b, toSide, options.trimTargetArrowInset)
       : b;
+  if (style === "straight") {
+    return buildStraightPath(a, target);
+  }
   if (style === "orthogonal") {
     return buildOrthogonalPath(a, target, fromSide, toSide);
   }

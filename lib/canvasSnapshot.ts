@@ -515,7 +515,8 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
     groups: normalizeRecord<BranchGroup>(snapshot.groups),
     connectorStyle:
       snapshot.connectorStyle === "curvy" ||
-      snapshot.connectorStyle === "orthogonal"
+      snapshot.connectorStyle === "orthogonal" ||
+      snapshot.connectorStyle === "straight"
         ? snapshot.connectorStyle
         : base.connectorStyle,
     canvasBackgroundStyle: resolveBackgroundForTheme(

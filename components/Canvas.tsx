@@ -167,6 +167,9 @@ export function Canvas({
   const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
+  const connectionsBehindCards = useCanvasStore((s) =>
+    s.cardOrder.some((id) => s.cards[id]?.cardKind === "conversation"),
+  );
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
@@ -1864,6 +1867,7 @@ export function Canvas({
           groupList.map((group) => (
             <GroupBounds key={group.id} group={group} />
           ))}
+        {connectionsBehindCards && <Connections />}
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
@@ -1937,7 +1941,7 @@ export function Canvas({
               <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
             ) : null,
           )}
-        <Connections />
+        {!connectionsBehindCards && <Connections />}
         <CanvasDrawingLayer
           strokes={canvasStrokes}
           strokeOrder={canvasStrokeOrder}

@@ -61,6 +61,33 @@ describe("resolveConnectionAnchors", () => {
     expect(toAnchor.py).not.toBe(300);
   });
 
+  it("uses full card vertical centre for conversation branch targets", () => {
+    const tuning = RESOLVED_CANVAS_TUNING;
+
+    const from = {
+      id: "parent",
+      position: { x: 0, y: 0 },
+      size: { w: 420, h: 200 },
+      status: "done",
+    };
+    const to = {
+      id: "branch",
+      position: { x: 840, y: 0 },
+      size: { w: 420, h: 400 },
+      status: "done",
+      cardKind: "conversation" as const,
+    };
+
+    const { toAnchor } = resolveConnectionAnchors(
+      { fromSide: "right", toSide: "left" },
+      from,
+      to,
+      tuning,
+    );
+
+    expect(toAnchor.py).toBe(200);
+  });
+
   it("leaves vertical follow-up target at card top", () => {
     const tuning = RESOLVED_CANVAS_TUNING;
 
@@ -94,6 +121,17 @@ describe("plugAnchorAt pyOverride", () => {
     const right = plugAnchorAt(0, 0, 420, 600, "right", { pyOverride: 88 });
     expect(left.py).toBe(88);
     expect(right.py).toBe(88);
+  });
+});
+
+describe("straight routing", () => {
+  it("draws a single segment with no curves", () => {
+    const from = plugAnchorAt(100, 50, 420, 300, "right");
+    const to = plugAnchorAt(940, 400, 420, 300, "left");
+    const { d } = buildPlugConnectorPath(from, to, "right", "left", "straight");
+    expect(d).toMatch(/^M [\d.]+ [\d.]+ L [\d.]+ [\d.]+$/);
+    expect(d).not.toContain("C");
+    expect(d).not.toContain("Q");
   });
 });
 
