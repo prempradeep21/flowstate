@@ -8,13 +8,13 @@ export function enrichPlaygroundWebsiteArtifacts(): void {
   for (const art of Object.values(state.sessionArtifacts)) {
     const ver = getLatestVersion(art);
     if (!ver || ver.payload.type !== "website") continue;
-    const { url, previewImageUrl } = ver.payload.data;
+    const { url, previewImageUrl, title: fallbackTitle } = ver.payload.data;
     if (previewImageUrl && !previewImageUrl.includes("microlink.io")) continue;
 
     void fetchLinkPreviewClient(url).then((preview) => {
       if (!preview) return;
       useCanvasStore.getState().patchWebsiteArtifactTitle(art.id, {
-        title: preview.title || ver.payload.data.title,
+        title: preview.title || fallbackTitle,
         faviconUrl: preview.faviconUrl,
         previewImageUrl: preview.previewImageUrl,
       });
