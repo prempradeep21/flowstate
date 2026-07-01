@@ -10,7 +10,7 @@ import {
 } from "@/lib/canvasNodeBounds";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 
-const CANVAS_TABLE_BODY_CLASS = "min-h-0 flex-1 max-h-none";
+const CANVAS_TABLE_BODY_CLASS = "max-h-none";
 
 export function TableArtifactContent({
   payload,
@@ -80,8 +80,6 @@ export function TableArtifactContent({
             accentSeed={accentSeed}
             versionId={versionId}
             maxHeightClassName={CANVAS_TABLE_BODY_CLASS}
-            minHeightPx={TABLE_ARTIFACT_BODY_MIN_HEIGHT}
-            minWidthPx={TABLE_ARTIFACT_STAGE_WIDTH}
             canvasSurface
           />
         )}

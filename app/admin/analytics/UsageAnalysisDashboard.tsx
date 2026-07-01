@@ -13,6 +13,7 @@ import {
   buildTopCanvasesBarOption,
   buildTrackedVsUntrackedOption,
 } from "@/lib/admin/usageChartOptions";
+import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
 
 type SortKey =
   | "email"
@@ -297,48 +298,45 @@ export function UsageAnalysisDashboard() {
 
   return (
     <div className="usage-dashboard space-y-8 p-4 sm:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-canvas-border pb-5">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-canvas-accent/30 bg-canvas-accent/10 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-accent">
-              Snapshot · refreshes nightly 12:00 AM IST
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-canvas-border pb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-canvas-accent/30 bg-canvas-accent/10 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-accent">
+            <AdminActionIcon name="usage" className="h-3.5 w-3.5" />
+            Snapshot · nightly 12:00 AM IST
+          </span>
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-canvas-micro font-medium text-amber-800 dark:text-amber-200">
+            Saved canvas data only
+          </span>
+          {computedAtLabel ? (
+            <span className="text-canvas-body-sm text-canvas-muted">
+              Last updated{" "}
+              <strong className="font-medium text-canvas-ink">
+                {computedAtLabel} IST
+              </strong>
             </span>
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-canvas-micro font-medium text-amber-800 dark:text-amber-200">
-              Saved canvas data only
-            </span>
-          </div>
-          <p className="text-canvas-body-sm text-canvas-muted">
-            Token usage from saved canvases
-            {computedAtLabel ? (
-              <>
-                {" "}
-                · last updated{" "}
-                <strong className="font-medium text-canvas-ink">
-                  {computedAtLabel} IST
-                </strong>
-              </>
-            ) : null}
-          </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading || refreshing}
-            className="rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:opacity-50"
           >
+            <AdminActionIcon name="refresh" />
             Reload
           </button>
           <button
             type="button"
             onClick={() => void refreshSnapshot()}
             disabled={refreshing}
-            className="rounded-canvas border border-canvas-ink/20 bg-canvas-ink px-3 py-2 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-canvas border border-canvas-ink/20 bg-canvas-ink px-3 py-2 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-50"
           >
+            <AdminActionIcon name="sparkles" className="text-canvas-card" />
             {refreshing ? "Computing…" : "Refresh snapshot"}
           </button>
         </div>
-      </header>
+      </div>
 
       {error ? (
         <div className="rounded-canvas border border-red-500/30 bg-red-500/10 px-4 py-3 text-canvas-body-sm text-red-800 dark:text-red-200">
@@ -529,8 +527,9 @@ export function UsageAnalysisDashboard() {
                   <button
                     type="button"
                     onClick={() => exportAccountsCsv(snapshot.accounts)}
-                    className="rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink hover:bg-canvas-bg"
+                    className="inline-flex items-center gap-1.5 rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink hover:bg-canvas-bg"
                   >
+                    <AdminActionIcon name="export" />
                     Export CSV
                   </button>
                 </div>
@@ -553,10 +552,15 @@ export function UsageAnalysisDashboard() {
                           <button
                             type="button"
                             onClick={() => toggleSort(key)}
-                            className="hover:text-canvas-ink"
+                            className="inline-flex items-center gap-1 hover:text-canvas-ink"
                           >
                             {label}
-                            {sortKey === key ? (sortAsc ? " ↑" : " ↓") : ""}
+                            {sortKey === key ? (
+                              <AdminActionIcon
+                                name={sortAsc ? "chevron-up" : "chevron-down"}
+                                className="h-3.5 w-3.5"
+                              />
+                            ) : null}
                           </button>
                         </th>
                       ))}

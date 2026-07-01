@@ -45,7 +45,7 @@ const ChartArtifactContent = dynamic(
   { ssr: false },
 );
 
-export type ArtifactLayout = "canvas" | "panel" | "sidebar";
+export type ArtifactLayout = "canvas" | "panel" | "sidebar" | "sidebar-preview";
 
 export function ArtifactContent({
   payload,
@@ -83,9 +83,15 @@ export function ArtifactContent({
 }) {
   const kind = payloadToArtifactKind(payload);
   const isSidebar = layout === "sidebar";
+  const isSidebarPreview = layout === "sidebar-preview";
   const isCanvas = layout === "canvas";
-  const fill = isCanvas || isSidebar;
-  const canvasInteractive = catalogPreview || canvasContentInteractive;
+  const fill = isCanvas || isSidebarPreview;
+  const showControls = !isSidebar && !isSidebarPreview;
+  const canvasInteractive =
+    catalogPreview || (canvasContentInteractive && !isSidebarPreview);
+  const contentLayout: "canvas" | "panel" | "sidebar" = isSidebarPreview
+    ? "canvas"
+    : layout;
 
   switch (kind) {
     case "table":
@@ -97,7 +103,7 @@ export function ArtifactContent({
             versionId={versionId}
             fill={fill}
             sidebar={isSidebar}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -111,7 +117,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowMediaInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -124,7 +130,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
           />
         );
@@ -137,9 +143,10 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            sidebarPreview={isSidebarPreview}
+            layout={contentLayout}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -155,7 +162,7 @@ export function ArtifactContent({
             fill={fill}
             onActiveFileChange={onCodeActiveFileChange}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -166,10 +173,10 @@ export function ArtifactContent({
           <MapArtifactContent
             payload={payload}
             artifactId={artifactId}
-            canEdit={mapCanEdit && !isSidebar}
+            canEdit={mapCanEdit && isCanvas}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            layout={contentLayout}
           />
         );
       }
@@ -179,13 +186,13 @@ export function ArtifactContent({
         const streetView = (
           <StreetViewArtifactContent
             payload={payload}
-            layout={layout}
+            layout={contentLayout}
             forceInteractive={canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
-        return layout === "canvas" ? (
+        return contentLayout === "canvas" ? (
           <div className="flex min-h-0 w-full flex-1 flex-col">{streetView}</div>
         ) : (
           streetView
@@ -198,10 +205,10 @@ export function ArtifactContent({
           <CalendarArtifactContent
             payload={payload}
             artifactId={artifactId}
-            canEdit={calendarCanEdit && !isSidebar}
+            canEdit={calendarCanEdit && isCanvas}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            layout={contentLayout}
           />
         );
       }
@@ -210,6 +217,18 @@ export function ArtifactContent({
       if (payload.type === "todo") {
         if (isSidebar) {
           return <TodoSidebarPreview payload={payload} />;
+        }
+        if (isSidebarPreview && artifactId && versionId) {
+          return (
+            <TodoArtifactContent
+              artifactId={artifactId}
+              payload={payload}
+              versionId={versionId}
+              latestVersionId={versionId}
+              isEditing={false}
+              fill
+            />
+          );
         }
         if (todoContext) {
           return (
@@ -236,7 +255,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }
@@ -248,7 +267,7 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            layout={contentLayout}
             artifactId={artifactId}
             forceInteractive={canvasInteractive}
           />
@@ -274,7 +293,7 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            layout={contentLayout}
             artifactId={artifactId}
             versionId={versionId}
             forceInteractive={canvasInteractive}
@@ -288,10 +307,10 @@ export function ArtifactContent({
           <TimelineArtifactContent
             payload={payload}
             artifactId={artifactId}
-            canEdit={timelineCanEdit && !isSidebar}
+            canEdit={timelineCanEdit && isCanvas}
             fill={fill}
             sidebar={isSidebar}
-            layout={layout}
+            layout={contentLayout}
           />
         );
       }
@@ -317,7 +336,7 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={!isSidebar}
+            showControls={showControls}
           />
         );
       }

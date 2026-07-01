@@ -31,10 +31,10 @@ function measureStageNaturalSize(
   const stageW = Math.ceil(stage.clientWidth);
   const stageH = Math.ceil(stage.clientHeight);
   const contentH = controlsH + bodyH;
-  // Fill-mode children use w-full / h-full, so prefer the stage's allocated size.
+  // Fill-mode children may use w-full / flex-1; prefer content scroll dimensions.
   return {
     w: Math.max(stageW, bodyW),
-    h: Math.max(stageH, contentH),
+    h: Math.max(stageH, contentH, controlsH + body.scrollHeight),
   };
 }
 

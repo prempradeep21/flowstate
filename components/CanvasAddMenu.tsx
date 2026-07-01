@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { GifIcon, ImageIcon, Model3DIcon, TypeIcon } from "@/components/MenuIcons";
+import { GifIcon, ImageIcon, Model3DIcon, TypeIcon, DocumentIcon, CodeFileIcon } from "@/components/MenuIcons";
 import { MotionOverlayPopover } from "@/components/motion/MotionOverlay";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 
@@ -13,6 +13,8 @@ interface Props {
   onAddText: () => void;
   onAddImage: () => void;
   onAdd3DModel: () => void;
+  onAddDocument: () => void;
+  onAddCodeFile: () => void;
   onAddGifs: () => void;
   disabled?: boolean;
 }
@@ -28,6 +30,8 @@ export function CanvasAddMenu({
   onAddText,
   onAddImage,
   onAdd3DModel,
+  onAddDocument,
+  onAddCodeFile,
   onAddGifs,
   disabled,
 }: Props) {
@@ -107,6 +111,36 @@ export function CanvasAddMenu({
             <Model3DIcon />
           </span>
           3D model
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={disabled}
+          className={menuBtn}
+          onClick={() => {
+            onAddDocument();
+            onClose();
+          }}
+        >
+          <span className="text-canvas-muted">
+            <DocumentIcon />
+          </span>
+          Document
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={disabled}
+          className={menuBtn}
+          onClick={() => {
+            onAddCodeFile();
+            onClose();
+          }}
+        >
+          <span className="text-canvas-muted">
+            <CodeFileIcon />
+          </span>
+          Code file
         </button>
         <button
           type="button"

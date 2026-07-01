@@ -118,7 +118,7 @@ function SpecimenDemo({
   }
 }
 
-export function SoundMappingApp() {
+export function SoundMappingApp({ embedded = false }: { embedded?: boolean }) {
   const [draftMap, setDraftMap] = useState<SoundMapping>(() => ({ ...DEFAULT_SOUND_MAP }));
   const [volume, setVolume] = useState(0.7);
   const [muted, setMuted] = useState(false);
@@ -274,16 +274,18 @@ export function SoundMappingApp() {
     <div className="min-h-full bg-canvas-bg text-canvas-ink">
       <header className="sticky top-0 z-40 border-b border-canvas-border bg-canvas-card/95 px-6 py-4 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-canvas-title font-semibold text-canvas-ink">
-              Flowstate sound mapping
-            </h1>
-            <p className="mt-1 max-w-2xl text-canvas-body-sm text-canvas-muted">
-              Map seslen presets to UI interactions. Preview sounds from each dropdown,
-              trigger specimens, then finalize to update the production registry.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          {!embedded ? (
+            <div>
+              <h1 className="text-canvas-title font-semibold text-canvas-ink">
+                Flowstate sound mapping
+              </h1>
+              <p className="mt-1 max-w-2xl text-canvas-body-sm text-canvas-muted">
+                Map seslen presets to UI interactions. Preview sounds from each dropdown,
+                trigger specimens, then finalize to update the production registry.
+              </p>
+            </div>
+          ) : null}
+          <div className={`flex flex-wrap gap-2 ${embedded ? "w-full justify-end" : ""}`}>
             <button
               type="button"
               onClick={handleReset}

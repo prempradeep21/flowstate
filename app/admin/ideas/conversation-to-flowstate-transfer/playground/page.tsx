@@ -15,11 +15,15 @@ export default async function TranscriptImportPlaygroundPage() {
     <AdminShell
       title="Playground"
       description={`${idea.title} — transcript-only demo`}
+      immersive
+      immersiveBackHref={`/admin/ideas/${idea.slug}`}
+      immersiveBackLabel="Back to idea"
     >
       <div className="h-full min-h-0">
         <TranscriptImportPlaygroundApp
           ideaTitle={idea.title}
           backHref={`/admin/ideas/${idea.slug}`}
+          immersive
         />
       </div>
     </AdminShell>

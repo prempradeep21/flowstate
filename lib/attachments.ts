@@ -3,6 +3,7 @@ import type { CanvasAsset, CanvasAssetKind } from "@/lib/store";
 import {
   officeKindForExtension,
   officeKindForMime,
+  OFFICE_FILE_ACCEPT,
   PRESENTATION_TYPES,
   SPREADSHEET_TYPES,
   WORD_TYPES,
@@ -25,6 +26,14 @@ export const UPLOAD_CATEGORY_LABELS: Record<UploadCategory, string> = {
   documents: "Documents",
   code: "Code",
 };
+
+export const DOCUMENT_FILE_ACCEPT =
+  "application/pdf,text/plain,text/markdown,text/csv,application/json," +
+  ".pdf,.txt,.md,.csv,.json," +
+  OFFICE_FILE_ACCEPT;
+
+export const CODE_FILE_ACCEPT =
+  ".ts,.tsx,.js,.jsx,.py,.sql,.css,.html,.go,.rs,.java,.cpp,.c,.cs,.php,.rb,.sh,.yaml,.yml";
 
 export const ASSET_STORAGE_BUCKET = "asset-files";
 
@@ -199,6 +208,15 @@ export function maxBytesForAssetKind(kind: CanvasAssetKind): number {
   if (kind === "code") return CODE_ASSET_MAX_BYTES;
   if (kind === "image") return IMAGE_ASSET_MAX_BYTES;
   return DOCUMENT_ASSET_MAX_BYTES;
+}
+
+export function isDocumentAssetKind(kind: CanvasAssetKind): boolean {
+  return (
+    kind === "document" ||
+    kind === "spreadsheet" ||
+    kind === "word" ||
+    kind === "presentation"
+  );
 }
 
 export function formatBytes(bytes: number): string {

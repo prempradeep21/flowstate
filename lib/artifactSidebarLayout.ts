@@ -17,7 +17,7 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   images: { span: 1, aspectClass: "aspect-square" },
   table: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 200 },
   "3d": { span: 1, aspectClass: "aspect-square" },
-  custom: { span: 2, aspectClass: "aspect-square" },
+  custom: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 200 },
   todo: { span: 2, aspectClass: null, minHeight: 80, maxHeight: 180 },
   calendar: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
   code: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 140 },
@@ -50,7 +50,11 @@ export function resolveSidebarTileLayout(
 
 export function sidebarTileStyle(layout: SidebarTileLayout): CSSProperties {
   const style: CSSProperties = {};
-  if (layout.minHeight != null) style.minHeight = layout.minHeight;
-  if (layout.maxHeight != null) style.maxHeight = layout.maxHeight;
+  if (layout.maxHeight != null) {
+    style.height = layout.maxHeight;
+    if (layout.minHeight != null) style.minHeight = layout.minHeight;
+  } else if (layout.minHeight != null) {
+    style.height = layout.minHeight;
+  }
   return style;
 }

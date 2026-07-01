@@ -28,7 +28,7 @@ export default async function AdminDesignSystemPage() {
       description="Exportable UI specimens and documentation."
     >
       <div className="h-full min-h-0">
-        <DesignSystemApp docs={docs} />
+        <DesignSystemApp docs={docs} embedded />
       </div>
     </AdminShell>
   );

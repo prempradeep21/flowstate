@@ -30,6 +30,7 @@ Include the table if you edited, created, or deleted any project source file, co
 | 3050 | `npm run dev:artifact-catalog` | Artifact catalog | Live artifact previews at `/dev/artifact-catalog` |
 | 3060 | `npm run dev:mobile-sdlc-sandbox` | Mobile SDLC sandbox | Isolated PRD→ship input canvas at `/dev/mobile-sdlc-sandbox` |
 | 3080 | `npm run dev:design-system` | Design system | Exportable UI hub at `/dev/design-system` |
+| 3090 | `npm run dev:ploy-landing` | Ploy landing clone | Static mirror of ploy.build marketing page |
 
 Use the **actual URL** from terminal output when the port is not 3000 (e.g. `http://localhost:3001`).
 

@@ -329,6 +329,46 @@ export function GifIcon() {
   );
 }
 
+export function DocumentIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M5 2.5h4.5L12.5 5.5V13.5H5V2.5Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 2.5v3.5h3.5M6.5 8h5M6.5 10.5h4"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function CodeFileIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
+      <path
+        d="M5 2.5h4.5L12.5 5.5V13.5H5V2.5Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 2.5v3.5h3.5M7.25 9.25 5.75 10.75 7.25 12.25M8.75 9.25l1.5 1.5-1.5 1.5"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ShareIcon() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
@@ -380,6 +420,25 @@ export function SoundMuteIcon() {
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+export function GearIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`${className} inline-block bg-current opacity-70`}
+      style={{
+        WebkitMaskImage: "url(/icons/canvas-settings-gear.png)",
+        maskImage: "url(/icons/canvas-settings-gear.png)",
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+      }}
+    />
   );
 }
 

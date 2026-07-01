@@ -24,7 +24,7 @@ import {
   stickyNoteContentFloors,
 } from "@/lib/stickyNoteArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
-import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
+import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX, artifactKindUsesCanvasPaddingChrome } from "@/lib/artifactCanvasChrome";
 import { ARTIFACT_CONTROLS_BAR_HEIGHT_PX } from "@/lib/artifactFontScale";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -81,6 +81,34 @@ export function getArtifactContentFloors(
       return null;
   }
 }
+
+/**
+ * Pixel size for sidebar preview content — matches the artifact body on canvas
+ * (stage width/height inside chrome and controls), not the clipped tile frame.
+ */
+export function getSidebarPreviewContentSize(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  const floors = getArtifactContentFloors(kind, payload);
+  if (floors) {
+    return { w: floors.minWidth, h: floors.minHeight };
+  }
+
+  const node = getDefaultArtifactSize(kind, payload);
+  const horizontalPad = artifactKindUsesCanvasPaddingChrome(kind)
+    ? CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX
+    : 0;
+
+  return {
+    w: node.w - horizontalPad,
+    h:
+      node.h -
+      ARTIFACT_CANVAS_CHROME_HEIGHT_PX -
+      ARTIFACT_CONTROLS_BAR_HEIGHT_PX,
+  };
+}
+
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
@@ -138,6 +166,17 @@ export function clampArtifactSize(
   return {
     w: Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w)),
     h: Math.min(maxH, Math.max(MIN_ARTIFACT_HEIGHT, h)),
+  };
+}
+
+/** Table artifacts have no maximum width/height — users widen freely on canvas. */
+export function clampTableArtifactSize(
+  w: number,
+  h: number,
+): { w: number; h: number } {
+  return {
+    w: Math.max(MIN_ARTIFACT_WIDTH, w),
+    h: Math.max(MIN_ARTIFACT_HEIGHT, h),
   };
 }
 

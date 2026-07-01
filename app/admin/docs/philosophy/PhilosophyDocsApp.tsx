@@ -3,14 +3,15 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { SpecSectionViewer } from "@/app/admin/docs/SpecSectionViewer";
+import { AdminActionIcon, type AdminIconName } from "@/app/admin/icons/AdminIcons";
 
-const TABS = [
-  { id: "principles", label: "Governing principles" },
-  { id: "design-language", label: "Design language" },
-  { id: "motion-language", label: "Motion language" },
-] as const;
+const TABS: { id: TabId; label: string; icon: AdminIconName }[] = [
+  { id: "principles", label: "Governing principles", icon: "compass" },
+  { id: "design-language", label: "Design language", icon: "design-system" },
+  { id: "motion-language", label: "Motion language", icon: "sparkles" },
+];
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = "principles" | "design-language" | "motion-language";
 
 export function PhilosophyDocsApp({
   principlesHtml,
@@ -26,15 +27,6 @@ export function PhilosophyDocsApp({
   return (
     <div className="p-4 sm:p-6">
       <div className="mx-auto max-w-4xl">
-        <header className="mb-6 border-b border-canvas-border pb-4">
-          <h2 className="font-display text-2xl font-medium text-canvas-ink">
-            Philosophy
-          </h2>
-          <p className="mt-1 text-canvas-body-sm text-canvas-muted">
-            Core beliefs, design language, and motion principles.
-          </p>
-        </header>
-
         <div
           className="mb-6 flex flex-wrap gap-2"
           role="tablist"
@@ -47,12 +39,13 @@ export function PhilosophyDocsApp({
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-full px-4 py-2 text-canvas-compact transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-canvas-compact transition-colors ${
                 activeTab === tab.id
                   ? "bg-canvas-ink text-canvas-card"
                   : "border border-canvas-border bg-canvas-card text-canvas-muted hover:text-canvas-ink"
               }`}
             >
+              <AdminActionIcon name={tab.icon} />
               {tab.label}
             </button>
           ))}

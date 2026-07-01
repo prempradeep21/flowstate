@@ -22,11 +22,14 @@ import {
   CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
   clampArtifactSize,
   clampStreetViewArtifactSize,
+  clampTableArtifactSize,
   getArtifactBounds,
   getDefaultArtifactSize,
   MAX_TIMELINE_ARTIFACT_WIDTH,
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
+import { normalizeTableArtifactData } from "@/lib/tableArtifact";
+import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
@@ -174,13 +177,28 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           : artForBounds?.kind === "audio"
             ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
             : undefined;
+
+      let areaW = contentArea.w;
+      let areaH = contentArea.h;
+      if (
+        artForBounds?.kind === "table" &&
+        latestPayload?.type === "table"
+      ) {
+        const { columns, rows } = normalizeTableArtifactData(latestPayload.data);
+        const intrinsic = computeTableIntrinsicSize(columns, rows);
+        const currentContentW =
+          bounds.w - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
+        areaW = Math.max(areaW, intrinsic.widthPx, currentContentW);
+        areaH = Math.max(areaH, intrinsic.heightPx);
+      }
+
       // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
       const targetW = Math.max(
-        contentArea.w + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
+        areaW + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
         defaultSize?.w ?? 0,
       );
       const targetH = Math.max(
-        contentArea.h + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+        areaH + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
         defaultSize?.h ?? 0,
       );
       const next =
@@ -188,7 +206,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           ? clampStreetViewArtifactSize(targetW)
           : artForBounds?.kind === "stickynote"
             ? clampStickyNoteArtifactSize(targetW, targetH)
-            : clampArtifactSize(targetW, targetH, clampOpts);
+            : artForBounds?.kind === "table"
+              ? clampTableArtifactSize(targetW, targetH)
+              : clampArtifactSize(targetW, targetH, clampOpts);
       if (
         Math.abs(next.w - bounds.w) > 1 ||
         Math.abs(next.h - bounds.h) > 1
@@ -302,7 +322,12 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
                 rs.startW + (sx * screenDx) / vpScale,
                 rs.startH + (sy * screenDy) / vpScale,
               )
-            : clampArtifactSize(
+            : art?.kind === "table"
+              ? clampTableArtifactSize(
+                  rs.startW + (sx * screenDx) / vpScale,
+                  rs.startH + (sy * screenDy) / vpScale,
+                )
+              : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
               art?.kind === "timeline"

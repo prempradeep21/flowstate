@@ -13,7 +13,7 @@ export default async function AdminSoundPage() {
       description="Map seslen sound presets to UI events."
     >
       <div className="h-full min-h-0 overflow-auto">
-        <SoundMappingApp />
+        <SoundMappingApp embedded />
       </div>
     </AdminShell>
   );

@@ -6,7 +6,9 @@ import {
   getBackgroundOptionsForTheme,
   THEME_OPTIONS,
 } from "@/components/canvasBackgrounds/registry";
+import { CanvasFontSettingsSections } from "@/components/CanvasFontPopover";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
 import { useCanvasStore, type CanvasTheme } from "@/lib/store";
@@ -62,6 +64,7 @@ export function CanvasSettingsPopover({
 
   useEffect(() => {
     if (!open) return;
+    preloadAllCanvasGoogleFonts();
     document.addEventListener("pointerdown", handlePointerDown);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -81,8 +84,8 @@ export function CanvasSettingsPopover({
     <MotionFlowSize
       ref={popoverRef}
       role="dialog"
-      aria-label="Canvas settings"
-      className="absolute bottom-full z-[60] mb-3 w-[min(calc(100vw-2rem),280px)] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
+      aria-label="Canvas controls"
+      className="absolute bottom-full z-[60] mb-3 max-h-[min(70vh,480px)] w-[min(calc(100vw-2rem),300px)] -translate-x-1/2 overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card"
       style={anchorStyle}
     >
       <h3 className="mb-2 text-canvas-body-sm font-semibold text-canvas-ink">
@@ -188,7 +191,7 @@ export function CanvasSettingsPopover({
       </div>
 
       <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
-        Sound (master)
+        Sounds
       </h3>
       <label className="mb-3 flex items-center gap-2 text-canvas-compact text-canvas-ink">
         <input
@@ -216,6 +219,11 @@ export function CanvasSettingsPopover({
           {Math.round(soundVolume * 100)}
         </span>
       </label>
+
+      <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
+        Font
+      </h3>
+      <CanvasFontSettingsSections />
     </MotionFlowSize>
   );
 }

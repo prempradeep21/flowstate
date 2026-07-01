@@ -28,3 +28,19 @@ export const GROUNDBREAKING_IDEAS: GroundbreakingIdea[] = [
 export function getIdeaBySlug(slug: string): GroundbreakingIdea | undefined {
   return GROUNDBREAKING_IDEAS.find((idea) => idea.slug === slug);
 }
+
+export function getLabSummary(): {
+  ideaCount: number;
+  prototypeCount: number;
+  playgroundCount: number;
+} {
+  return {
+    ideaCount: GROUNDBREAKING_IDEAS.length,
+    prototypeCount: GROUNDBREAKING_IDEAS.filter(
+      (idea) => idea.status === "Prototype",
+    ).length,
+    playgroundCount: GROUNDBREAKING_IDEAS.filter(
+      (idea) => idea.playgroundPath,
+    ).length,
+  };
+}

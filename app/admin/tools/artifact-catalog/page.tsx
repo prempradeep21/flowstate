@@ -13,7 +13,7 @@ export default async function AdminArtifactCatalogPage() {
       description="Live preview of all artifact types."
     >
       <div className="h-full min-h-0">
-        <ArtifactCatalogApp deferredLoad />
+        <ArtifactCatalogApp deferredLoad embedded />
       </div>
     </AdminShell>
   );
