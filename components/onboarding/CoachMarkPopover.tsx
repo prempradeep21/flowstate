@@ -65,10 +65,6 @@ function clampVertical(
   const margin = VIEWPORT_MARGIN;
   const maxTop = window.innerHeight - margin;
 
-  if (placement === "center") {
-    return { top, translateY: "-50%" };
-  }
-
   if (placement === "below") {
     if (top + height > maxTop) {
       return { top: maxTop - height, translateY: "0" };
