@@ -156,6 +156,7 @@ export function Canvas({
   const persistenceReady = usePersistenceReady();
   const {
     user,
+    authLoading,
     activeCanvasId,
     presenceChannelRef,
     presenceChannelReady,
@@ -652,9 +653,12 @@ export function Canvas({
     requestCanvasFocus(() => focusCanvasCard(cardId));
   };
 
-  // Seed the home card as soon as the container has size (do not wait on cloud load).
+  // Seed the home card for confirmed guests only — never while auth or cloud load is pending.
   useLayoutEffect(() => {
     if (!containerReady) return;
+    if (authLoading) return;
+    if (user) return;
+    if (!persistenceReady) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -686,10 +690,13 @@ export function Canvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, [
+    authLoading,
     cardOrder.length,
     containerReady,
     createRootCard,
+    persistenceReady,
     setViewport,
+    user,
   ]);
 
   // After persistence hydrates, center on the first card if we have not yet.

@@ -900,6 +900,7 @@ function CardInner({ card }: CardProps) {
         <div
           className="relative min-w-0 overflow-hidden"
           style={qaInsetStyle("emptyComposer")}
+          data-coach-target="ask-composer"
         >
           <CanvasSharpContent className="w-full min-w-0">
             <ChatComposer

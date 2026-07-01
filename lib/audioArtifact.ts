@@ -184,16 +184,19 @@ export function syntheticWaveformPeaks(seed = 0): number[] {
   });
 }
 
+export const CATALOG_AUDIO_SAMPLE_PATH = "/catalog/interview-clip.wav";
+
 export function createCatalogAudioPayload(
   title: string,
   durationMs: number,
   seed = 0,
+  options?: { publicUrl?: string },
 ): Extract<ArtifactPayload, { type: "audio" }> {
   return createAudioPayload({
-    fileName: `${title.replace(/\s+/g, "-").toLowerCase()}.mp3`,
-    mimeType: "audio/mpeg",
+    fileName: `${title.replace(/\s+/g, "-").toLowerCase()}.wav`,
+    mimeType: "audio/wav",
     storagePath: "",
-    publicUrl: "",
+    publicUrl: options?.publicUrl ?? CATALOG_AUDIO_SAMPLE_PATH,
     durationMs,
     peaks: syntheticWaveformPeaks(seed),
     title,

@@ -10,6 +10,7 @@ import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { ChatView } from "@/components/ChatView";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
+import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { useAuth } from "@/components/AuthProvider";
@@ -59,6 +60,7 @@ export default function Page() {
         <AppRightPanel />
         <ArtifactPanel />
         <ShareModal />
+        <CoachMarkTour />
         {viewMode === "canvas" && (
           <CanvasMinimap
             containerRef={canvasContainerRef}

@@ -13,6 +13,7 @@ import {
   buildTopCanvasesBarOption,
   buildTrackedVsUntrackedOption,
 } from "@/lib/admin/usageChartOptions";
+import type { QaTurnFailureRow } from "@/lib/admin/qaTurnEventsTypes";
 import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
 
 type SortKey =
@@ -159,23 +160,36 @@ export function UsageAnalysisDashboard() {
   const [sortKey, setSortKey] = useState<SortKey>("totalTokens");
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [qaFailures, setQaFailures] = useState<QaTurnFailureRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/usage-analysis");
-      const data = (await res.json()) as {
+      const [usageRes, failuresRes] = await Promise.all([
+        fetch("/api/admin/usage-analysis"),
+        fetch("/api/admin/qa-turn-failures"),
+      ]);
+      const data = (await usageRes.json()) as {
         snapshot?: UsageAnalysisSnapshot | null;
         computedAtLabel?: string | null;
         message?: string;
         error?: string;
       };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (!usageRes.ok) throw new Error(data.error ?? `HTTP ${usageRes.status}`);
       setSnapshot(data.snapshot ?? null);
       setComputedAtLabel(data.computedAtLabel ?? null);
       setMessage(data.message ?? null);
+
+      if (failuresRes.ok) {
+        const failuresData = (await failuresRes.json()) as {
+          failures?: QaTurnFailureRow[];
+        };
+        setQaFailures(failuresData.failures ?? []);
+      } else {
+        setQaFailures([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load usage data");
       setSnapshot(null);
@@ -662,6 +676,70 @@ export function UsageAnalysisDashboard() {
               </table>
             </div>
           </section>
+
+          {qaFailures.length > 0 ? (
+            <section>
+              <h3 className="font-display text-lg font-medium text-canvas-ink">
+                Recent Q&amp;A failures
+              </h3>
+              <p className="mt-1 text-canvas-body-sm text-canvas-muted">
+                Last 7 days from <code className="text-canvas-accent">qa_turn_events</code>{" "}
+                (live chat telemetry).
+              </p>
+              <div className="mt-3 overflow-x-auto rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
+                <table className="min-w-full text-left text-canvas-body-sm">
+                  <thead className="bg-canvas-card text-canvas-micro uppercase tracking-wider text-canvas-muted">
+                    <tr className="border-b border-canvas-border">
+                      <th className="px-3 py-3 font-semibold">When</th>
+                      <th className="px-3 py-3 font-semibold">Outcome</th>
+                      <th className="px-3 py-3 font-semibold">Question</th>
+                      <th className="px-3 py-3 font-semibold">Tokens in</th>
+                      <th className="px-3 py-3 font-semibold">Searches</th>
+                      <th className="px-3 py-3 font-semibold">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {qaFailures.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-canvas-border/60 hover:bg-canvas-bg/80"
+                      >
+                        <td className="px-3 py-3 whitespace-nowrap text-canvas-muted">
+                          {formatWhen(row.created_at)}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-canvas-micro font-medium text-red-700 dark:text-red-300">
+                            {row.outcome}
+                          </span>
+                        </td>
+                        <td className="max-w-md px-3 py-3 text-canvas-ink">
+                          <span className="line-clamp-2" title={row.question ?? undefined}>
+                            {row.question ?? "—"}
+                          </span>
+                          {row.error_message ? (
+                            <span className="mt-1 block text-canvas-micro text-canvas-muted line-clamp-1">
+                              {row.error_message}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-3 tabular-nums">
+                          {(row.input_tokens ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3 tabular-nums">
+                          {row.web_search_blocks ?? 0}
+                        </td>
+                        <td className="px-3 py-3 tabular-nums text-canvas-muted">
+                          {row.duration_ms != null
+                            ? `${Math.round(row.duration_ms / 1000)}s`
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
 
           <footer className="rounded-canvas border border-canvas-border bg-canvas-card/60 p-4 text-canvas-body-sm text-canvas-muted">
             <p className="font-medium text-canvas-ink">Methodology</p>

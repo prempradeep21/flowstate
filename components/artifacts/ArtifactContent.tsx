@@ -86,7 +86,7 @@ export function ArtifactContent({
   const isSidebarPreview = layout === "sidebar-preview";
   const isCanvas = layout === "canvas";
   const fill = isCanvas || isSidebarPreview;
-  const showControls = !isSidebar && !isSidebarPreview;
+  const showControls = !isSidebar && !isSidebarPreview && !catalogPreview;
   const canvasInteractive =
     catalogPreview || (canvasContentInteractive && !isSidebarPreview);
   const contentLayout: "canvas" | "panel" | "sidebar" = isSidebarPreview
@@ -169,7 +169,7 @@ export function ArtifactContent({
       break;
     case "map":
       if (payload.type === "map") {
-        return (
+        const map = (
           <MapArtifactContent
             payload={payload}
             artifactId={artifactId}
@@ -178,6 +178,11 @@ export function ArtifactContent({
             sidebar={isSidebar}
             layout={contentLayout}
           />
+        );
+        return contentLayout === "canvas" ? (
+          <div className="flex h-full min-h-0 w-full flex-1 flex-col">{map}</div>
+        ) : (
+          map
         );
       }
       break;

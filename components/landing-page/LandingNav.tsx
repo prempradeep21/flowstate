@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { playSound } from "@/lib/sounds/engine";
-import { LANDING_SECTIONS } from "@/components/landing-page/landingSections";
+import { LANDING_COPY, LANDING_SECTIONS } from "@/components/landing-page/landingSections";
 
 function FlowstateMark() {
   return (
@@ -22,8 +22,9 @@ function FlowstateMark() {
 }
 
 export function LandingNav() {
-  const [activeId, setActiveId] = useState<string>("hero");
+  const [activeId, setActiveId] = useState<string>("canvas-hero");
   const [scrolled, setScrolled] = useState(false);
+  const tagline = LANDING_COPY.canvasHero.tagline;
 
   useEffect(() => {
     const root = document.getElementById("landing-scroll-root");
@@ -70,17 +71,20 @@ export function LandingNav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
         <Link
           href="/landing"
-          className="flex items-center gap-2.5"
+          className="flex min-w-0 items-center gap-2.5"
           onClick={() => void playSound("artifact-focus")}
         >
           <FlowstateMark />
           <span className="font-display text-canvas-brand font-semibold text-canvas-ink">
             Flowstate
           </span>
+          <span className="hidden truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-canvas-muted sm:inline">
+            {tagline}
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Sections">
-          {LANDING_SECTIONS.slice(1).map((section) => (
+          {LANDING_SECTIONS.map((section) => (
             <a
               key={section.id}
               href={`#${section.id}`}
@@ -101,7 +105,7 @@ export function LandingNav() {
           onClick={() => void playSound("branch-create")}
           className="inline-flex shrink-0 items-center rounded-full bg-canvas-ink px-4 py-2 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90"
         >
-          Open canvas
+          Start creating
         </Link>
       </div>
     </header>

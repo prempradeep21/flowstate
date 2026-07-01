@@ -283,32 +283,9 @@ export function CanvasBottomToolbar() {
           aria-label="Canvas tools"
         >
           <button
-            ref={artefactBtnRef}
-            type="button"
-            disabled={!canEdit}
-            className={`${toolbarBtn} ${
-              artifactMenuOpen || artefactPlacementActive
-                ? "bg-canvas-bg text-canvas-ink"
-                : ""
-            }`}
-            aria-pressed={artifactMenuOpen || artefactPlacementActive}
-            aria-expanded={artifactMenuOpen}
-            aria-haspopup="menu"
-            onClick={() => {
-              deactivatePencil();
-              setSettingsOpen(false);
-              setGifPickerOpen(false);
-              setArtifactMenuOpen((v) => !v);
-            }}
-          >
-            <span className="text-canvas-muted">
-              <ArtefactIcon />
-            </span>
-            Add artefact
-          </button>
-          <button
             ref={addBtnRef}
             type="button"
+            data-coach-target="add-btn"
             disabled={!canEdit}
             className={`${toolbarBtn} ${
               addMenuOpen || gifPickerOpen || activeCanvasPlacement === "text"
@@ -329,6 +306,31 @@ export function CanvasBottomToolbar() {
               <PlusIcon />
             </span>
             Add
+          </button>
+          <button
+            ref={artefactBtnRef}
+            type="button"
+            data-coach-target="artefact-btn"
+            disabled={!canEdit}
+            className={`${toolbarBtn} ${
+              artifactMenuOpen || artefactPlacementActive
+                ? "bg-canvas-bg text-canvas-ink"
+                : ""
+            }`}
+            aria-pressed={artifactMenuOpen || artefactPlacementActive}
+            aria-expanded={artifactMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => {
+              deactivatePencil();
+              setSettingsOpen(false);
+              setGifPickerOpen(false);
+              setArtifactMenuOpen((v) => !v);
+            }}
+          >
+            <span className="text-canvas-muted">
+              <ArtefactIcon />
+            </span>
+            Add artefact
           </button>
 
           <button
@@ -366,6 +368,7 @@ export function CanvasBottomToolbar() {
               {showShare && (
                 <button
                   type="button"
+                  data-coach-target="share-btn"
                   className={toolbarBtn}
                   onClick={() => setShareModalOpen(true)}
                 >

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactContent } from "@/components/artifacts/ArtifactContent";
+import type { ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { TextCardBody } from "@/components/cards/TextCardBody";
 import {
@@ -11,7 +12,31 @@ import type { ArtifactCatalogEntry } from "@/lib/artifactCatalogSamples";
 import { CARD_WIDTH } from "@/lib/canvasNodeBounds";
 import { qaInsetStyle } from "@/lib/design/canvasInsets";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
+import type { ArtifactKind } from "@/lib/artifactTypes";
+import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import type { Card } from "@/lib/store";
+
+const CANVAS_LAYOUT_KINDS = new Set<ArtifactKind>([
+  "map",
+  "streetview",
+  "3d",
+  "embed",
+  "audio",
+]);
+
+function catalogLayoutForEntry(entry: ArtifactCatalogEntry): ArtifactLayout {
+  if (!entry.payload) return "panel";
+  const kind = payloadToArtifactKind(entry.payload);
+  return CANVAS_LAYOUT_KINDS.has(kind) ? "canvas" : "panel";
+}
+
+export function previewHeightForEntry(id: string): number {
+  if (id.startsWith("chart")) return 360;
+  if (id === "map" || id === "streetview" || id === "3d") return 340;
+  if (id === "audio" || id === "embed" || id === "video") return 320;
+  if (id === "custom" || id.startsWith("timezone") || id === "currency") return 280;
+  return 300;
+}
 
 function catalogTextCard(entry: ArtifactCatalogEntry): Card {
   return {
@@ -73,18 +98,22 @@ export function LandingArtifactPreview({
 
   if (!entry.payload) return null;
 
+  const layout = catalogLayoutForEntry(entry);
+
   return (
     <div className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
       <div
-        className="relative overflow-auto bg-canvas-artifactStage"
+        className="relative flex min-h-0 flex-col overflow-hidden bg-canvas-artifactStage"
         style={{ height: previewHeight }}
       >
-        <ArtifactContent
-          payload={entry.payload}
-          layout="panel"
-          catalogPreview
-          canvasContentInteractive
-        />
+        <div className="flex h-full min-h-0 flex-1 flex-col [&_.artifact-content-stage]:min-h-0 [&_.artifact-content-stage]:flex-1">
+          <ArtifactContent
+            payload={entry.payload}
+            layout={layout}
+            catalogPreview
+            canvasContentInteractive
+          />
+        </div>
       </div>
     </div>
   );

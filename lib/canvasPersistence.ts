@@ -27,6 +27,7 @@ export interface CanvasMeta {
 
 export interface UserPreferences {
   lastActiveCanvasId?: string;
+  hasCompletedOnboardingTour?: boolean;
 }
 
 type Supabase = SupabaseClient<Database>;
@@ -66,9 +67,14 @@ function parsePreferences(raw: unknown): UserPreferences {
   if (!raw || typeof raw !== "object") return {};
   const prefs = raw as Record<string, unknown>;
   const lastActiveCanvasId = prefs.lastActiveCanvasId;
+  const hasCompletedOnboardingTour = prefs.hasCompletedOnboardingTour;
   return {
     lastActiveCanvasId:
       typeof lastActiveCanvasId === "string" ? lastActiveCanvasId : undefined,
+    hasCompletedOnboardingTour:
+      typeof hasCompletedOnboardingTour === "boolean"
+        ? hasCompletedOnboardingTour
+        : undefined,
   };
 }
 
@@ -98,6 +104,24 @@ export async function updateLastActiveCanvas(
       preferences: {
         ...existing,
         lastActiveCanvasId: canvasId,
+      } as Database["public"]["Tables"]["profiles"]["Update"]["preferences"],
+    })
+    .eq("id", userId);
+
+  if (error) throw error;
+}
+
+export async function updateOnboardingTourCompleted(
+  supabase: Supabase,
+  userId: string,
+): Promise<void> {
+  const existing = await fetchUserPreferences(supabase, userId);
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      preferences: {
+        ...existing,
+        hasCompletedOnboardingTour: true,
       } as Database["public"]["Tables"]["profiles"]["Update"]["preferences"],
     })
     .eq("id", userId);
@@ -209,9 +233,11 @@ export function generateUntitledCanvasTitle(existingTitles: string[]): string {
 export async function createDefaultCanvas(
   supabase: Supabase,
   userId: string,
-  source: CanvasSnapshotSource,
+  source?: CanvasSnapshotSource,
 ): Promise<CanvasRow> {
-  const snapshot = buildCanvasSnapshot(source);
+  const snapshot = source
+    ? buildCanvasSnapshot(source)
+    : buildEmptyCanvasSnapshot();
 
   const { data, error } = await supabase
     .from("canvases")

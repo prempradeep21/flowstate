@@ -73,9 +73,7 @@ export function AppRightPanel() {
       <BetaFeedbackButton />
 
       <aside
-
         className={[
-
           "flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
 
           collapsed ? "w-auto" : "w-[462px]",
@@ -97,6 +95,7 @@ export function AppRightPanel() {
           <button
 
             type="button"
+            data-coach-target="artifacts-panel-entry"
 
             onClick={toggleRightPanel}
 
@@ -153,11 +152,12 @@ export function AppRightPanel() {
 
               </div>
 
-              <button
+          <button
 
-                type="button"
+            type="button"
+            data-coach-target="artifacts-panel-entry"
 
-                onClick={toggleRightPanel}
+            onClick={toggleRightPanel}
 
                 aria-label="Collapse artifacts panel"
 

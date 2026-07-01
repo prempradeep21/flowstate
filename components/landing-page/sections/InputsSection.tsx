@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { TagChip } from "@/components/repo-explorer/WidgetCard";
-import { LandingArtifactPreview } from "@/components/landing-page/shared/LandingArtifactPreview";
+import {
+  LandingArtifactPreview,
+  previewHeightForEntry,
+} from "@/components/landing-page/shared/LandingArtifactPreview";
 import { LandingComposerInputDemo } from "@/components/landing-page/shared/LandingComposerInputDemo";
 import { LandingSectionShell } from "@/components/landing-page/LandingSectionShell";
 import { LANDING_COPY } from "@/components/landing-page/landingSections";
@@ -65,13 +68,22 @@ export function InputsSection() {
                 <p className="mt-2 text-canvas-body leading-[1.6] text-canvas-muted">
                   {entry.description}
                 </p>
+                {entry.example ? (
+                  <p className="mt-2 text-canvas-caption leading-relaxed text-canvas-muted">
+                    <span className="font-medium text-canvas-ink/80">Example: </span>
+                    <span className="font-mono text-canvas-ink/70">{entry.example}</span>
+                  </p>
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {entry.chips.slice(0, 4).map((chip) => (
                     <TagChip key={chip} label={chip} />
                   ))}
                 </div>
               </div>
-              <LandingArtifactPreview entry={entry} previewHeight={300} />
+              <LandingArtifactPreview
+                entry={entry}
+                previewHeight={previewHeightForEntry(entry.id)}
+              />
             </article>
           ))}
         </div>

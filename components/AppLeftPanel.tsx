@@ -57,7 +57,10 @@ export function AppLeftPanel() {
         side="left"
         collapsed={collapsed}
         collapsedContent={
-          <>
+          <div
+            data-coach-target="left-sidebar-entry"
+            className="flex min-w-0 items-center gap-2"
+          >
             <FlowstateBrand compact />
             <span
               className="min-w-0 max-w-[min(12rem,28vw)] truncate text-canvas-body-sm font-medium text-canvas-ink"
@@ -73,7 +76,7 @@ export function AppLeftPanel() {
             >
               <PanelChevronIcon direction="right" className="h-4 w-4" />
             </button>
-          </>
+          </div>
         }
         expandedContent={
           <>

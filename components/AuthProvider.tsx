@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localReadOnly,
   } = useCanvasPersistence({
     user,
+    authLoading,
     supabaseConfigured,
     persistenceStatus,
     setPersistenceStatus,
