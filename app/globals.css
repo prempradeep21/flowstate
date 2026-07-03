@@ -54,22 +54,26 @@
     calc(var(--canvas-radius-lg) - 12px),
     var(--canvas-radius-xs)
   );
-  /* Artifact category fills — header icon circles, themable per preset
-     (mirror lib/design/theme/presets.ts default preset). */
-  --artifact-cat-data-bg: 237 233 254;
-  --artifact-cat-data-fg: 91 66 199;
-  --artifact-cat-viz-bg: 224 242 254;
-  --artifact-cat-viz-fg: 3 105 161;
-  --artifact-cat-geo-bg: 220 252 231;
-  --artifact-cat-geo-fg: 21 128 61;
-  --artifact-cat-media-bg: 254 226 226;
-  --artifact-cat-media-fg: 185 28 28;
-  --artifact-cat-docs-bg: 254 243 199;
-  --artifact-cat-docs-fg: 146 64 14;
-  --artifact-cat-dev-bg: 241 245 249;
-  --artifact-cat-dev-fg: 51 65 85;
-  --artifact-cat-planning-bg: 252 231 243;
-  --artifact-cat-planning-fg: 190 24 93;
+  /* Secondary + tertiary semantic roles (themable; mirror tokens.ts). */
+  --canvas-secondary: 91 127 214;
+  --canvas-tertiary: 217 119 6;
+  /* Artifact category fills — header icon circles, themable per preset.
+     Generated: deriveCategoryFill() over the default preset's category bases
+     (lib/design/theme/presets.ts + color.ts). */
+  --artifact-cat-data-bg: 226 221 253;
+  --artifact-cat-data-fg: 45 19 174;
+  --artifact-cat-viz-bg: 221 242 253;
+  --artifact-cat-viz-fg: 21 121 173;
+  --artifact-cat-geo-bg: 225 249 234;
+  --artifact-cat-geo-fg: 38 156 81;
+  --artifact-cat-media-bg: 249 226 226;
+  --artifact-cat-media-fg: 153 41 41;
+  --artifact-cat-docs-bg: 252 238 222;
+  --artifact-cat-docs-fg: 170 102 24;
+  --artifact-cat-dev-bg: 235 237 240;
+  --artifact-cat-dev-fg: 84 95 110;
+  --artifact-cat-planning-bg: 249 226 236;
+  --artifact-cat-planning-fg: 152 42 91;
   /* Elevation — UI chrome (panels, toolbar, popovers) is flat; only
      canvas-level elements (artifact windows, cards) carry shadows. */
   --canvas-card-shadow: none;
@@ -142,21 +146,24 @@ html[data-theme="dark"] {
     0 4px 16px rgba(0, 0, 0, 0.5);
   --canvas-artifact-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
     0 10px 28px rgba(0, 0, 0, 0.6);
-  /* Artifact category fills — dark variants. */
-  --artifact-cat-data-bg: 44 37 65;
-  --artifact-cat-data-fg: 196 181 253;
-  --artifact-cat-viz-bg: 20 34 42;
-  --artifact-cat-viz-fg: 125 211 252;
-  --artifact-cat-geo-bg: 17 38 31;
-  --artifact-cat-geo-fg: 110 231 183;
-  --artifact-cat-media-bg: 42 24 24;
-  --artifact-cat-media-fg: 252 165 165;
-  --artifact-cat-docs-bg: 42 33 20;
-  --artifact-cat-docs-fg: 252 211 77;
-  --artifact-cat-dev-bg: 39 44 52;
-  --artifact-cat-dev-fg: 148 163 184;
-  --artifact-cat-planning-bg: 42 22 32;
-  --artifact-cat-planning-fg: 244 164 200;
+  /* Secondary + tertiary — dark variants (deriveDarkAccent). */
+  --canvas-secondary: 142 166 224;
+  --canvas-tertiary: 245 164 71;
+  /* Artifact category fills — dark variants (deriveCategoryFill). */
+  --artifact-cat-data-bg: 34 26 77;
+  --artifact-cat-data-fg: 159 142 246;
+  --artifact-cat-viz-bg: 26 59 76;
+  --artifact-cat-viz-fg: 143 210 245;
+  --artifact-cat-geo-bg: 32 70 46;
+  --artifact-cat-geo-fg: 154 233 183;
+  --artifact-cat-media-bg: 69 33 33;
+  --artifact-cat-media-fg: 231 156 156;
+  --artifact-cat-docs-bg: 75 53 27;
+  --artifact-cat-docs-fg: 243 197 145;
+  --artifact-cat-dev-bg: 47 50 55;
+  --artifact-cat-dev-fg: 185 192 202;
+  --artifact-cat-planning-bg: 69 33 49;
+  --artifact-cat-planning-fg: 231 157 190;
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);

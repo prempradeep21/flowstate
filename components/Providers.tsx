@@ -6,10 +6,12 @@ import { GoogleOAuthReturnBridge } from "@/components/google/GoogleOAuthReturnBr
 import { CanvasInactivityBridge } from "@/components/CanvasInactivityBridge";
 import { CanvasSoundBridge } from "@/components/CanvasSoundBridge";
 import { MotionProvider } from "@/lib/motion/MotionProvider";
+import { ThemeProvider } from "@/lib/design/theme/ThemeProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <MotionProvider>
+      <ThemeProvider />
       <AuthProvider>
         <AppToastHost />
         <CanvasSoundBridge />

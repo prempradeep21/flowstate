@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Figtree, Parkinsans } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Providers } from "@/components/Providers";
+import { THEME_NO_FLASH_SCRIPT } from "@/lib/design/theme/noFlashScript";
 import { denton } from "@/lib/fonts/denton";
 import { satoshi } from "@/lib/fonts/satoshi";
 import "./globals.css";
@@ -44,9 +45,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${figtree.variable} ${parkinsans.variable} ${archivo.variable} ${denton.variable} ${satoshi.variable} h-full`}
     >
       <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
+        <script dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }} />
         <GoogleAnalytics />
         <Providers>{children}</Providers>
       </body>

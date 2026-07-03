@@ -18,6 +18,7 @@ import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
+import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export interface ArtifactEditControls {
@@ -175,13 +176,11 @@ export function ArtifactPanelHeader({
       className={`flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
     >
       <span
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
-          kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
-        }`}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)
-            : undefined
+            : artifactCategoryStyle(isVideo ? "video" : kind)
         }
       >
         <span
