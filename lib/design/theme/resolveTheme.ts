@@ -11,6 +11,7 @@ import {
 import {
   ARTIFACT_CATEGORY_IDS,
   type ResolvedTheme,
+  type ThemePreset,
   type ThemeState,
 } from "@/lib/design/theme/types";
 
@@ -46,8 +47,11 @@ function cssBlock(selector: string, vars: Record<string, string>): string {
  * `html[data-theme="dark"]` so the attribute (owned by ThemeApplier /
  * per-canvas settings) keeps selecting the right values.
  */
-export function resolveTheme(state: ThemeState): ResolvedTheme {
-  const preset = getThemePreset(state.presetId);
+export function resolveTheme(
+  state: ThemeState,
+  customThemes?: readonly ThemePreset[],
+): ResolvedTheme {
+  const preset = getThemePreset(state.presetId, customThemes);
   const overrides = state.overrides ?? {};
 
   const primary = overrides.primary ?? preset.primary;

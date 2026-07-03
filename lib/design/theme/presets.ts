@@ -96,9 +96,35 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
 
 export const DEFAULT_PRESET_ID = "flowstate";
 
-export function getThemePreset(id: string): ThemePreset {
+/** Custom theme ids are namespaced so they never collide with built-ins. */
+export const CUSTOM_THEME_ID_PREFIX = "custom:";
+
+/** Slugified name + short random suffix, so re-saving the same name is safe. */
+export function createCustomThemeId(name: string): string {
+  const slug =
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "theme";
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `${CUSTOM_THEME_ID_PREFIX}${slug}-${suffix}`;
+}
+
+/**
+ * Resolves a preset id to its definition. Checks built-ins first, then an
+ * optional caller-supplied custom theme list (saved via the design panel —
+ * see lib/design/theme/publishedTheme.server.ts). THEME_PRESETS itself is
+ * never mutated by custom themes; this function is purely additive.
+ */
+export function getThemePreset(
+  id: string,
+  customThemes?: readonly ThemePreset[],
+): ThemePreset {
   return (
     THEME_PRESETS.find((preset) => preset.id === id) ??
+    customThemes?.find((preset) => preset.id === id) ??
     THEME_PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID)!
   );
 }
