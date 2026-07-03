@@ -4,10 +4,12 @@ import type { Landing2SceneId } from "@/components/landing2/landing2Copy";
 
 export const LANDING2_ACCENTS = THREAD_ACCENT_PALETTE;
 
+type Landing2Accent = (typeof LANDING2_ACCENTS)[number];
+
 /** Per-scene color wash — edge-to-edge gradients */
 export const LANDING2_SCENE_WASH: Record<
   Landing2SceneId,
-  { from: string; via?: string; to: string; accent: string; orb?: string }
+  { from: string; via?: string; to: string; accent: Landing2Accent; orb?: Landing2Accent }
 > = {
   prologue: {
     from: "rgb(107 78 255 / 0.32)",
