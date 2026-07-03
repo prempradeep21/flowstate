@@ -21,7 +21,7 @@ const MANUAL_SOURCE_PREFIXES = ["__manual", "manual-"] as const;
 
 export function isCardSourcedArtifactBuild(
   sourceCardId: string,
-  cards: Record<string, { id: string }>,
+  cards: Record<string, unknown>,
 ): boolean {
   if (!sourceCardId) return false;
   if (MANUAL_SOURCE_PREFIXES.some((prefix) => sourceCardId.startsWith(prefix))) {
