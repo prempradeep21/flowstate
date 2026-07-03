@@ -47,7 +47,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
     href: "/admin/tools/design-system",
     label: "Design System",
-    description: "Tokens, cards, connectors, and design documentation.",
+    description: "Live theme controls — presets, colors, radius, and reference.",
     icon: "design-system",
     group: "build",
   },
