@@ -3,6 +3,7 @@
  * lightness/saturation adjustments used to derive dark-mode and category
  * variants from a single authored hex per color.
  */
+import { contrastRatio } from "@/lib/design/contrast";
 
 export interface Hsl {
   h: number; // 0..360
@@ -87,7 +88,9 @@ export function deriveDarkAccent(hex: string): string {
 
 /**
  * Derive the four category-fill values (light/dark circle bg + icon fg)
- * from a single authored base hex.
+ * from a single authored base hex. The icon tint is nudged darker/lighter
+ * until it clears 3:1 (WCAG graphics) against its circle fill, so luminous
+ * hues (limes, yellows) and arbitrary user-picked colors stay legible.
  */
 export function deriveCategoryFill(baseHex: string): {
   lightBg: string;
@@ -95,10 +98,18 @@ export function deriveCategoryFill(baseHex: string): {
   darkBg: string;
   darkFg: string;
 } {
-  return {
-    lightBg: withLightness(baseHex, 0.93, 0.9),
-    lightFg: withLightness(baseHex, 0.38, 0.8),
-    darkBg: withLightness(baseHex, 0.2, 0.5),
-    darkFg: withLightness(baseHex, 0.76, 0.85),
-  };
+  const lightBg = withLightness(baseHex, 0.93, 0.9);
+  const darkBg = withLightness(baseHex, 0.2, 0.5);
+
+  let lightFg = withLightness(baseHex, 0.38, 0.8);
+  for (let l = 0.38; contrastRatio(lightFg, lightBg) < 3 && l > 0.16; l -= 0.02) {
+    lightFg = withLightness(baseHex, l, 0.8);
+  }
+
+  let darkFg = withLightness(baseHex, 0.76, 0.85);
+  for (let l = 0.76; contrastRatio(darkFg, darkBg) < 3 && l < 0.94; l += 0.02) {
+    darkFg = withLightness(baseHex, l, 0.85);
+  }
+
+  return { lightBg, lightFg, darkBg, darkFg };
 }

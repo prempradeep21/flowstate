@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { Icon } from "@/components/ui/Icon";
 
 export type ArtifactNestedMenuView = "root" | "display" | "export";
 
@@ -10,32 +12,12 @@ const menuItemClass =
 
 function ChevronRightIcon() {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      className="ml-auto h-4 w-4 shrink-0 text-canvas-muted"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <Icon icon={ChevronRight} className="ml-auto h-4 w-4 text-canvas-muted" />
   );
 }
 
 function BackIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="h-4 w-4 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path d="M10 4L6 8l4 4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Icon icon={ChevronLeft} className="h-4 w-4" />;
 }
 
 export function ArtifactNestedMenuShell({

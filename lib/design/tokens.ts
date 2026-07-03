@@ -11,7 +11,8 @@ export const canvasColors = {
   card: "#FFFFFF",
   border: "#E6E4DF",
   ink: "#2C2A26",
-  muted: "#8A867E",
+  /** AA on bg (4.65:1) and card (5.30:1) — do not lighten past #7A766E. */
+  muted: "#6F6B63",
   accent: "#6B4EFF",
   secondary: "#5B7FD6",
   tertiary: "#D97706",

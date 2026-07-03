@@ -1,35 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  type LucideIcon,
+} from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
 import { useSelectionToolbarAnchor } from "@/hooks/useSelectionToolbarAnchor";
 import type { AlignMode } from "@/lib/canvasArrange";
 import { deriveGroupLabel } from "@/lib/deriveGroupLabel";
 import { summarizeGroup } from "@/lib/summarizeGroup";
 import { useCanvasStore } from "@/lib/store";
 
-const ALIGN_ACTIONS: { mode: AlignMode; label: string; icon: string }[] = [
-  { mode: "left", label: "Align left", icon: "M2 2v12M5 5h8v2H5zM5 9h5v2H5z" },
+const ALIGN_ACTIONS: { mode: AlignMode; label: string; icon: LucideIcon }[] = [
+  { mode: "left", label: "Align left", icon: AlignStartVertical },
   {
     mode: "centerX",
     label: "Align horizontal centers",
-    icon: "M8 2v12M4 5h8v2H4zM5.5 9h5v2h-5z",
+    icon: AlignCenterVertical,
   },
-  {
-    mode: "right",
-    label: "Align right",
-    icon: "M14 2v12M3 5h8v2H3zM6 9h5v2H6z",
-  },
-  { mode: "top", label: "Align top", icon: "M2 2h12M5 5h2v8H5zM9 5h2v5H9z" },
+  { mode: "right", label: "Align right", icon: AlignEndVertical },
+  { mode: "top", label: "Align top", icon: AlignStartHorizontal },
   {
     mode: "centerY",
     label: "Align vertical centers",
-    icon: "M2 8h12M5 4h2v8H5zM9 5.5h2v5H9z",
+    icon: AlignCenterHorizontal,
   },
-  {
-    mode: "bottom",
-    label: "Align bottom",
-    icon: "M2 14h12M5 3h2v8H5zM9 6h2v5H9z",
-  },
+  { mode: "bottom", label: "Align bottom", icon: AlignEndHorizontal },
 ];
 
 function ToolbarIconButton({
@@ -38,7 +40,7 @@ function ToolbarIconButton({
   onClick,
 }: {
   label: string;
-  icon: string;
+  icon: LucideIcon;
   onClick: () => void;
 }) {
   return (
@@ -47,11 +49,9 @@ function ToolbarIconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+      className="flex h-7 w-7 items-center justify-center rounded-canvas-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
     >
-      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
-        <path d={icon} fill="currentColor" />
-      </svg>
+      <Icon icon={icon} size="inline" />
     </button>
   );
 }
@@ -110,7 +110,7 @@ export function SelectionToolbar() {
           transform: "translate(-50%, -100%)",
         }}
       >
-        <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 shadow-[0_8px_30px_rgb(44_42_38/0.12)] backdrop-blur-sm ring-1 ring-black/[0.04]">
+        <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
           {ALIGN_ACTIONS.map((a) => (
             <ToolbarIconButton
               key={a.mode}
@@ -125,7 +125,7 @@ export function SelectionToolbar() {
               <button
                 type="button"
                 onClick={handleGroup}
-                className="rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-compact font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90"
+                className="rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90"
               >
                 Group
               </button>
@@ -145,7 +145,7 @@ export function SelectionToolbar() {
         transform: "translate(-50%, -100%)",
       }}
     >
-      <div className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 shadow-[0_8px_30px_rgb(44_42_38/0.12)] backdrop-blur-sm ring-1 ring-black/[0.04]">
+      <div className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 backdrop-blur-sm">
         {activeGroup && (
           <>
             <p className="text-canvas-caption font-medium uppercase tracking-[0.06em] text-canvas-muted">
@@ -158,7 +158,7 @@ export function SelectionToolbar() {
               type="button"
               disabled={summarizing || Boolean(activeGroup.summaryMarkdown)}
               onClick={handleSummarize}
-              className="mt-3 w-full rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-compact font-medium text-canvas-card shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 w-full rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {summarizing
                 ? "Summarizing…"

@@ -10,9 +10,11 @@ All values defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts). Tail
 | `card` | `#FFFFFF` | `bg-canvas-card` |
 | `border` | `#E6E4DF` | `border-canvas-border` |
 | `ink` | `#2C2A26` | `text-canvas-ink` |
-| `muted` | `#8A867E` | `text-canvas-muted` |
+| `muted` | `#6F6B63` | `text-canvas-muted` (AA on bg + card) |
 | `dot` | `#8B8A86` | `--canvas-dot` in CSS |
-| `accent` | `#6B4EFF` | `text-canvas-accent`, `bg-canvas-accent` |
+| ccent | #6B4EFF | 	ext-canvas-accent, g-canvas-accent — themable primary |
+| secondary | #5B7FD6 | 	ext-canvas-secondary — themable secondary |
+| 	ertiary | #D97706 | 	ext-canvas-tertiary — themable accent |
 | `artifactIconBg` | `#EDE9FE` | `bg-canvas-artifactIconBg` |
 | `artifactStage` | `#F3F2EF` | `bg-canvas-artifactStage` |
 | `connector` | `#B8B5AE` | stroke fallback (`CANVAS_CONNECTOR`) |
