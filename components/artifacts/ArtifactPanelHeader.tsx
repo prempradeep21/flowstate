@@ -9,8 +9,11 @@ import {
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { EditableArtifactTitle } from "@/components/artifacts/EditableArtifactTitle";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
-import { ArtifactCopyCodeButton, ArtifactCodeCopyButton } from "@/components/artifacts/ArtifactCopyCodeButton";
-import { ArtifactExportMenu } from "@/components/artifacts/ArtifactExportMenu";
+import {
+  ArtifactHeaderNestedMenu,
+  artifactHeaderMenuHasActions,
+} from "@/components/artifacts/ArtifactHeaderNestedMenu";
+import { useArtifactMenuControls } from "@/components/artifacts/ArtifactMenuControlsContext";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
@@ -62,7 +65,6 @@ export function ArtifactPanelHeader({
   activeVersionId,
   onVersionChange,
   menuVariant = "panel",
-  onExpand,
   onRemoveFromCanvas,
   contributorProfiles,
   todoEditControls,
@@ -82,7 +84,6 @@ export function ArtifactPanelHeader({
   activeVersionId: string;
   onVersionChange: (versionId: string) => void;
   menuVariant?: "canvas" | "panel";
-  onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   contributorProfiles?: CollaboratorProfile[];
   todoEditControls?: ArtifactEditControls;
@@ -136,10 +137,12 @@ export function ArtifactPanelHeader({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen, actionMenuPortal.portalRef]);
 
-  const hasMenuActions =
-    menuVariant === "canvas"
-      ? Boolean(onExpand || onRemoveFromCanvas)
-      : false;
+  const menuControls = useArtifactMenuControls();
+  const hasMenuActions = artifactHeaderMenuHasActions({
+    exportPayload,
+    onRemoveFromCanvas,
+    hasDisplayMenu: menuControls?.hasDisplayMenu,
+  });
 
   const editControls = todoEditControls ?? stickyEditControls;
 
@@ -156,15 +159,21 @@ export function ArtifactPanelHeader({
     ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
     : "";
   const menuDropdownClassName =
-    "min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+    "min-w-[220px] max-h-[min(420px,70vh)] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+  const closeMenu = () => setMenuOpen(false);
   const versionDropdownClassName =
     "min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
 
+  const showVersion =
+    !isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl);
+
+  const showContributors =
+    contributorProfiles != null && contributorProfiles.length > 0;
+
   return (
-    <div className="flex h-14 items-center gap-[11px]">
-      {contributorProfiles && contributorProfiles.length > 0 && (
-        <ContributorAvatarStack profiles={contributorProfiles} size={28} />
-      )}
+    <div
+      className={`flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+    >
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
           kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
@@ -262,30 +271,14 @@ export function ArtifactPanelHeader({
         </a>
       ) : null}
 
-      {exportPayload ? (
-        <>
-          {kind === "code" ? (
-            <ArtifactCodeCopyButton menuVariant={menuVariant} />
-          ) : (
-            <ArtifactCopyCodeButton
-              kind={kind}
-              payload={exportPayload}
-              title={title}
-              artifactId={artifactId}
-              menuVariant={menuVariant}
-            />
-          )}
-          <ArtifactExportMenu
-            kind={kind}
-            payload={exportPayload}
-            title={title}
-            artifactId={artifactId}
-            menuVariant={menuVariant}
-          />
-        </>
-      ) : null}
-
-      {!isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl) && (
+      {(showContributors || showVersion || hasMenuActions) && (
+        <div className="flex shrink-0 items-center gap-2">
+      {showContributors && (
+        <div className={`shrink-0 ${isCanvas ? chromeClass : ""}`}>
+          <ContributorAvatarStack profiles={contributorProfiles} size={28} />
+        </div>
+      )}
+      {!showVersion ? null : (
           <div
             className={`relative shrink-0 ${chromeClass} ${
               versionOpen ? "opacity-100" : ""
@@ -367,7 +360,9 @@ export function ArtifactPanelHeader({
             aria-label="More options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+            className={`flex shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+              isCanvas ? "h-11 w-9" : "h-10 w-10"
+            }`}
           >
             <svg viewBox="0 0 16 16" className="h-[22px] w-[22px]" fill="currentColor" aria-hidden>
               <circle cx="8" cy="3.5" r="1.25" />
@@ -383,61 +378,31 @@ export function ArtifactPanelHeader({
                 portalRef={actionMenuPortal.portalRef}
                 className={menuDropdownClassName}
               >
-                {onExpand && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onExpand();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
-                  >
-                    Expand
-                  </button>
-                )}
-                {onRemoveFromCanvas && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRemoveFromCanvas();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                  >
-                    Remove from canvas
-                  </button>
-                )}
+                <ArtifactHeaderNestedMenu
+                  kind={kind}
+                  title={title}
+                  artifactId={artifactId}
+                  exportPayload={exportPayload}
+                  onRemoveFromCanvas={onRemoveFromCanvas}
+                  onClose={closeMenu}
+                />
               </CanvasFloatingMenuPortal>
             ) : (
               <div
                 className={`absolute right-0 top-full z-50 mt-1 ${menuDropdownClassName}`}
               >
-                {onExpand && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onExpand();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
-                  >
-                    Expand
-                  </button>
-                )}
-                {onRemoveFromCanvas && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRemoveFromCanvas();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                  >
-                    Remove from canvas
-                  </button>
-                )}
+                <ArtifactHeaderNestedMenu
+                  kind={kind}
+                  title={title}
+                  artifactId={artifactId}
+                  exportPayload={exportPayload}
+                  onRemoveFromCanvas={onRemoveFromCanvas}
+                  onClose={closeMenu}
+                />
               </div>
             ))}
+        </div>
+      )}
         </div>
       )}
     </div>

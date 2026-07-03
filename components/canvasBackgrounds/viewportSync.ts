@@ -4,6 +4,10 @@ export function patternTileSize(baseSpacing: number, scale: number): number {
   return baseSpacing * scale;
 }
 
+export function patternDotRadius(baseRadius: number, scale: number): number {
+  return baseRadius * scale;
+}
+
 /** Mathematical modulo — JS `%` returns negative remainders for negative values. */
 export function positiveMod(value: number, period: number): number {
   if (period <= 0) return 0;

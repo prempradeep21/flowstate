@@ -15,6 +15,7 @@ import { CardQuestionText } from "@/components/cards/CardQuestionText";
 import { ConversationCardSurface } from "@/components/admin/ConversationCardSurface";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { QuestionAttachments } from "@/components/QuestionAttachments";
@@ -839,11 +840,9 @@ function CardInner({ card }: CardProps) {
       {showBranchPlugs && (
         <>
           <div
-            className={`pointer-events-none absolute inset-y-0 left-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
-              lateralBranches.some((b) => b.side === "left")
-                ? "opacity-100"
-                : "opacity-0"
-            }`}
+            className={canvasSidePlugWrapperClass("left", "card", {
+              alwaysVisible: lateralBranches.some((b) => b.side === "left"),
+            })}
           >
             <Plug
               side="left"
@@ -867,11 +866,9 @@ function CardInner({ card }: CardProps) {
             )}
           </div>
           <div
-            className={`pointer-events-none absolute inset-y-0 right-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
-              lateralBranches.some((b) => b.side === "right")
-                ? "opacity-100"
-                : "opacity-0"
-            }`}
+            className={canvasSidePlugWrapperClass("right", "card", {
+              alwaysVisible: lateralBranches.some((b) => b.side === "right"),
+            })}
           >
             <Plug
               side="right"

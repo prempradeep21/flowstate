@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 import { BACKGROUND_COMPONENTS } from "@/components/canvasBackgrounds/registry";
+import { StaticImageBackground } from "@/components/canvasBackgrounds/StaticImageBackground";
 import type { BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import { useCanvasStore } from "@/lib/store";
 
@@ -21,6 +22,14 @@ export function CanvasBackgroundLayer() {
 
   if (style === "grid") {
     return <ViewportSyncedBackground Component={Component} />;
+  }
+
+  if (style === "static-image") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        <StaticImageBackground />
+      </div>
+    );
   }
 
   return <Component animate={true} />;

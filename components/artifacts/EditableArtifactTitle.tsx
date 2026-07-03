@@ -9,6 +9,7 @@ export function EditableArtifactTitle({
   onRename,
   className,
   as: Tag = "h2",
+  wrap = false,
 }: {
   displayTitle: string;
   renameTitle: string;
@@ -16,6 +17,8 @@ export function EditableArtifactTitle({
   onRename: (title: string) => void;
   className?: string;
   as?: "h2" | "p" | "span";
+  /** Allow multi-line titles (e.g. repo hub) instead of single-line truncate. */
+  wrap?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(renameTitle);
@@ -79,9 +82,9 @@ export function EditableArtifactTitle({
         setEditing(true);
       }}
       title={canRename ? "Double-click to rename" : undefined}
-      className={`min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink ${
-        canRename ? "cursor-text" : ""
-      } ${className ?? ""}`}
+      className={`min-w-0 flex-1 text-canvas-heading font-semibold leading-tight text-canvas-ink ${
+        wrap ? "w-full break-words whitespace-normal" : "truncate"
+      } ${canRename ? "cursor-text" : ""} ${className ?? ""}`}
       data-no-drag={canRename ? "" : undefined}
     >
       {displayTitle}

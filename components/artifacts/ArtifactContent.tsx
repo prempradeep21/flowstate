@@ -86,7 +86,6 @@ export function ArtifactContent({
   const isSidebarPreview = layout === "sidebar-preview";
   const isCanvas = layout === "canvas";
   const fill = isCanvas || isSidebarPreview;
-  const showControls = !isSidebar && !isSidebarPreview && !catalogPreview;
   const canvasInteractive =
     catalogPreview || (canvasContentInteractive && !isSidebarPreview);
   const contentLayout: "canvas" | "panel" | "sidebar" = isSidebarPreview
@@ -103,7 +102,6 @@ export function ArtifactContent({
             versionId={versionId}
             fill={fill}
             sidebar={isSidebar}
-            showControls={showControls}
           />
         );
       }
@@ -117,7 +115,6 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowMediaInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
       }
@@ -130,7 +127,6 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={showControls}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
           />
         );
@@ -146,7 +142,6 @@ export function ArtifactContent({
             sidebarPreview={isSidebarPreview}
             layout={contentLayout}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
       }
@@ -162,7 +157,6 @@ export function ArtifactContent({
             fill={fill}
             onActiveFileChange={onCodeActiveFileChange}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
       }
@@ -194,7 +188,6 @@ export function ArtifactContent({
             layout={contentLayout}
             forceInteractive={canvasInteractive}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
         return contentLayout === "canvas" ? (
@@ -260,7 +253,6 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
       }
@@ -341,7 +333,6 @@ export function ArtifactContent({
             sidebar={isSidebar}
             allowInteraction={catalogPreview || !isCanvas || canvasInteractive}
             artifactId={artifactId}
-            showControls={showControls}
           />
         );
       }

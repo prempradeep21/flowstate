@@ -1,9 +1,8 @@
 import type { ArtifactPayload, AudioArtifactData } from "@/lib/artifactTypes";
 import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
-import { ARTIFACT_CONTROLS_BAR_HEIGHT_PX } from "@/lib/artifactFontScale";
 
 /** Matches {@link CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX} — kept local to avoid import cycle. */
-const ARTIFACT_HORIZONTAL_PADDING_PX = 32;
+const ARTIFACT_HORIZONTAL_PADDING_PX = 0;
 const MIN_NODE_WIDTH_PX = 280;
 
 /** Source card id for user-initiated audio drops (no chat turn). */
@@ -20,11 +19,9 @@ export const AUDIO_WAVEFORM_HEIGHT_PX = 72;
 /** Body floor: title + waveform + play control + padding — prevents fill-mode collapse. */
 export const AUDIO_ARTIFACT_BODY_MIN_HEIGHT = 160;
 
-/** Default node height: chrome + control strip + body floor. */
+/** Default node height: chrome + body floor. */
 export const AUDIO_ARTIFACT_HEIGHT =
-  ARTIFACT_CANVAS_CHROME_HEIGHT_PX +
-  ARTIFACT_CONTROLS_BAR_HEIGHT_PX +
-  AUDIO_ARTIFACT_BODY_MIN_HEIGHT;
+  ARTIFACT_CANVAS_CHROME_HEIGHT_PX + AUDIO_ARTIFACT_BODY_MIN_HEIGHT;
 
 /** Minimum waveform content width (60s × 4px/s). */
 export const MIN_WAVEFORM_CONTENT_WIDTH_PX = 60 * WAVEFORM_PX_PER_SECOND;

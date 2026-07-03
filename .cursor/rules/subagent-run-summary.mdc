@@ -1,0 +1,40 @@
+---
+description: End every agent response with a sub-agent run summary table when sub-agents were used
+alwaysApply: true
+---
+
+# Sub-agent run summary (required at end of response)
+
+Whenever you **launch one or more sub-agents** (via the Task tool or equivalent delegation) during a turn, end your **final response** with a **Sub-agents run** section. Keep each purpose to a crisp one-liner.
+
+## When to include
+
+- Include the table if you launched **any** sub-agent in this conversation turn (including background runs that completed before you replied).
+- **Skip** the section entirely if you did not launch any sub-agents — do not add an empty table or a "none" row.
+
+## How to build the table
+
+1. List **every** sub-agent you launched, in the order they were started.
+2. **Agent** — short label (e.g. `explore`, `shell`, `bugbot`, `security-review`, or the `description` you gave the Task).
+3. **Type** — the `subagent_type` value (e.g. `explore`, `generalPurpose`, `shell`, `bugbot`).
+4. **Purpose** — one sentence, max ~12 words; state *why* it was run, not step-by-step actions.
+
+## Required table format
+
+```markdown
+## Sub-agents run
+
+| # | Agent | Type | Purpose |
+|---|-------|------|---------|
+| 1 | Codebase search | explore | Find where chat streaming is handled |
+| 2 | Fix CI | shell | Re-run tests and capture failure output |
+```
+
+## Style rules
+
+- One row per sub-agent; no merged rows.
+- Purpose column: active voice, no trailing period needed if it stays a tight phrase.
+- Do not paste raw agent IDs, tool JSON, or long transcripts into the table.
+- If a sub-agent failed or was cancelled, still list it and note the outcome in Purpose (e.g. `Timed out fetching logs`).
+
+Place this section **after** the main answer body. If you also owe a **Local dev ports** section (code changes), put **Sub-agents run** immediately before **Local dev ports**.

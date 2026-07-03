@@ -1,6 +1,10 @@
 import type { CanvasStroke } from "@/lib/canvasStroke";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
+import {
+  DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+  normalizeCanvasBackgroundImageId,
+} from "@/lib/canvasBackgroundImages";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
   AnswerExplain,
@@ -39,6 +43,7 @@ export interface CanvasSnapshot {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
@@ -73,6 +78,7 @@ export interface CanvasSnapshotSource {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
@@ -175,6 +181,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
     canvasBackgroundStyle: source.canvasBackgroundStyle,
+    canvasBackgroundImageId: source.canvasBackgroundImageId,
     canvasTheme: source.canvasTheme,
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
@@ -351,6 +358,7 @@ export function mergeCanvasSnapshots(
       remote.collaborationHasEdits || local.collaborationHasEdits,
     connectorStyle: local.connectorStyle,
     canvasBackgroundStyle: local.canvasBackgroundStyle,
+    canvasBackgroundImageId: local.canvasBackgroundImageId,
     canvasTheme: local.canvasTheme,
     selectedModel: local.selectedModel,
     viewMode: local.viewMode,
@@ -371,6 +379,7 @@ export function buildEmptyCanvasSnapshot(
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
+    canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: "dark",
     selectedModel,
     viewMode: "canvas",
@@ -399,6 +408,7 @@ export function buildEmptyCanvasSnapshot(
 const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
   "grid",
   "ambient-gradient",
+  "static-image",
 ]);
 
 function normalizeCanvasBackgroundStyle(
@@ -525,6 +535,10 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
         base.canvasBackgroundStyle,
       ),
       normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
+    ),
+    canvasBackgroundImageId: normalizeCanvasBackgroundImageId(
+      snapshot.canvasBackgroundImageId,
+      base.canvasBackgroundImageId,
     ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     selectedModel:

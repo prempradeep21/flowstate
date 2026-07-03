@@ -68,13 +68,21 @@ export async function fetchEmbedClient(
 }
 
 function enrichWebsiteTitle(artifactId: string, url: string): void {
-  void fetchLinkPreviewClient(url).then((preview) => {
-    if (!preview?.title) return;
+  const applyPreview = (preview: LinkPreviewClientResult | null): boolean => {
+    if (!preview?.title) return false;
     useCanvasStore.getState().patchWebsiteArtifactTitle(artifactId, {
       title: preview.title,
       faviconUrl: preview.faviconUrl,
       previewImageUrl: preview.previewImageUrl,
     });
+    return true;
+  };
+
+  void fetchLinkPreviewClient(url).then((preview) => {
+    if (applyPreview(preview)) return;
+    window.setTimeout(() => {
+      void fetchLinkPreviewClient(url).then(applyPreview);
+    }, 2000);
   });
 }
 
@@ -304,6 +312,10 @@ export function createUrlArtifactFromText(
       });
     enrichEmbed(artifactId, versionId, classified.url);
     return true;
+  }
+
+  if (classified.kind === "image") {
+    return false;
   }
 
   const spawnPosition = artifactPositionAtPointer(position);

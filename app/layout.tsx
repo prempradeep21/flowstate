@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Parkinsans } from "next/font/google";
+import { Archivo, Figtree, Parkinsans } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Providers } from "@/components/Providers";
 import { denton } from "@/lib/fonts/denton";
@@ -10,6 +10,12 @@ const parkinsans = Parkinsans({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-parkinsans",
+});
+
+const figtree = Figtree({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-figtree",
 });
 
 const archivo = Archivo({
@@ -38,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${parkinsans.variable} ${archivo.variable} ${denton.variable} ${satoshi.variable} h-full`}
+      className={`${figtree.variable} ${parkinsans.variable} ${archivo.variable} ${denton.variable} ${satoshi.variable} h-full`}
     >
       <body className="h-full w-full overflow-hidden bg-canvas-bg font-sans text-canvas-ink antialiased">
         <GoogleAnalytics />

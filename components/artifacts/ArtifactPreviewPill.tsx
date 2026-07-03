@@ -55,9 +55,9 @@ export function ArtifactPreviewPill({
           focusCanvasArtifactNode(nodeId);
         }
       }}
-      className={`flex max-w-full items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
+      className={`flex w-full max-w-full items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
-      } w-fit ${
+      } ${
         status === "failed"
           ? "cursor-default border-canvas-warning/35 opacity-90"
           : status === "generating"
@@ -74,8 +74,8 @@ export function ArtifactPreviewPill({
       >
         <ArtifactTypeIcon kind={kind} className={compact ? "h-3 w-3" : "h-4 w-4"} />
       </span>
-      <span className="min-w-0">
-        <span className={`rich-text block max-w-[220px] truncate font-medium text-canvas-ink ${compact ? "text-canvas-compact" : "text-canvas-body-sm"}`}>
+      <span className="min-w-0 flex-1">
+        <span className={`rich-text block truncate font-medium text-canvas-ink ${compact ? "text-canvas-compact" : "text-canvas-body-sm"}`}>
           {formatRichTextForDisplay(title)}
         </span>
         <span

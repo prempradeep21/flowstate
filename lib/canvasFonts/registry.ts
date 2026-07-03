@@ -17,7 +17,7 @@ export const GOOGLE_FONTS_BUNDLE_HREF =
 export const SANCHEZ_GOOGLE_FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Sanchez:ital,wght@0,400;1,400&display=swap";
 
-export const DEFAULT_BODY_FONT_ID = "parkinsans";
+export const DEFAULT_BODY_FONT_ID = "figtree";
 export const DEFAULT_DISPLAY_FONT_ID = "denton";
 
 /** Body — card text, labels, answers */
@@ -44,9 +44,8 @@ export const CANVAS_BODY_FONT_OPTIONS: CanvasFontOption[] = [
   {
     id: "figtree",
     label: "Figtree",
-    source: "google",
-    family: '"Figtree", sans-serif',
-    googleFontsHref: GOOGLE_FONTS_BUNDLE_HREF,
+    source: "builtin",
+    family: "var(--font-figtree)",
   },
   {
     id: "parkinsans",

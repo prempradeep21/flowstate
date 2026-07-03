@@ -574,7 +574,6 @@ export function MapArtifactContent({
       <ArtifactContentStage
         fill={fill}
         artifactId={artifactId}
-        showControls={!sidebar}
         className={fill ? undefined : "aspect-[4/3]"}
       >
         <div className="flex h-full min-h-[200px] items-center justify-center bg-canvas-bg p-4 text-center text-canvas-body-sm text-canvas-muted">
@@ -605,7 +604,6 @@ export function MapArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? undefined : "aspect-[4/3]"}
     >
       <div

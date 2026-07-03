@@ -40,6 +40,13 @@ function formatWhen(iso: string | null): string {
   }
 }
 
+/** Older snapshots stored sign-in time under `lastSignInAt`. */
+function accountLastActive(
+  account: UsageAnalysisAccount & { lastSignInAt?: string | null },
+): string | null {
+  return account.lastActiveAt ?? account.lastSignInAt ?? null;
+}
+
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
   const [display, setDisplay] = useState(0);
 
@@ -123,7 +130,7 @@ function ChartCard({
 
 function exportAccountsCsv(accounts: UsageAnalysisAccount[]) {
   const header =
-    "email,display_name,input_tokens,output_tokens,total_tokens,share_pct,canvases_with_usage,likely_region,last_sign_in,signup_at";
+    "email,display_name,input_tokens,output_tokens,total_tokens,share_pct,canvases_with_usage,likely_region,last_active,signup_at";
   const rows = accounts.map((a) =>
     [
       a.email,
@@ -134,7 +141,7 @@ function exportAccountsCsv(accounts: UsageAnalysisAccount[]) {
       a.sharePct,
       a.canvasesWithUsage,
       a.likelyRegion,
-      a.lastSignInAt ?? "",
+      accountLastActive(a) ?? "",
       a.signupAt,
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -624,7 +631,7 @@ export function UsageAnalysisDashboard() {
                           </span>
                         </td>
                         <td className="px-3 py-3 text-canvas-muted">
-                          {formatWhen(account.lastSignInAt)}
+                          {formatWhen(accountLastActive(account))}
                         </td>
                       </tr>
                     ))}

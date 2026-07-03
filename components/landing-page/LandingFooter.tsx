@@ -69,14 +69,33 @@ export function LandingFooter() {
           </Link>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-canvas-border/50 pt-6 text-canvas-caption text-canvas-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-3 border-t border-canvas-border/50 pt-6 text-canvas-caption text-canvas-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Flowstate</p>
-          <a
-            href="https://flowstatetool.com"
-            className="transition-colors hover:text-canvas-ink"
+          <nav
+            className="flex flex-wrap items-center gap-x-4 gap-y-1"
+            aria-label="Legal"
           >
-            flowstatetool.com
-          </a>
+            <Link
+              href="/terms"
+              onClick={() => void playSound("plug-connect")}
+              className="transition-colors hover:text-canvas-ink"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              onClick={() => void playSound("plug-connect")}
+              className="transition-colors hover:text-canvas-ink"
+            >
+              Privacy
+            </Link>
+            <a
+              href="https://flowstatetool.com"
+              className="transition-colors hover:text-canvas-ink"
+            >
+              flowstatetool.com
+            </a>
+          </nav>
         </div>
       </div>
     </footer>

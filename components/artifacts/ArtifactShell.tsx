@@ -6,6 +6,7 @@ import { ArtifactCanvasSizeReportProvider } from "@/components/artifacts/Artifac
 import type { ArtifactContentAreaSize } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactExportProvider } from "@/components/artifacts/ArtifactExportContext";
+import { ArtifactMenuControlsProvider } from "@/components/artifacts/ArtifactMenuControlsContext";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
 import { useAuth } from "@/components/AuthProvider";
@@ -34,7 +35,6 @@ export function ArtifactShell({
   onVersionChange,
   menuVariant,
   layout = "panel",
-  onExpand,
   onRemoveFromCanvas,
   onTodoEditingChange,
   catalogPreview = false,
@@ -47,7 +47,6 @@ export function ArtifactShell({
   onVersionChange: (versionId: string) => void;
   menuVariant: "canvas" | "panel";
   layout?: ArtifactLayout;
-  onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   onTodoEditingChange?: (editing: boolean) => void;
   /** Dev catalog: enable edits and interaction without canvas chrome. */
@@ -72,6 +71,7 @@ export function ArtifactShell({
   const readOnly = catalogPreview ? false : canvasReadOnly;
 
   const cards = useCanvasStore((s) => s.cards);
+
   const contributorProfiles = useMemo(() => {
     if (members.length <= 1 || !collaborationHasEdits) return [];
     return artifactContributorProfiles(
@@ -172,9 +172,18 @@ export function ArtifactShell({
   const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
   const isStickyCanvas = isCanvasLayout && sessionArtifact.kind === "stickynote";
   const showPanelHeader = !isRepoCanvas && !isStickyCanvas;
+  const menuControlsEnabled =
+    !catalogPreview && layout !== "sidebar" && layout !== "sidebar-preview";
+  const showFontControls =
+    menuControlsEnabled && sessionArtifact.kind !== "audio";
 
   return (
     <ArtifactExportProvider>
+    <ArtifactMenuControlsProvider
+      artifactId={sessionArtifact.id}
+      showFontControls={showFontControls}
+      menuControlsEnabled={menuControlsEnabled}
+    >
     <div
       className={
         isCanvasLayout ? "flex min-h-0 flex-1 flex-col" : undefined
@@ -219,7 +228,6 @@ export function ArtifactShell({
               : undefined
           }
           menuVariant={menuVariant}
-          onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}
           contributorProfiles={contributorProfiles}
           todoEditControls={
@@ -246,18 +254,12 @@ export function ArtifactShell({
       <div
         className={
           isCanvasLayout
-            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas-sm ${
+            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-b-canvas ${
                 isRepoCanvas
                   ? "bg-transparent"
                   : artifactKindUsesCanvasSurfaceFill(sessionArtifact.kind)
                     ? ARTIFACT_CANVAS_SURFACE_FILL
                     : ""
-              } ${
-                isRepoCanvas || isStickyCanvas
-                  ? ""
-                  : sessionArtifact.kind === "streetview"
-                    ? "mt-0 min-h-0 flex-1"
-                    : "mt-[22px]"
               } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`
             : "mt-[22px]"
         }
@@ -340,6 +342,7 @@ export function ArtifactShell({
         </ArtifactCanvasSizeReportProvider>
       </div>
     </div>
+    </ArtifactMenuControlsProvider>
     </ArtifactExportProvider>
   );
 }

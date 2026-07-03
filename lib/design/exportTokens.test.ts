@@ -25,6 +25,6 @@ describe("buildDesignTokenExport", () => {
   it("generates tailwind token map entries", () => {
     const map = buildTailwindTokenMap();
     expect(map["colors.canvas-accent"]).toContain("--canvas-accent");
-    expect(map["borderRadius.canvas"]).toBe("12px");
+    expect(map["borderRadius.canvas"]).toBe("16px");
   });
 });

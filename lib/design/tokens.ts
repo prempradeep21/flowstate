@@ -137,8 +137,8 @@ export const THREAD_ACCENT_PALETTE = [
 
 /** Corner radii */
 export const canvasRadii = {
-  canvas: "12px",
-  sm: "8px",
+  canvas: "16px",
+  sm: "16px",
   xs: "2px",
 } as const;
 

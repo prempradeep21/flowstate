@@ -90,9 +90,11 @@ import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import {
+  fetchImageUrlAsFile,
   getImageFilesFromDataTransfer,
   isExternalImageDrag,
   isImageMime,
+  isImageUrl,
   resolveImageFileFromDataTransfer,
 } from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
@@ -164,6 +166,7 @@ export function Canvas({
     isSwitchingCanvas,
   } = useAuth();
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
   const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
   const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
@@ -1405,6 +1408,20 @@ export function Canvas({
       const text = e.clipboardData?.getData("text/plain") ?? "";
       if (!text.trim()) return;
 
+      const trimmedText = text.trim();
+      if (isImageUrl(trimmedText)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu(null);
+        setPlacement(null);
+        setImagePlacement(null);
+        setGifPlacement(null);
+        void fetchImageUrlAsFile(trimmedText).then((file) => {
+          if (file) void importImagesAtWorld([file], world);
+        });
+        return;
+      }
+
       if (!createUrlArtifactFromText(text, world)) return;
 
       e.preventDefault();
@@ -1851,7 +1868,9 @@ export function Canvas({
       onContextMenu={handleContextMenu}
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
-      className={`absolute inset-0 overflow-hidden bg-canvas-bg font-sans select-none touch-none ${
+      className={`absolute inset-0 overflow-hidden font-sans select-none touch-none ${
+        canvasBackgroundStyle === "static-image" ? "bg-transparent" : "bg-canvas-bg"
+      } ${
         placement ||
         textPlacement ||
         imagePlacement ||
@@ -1959,7 +1978,6 @@ export function Canvas({
         {imagePlacement && <GhostImage world={imagePlacement} />}
         {gifPlacement && <GhostGif world={gifPlacement} />}
         {threeDPlacement && <Ghost3D world={threeDPlacement} />}
-        {artifactPlacement && <GhostArtifact world={artifactPlacement} />}
       </CanvasViewport>
       {showLanding &&
         !chatsGloballyHidden &&
@@ -2094,36 +2112,6 @@ function GhostGif({ world }: { world: GifPlacementState }) {
         draggable={false}
         className="h-full w-full object-contain"
       />
-    </div>
-  );
-}
-
-function GhostArtifact({ world }: { world: ArtifactPlacementState }) {
-  const payload = createManualArtifactPayload(world.artifactType);
-  const kind = payloadToArtifactKind(payload);
-  const { w, h } = getDefaultArtifactSize(kind, payload);
-  const label =
-    MANUAL_ARTIFACT_MENU_ITEMS.find(
-      (entry) =>
-        entry.pick.kind === "artifact" &&
-        entry.pick.artifactType === world.artifactType,
-    )?.label ?? "Artefact";
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 opacity-60 shadow-card"
-      style={{
-        left: world.x - w / 2,
-        top: world.y - h / 2,
-        width: w,
-        height: h,
-      }}
-    >
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-canvas-muted">
-        <ArtifactTypeIcon kind={kind} className="h-6 w-6" />
-        <span className="text-center text-canvas-body-sm font-medium">{label}</span>
-      </div>
     </div>
   );
 }

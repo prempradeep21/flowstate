@@ -31,7 +31,7 @@ export type UsageAnalysisAccount = {
   totalTokens: number;
   sharePct: number;
   canvasesWithUsage: number;
-  lastSignInAt: string | null;
+  lastActiveAt: string | null;
   signupAt: string;
   likelyRegion: LikelyRegion;
 };
@@ -65,4 +65,5 @@ export const USAGE_ANALYSIS_LIMITATIONS = [
   "Does not include anonymous chat, unsaved local sessions, or API routes without canvas persistence.",
   "Region labels are inferred from email domains — not geo-IP or Google Analytics.",
   "Per-day token trends are unavailable; cards do not store usage timestamps.",
+  "Last active is the latest canvas save or profile update — not sign-in time or live presence.",
 ] as const;

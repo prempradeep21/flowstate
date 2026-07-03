@@ -2,14 +2,17 @@
 
 import type { BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import {
+  patternDotRadius,
   patternOffset,
   patternTileSize,
 } from "@/components/canvasBackgrounds/viewportSync";
 
-import { CANVAS_BG, CANVAS_DOT } from "@/lib/design/tokens";
+import { CANVAS_BG } from "@/lib/design/tokens";
 
 const BASE_SPACING = 22;
-const DOT_COLOR = CANVAS_DOT;
+const BASE_DOT_RADIUS = 0.5;
+/** Grid-only opacity — keeps global --canvas-dot tokens unchanged. */
+const DOT_COLOR = "rgb(var(--canvas-dot) / 0.28)";
 const BG_COLOR = CANVAS_BG;
 
 export function GridBackground({
@@ -18,7 +21,7 @@ export function GridBackground({
 }: BackgroundRenderProps) {
   const tileSize = patternTileSize(BASE_SPACING, viewport.scale);
   const offset = patternOffset(viewport, tileSize);
-  const dotRadius = Math.max(0.5, 0.5 * viewport.scale);
+  const dotRadius = patternDotRadius(BASE_DOT_RADIUS, viewport.scale);
 
   return (
     <div

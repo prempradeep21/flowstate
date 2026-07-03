@@ -55,6 +55,7 @@ import {
   findRemoteArtifactUpdatingCardId,
 } from "@/lib/artifactRemoteUpdate";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
@@ -82,7 +83,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const setCanvasArtifactVersion = useCanvasStore(
     (s) => s.setCanvasArtifactVersion,
   );
-  const openSessionArtifact = useCanvasStore((s) => s.openSessionArtifact);
   const removeCanvasArtifact = useCanvasStore((s) => s.removeCanvasArtifact);
   const approvePermissionPreview = useCanvasStore(
     (s) => s.approvePermissionPreview,
@@ -97,13 +97,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
-  const [chromeHover, setChromeHover] = useState(false);
   const [pointerSessionActive, setPointerSessionActive] = useState(false);
 
-  /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
-  const syncChromeHover = useCallback(() => {
-    setChromeHover(true);
-  }, []);
   const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
   const dragStateRef = useRef<{
@@ -295,8 +290,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    syncChromeHover();
-
     const rs = resizeStateRef.current;
     if (rs && rs.pointerId === e.pointerId) {
       const screenDx = e.clientX - rs.startX;
@@ -442,8 +435,8 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const usesPaddingChrome =
     !!art && artifactKindUsesCanvasPaddingChrome(art.kind);
   const contentInteractive = isSelected || isPermissionPreview;
-  /** Hover, selection, or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
-  const chromeVisible = chromeHover || isSelected || isPermissionPreview;
+  /** Selection or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
+  const chromeSelected = isSelected || isPermissionPreview;
 
   return (
     <div
@@ -453,15 +446,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       {...(isPermissionPreview ? { "data-permission-preview": "" } : {})}
       {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
-      {...(chromeVisible ? { "data-chrome-hover": "" } : {})}
+      {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerEnter={syncChromeHover}
-      onPointerLeave={() => {
-        if (!isSelected) setChromeHover(false);
-      }}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       className={`canvas-artifact-node-shell group/artifact absolute overflow-visible ${
@@ -488,7 +477,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {!godView && !isPermissionPreview && (
         <>
           <div
-            className={`pointer-events-none absolute inset-y-0 left-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+            className={`pointer-events-none absolute inset-y-0 left-0 z-30 ${ARTIFACT_CANVAS_CHROME_OPACITY} ${canvasSidePlugPointerClass("artifact")}`}
           >
             <Plug
               side="left"
@@ -499,7 +488,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             />
           </div>
           <div
-            className={`pointer-events-none absolute inset-y-0 right-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+            className={`pointer-events-none absolute inset-y-0 right-0 z-30 ${ARTIFACT_CANVAS_CHROME_OPACITY} ${canvasSidePlugPointerClass("artifact")}`}
           >
             <Plug
               side="right"
@@ -516,7 +505,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         worldWidth={width}
         className={
           isPermissionPreview
-            ? `relative flex h-full flex-col overflow-hidden rounded-canvas border p-5 ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
+            ? `relative flex h-full flex-col overflow-hidden rounded-canvas border ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
                 isSelected
                   ? ARTIFACT_CANVAS_CASING_SELECTED
                   : ARTIFACT_CANVAS_CASING_DEFAULT
@@ -561,9 +550,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             contentInteractive={contentInteractive}
             onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
             menuVariant="canvas"
-            onExpand={() =>
-              openSessionArtifact(node.artifactId, node.versionId)
-            }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
             onArtifactContentAreaSizeChange={

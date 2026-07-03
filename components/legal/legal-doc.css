@@ -1,0 +1,121 @@
+.legal-doc-content h1 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-family: var(--font-denton, inherit);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: rgb(var(--canvas-ink));
+}
+
+.legal-doc-content h1:first-child {
+  margin-top: 0;
+}
+
+.legal-doc-content h2 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgb(var(--canvas-border) / 0.6);
+  font-family: var(--font-denton, inherit);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--canvas-ink));
+}
+
+.legal-doc-content h3 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgb(var(--canvas-ink));
+}
+
+.legal-doc-content p,
+.legal-doc-content li {
+  margin: 0.5rem 0;
+  line-height: 1.65;
+  color: rgb(var(--canvas-ink) / 0.9);
+}
+
+.legal-doc-content ul,
+.legal-doc-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.legal-doc-content ul {
+  list-style-type: disc;
+}
+
+.legal-doc-content ol {
+  list-style-type: decimal;
+}
+
+.legal-doc-content hr {
+  margin: 1.5rem 0;
+  border: none;
+  border-top: 1px solid rgb(var(--canvas-border));
+}
+
+.legal-doc-content blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgb(var(--canvas-warning) / 0.25);
+  border-radius: 0.5rem;
+  background: rgb(var(--canvas-warning-soft) / 0.5);
+  color: rgb(var(--canvas-muted));
+  font-size: 0.875rem;
+}
+
+.legal-doc-content a {
+  color: rgb(var(--canvas-accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-doc-content strong {
+  font-weight: 600;
+  color: rgb(var(--canvas-ink));
+}
+
+.legal-doc-content code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.875em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: rgb(var(--canvas-border) / 0.5);
+}
+
+.legal-table-wrap {
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid rgb(var(--canvas-border) / 0.6);
+  border-radius: 0.5rem;
+}
+
+.legal-doc-content table {
+  width: 100%;
+  min-width: 32rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.legal-doc-content th {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgb(var(--canvas-border) / 0.6);
+  background: rgb(var(--canvas-border) / 0.25);
+  font-weight: 600;
+  text-align: left;
+  color: rgb(var(--canvas-ink));
+}
+
+.legal-doc-content td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgb(var(--canvas-border) / 0.4);
+  vertical-align: top;
+  color: rgb(var(--canvas-muted));
+}
+
+.legal-doc-content tr:last-child td {
+  border-bottom: none;
+}

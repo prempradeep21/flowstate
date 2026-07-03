@@ -46,6 +46,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          "var(--font-figtree)",
           "var(--font-parkinsans)",
           "var(--font-archivo)",
           "ui-sans-serif",

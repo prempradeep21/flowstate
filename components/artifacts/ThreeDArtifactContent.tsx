@@ -9,14 +9,12 @@ export function ThreeDArtifactContent({
   fill = false,
   sidebar = false,
   artifactId,
-  showControls = true,
   allowInteraction = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "3d" }>;
   fill?: boolean;
   sidebar?: boolean;
   artifactId?: string;
-  showControls?: boolean;
   allowInteraction?: boolean;
 }) {
   const { modelUrl, format = "glb" } = payload.data;
@@ -43,7 +41,6 @@ export function ThreeDArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className="h-full min-h-0 !bg-transparent"
       >
         {viewer}
@@ -54,7 +51,6 @@ export function ThreeDArtifactContent({
   return (
     <ArtifactContentStage
       artifactId={artifactId}
-      showControls={showControls}
       className="aspect-[4/3] !bg-transparent"
     >
       <div className="min-h-[280px] h-full">{viewer}</div>

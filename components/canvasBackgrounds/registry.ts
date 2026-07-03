@@ -2,6 +2,7 @@
 
 import { AmbientGradientBackground } from "@/components/canvasBackgrounds/AmbientGradientBackground";
 import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
+import { StaticImageBackground } from "@/components/canvasBackgrounds/StaticImageBackground";
 import type { BackgroundOption, BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
 import { isBackgroundAllowedForTheme } from "@/lib/canvasBackgroundTheme";
 import type { CanvasBackgroundStyle, CanvasTheme } from "@/lib/store";
@@ -37,6 +38,11 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
     label: "Ambient",
     description: "Soft diffused color gradients",
   },
+  {
+    id: "static-image",
+    label: "Photo",
+    description: "Static image wallpaper",
+  },
 ];
 
 export const BACKGROUND_COMPONENTS: Record<
@@ -45,6 +51,7 @@ export const BACKGROUND_COMPONENTS: Record<
 > = {
   grid: GridBackground,
   "ambient-gradient": AmbientGradientBackground,
+  "static-image": StaticImageBackground,
 };
 
 export function getBackgroundOptionsForTheme(

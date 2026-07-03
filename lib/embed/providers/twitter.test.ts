@@ -26,13 +26,11 @@ describe("twitterProvider", () => {
     );
   });
 
-  it("returns timeline iframe for profile URLs", async () => {
+  it("throws for profile URLs so fallback card is used", async () => {
     const url = new URL("https://x.com/elonmusk");
-    const result = await twitterProvider.resolve(url);
-    expect(result.iframeSrc).toBe(
-      "https://platform.twitter.com/embed/Timeline.html?screenName=elonmusk&dnt=true",
+    await expect(twitterProvider.resolve(url)).rejects.toThrow(
+      "X profile timeline embed unavailable",
     );
-    expect(result.embedHeight).toBe(600);
   });
 
   it("does not treat tweet URLs as profiles", () => {

@@ -47,13 +47,11 @@ export function StreetViewArtifactContent({
   layout = "panel",
   forceInteractive = false,
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "streetview" }>;
   layout?: "canvas" | "panel" | "sidebar";
   forceInteractive?: boolean;
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const [interactive, setInteractive] = useState(forceInteractive);
 
@@ -87,7 +85,6 @@ export function StreetViewArtifactContent({
       <ArtifactContentStage
         fill={fill}
         artifactId={artifactId}
-        showControls={showControls && layout !== "sidebar"}
         className={`${stageClassName} p-4`}
       >
         <p className="text-canvas-body-sm text-canvas-muted">
@@ -112,7 +109,6 @@ export function StreetViewArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={showControls && layout !== "sidebar"}
       className={stageClassName}
     >
       <StreetViewCircleFrame fill={fill} minHeight={panelMinHeight}>

@@ -12,6 +12,7 @@ import {
   artifactDisplayTitle,
   getLatestVersion,
   getVersionById,
+  type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import { useArtifactUpdateStore } from "@/lib/artifactUpdateStore";
 import { useCanvasStore } from "@/lib/store";
@@ -27,6 +28,19 @@ export function isCardSourcedArtifactBuild(
     return false;
   }
   return Boolean(cards[sourceCardId]);
+}
+
+/** Card-generated artifacts (not manual canvas drops or catalog samples). */
+export function isOutputSessionArtifact(
+  artifact: SessionArtifact,
+  cards: Record<string, { outputArtifactId?: string }>,
+): boolean {
+  for (const card of Object.values(cards)) {
+    if (card.outputArtifactId === artifact.id) return true;
+  }
+  const first = artifact.versions[0];
+  if (!first) return false;
+  return isCardSourcedArtifactBuild(first.sourceCardId, cards);
 }
 
 export function pushArtifactReadyUpdate(artifactId: string, nodeId?: string): void {

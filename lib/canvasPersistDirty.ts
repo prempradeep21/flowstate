@@ -1,5 +1,6 @@
 import type { Card, SessionArtifact } from "@/lib/store";
 import type { CanvasSnapshot } from "@/lib/canvasSnapshot";
+import { DEFAULT_CANVAS_BACKGROUND_IMAGE_ID } from "@/lib/canvasBackgroundImages";
 
 /** Store slices compared when deciding whether to persist canvas state. */
 export interface CanvasPersistSlice {
@@ -12,6 +13,7 @@ export interface CanvasPersistSlice {
   groups: Record<string, unknown>;
   connectorStyle: string;
   canvasBackgroundStyle: string;
+  canvasBackgroundImageId: string;
   canvasTheme: string;
   selectedModel: string;
   viewMode: string;
@@ -46,6 +48,7 @@ export function pickCanvasPersistSlice(
     groups: state.groups,
     connectorStyle: state.connectorStyle,
     canvasBackgroundStyle: state.canvasBackgroundStyle,
+    canvasBackgroundImageId: state.canvasBackgroundImageId,
     canvasTheme: state.canvasTheme,
     selectedModel: state.selectedModel,
     viewMode: state.viewMode,
@@ -81,6 +84,8 @@ export function pickCanvasPersistSliceFromSnapshot(
     groups: snapshot.groups,
     connectorStyle: snapshot.connectorStyle,
     canvasBackgroundStyle: snapshot.canvasBackgroundStyle,
+    canvasBackgroundImageId:
+      snapshot.canvasBackgroundImageId ?? DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: snapshot.canvasTheme,
     selectedModel: snapshot.selectedModel,
     viewMode: snapshot.viewMode,
@@ -178,6 +183,7 @@ export function isViewportOnlyChange(
     prev.groups === next.groups &&
     prev.connectorStyle === next.connectorStyle &&
     prev.canvasBackgroundStyle === next.canvasBackgroundStyle &&
+    prev.canvasBackgroundImageId === next.canvasBackgroundImageId &&
     prev.canvasTheme === next.canvasTheme &&
     prev.selectedModel === next.selectedModel &&
     prev.viewMode === next.viewMode &&

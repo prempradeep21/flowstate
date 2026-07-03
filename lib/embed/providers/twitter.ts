@@ -1,4 +1,4 @@
-import { fetchOembedJson } from "@/lib/embed/oembed";
+import { fetchOembedJson, oembedToProviderResult } from "@/lib/embed/oembed";
 import type { EmbedProvider } from "@/lib/embed/types";
 
 const TWITTER_HOSTS = new Set([
@@ -44,6 +44,15 @@ export function parseTwitterScreenName(url: URL): string | null {
   return screenName;
 }
 
+function tweetTitleFromOembed(
+  data: Awaited<ReturnType<typeof fetchOembedJson>>,
+): string {
+  if (data?.title?.trim()) return data.title.trim();
+  const author = (data as { author_name?: string } | null)?.author_name?.trim();
+  if (author) return `${author} on X`;
+  return "Post on X";
+}
+
 export const twitterProvider: EmbedProvider = {
   id: "twitter",
   match(url) {
@@ -53,16 +62,28 @@ export const twitterProvider: EmbedProvider = {
   async resolve(url) {
     const tweetId = parseTweetId(url);
     if (tweetId) {
-      let title = "Post on X";
-      let embedHeight = 420;
-
       const oembedEndpoint = `https://publish.twitter.com/oembed?url=${encodeURIComponent(
         url.toString(),
       )}&omit_script=1&dnt=true&hide_thread=true`;
       const data = await fetchOembedJson(oembedEndpoint);
-      if (data?.title?.trim()) {
-        title = data.title.trim();
+      const title = tweetTitleFromOembed(data);
+
+      if (data?.html) {
+        const fromOembed = oembedToProviderResult(data, {
+          width: 550,
+          height: 420,
+          title,
+        });
+        return {
+          ...fromOembed,
+          title,
+          iframeSrc:
+            fromOembed.iframeSrc ??
+            `https://platform.twitter.com/embed/Tweet.html?id=${tweetId}&dnt=true`,
+        };
       }
+
+      let embedHeight = 420;
       if (typeof data?.height === "number" && data.height > 0) {
         embedHeight = Math.max(280, Math.min(900, data.height));
       }
@@ -78,11 +99,7 @@ export const twitterProvider: EmbedProvider = {
     const screenName = parseTwitterScreenName(url);
     if (!screenName) throw new Error("Invalid X/Twitter URL");
 
-    return {
-      title: `@${screenName} on X`,
-      embedWidth: 550,
-      embedHeight: 600,
-      iframeSrc: `https://platform.twitter.com/embed/Timeline.html?screenName=${encodeURIComponent(screenName)}&dnt=true`,
-    };
+    // Timeline embeds are unreliable; surface static fallback card instead.
+    throw new Error(`X profile timeline embed unavailable for @${screenName}`);
   },
 };

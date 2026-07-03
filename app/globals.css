@@ -301,10 +301,11 @@ body::-webkit-scrollbar-corner {
   isolation: isolate;
 }
 
-/** Canvas artifact — outer container fill hides until hover/reveal; padding stays
-   fixed to avoid layout shift. The inner surface fill is ALWAYS visible and
-   theme-dependent so a naked artifact (container chrome hidden) still stands
-   against any canvas theme or background. Street view opts out by kind. */
+/** Canvas artifact — outer container fill hides until hover/reveal; border/fill
+   transitions stay on this element so hover does not shift layout. The inner
+   surface fill is ALWAYS visible and theme-dependent so a naked artifact
+   (container chrome hidden) still stands against any canvas theme or
+   background. Street view opts out by kind. */
 .artifact-canvas-container-fill {
   transition:
     background 500ms ease-out,
@@ -394,9 +395,9 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/** Matches canvasSpacing.section (16px) — artifact chrome reveal inset. */
+/** Canvas artifact casing — content is edge-flush; header carries its own px-4 inset. */
 .artifact-canvas-padding-chrome {
-  padding: 1rem;
+  padding: 0;
 }
 
 .floating-panel {
@@ -735,6 +736,11 @@ body::-webkit-scrollbar-corner {
   animation: none;
   opacity: 1;
   transform: none;
+}
+
+.mask-fade-bottom {
+  mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
 }
 
 @keyframes thinking-pulse {

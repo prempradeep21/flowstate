@@ -1,3 +1,4 @@
+import { isImageUrl } from "@/lib/canvasImageImport";
 import { matchEmbedProvider } from "@/lib/embed/registry";
 import { parseGoogleDriveUrl } from "@/lib/google/parseDriveUrl";
 import { parseGithubRepoUrl } from "@/lib/github/parseRepoUrl";
@@ -65,7 +66,13 @@ export function domainDisplayLabel(url: string): string {
   }
 }
 
-export type PastedUrlKind = "youtube" | "website" | "repo" | "embed" | "google-doc";
+export type PastedUrlKind =
+  | "youtube"
+  | "website"
+  | "repo"
+  | "embed"
+  | "google-doc"
+  | "image";
 
 /** Classify a normalized URL for artifact routing. */
 export function classifyPastedUrl(url: string): PastedUrlKind | null {
@@ -75,6 +82,7 @@ export function classifyPastedUrl(url: string): PastedUrlKind | null {
   if (parseGithubRepoUrl(normalized)) return "repo";
   if (parseGoogleDriveUrl(normalized)) return "google-doc";
   if (matchEmbedProvider(normalized)) return "embed";
+  if (isImageUrl(normalized)) return "image";
   return "website";
 }
 

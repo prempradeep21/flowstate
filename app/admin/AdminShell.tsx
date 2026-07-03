@@ -14,6 +14,7 @@ import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
 /** Embedded tools that manage their own scroll region inside main. */
 const FULL_BLEED_TOOL_PREFIXES = [
   "/admin/tools/artifact-catalog",
+  "/admin/tools/artifact-intent",
   "/admin/tools/design-system",
   "/admin/tools/sound",
 ] as const;

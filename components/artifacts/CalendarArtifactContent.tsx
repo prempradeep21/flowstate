@@ -236,7 +236,6 @@ export function CalendarArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-1 flex-col" : "min-h-[360px]"}
     >
       <div

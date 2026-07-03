@@ -18,14 +18,12 @@ export function TableArtifactContent({
   versionId,
   fill = false,
   sidebar = false,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "table" }>;
   artifactId?: string;
   versionId?: string;
   fill?: boolean;
   sidebar?: boolean;
-  showControls?: boolean;
 }) {
   const { columns, rows } = normalizeTableArtifactData(payload.data);
   const accentSeed = artifactId ?? payload.title;
@@ -61,7 +59,6 @@ export function TableArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className="flex-1 !bg-transparent p-0"
       >
         {isLoading ? (
@@ -91,7 +88,6 @@ export function TableArtifactContent({
     <ArtifactContentStage
       minHeight="200px"
       artifactId={artifactId}
-      showControls={showControls}
       className="min-h-[200px] !bg-canvas-card p-0"
     >
       {isLoading ? (

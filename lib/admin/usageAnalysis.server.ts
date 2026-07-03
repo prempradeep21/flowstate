@@ -17,6 +17,7 @@ type CanvasRow = {
   owner_id: string;
   title: string;
   updated_at: string;
+  content_edited_at?: string | null;
   state: {
     cards?: Record<
       string,
@@ -30,6 +31,7 @@ type CanvasRow = {
 type ProfileRow = {
   id: string;
   display_name: string | null;
+  updated_at: string;
 };
 
 type AuthUserRow = {
@@ -52,6 +54,33 @@ function inferLikelyRegion(email: string): LikelyRegion {
 
 function dayKey(iso: string): string {
   return iso.slice(0, 10);
+}
+
+function maxIso(...values: Array<string | null | undefined>): string | null {
+  let max: string | null = null;
+  for (const value of values) {
+    if (!value) continue;
+    if (!max || value > max) max = value;
+  }
+  return max;
+}
+
+function buildLastActivityByOwner(
+  canvases: CanvasRow[],
+): Map<string, string> {
+  const lastActivityByOwner = new Map<string, string>();
+
+  for (const canvas of canvases) {
+    const activityAt = maxIso(canvas.updated_at, canvas.content_edited_at);
+    if (!activityAt) continue;
+
+    const prev = lastActivityByOwner.get(canvas.owner_id);
+    if (!prev || activityAt > prev) {
+      lastActivityByOwner.set(canvas.owner_id, activityAt);
+    }
+  }
+
+  return lastActivityByOwner;
 }
 
 function extractCardUsage(canvas: CanvasRow): {
@@ -191,8 +220,8 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
   ] = await Promise.all([
     supabase
       .from("canvases")
-      .select("id, owner_id, title, updated_at, state"),
-    supabase.from("profiles").select("id, display_name"),
+      .select("id, owner_id, title, updated_at, content_edited_at, state"),
+    supabase.from("profiles").select("id, display_name, updated_at"),
     supabase.auth.admin.listUsers({ perPage: 1000 }),
   ]);
 
@@ -201,11 +230,14 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
   if (authError) throw new Error(authError.message);
 
   const canvasRows = (canvases ?? []) as CanvasRow[];
-  const profileMap = new Map(
-    ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p.display_name]),
+  const profileRows = (profiles ?? []) as ProfileRow[];
+  const profileMap = new Map(profileRows.map((p) => [p.id, p.display_name]));
+  const profileUpdatedAtMap = new Map(
+    profileRows.map((p) => [p.id, p.updated_at]),
   );
   const users = (authData?.users ?? []) as AuthUserRow[];
   const userById = new Map(users.map((u) => [u.id, u]));
+  const lastActivityByOwner = buildLastActivityByOwner(canvasRows);
 
   const accountAgg = new Map<
     string,
@@ -272,7 +304,11 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
         totalTokens,
         sharePct: 0,
         canvasesWithUsage: agg?.canvasesWithUsage.size ?? 0,
-        lastSignInAt: user.last_sign_in_at ?? null,
+        lastActiveAt: maxIso(
+          lastActivityByOwner.get(user.id),
+          profileUpdatedAtMap.get(user.id),
+          user.last_sign_in_at,
+        ),
         signupAt: user.created_at ?? new Date(0).toISOString(),
         likelyRegion: inferLikelyRegion(email),
       };

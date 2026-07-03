@@ -8,11 +8,13 @@ describe("canvasBackgroundTheme", () => {
   it("allows dot grid and ambient in light theme", () => {
     expect(isBackgroundAllowedForTheme("grid", "light")).toBe(true);
     expect(isBackgroundAllowedForTheme("ambient-gradient", "light")).toBe(true);
+    expect(isBackgroundAllowedForTheme("static-image", "light")).toBe(true);
   });
 
   it("allows dot grid and ambient in dark theme", () => {
     expect(isBackgroundAllowedForTheme("grid", "dark")).toBe(true);
     expect(isBackgroundAllowedForTheme("ambient-gradient", "dark")).toBe(true);
+    expect(isBackgroundAllowedForTheme("static-image", "dark")).toBe(true);
   });
 
   it("falls back to grid for removed or unknown backgrounds", () => {

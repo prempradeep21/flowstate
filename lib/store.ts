@@ -19,6 +19,11 @@ import {
   PENCIL_STROKE_WIDTH,
 } from "@/lib/canvasStroke";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
+import {
+  cycleCanvasBackgroundImageId,
+  DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+  normalizeCanvasBackgroundImageId,
+} from "@/lib/canvasBackgroundImages";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import {
   isCardSourcedArtifactBuild,
@@ -430,11 +435,12 @@ export interface Viewport {
 export type ConnectorStyle = "curvy" | "orthogonal" | "straight";
 export type AppViewMode = "canvas" | "chat";
 
-export type CanvasBackgroundStyle = "grid" | "ambient-gradient";
+export type CanvasBackgroundStyle = "grid" | "ambient-gradient" | "static-image";
 
 export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "grid",
   "ambient-gradient",
+  "static-image",
 ] as const;
 
 export type CanvasTheme = "light" | "dark";
@@ -555,6 +561,7 @@ interface CanvasState {
   addUploadedAttachment: (attachment: UploadedAttachment) => void;
   removeUploadedAttachment: (id: string) => void;
   addCanvasAsset: (asset: CanvasAsset) => void;
+  patchCanvasAssetPublicUrl: (assetId: string, publicUrl: string) => void;
   removeCanvasAsset: (assetId: string) => void;
   spawnCanvasAsset: (
     assetId: string,
@@ -666,6 +673,7 @@ interface CanvasState {
   finishCanvasStroke: (strokeId: string) => void;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId: string;
   canvasTheme: CanvasTheme;
   /** UI sound effects enabled for this session. */
   soundEnabled: boolean;
@@ -1025,6 +1033,8 @@ interface CanvasState {
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
   setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
+  setCanvasBackgroundImageId: (id: string) => void;
+  cycleCanvasBackgroundImage: (delta: -1 | 1) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSoundVolume: (volume: number) => void;
@@ -1459,6 +1469,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasAssets: { ...state.canvasAssets, [asset.id]: asset },
       collaborationHasEdits: true,
     })),
+  patchCanvasAssetPublicUrl: (assetId, publicUrl) =>
+    set((state) => {
+      const asset = state.canvasAssets[assetId];
+      if (!asset) return state;
+      return {
+        canvasAssets: {
+          ...state.canvasAssets,
+          [assetId]: { ...asset, publicUrl },
+        },
+      };
+    }),
   removeCanvasAsset: (assetId) =>
     set((state) => {
       if (!state.canvasAssets[assetId]) return state;
@@ -1983,6 +2004,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
+  canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "dark",
   soundEnabled: true,
   soundVolume: 0.7,
@@ -2964,7 +2986,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setConnectorStyle: (style) => set({ connectorStyle: style }),
 
   setCanvasBackgroundStyle: (style) =>
-    set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
+    set((state) => ({
+      canvasBackgroundStyle: style,
+      canvasBackgroundImageId:
+        style === "static-image"
+          ? normalizeCanvasBackgroundImageId(state.canvasBackgroundImageId)
+          : state.canvasBackgroundImageId,
+      collaborationHasEdits: true,
+    })),
+
+  setCanvasBackgroundImageId: (id) =>
+    set({
+      canvasBackgroundImageId: normalizeCanvasBackgroundImageId(id),
+      collaborationHasEdits: true,
+    }),
+
+  cycleCanvasBackgroundImage: (delta) =>
+    set((state) => ({
+      canvasBackgroundStyle: "static-image",
+      canvasBackgroundImageId: cycleCanvasBackgroundImageId(
+        state.canvasBackgroundImageId,
+        delta,
+      ),
+      collaborationHasEdits: true,
+    })),
 
   setCanvasTheme: (theme) =>
     set((state) => ({
@@ -5107,6 +5152,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       groups: state.groups,
       connectorStyle: state.connectorStyle,
       canvasBackgroundStyle: state.canvasBackgroundStyle,
+      canvasBackgroundImageId: state.canvasBackgroundImageId,
       canvasTheme: state.canvasTheme,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
@@ -5288,6 +5334,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
+        canvasBackgroundImageId: snapshotNorm.canvasBackgroundImageId,
         canvasTheme: snapshotNorm.canvasTheme,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,

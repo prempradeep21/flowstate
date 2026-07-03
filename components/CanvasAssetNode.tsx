@@ -32,6 +32,7 @@ import {
 } from "@/lib/store";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 
 const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
@@ -254,6 +255,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         data-canvas-asset
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -274,20 +276,28 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from left"
-          onPointerDown={handleAssetPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from right"
-          onPointerDown={handleAssetPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "asset")}>
+              <Plug
+                side="left"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from left"
+                onPointerDown={handleAssetPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "asset")}>
+              <Plug
+                side="right"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from right"
+                onPointerDown={handleAssetPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}

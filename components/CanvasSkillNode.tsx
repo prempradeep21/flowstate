@@ -17,6 +17,7 @@ import {
   useCanvasStore,
   type CanvasSkillNode as CanvasSkillNodeType,
 } from "@/lib/store";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 0;
@@ -162,6 +163,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
         data-canvas-skill
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -178,20 +180,28 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from left"
-          onPointerDown={handleSkillPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from right"
-          onPointerDown={handleSkillPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "skill")}>
+              <Plug
+                side="left"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from left"
+                onPointerDown={handleSkillPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "skill")}>
+              <Plug
+                side="right"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from right"
+                onPointerDown={handleSkillPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}

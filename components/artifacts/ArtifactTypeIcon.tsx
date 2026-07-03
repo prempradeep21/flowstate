@@ -129,9 +129,11 @@ export function ArtifactTypeIcon({
     case "streetview":
       return (
         <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
-          <circle cx="8" cy="5.5" r="2.5" />
-          <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" strokeLinecap="round" />
-          <path d="M11 6.5h3.5v3.5H11z" rx="0.5" />
+          <circle cx="8" cy="3.5" r="1.8" fill="currentColor" stroke="none" />
+          <path d="M8 5.5v3.5" strokeLinecap="round" />
+          <path d="M5.5 9.5h5" strokeLinecap="round" />
+          <path d="M6.5 9.5v3.5M9.5 9.5v3.5" strokeLinecap="round" />
+          <path d="M5 13.5h6" strokeLinecap="round" />
         </svg>
       );
     case "todo":
@@ -210,13 +212,20 @@ export function ArtifactTypeIcon({
       return (
         <svg viewBox="0 0 16 16" className={className} aria-hidden {...stroke}>
           <path
-            d="M3.5 2.5h7.5l2 2v9h-9.5V2.5z"
+            d="M3.5 2.5h8v8H6.5l-3-3V2.5z"
             fill="currentColor"
-            fillOpacity="0.12"
+            fillOpacity="0.15"
             stroke="currentColor"
+            strokeLinejoin="round"
           />
-          <path d="M11 2.5v2h2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M5 7h5M5 9.5h3.5" strokeLinecap="round" opacity="0.7" />
+          <path
+            d="M11.5 10.5l3 3V10.5h-3z"
+            fill="currentColor"
+            fillOpacity="0.08"
+            stroke="currentColor"
+            strokeLinejoin="round"
+          />
+          <path d="M5 6h4M5 8.5h3" strokeLinecap="round" opacity="0.65" />
         </svg>
       );
     default:

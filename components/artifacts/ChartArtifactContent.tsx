@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ParentSize } from "@visx/responsive";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
 import { useArtifactExportOptional } from "@/components/artifacts/ArtifactExportContext";
 import { EChartsRenderer } from "@/components/artifacts/charts/EChartsRenderer";
-import {
-  ChartToolbar,
-  pickStyleForType,
-} from "@/components/artifacts/charts/ChartToolbar";
+import { pickStyleForType } from "@/components/artifacts/charts/ChartToolbar";
+import { ArtifactMenuChartControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import { VisxRenderer } from "@/components/artifacts/charts/VisxRenderer";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import {
@@ -59,6 +58,20 @@ export function ChartArtifactContent({
     setStyleId(pickStyleForType(next, styleId));
   };
 
+  useArtifactMenuDisplayExtras(
+    !sidebar,
+    () => (
+      <ArtifactMenuChartControls
+        chartType={uiChartType}
+        styleId={styleId}
+        compatibleTypes={compatibleTypes}
+        onChartTypeChange={handleTypeChange}
+        onStyleChange={setStyleId}
+      />
+    ),
+    [compatibleTypes, styleId, uiChartType],
+  );
+
   const exportCtx = useArtifactExportOptional();
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
 
@@ -102,17 +115,7 @@ export function ChartArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-col" : ""}
-      controls={
-        <ChartToolbar
-          chartType={uiChartType}
-          styleId={styleId}
-          compatibleTypes={compatibleTypes}
-          onChartTypeChange={handleTypeChange}
-          onStyleChange={setStyleId}
-        />
-      }
     >
       <div className={`flex flex-col ${fill ? "h-full min-h-0" : ""}`}>
         <div

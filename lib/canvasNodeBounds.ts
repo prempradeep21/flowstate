@@ -25,7 +25,6 @@ import {
 } from "@/lib/stickyNoteArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX, artifactKindUsesCanvasPaddingChrome } from "@/lib/artifactCanvasChrome";
-import { ARTIFACT_CONTROLS_BAR_HEIGHT_PX } from "@/lib/artifactFontScale";
 import {
   DEFAULT_CANVAS_TUNING,
   resolveTuning,
@@ -35,8 +34,8 @@ import {
 export const CARD_WIDTH = 420;
 export const CANVAS_ARTIFACT_WIDTH = 520;
 export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
-/** Horizontal padding on canvas artifact casing (16px × 2). */
-export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 32;
+/** Horizontal padding on canvas artifact casing — content is edge-flush (0). */
+export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 0;
 export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
 export { TIMELINE_ARTIFACT_HEIGHT, TIMELINE_ARTIFACT_WIDTH, MAX_TIMELINE_ARTIFACT_WIDTH };
 export {
@@ -102,10 +101,7 @@ export function getSidebarPreviewContentSize(
 
   return {
     w: node.w - horizontalPad,
-    h:
-      node.h -
-      ARTIFACT_CANVAS_CHROME_HEIGHT_PX -
-      ARTIFACT_CONTROLS_BAR_HEIGHT_PX,
+    h: node.h - ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
   };
 }
 
@@ -117,9 +113,8 @@ export const TABLE_ARTIFACT_HEIGHT = 512;
 /** Content stage height (control strip + table body) inside a default table node. */
 export const TABLE_ARTIFACT_STAGE_HEIGHT =
   TABLE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
-/** Minimum table body height within the content stage (excludes the 48px control strip). */
-export const TABLE_ARTIFACT_BODY_MIN_HEIGHT =
-  TABLE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
+/** Minimum table body height within the content stage. */
+export const TABLE_ARTIFACT_BODY_MIN_HEIGHT = TABLE_ARTIFACT_STAGE_HEIGHT;
 /** Content stage width inside a default table canvas node. */
 export const TABLE_ARTIFACT_STAGE_WIDTH =
   CANVAS_TABLE_ARTIFACT_WIDTH - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
@@ -129,15 +124,12 @@ export const TIMELINE_ARTIFACT_STAGE_WIDTH =
 /** Content stage height (control strip + timeline body) inside a default timeline node. */
 export const TIMELINE_ARTIFACT_STAGE_HEIGHT =
   TIMELINE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
-/** Minimum timeline body height within the content stage (excludes the 48px control strip). */
-export const TIMELINE_ARTIFACT_BODY_MIN_HEIGHT =
-  TIMELINE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
+/** Minimum timeline body height within the content stage. */
+export const TIMELINE_ARTIFACT_BODY_MIN_HEIGHT = TIMELINE_ARTIFACT_STAGE_HEIGHT;
 /* Per-kind intended heights — sized so default nodes reveal the full content
-   without cropping. Canvas chrome overhead is ~110px (16px padding ×2,
-   56px header band, 22px header gap); content components budget the rest,
-   including the 48px artifact control strip. */
-/** Chart toolbar + canvas chart height + stage padding (control strip is 48px). */
-export const CHART_ARTIFACT_HEIGHT = 440;
+   without cropping. Canvas chrome overhead is 72px (header row + 14px vertical padding). */
+/** Canvas chart height + stage padding. */
+export const CHART_ARTIFACT_HEIGHT = 392;
 /** Progress header plus ~6 task rows before the list scrolls. */
 export const TODO_ARTIFACT_HEIGHT = 440;
 /** File tabs plus ~12 code lines before the pane scrolls. */

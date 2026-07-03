@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
+import { ArtifactMenuTimelineControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import { TimelinePendingMarker } from "@/components/timeline/TimelinePendingMarker";
 import { TimelineAddPopover } from "@/components/timeline/TimelineAddPopover";
 import { TimelineAxis } from "@/components/timeline/TimelineAxis";
-import { TimelineControls } from "@/components/timeline/TimelineControls";
 import { TimelineEventNode } from "@/components/timeline/TimelineEventNode";
 import type { ArtifactPayload, TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
 import { TIMELINE_ARTIFACT_BODY_MIN_HEIGHT, TIMELINE_ARTIFACT_STAGE_WIDTH } from "@/lib/canvasNodeBounds";
@@ -208,27 +209,35 @@ export function TimelineArtifactContent({
     setPopover(null);
   }, [data.events, persist, popover]);
 
+  useArtifactMenuDisplayExtras(
+    !sidebar,
+    () => (
+      <ArtifactMenuTimelineControls
+        scale={scale}
+        onScaleChange={handleScaleChange}
+        zoomPercent={zoomPercent}
+        onZoomIn={() => zoomByButton(1.15)}
+        onZoomOut={() => zoomByButton(1 / 1.15)}
+        disabled={!interactive}
+        zoomDisabled={!viewportEnabled}
+      />
+    ),
+    [
+      handleScaleChange,
+      interactive,
+      scale,
+      sidebar,
+      viewportEnabled,
+      zoomByButton,
+      zoomPercent,
+    ],
+  );
+
   return (
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-col" : "aspect-[21/9] min-h-[280px]"}
-      controls={
-        !sidebar ? (
-          <div data-timeline-no-pan className="h-full min-w-0 flex-1">
-            <TimelineControls
-              scale={scale}
-              onScaleChange={handleScaleChange}
-              zoomPercent={zoomPercent}
-              onZoomIn={() => zoomByButton(1.15)}
-              onZoomOut={() => zoomByButton(1 / 1.15)}
-              disabled={!interactive}
-              zoomDisabled={!viewportEnabled}
-            />
-          </div>
-        ) : undefined
-      }
     >
       <div
         ref={trackAreaRef}

@@ -7,6 +7,15 @@ const nextConfig = {
   // Isolate showcase dev cache so it can run alongside `npm run dev`.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   serverExternalPackages: ["@cursor/sdk", "sqlite3"],
+  async redirects() {
+    return [
+      {
+        source: "/landing4",
+        destination: "/landing4/index.html",
+        permanent: false,
+      },
+    ];
+  },
   ...(isDesignSystemExport
     ? {
         output: "export",
