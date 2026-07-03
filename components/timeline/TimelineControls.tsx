@@ -54,7 +54,7 @@ export function TimelineControls({
           disabled={zoomLocked}
           onClick={onZoomOut}
           aria-label="Zoom out timeline"
-          className="flex h-3 w-3 items-center justify-center rounded-sm text-[10px] leading-none text-canvas-ink transition-colors hover:bg-canvas-border/50 disabled:opacity-40"
+          className="flex h-3 w-3 items-center justify-center rounded-canvas-xs text-canvas-caption leading-none text-canvas-ink transition-colors hover:bg-canvas-border/50 disabled:opacity-40"
           data-no-drag
         >
           −
@@ -67,7 +67,7 @@ export function TimelineControls({
           disabled={zoomLocked}
           onClick={onZoomIn}
           aria-label="Zoom in timeline"
-          className="flex h-3 w-3 items-center justify-center rounded-sm text-[10px] leading-none text-canvas-ink transition-colors hover:bg-canvas-border/50 disabled:opacity-40"
+          className="flex h-3 w-3 items-center justify-center rounded-canvas-xs text-canvas-caption leading-none text-canvas-ink transition-colors hover:bg-canvas-border/50 disabled:opacity-40"
           data-no-drag
         >
           +

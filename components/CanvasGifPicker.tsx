@@ -301,7 +301,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
                   <span className="text-canvas-muted">
                     <Model3DIcon />
                   </span>
-                  <span className="line-clamp-2 text-[10px] font-medium leading-tight text-canvas-ink">
+                  <span className="line-clamp-2 text-canvas-caption font-medium leading-tight text-canvas-ink">
                     {item.title}
                   </span>
                   {item.animated && (

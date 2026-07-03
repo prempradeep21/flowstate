@@ -556,7 +556,7 @@ function RepoSpokeCard({
     <m.div
       ref={cardRef}
       data-no-drag
-      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{
         left: spoke.x,
         top: spoke.y,
@@ -969,7 +969,7 @@ export function RepoArtifactContent({
       <m.div
         ref={hubRef}
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
-        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-card"
+        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-artifact"
         style={{
           left: hub.cx - hub.w / 2,
           top: hub.cy - hub.h / 2,

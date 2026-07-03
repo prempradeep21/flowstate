@@ -62,7 +62,7 @@ export function LandingProductCard({
 
   return (
     <div
-      className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{ width: CARD_WIDTH, maxWidth: "100%" }}
     >
       <CanvasSharpContent worldWidth={CARD_WIDTH}>
@@ -101,7 +101,7 @@ export function LandingArtifactPreview({
   const layout = catalogLayoutForEntry(entry);
 
   return (
-    <div className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
+    <div className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact">
       <div
         className="relative flex min-h-0 flex-col overflow-hidden bg-canvas-artifactStage"
         style={{ height: previewHeight }}

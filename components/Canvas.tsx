@@ -2084,8 +2084,8 @@ function Ghost3D({ world }: { world: ThreeDPlacementState }) {
       }}
     >
       <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-canvas-bg via-canvas-card to-canvas-bg p-2 text-center">
-        <span className="text-[10px] font-medium text-canvas-muted">3D</span>
-        <span className="line-clamp-2 text-[10px] text-canvas-ink">{world.title}</span>
+        <span className="text-canvas-caption font-medium text-canvas-muted">3D</span>
+        <span className="line-clamp-2 text-canvas-caption text-canvas-ink">{world.title}</span>
       </div>
     </div>
   );
@@ -2135,7 +2135,7 @@ function ArtifactCursorGhost({
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-card"
+      className="pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-artifact"
       style={{
         left: screen.x,
         top: screen.y,
@@ -2161,7 +2161,7 @@ function GhostCard({ world }: { world: PlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
+      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-artifact"
       style={{
         left: pos.x,
         top: pos.y,

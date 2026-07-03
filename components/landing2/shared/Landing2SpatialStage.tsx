@@ -19,7 +19,7 @@ function StaticSpatialCard({ placement }: { placement: Landing2SpatialPlacement 
       }}
     >
       <div
-        className="rounded-canvas shadow-card"
+        className="rounded-canvas shadow-artifact"
         style={{ boxShadow: `0 12px 40px ${accent}33, 0 0 0 1px ${accent}44` }}
       >
         <Landing2CardPreview sample={placement.sample} accentColour={accent} />
@@ -53,7 +53,7 @@ function AnimatedSpatialCard({
       }}
     >
       <div
-        className="rounded-canvas shadow-card"
+        className="rounded-canvas shadow-artifact"
         style={{ boxShadow: `0 12px 40px ${accent}33, 0 0 0 1px ${accent}44` }}
       >
         <Landing2CardPreview sample={placement.sample} accentColour={accent} />

@@ -24,7 +24,7 @@ import {
 } from "@/components/artifacts/ArtifactNestedMenu";
 
 const stepperBtnClass =
-  "flex h-8 w-8 items-center justify-center rounded-md border border-canvas-border bg-canvas-bg text-sm leading-none text-canvas-ink transition-colors hover:bg-canvas-border/40 disabled:cursor-default disabled:opacity-35";
+  "flex h-8 w-8 items-center justify-center rounded-canvas-md border border-canvas-border bg-canvas-bg text-canvas-body leading-none text-canvas-ink transition-colors hover:bg-canvas-border/40 disabled:cursor-default disabled:opacity-35";
 
 export function ArtifactMenuFontScaleRow({
   scale,
@@ -45,7 +45,7 @@ export function ArtifactMenuFontScaleRow({
         data-no-drag
       >
         <span
-          className="flex h-8 w-10 shrink-0 items-center justify-center text-xs font-semibold text-canvas-muted"
+          className="flex h-8 w-10 shrink-0 items-center justify-center text-canvas-compact font-semibold text-canvas-muted"
           aria-hidden
         >
           Aa

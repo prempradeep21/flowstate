@@ -69,7 +69,7 @@ function InputsContent({ scrollYProgress }: { scrollYProgress: MotionValue<numbe
         </Landing2EdgeBleed>
 
         <div
-          className="mt-6 rounded-canvas border p-6 shadow-card sm:p-8"
+          className="mt-6 rounded-canvas border p-6 shadow-artifact sm:p-8"
           style={{
             borderColor: `${LANDING2_ACCENTS[activeIndex % LANDING2_ACCENTS.length]}44`,
             background: `${LANDING2_ACCENTS[activeIndex % LANDING2_ACCENTS.length]}08`,

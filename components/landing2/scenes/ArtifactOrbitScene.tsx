@@ -77,7 +77,7 @@ function ArtifactRailCard({
 
   return (
     <m.article
-      className="flex w-[min(78vw,380px)] shrink-0 flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="flex w-[min(78vw,380px)] shrink-0 flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{ scale, opacity, borderColor: `${accent}55` }}
     >
       <div
@@ -106,7 +106,7 @@ function ArtifactGrid() {
         return (
           <article
             key={entry.id}
-            className="overflow-hidden rounded-canvas border bg-canvas-card shadow-card"
+            className="overflow-hidden rounded-canvas border bg-canvas-card shadow-artifact"
             style={{ borderColor: `${accent}44` }}
           >
             <div className="px-3 py-2 font-display text-canvas-compact" style={{ color: accent }}>

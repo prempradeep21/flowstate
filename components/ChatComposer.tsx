@@ -438,7 +438,7 @@ export function ChatComposer({
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
         className={`group/composer relative flex w-full min-w-0 flex-col rounded-canvas border border-canvas-border bg-canvas-card ${
-          isLanding ? "shadow-cardHover" : "shadow-card"
+          isLanding ? "shadow-artifactHover" : "shadow-card"
         }`}
       >
         {isCanvas && cardId && (

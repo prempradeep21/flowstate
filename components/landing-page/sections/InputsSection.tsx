@@ -92,7 +92,7 @@ export function InputsSection() {
           {LANDING_COMPOSER_INPUTS.map((input) => (
             <article
               key={input.id}
-              className="flex flex-col gap-4 rounded-canvas border border-canvas-border bg-canvas-card p-5 shadow-card"
+              className="flex flex-col gap-4 rounded-canvas border border-canvas-border bg-canvas-card p-5 shadow-artifact"
             >
               <div>
                 <h3 className="font-display text-canvas-body-lg text-canvas-ink">

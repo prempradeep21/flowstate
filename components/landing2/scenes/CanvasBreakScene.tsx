@@ -82,7 +82,7 @@ function CanvasBreakContent({
         style={{ opacity: copyOpacity, y: copyY }}
       >
         <div
-          className="inline-block rounded-canvas border border-canvas-border/60 bg-canvas-card/85 px-6 py-5 shadow-card backdrop-blur-md"
+          className="inline-block rounded-canvas border border-canvas-border/60 bg-canvas-card/85 px-6 py-5 shadow-artifact backdrop-blur-md"
         >
           <Landing2SceneTitle
             variant="hero"

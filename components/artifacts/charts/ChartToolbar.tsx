@@ -24,7 +24,7 @@ export function ChartToolbar({
   const styles = getStylesForUIChartType(chartType);
 
   const selectClass =
-    "h-6 min-w-0 rounded-md border border-canvas-border bg-canvas-card py-0.5 pl-2 pr-6 text-[11px] normal-case tracking-normal text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30";
+    "h-6 min-w-0 rounded-canvas-md border border-canvas-border bg-canvas-card py-0.5 pl-2 pr-6 text-canvas-caption normal-case tracking-normal text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30";
 
   return (
     <div className="flex h-full min-w-0 flex-1 items-center gap-2 overflow-hidden">

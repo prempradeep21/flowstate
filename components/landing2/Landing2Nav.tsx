@@ -22,7 +22,7 @@ function FlowstateMark() {
 export function Landing2Nav() {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
-      <div className="pointer-events-auto flex w-full items-center justify-between rounded-canvas border border-canvas-border/50 bg-canvas-card/75 px-4 py-2.5 shadow-card backdrop-blur-lg sm:px-6">
+      <div className="pointer-events-auto flex w-full items-center justify-between rounded-canvas border border-canvas-border/50 bg-canvas-card/75 px-4 py-2.5 shadow-artifact backdrop-blur-lg sm:px-6">
         <Link
           href="/landing2"
           className="inline-flex items-center gap-2"

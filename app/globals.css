@@ -43,10 +43,40 @@
   --canvas-tag-danger-soft: 255 241 242;
   --canvas-tag-danger-ring: 254 205 211;
   --dot-color: rgb(var(--canvas-dot));
-  /* Elevation shadows — warm, soft in light mode. */
-  --canvas-card-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
+  /* Corner radius scale — one tweakable base drives every tier
+     (mirror lib/design/tokens.ts canvasRadiusFactors). */
+  --canvas-radius-base: 10px;
+  --canvas-radius-xs: 2px;
+  --canvas-radius-sm: calc(var(--canvas-radius-base) * 0.6);
+  --canvas-radius-md: var(--canvas-radius-base);
+  --canvas-radius-lg: calc(var(--canvas-radius-base) * 1.4);
+  --canvas-radius-inner: max(
+    calc(var(--canvas-radius-lg) - 12px),
+    var(--canvas-radius-xs)
+  );
+  /* Artifact category fills — header icon circles, themable per preset
+     (mirror lib/design/theme/presets.ts default preset). */
+  --artifact-cat-data-bg: 237 233 254;
+  --artifact-cat-data-fg: 91 66 199;
+  --artifact-cat-viz-bg: 224 242 254;
+  --artifact-cat-viz-fg: 3 105 161;
+  --artifact-cat-geo-bg: 220 252 231;
+  --artifact-cat-geo-fg: 21 128 61;
+  --artifact-cat-media-bg: 254 226 226;
+  --artifact-cat-media-fg: 185 28 28;
+  --artifact-cat-docs-bg: 254 243 199;
+  --artifact-cat-docs-fg: 146 64 14;
+  --artifact-cat-dev-bg: 241 245 249;
+  --artifact-cat-dev-fg: 51 65 85;
+  --artifact-cat-planning-bg: 252 231 243;
+  --artifact-cat-planning-fg: 190 24 93;
+  /* Elevation — UI chrome (panels, toolbar, popovers) is flat; only
+     canvas-level elements (artifact windows, cards) carry shadows. */
+  --canvas-card-shadow: none;
+  --canvas-card-shadow-hover: none;
+  --canvas-artifact-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
     0 4px 16px rgba(20, 18, 14, 0.06);
-  --canvas-card-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
+  --canvas-artifact-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
     0 8px 24px rgba(20, 18, 14, 0.1);
   /* Flowstate motion tokens (mirror lib/motion/tokens.ts) */
   --motion-ease-light: cubic-bezier(0.22, 1, 0.36, 1);
@@ -107,11 +137,26 @@ html[data-theme="dark"] {
   --canvas-tag-danger: 251 113 133;
   --canvas-tag-danger-soft: 42 22 32;
   --canvas-tag-danger-ring: 92 42 58;
-  /* On dark, elevation reads through lighter surfaces + deeper shadows. */
-  --canvas-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
+  /* On dark, artifact elevation reads through deeper shadows; chrome stays flat. */
+  --canvas-artifact-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.5);
-  --canvas-card-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
+  --canvas-artifact-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
     0 10px 28px rgba(0, 0, 0, 0.6);
+  /* Artifact category fills — dark variants. */
+  --artifact-cat-data-bg: 44 37 65;
+  --artifact-cat-data-fg: 196 181 253;
+  --artifact-cat-viz-bg: 20 34 42;
+  --artifact-cat-viz-fg: 125 211 252;
+  --artifact-cat-geo-bg: 17 38 31;
+  --artifact-cat-geo-fg: 110 231 183;
+  --artifact-cat-media-bg: 42 24 24;
+  --artifact-cat-media-fg: 252 165 165;
+  --artifact-cat-docs-bg: 42 33 20;
+  --artifact-cat-docs-fg: 252 211 77;
+  --artifact-cat-dev-bg: 39 44 52;
+  --artifact-cat-dev-fg: 148 163 184;
+  --artifact-cat-planning-bg: 42 22 32;
+  --artifact-cat-planning-fg: 244 164 200;
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);

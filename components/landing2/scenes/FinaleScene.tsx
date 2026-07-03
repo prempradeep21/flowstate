@@ -49,7 +49,7 @@ export function FinaleScene() {
             <Link
               href="/"
               onClick={() => void playSound("branch-create")}
-              className="inline-flex items-center rounded-full px-9 py-4 text-canvas-body font-semibold text-white shadow-card transition-transform hover:scale-[1.02]"
+              className="inline-flex items-center rounded-full px-9 py-4 text-canvas-body font-semibold text-white shadow-artifact transition-transform hover:scale-[1.02]"
               style={{ background: accent }}
             >
               {copy.cta}

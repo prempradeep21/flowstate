@@ -77,7 +77,7 @@ export function UseCasesSection() {
           {copy.cards.map((card) => (
             <article
               key={card.id}
-              className="rounded-canvas border border-canvas-border bg-canvas-card p-6 shadow-card transition-shadow hover:shadow-md"
+              className="rounded-canvas border border-canvas-border bg-canvas-card p-6 shadow-artifact transition-shadow hover:shadow-md"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-canvas-sm bg-canvas-accent/10 text-canvas-accent">
                 {USE_CASE_ICONS[card.icon]}

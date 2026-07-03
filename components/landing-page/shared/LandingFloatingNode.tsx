@@ -26,7 +26,7 @@ function FloatChrome({
 }) {
   return (
     <div
-      className={`pointer-events-none absolute z-10 overflow-hidden rounded-canvas border border-canvas-border/80 bg-canvas-card/92 shadow-card backdrop-blur-[2px] ${className}`}
+      className={`pointer-events-none absolute z-10 overflow-hidden rounded-canvas border border-canvas-border/80 bg-canvas-card/92 shadow-artifact backdrop-blur-[2px] ${className}`}
       style={{ width, maxWidth: `min(${width}px, 42vw)` }}
     >
       <div className="flex items-center gap-2 border-b border-canvas-border/60 px-2.5 py-1.5">

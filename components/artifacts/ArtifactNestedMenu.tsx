@@ -68,7 +68,7 @@ export function ArtifactNestedMenuBackHeader({
       <button
         type="button"
         onClick={onBack}
-        className={`${menuItemClass} flex-1 rounded-sm font-medium`}
+        className={`${menuItemClass} flex-1 rounded-canvas-xs font-medium`}
       >
         <BackIcon />
         <span>Back</span>
@@ -118,7 +118,7 @@ export function ArtifactNestedMenuSection({
 }
 
 export const artifactMenuSelectClass =
-  "h-8 w-full min-w-0 rounded-md border border-canvas-border bg-canvas-bg py-1 pl-2.5 pr-8 text-canvas-body-sm normal-case tracking-normal text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30";
+  "h-8 w-full min-w-0 rounded-canvas-md border border-canvas-border bg-canvas-bg py-1 pl-2.5 pr-8 text-canvas-body-sm normal-case tracking-normal text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30";
 
 export const artifactMenuFieldLabelClass =
   "mb-1 block text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted";

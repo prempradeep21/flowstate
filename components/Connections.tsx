@@ -141,7 +141,7 @@ function ConnectorStylePicker({
 
       aria-label="Connector style"
 
-      className="pointer-events-auto absolute z-20 flex items-center gap-0.5 rounded-canvas border border-canvas-border bg-canvas-card p-0.5 shadow-card"
+      className="pointer-events-auto absolute z-20 flex items-center gap-0.5 rounded-canvas border border-canvas-border bg-canvas-card p-0.5 shadow-artifact"
 
       style={{
 

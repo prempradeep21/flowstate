@@ -324,7 +324,7 @@ export function TimelineArtifactContent({
             })}
 
             {interactive && data.events.length === 0 && !popover && (
-              <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs text-canvas-muted">
+              <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-canvas-compact text-canvas-muted">
                 Click the timeline to add an event
               </p>
             )}

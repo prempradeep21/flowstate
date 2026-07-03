@@ -135,11 +135,34 @@ export const THREAD_ACCENT_PALETTE = [
   "#9B51E0",
 ] as const;
 
-/** Corner radii */
+/**
+ * Corner radius scale — a single tweakable base (px) drives every tier
+ * through CSS variables (see globals.css / ThemeProvider). Tiers:
+ * - xs: fixed 2px (resize handles, minimap)
+ * - sm: 0.6× base (compact overlays, chips)
+ * - md: 1× base (buttons, inputs, menu rows)
+ * - lg: 1.4× base (panels, popovers, artifact windows)
+ * - inner: lg − chrome padding, clamped (nested/clipped chrome, e.g. collapsed toolbar)
+ */
+export const canvasRadiusBasePx = 10;
+export const canvasRadiusFactors = { sm: 0.6, md: 1, lg: 1.4 } as const;
+
+export function resolveRadiusPx(
+  step: keyof typeof canvasRadiusFactors | "xs",
+  base: number = canvasRadiusBasePx,
+): number {
+  if (step === "xs") return 2;
+  return Math.round(base * canvasRadiusFactors[step]);
+}
+
+/** Corner radii — resolve through CSS vars so the base is runtime-tweakable. */
 export const canvasRadii = {
-  canvas: "16px",
-  sm: "16px",
-  xs: "2px",
+  canvas: "var(--canvas-radius-lg)",
+  lg: "var(--canvas-radius-lg)",
+  md: "var(--canvas-radius-md)",
+  sm: "var(--canvas-radius-sm)",
+  xs: "var(--canvas-radius-xs)",
+  inner: "var(--canvas-radius-inner)",
 } as const;
 
 /**
@@ -165,16 +188,21 @@ export const canvasSpacing = {
   section: 16,
 } as const;
 
-/** Typography scale — [size, { lineHeight }] for Tailwind fontSize */
+/**
+ * Typography scale — [size, { lineHeight }] for Tailwind fontSize.
+ * Consolidated to 7 distinct sizes (11/12/13/14/18/22/52). `micro` and
+ * `body-lg` are retained as aliases of `caption` and `body` so existing
+ * call sites keep working while the scale stays meaningful.
+ */
 export const canvasFontSize = {
-  micro: ["10px", { lineHeight: "1.4" }] as [string, { lineHeight: string }],
+  micro: ["11px", { lineHeight: "1.45" }] as [string, { lineHeight: string }],
   caption: ["11px", { lineHeight: "1.45" }] as [string, { lineHeight: string }],
   compact: ["12px", { lineHeight: "1.5" }] as [string, { lineHeight: string }],
   "body-sm": ["13px", { lineHeight: "1.5" }] as [string, { lineHeight: string }],
   body: ["14px", { lineHeight: "1.55" }] as [string, { lineHeight: string }],
-  "body-lg": ["15px", { lineHeight: "1.5" }] as [string, { lineHeight: string }],
+  "body-lg": ["14px", { lineHeight: "1.55" }] as [string, { lineHeight: string }],
   heading: ["18px", { lineHeight: "1.35" }] as [string, { lineHeight: string }],
-  brand: ["22.5px", { lineHeight: "1.2" }] as [string, { lineHeight: string }],
+  brand: ["22px", { lineHeight: "1.2" }] as [string, { lineHeight: string }],
   display: ["52px", { lineHeight: "1.05", letterSpacing: "-0.02em" }] as [
     string,
     { lineHeight: string; letterSpacing: string },

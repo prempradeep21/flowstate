@@ -93,7 +93,7 @@ export function ChartArtifactContent({
 
   if (!style) {
     return (
-      <div className="p-4 text-sm text-canvas-muted">Unknown chart style.</div>
+      <div className="p-4 text-canvas-body text-canvas-muted">Unknown chart style.</div>
     );
   }
 
@@ -138,12 +138,12 @@ export function ChartArtifactContent({
           )}
         </div>
         {data.source ? (
-          <p className="shrink-0 px-3 pb-1 text-[10px] text-canvas-muted">
+          <p className="shrink-0 px-3 pb-1 text-canvas-caption text-canvas-muted">
             {data.source}
           </p>
         ) : null}
         {payload.description ? (
-          <p className="shrink-0 border-t border-canvas-border px-3 py-2 text-xs text-canvas-muted">
+          <p className="shrink-0 border-t border-canvas-border px-3 py-2 text-canvas-compact text-canvas-muted">
             {payload.description}
           </p>
         ) : null}

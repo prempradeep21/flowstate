@@ -240,7 +240,7 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
               recordUndo();
               removeCanvasGifNode(node.id);
             }}
-            className={`absolute right-1 top-1 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+            className={`absolute right-1 top-1 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-canvas-compact text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
               isSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/gif:opacity-100"

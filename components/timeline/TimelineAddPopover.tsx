@@ -50,7 +50,7 @@ export function TimelineAddPopover({
       data-no-drag
       onClick={(e) => e.stopPropagation()}
     >
-      <p className="mb-2 text-xs font-semibold text-canvas-ink">{title}</p>
+      <p className="mb-2 text-canvas-compact font-semibold text-canvas-ink">{title}</p>
       <input
         ref={inputRef}
         type="text"
@@ -58,7 +58,7 @@ export function TimelineAddPopover({
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Short label"
         maxLength={120}
-        className="mb-1 w-full rounded-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-xs text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+        className="mb-1 w-full rounded-canvas-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
         data-no-drag
         onKeyDown={(e) => {
           if (e.key === "Enter" && valid) handleSave();
@@ -66,9 +66,9 @@ export function TimelineAddPopover({
         }}
       />
       <p
-        className={`mb-2 text-[10px] ${
+        className={`mb-2 text-canvas-caption ${
           wordCount > TIMELINE_EVENT_MAX_WORDS
-            ? "text-red-600"
+            ? "text-canvas-danger"
             : "text-canvas-muted"
         }`}
       >
@@ -82,7 +82,7 @@ export function TimelineAddPopover({
           const iso = fromDateInputValue(e.target.value);
           if (iso) onAtChange?.(iso);
         }}
-        className="mb-3 w-full rounded-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-xs text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+        className="mb-3 w-full rounded-canvas-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
         data-no-drag
       />
       <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export function TimelineAddPopover({
           type="button"
           disabled={!valid}
           onClick={handleSave}
-          className="rounded-full bg-canvas-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-40"
+          className="rounded-full bg-canvas-accent px-3 py-1 text-canvas-compact font-medium text-white disabled:opacity-40"
           data-no-drag
         >
           Save
@@ -98,7 +98,7 @@ export function TimelineAddPopover({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full px-3 py-1 text-xs text-canvas-muted hover:text-canvas-ink"
+          className="rounded-full px-3 py-1 text-canvas-compact text-canvas-muted hover:text-canvas-ink"
           data-no-drag
         >
           Cancel
@@ -107,7 +107,7 @@ export function TimelineAddPopover({
           <button
             type="button"
             onClick={onDelete}
-            className="ml-auto text-xs text-red-600 hover:underline"
+            className="ml-auto text-canvas-compact text-canvas-danger hover:underline"
             data-no-drag
           >
             Delete

@@ -55,7 +55,7 @@ export function Landing2CardPreview({
 
   return (
     <div
-      className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{ width: DESIGN_SYSTEM_CARD_WIDTH, maxWidth: "100%" }}
     >
       <CanvasSharpContent worldWidth={DESIGN_SYSTEM_CARD_WIDTH}>

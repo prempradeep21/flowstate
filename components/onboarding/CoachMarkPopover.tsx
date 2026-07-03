@@ -275,7 +275,7 @@ export function CoachMarkSpotlight({ rect }: { rect: SpotlightRect }) {
   return (
     <>
       <div
-        className="pointer-events-none fixed z-[71] rounded-lg ring-2 ring-canvas-card ring-offset-2 ring-offset-transparent"
+        className="pointer-events-none fixed z-[71] rounded-canvas-md ring-2 ring-canvas-card ring-offset-2 ring-offset-transparent"
         style={{
           top: rect.top,
           left: rect.left,
@@ -285,7 +285,7 @@ export function CoachMarkSpotlight({ rect }: { rect: SpotlightRect }) {
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed z-[70] rounded-lg shadow-[0_0_0_9999px_rgba(15,15,15,0.55)]"
+        className="pointer-events-none fixed z-[70] rounded-canvas-md shadow-[0_0_0_9999px_rgba(15,15,15,0.55)]"
         style={{
           top: rect.top,
           left: rect.left,

@@ -97,7 +97,7 @@ export function WebsiteArtifactContent({
             {previewImageUrl && (
               <WebsiteFavicon
                 faviconUrl={faviconUrl}
-                className="h-4 w-4 shrink-0 rounded-sm"
+                className="h-4 w-4 shrink-0 rounded-canvas-xs"
               />
             )}
             <span

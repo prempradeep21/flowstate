@@ -87,7 +87,7 @@ function ScatteredTabItem({
 
   return (
     <m.span
-      className="absolute rounded-canvas border bg-canvas-card/95 px-4 py-2 text-canvas-compact font-semibold shadow-card"
+      className="absolute rounded-canvas border bg-canvas-card/95 px-4 py-2 text-canvas-compact font-semibold shadow-artifact"
       style={{
         left: `${x}%`,
         top: `${y}%`,
@@ -136,7 +136,7 @@ function ExportTrapVisual() {
   const accent = LANDING2_ACCENTS[3]!;
   return (
     <div
-      className="absolute left-[8%] top-[14%] w-[min(360px,72vw)] rounded-canvas border-2 border-dashed bg-canvas-card/95 p-6 shadow-card sm:left-[14%]"
+      className="absolute left-[8%] top-[14%] w-[min(360px,72vw)] rounded-canvas border-2 border-dashed bg-canvas-card/95 p-6 shadow-artifact sm:left-[14%]"
       style={{ borderColor: `${accent}88` }}
     >
       <p className="text-canvas-compact font-semibold" style={{ color: accent }}>
