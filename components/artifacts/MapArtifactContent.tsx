@@ -354,6 +354,8 @@ function MapView({
   canEditRef.current = canEdit;
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
+  const optimisticPlacesRef = useRef(optimisticPlaces);
+  optimisticPlacesRef.current = optimisticPlaces;
 
   useEffect(() => {
     setOptimisticPlaces([]);
@@ -361,14 +363,14 @@ function MapView({
 
   const handleRemove = useCallback(
     (placeId: string) => {
-      const isOptimistic = optimisticPlaces.some((p) => p.id === placeId);
+      const isOptimistic = optimisticPlacesRef.current.some((p) => p.id === placeId);
       if (isOptimistic) {
         setOptimisticPlaces((current) => current.filter((p) => p.id !== placeId));
       } else {
         onSavePlaces(savedPlaces.filter((p) => p.id !== placeId));
       }
     },
-    [onSavePlaces, savedPlaces, optimisticPlaces],
+    [onSavePlaces, savedPlaces],
   );
 
   onRemoveRef.current = handleRemove;
