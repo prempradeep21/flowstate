@@ -348,29 +348,23 @@ function MapView({
   const [addPinMode, setAddPinMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewingLabel, setViewingLabel] = useState<string | null>(null);
-  const [optimisticPlaces, setOptimisticPlaces] = useState<MapSavedPlace[]>([]);
 
   addPinModeRef.current = addPinMode;
   canEditRef.current = canEdit;
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
-  const optimisticPlacesRef = useRef(optimisticPlaces);
-  optimisticPlacesRef.current = optimisticPlaces;
 
-  useEffect(() => {
-    setOptimisticPlaces([]);
-  }, [savedPlaces]);
+  // Stable identity key: `savedPlaces` is often a fresh `[]` each render
+  // (from `?? []` in the parent), so effects must key on this, not the ref.
+  const savedPlacesKey = savedPlaces.map((p) => p.id).join("|");
 
   const handleRemove = useCallback(
     (placeId: string) => {
-      const isOptimistic = optimisticPlacesRef.current.some((p) => p.id === placeId);
-      if (isOptimistic) {
-        setOptimisticPlaces((current) => current.filter((p) => p.id !== placeId));
-      } else {
-        onSavePlaces(savedPlaces.filter((p) => p.id !== placeId));
-      }
+      onSavePlacesRef.current(
+        savedPlacesRef.current.filter((p) => p.id !== placeId),
+      );
     },
-    [onSavePlaces, savedPlaces],
+    [],
   );
 
   onRemoveRef.current = handleRemove;
@@ -453,9 +447,6 @@ function MapView({
           type?: string;
         };
         const place = createMapSavedPlace(hit);
-        // Optimistically update the UI immediately
-        setOptimisticPlaces((current) => [...current, place]);
-        // Then save to the artifact
         onSavePlacesRef.current([...savedPlacesRef.current, place]);
       } finally {
         setSaving(false);
@@ -485,9 +476,10 @@ function MapView({
     const map = mapRef.current;
     const layer = savedLayerRef.current;
     if (!map || !layer) return;
-    const combinedPlaces = [...savedPlaces, ...optimisticPlaces];
-    syncSavedMarkers(map, layer, combinedPlaces);
-  }, [savedPlaces, optimisticPlaces, canEdit, syncSavedMarkers]);
+    syncSavedMarkers(map, layer, savedPlacesRef.current);
+    // `savedPlacesKey` stands in for `savedPlaces` (whose reference churns).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedPlacesKey, canEdit, syncSavedMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
