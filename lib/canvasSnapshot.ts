@@ -545,7 +545,10 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.selectedModel && VALID_MODELS.has(snapshot.selectedModel)
         ? snapshot.selectedModel
         : base.selectedModel,
-    viewMode: snapshot.viewMode === "chat" ? "chat" : "canvas",
+    viewMode:
+      snapshot.viewMode === "chat" || snapshot.viewMode === "focus"
+        ? snapshot.viewMode
+        : "canvas",
     sessionArtifacts: normalizeSessionArtifacts(snapshot.sessionArtifacts),
     canvasAssets: normalizeRecord<CanvasAsset>(snapshot.canvasAssets),
     canvasArtifactNodes: normalizeRecord<CanvasArtifactNode>(

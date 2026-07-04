@@ -86,7 +86,7 @@ export interface ShouldShowOnboardingTourInput {
   isSwitchingCanvas: boolean;
   hasCompletedOnboardingTour: boolean;
   previewActive: boolean;
-  viewMode: "canvas" | "chat";
+  viewMode: "canvas" | "chat" | "focus";
 }
 
 export function shouldShowOnboardingTour(

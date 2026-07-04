@@ -17,8 +17,14 @@ import {
   timelineDefaultCenterMs,
 } from "@/lib/timelineArtifact";
 import {
+  LABEL_MAX_WIDTH,
   TRACK_HEIGHT,
   axisY,
+  buildTimelineSegments,
+  computeVisibleLabels,
+  estimateLabelWidth,
+  eventColor,
+  eventSide,
   generateVisibleTicks,
   screenXToTime,
   snapToNearestTick,
@@ -134,6 +140,46 @@ export function TimelineArtifactContent({
       timeToScreenX(new Date(at).getTime(), centerMs, viewportWidth, scale, zoom),
     [centerMs, scale, viewportWidth, zoom],
   );
+
+  const eventPoints = useMemo(
+    () =>
+      displayEvents.map((event, index) => ({
+        index,
+        x: eventScreenX(event.at),
+        color: eventColor(index),
+        side: eventSide(index, event.side),
+        highlight: event.highlight,
+        width: estimateLabelWidth(event.label),
+      })),
+    [displayEvents, eventScreenX],
+  );
+
+  // Colour-segmented axis, computed from every event (even off-screen ones) so
+  // the coloured line runs continuously across the viewport.
+  const axisSegments = useMemo(
+    () =>
+      buildTimelineSegments(
+        eventPoints.map((p) => ({ x: p.x, color: p.color })),
+        viewportWidth,
+      ),
+    [eventPoints, viewportWidth],
+  );
+
+  // Level-of-detail: which labels are shown at the current zoom. Always ≥1 when
+  // an event is on screen; more reveal as zooming in spreads events apart.
+  const visibleLabels = useMemo(() => {
+    const candidates = eventPoints
+      .filter((p) => p.x >= -LABEL_MAX_WIDTH && p.x <= viewportWidth + LABEL_MAX_WIDTH)
+      .map((p) => ({
+        index: p.index,
+        x: p.x,
+        side: p.side,
+        width: p.width,
+        highlight: p.highlight,
+        centerBias: Math.abs(p.x - viewportWidth / 2),
+      }));
+    return computeVisibleLabels(candidates);
+  }, [eventPoints, viewportWidth]);
 
   const pendingX =
     popover?.mode === "add"
@@ -281,6 +327,7 @@ export function TimelineArtifactContent({
           >
             <TimelineAxis
               ticks={ticks}
+              segments={axisSegments}
               trackWidth={viewportWidth}
               trackHeight={trackHeight}
               axisY={centerY}
@@ -296,8 +343,12 @@ export function TimelineArtifactContent({
             )}
 
             {displayEvents.map((event, index) => {
-              const x = eventScreenX(event.at);
-              if (x < -80 || x > viewportWidth + 80) return null;
+              const x = eventPoints[index]?.x ?? eventScreenX(event.at);
+              if (
+                x < -LABEL_MAX_WIDTH ||
+                x > viewportWidth + LABEL_MAX_WIDTH
+              )
+                return null;
               return (
                 <TimelineEventNode
                   key={event.id}
@@ -307,10 +358,10 @@ export function TimelineArtifactContent({
                   scale={scale}
                   axisY={centerY}
                   trackHeight={trackHeight}
-                  zoom={zoom}
                   viewportWidth={viewportWidth}
                   animating={animating}
                   interactive={interactive}
+                  showLabel={visibleLabels.has(index)}
                   onDoubleClick={(ev) => {
                     setPopover({
                       mode: "edit",

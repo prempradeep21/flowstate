@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
 import { useAuth } from "@/components/AuthProvider";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
+import { HomeButton } from "@/components/home/HomeButton";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
@@ -16,7 +17,7 @@ import {
 } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
-export function AppLeftPanel() {
+export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
   const collapsed = useCanvasStore((s) => s.leftPanelCollapsed);
   const viewMode = useCanvasStore((s) => s.viewMode);
   const toggleLeftPanel = useCanvasStore((s) => s.toggleLeftPanel);
@@ -61,6 +62,7 @@ export function AppLeftPanel() {
             data-coach-target="left-sidebar-entry"
             className="flex min-w-0 items-center gap-2"
           >
+            {onGoHome && <HomeButton onClick={onGoHome} />}
             <FlowstateBrand compact />
             <span
               className="min-w-0 max-w-[min(12rem,28vw)] truncate text-canvas-body-sm font-medium text-canvas-ink"
@@ -87,7 +89,10 @@ export function AppLeftPanel() {
               staggerActive={lineStaggerActive}
               className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3"
             >
-              <FlowstateBrand />
+              <div className="flex min-w-0 items-center gap-1">
+                {onGoHome && <HomeButton onClick={onGoHome} />}
+                <FlowstateBrand />
+              </div>
               <button
                 type="button"
                 onClick={toggleLeftPanel}

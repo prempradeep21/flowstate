@@ -18,7 +18,11 @@ export function CardAskOrchestrator() {
     () =>
       cardOrder.filter((id) => {
         const card = cards[id];
-        return card && card.status === "thinking";
+        // Keep the runner mounted through "streaming" — unmounting it cancels
+        // the in-flight ask, which would kill the stream at the first token.
+        return (
+          card && (card.status === "thinking" || card.status === "streaming")
+        );
       }),
     [cards, cardOrder],
   );

@@ -168,6 +168,11 @@ export function useCardAsk(cardId: string, enabled: boolean) {
     return () => {
       askHandleRef.current?.cancel();
       askHandleRef.current = null;
+      // Reset so a remount restarts the ask — under StrictMode's simulated
+      // unmount the cancel above would otherwise kill a thinking card's ask
+      // for good (the re-run effect skips identical questions).
+      askGenerationRef.current += 1;
+      startedForRef.current = null;
     };
   }, [cardId]);
 

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import {
   Camera,
+  Columns3,
   Copy,
   CopyPlus,
   Download,
@@ -79,6 +80,10 @@ export function ArtefactIcon() {
 
 export function ChatBubbleIcon() {
   return <Icon icon={MessageSquare} className={DEFAULT_CLASS} />;
+}
+
+export function FocusViewIcon() {
+  return <Icon icon={Columns3} className={DEFAULT_CLASS} />;
 }
 
 export function EyeIcon() {

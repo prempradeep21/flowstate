@@ -5,6 +5,7 @@ import {
   ArtefactIcon,
   BranchForkIcon,
   ChatBubbleIcon,
+  FocusViewIcon,
   EyeIcon,
   EyeOffIcon,
   GearIcon,
@@ -449,6 +450,19 @@ export function CanvasBottomToolbar() {
               onClick={() => setViewMode("canvas")}
             >
               <BranchForkIcon />
+            </button>
+            <button
+              type="button"
+              className={`${iconToggleBtn} ${
+                viewMode === "focus"
+                  ? "bg-canvas-ink text-canvas-card shadow-card"
+                  : "text-canvas-muted hover:text-canvas-ink"
+              }`}
+              aria-label="Focus view"
+              aria-pressed={viewMode === "focus"}
+              onClick={() => setViewMode("focus")}
+            >
+              <FocusViewIcon />
             </button>
             <button
               type="button"

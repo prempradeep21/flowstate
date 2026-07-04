@@ -221,6 +221,90 @@ export async function fetchCanvasMembers(
   ];
 }
 
+/**
+ * Batched member lists for several canvases at once — used by the Home grid to
+ * show collaborator avatars. Returns `[owner, ...collaborators]` per canvas id.
+ * Only ids that have collaborators need be passed; owners with no collaborators
+ * still get a single-owner list (which the avatar stack renders as nothing).
+ */
+export async function fetchCanvasesMembers(
+  supabase: Supabase,
+  canvasIds: string[],
+): Promise<Record<string, CanvasMember[]>> {
+  const uniqueIds = [...new Set(canvasIds)];
+  if (uniqueIds.length === 0) return {};
+
+  const [{ data: canvases, error: canvasError }, { data: collaborators, error: collabError }] =
+    await Promise.all([
+      supabase.from("canvases").select("id, owner_id").in("id", uniqueIds),
+      supabase
+        .from("canvas_collaborators")
+        .select("canvas_id, user_id, role, invited_at")
+        .in("canvas_id", uniqueIds),
+    ]);
+
+  if (canvasError) throw canvasError;
+  if (collabError) throw collabError;
+
+  const ownerByCanvas = new Map(
+    (canvases ?? []).map((c) => [c.id, c.owner_id]),
+  );
+
+  const profileIds = new Set<string>();
+  for (const ownerId of ownerByCanvas.values()) profileIds.add(ownerId);
+  for (const row of collaborators ?? []) profileIds.add(row.user_id);
+
+  const { data: profiles } =
+    profileIds.size > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url")
+          .in("id", [...profileIds])
+      : {
+          data: [] as {
+            id: string;
+            display_name: string | null;
+            avatar_url: string | null;
+          }[],
+        };
+
+  const profileById = new Map(
+    (profiles ?? []).map((p) => [p.id, mapProfile(p)]),
+  );
+
+  const emptyProfile = (id: string): CollaboratorProfile => ({
+    id,
+    displayName: null,
+    avatarUrl: null,
+  });
+
+  const result: Record<string, CanvasMember[]> = {};
+
+  for (const [canvasId, ownerId] of ownerByCanvas.entries()) {
+    result[canvasId] = [
+      {
+        userId: ownerId,
+        role: "owner",
+        invitedAt: "",
+        profile: profileById.get(ownerId) ?? emptyProfile(ownerId),
+      },
+    ];
+  }
+
+  for (const row of collaborators ?? []) {
+    const list = result[row.canvas_id];
+    if (!list) continue;
+    list.push({
+      userId: row.user_id,
+      role: row.role as CanvasRole,
+      invitedAt: row.invited_at,
+      profile: profileById.get(row.user_id) ?? emptyProfile(row.user_id),
+    });
+  }
+
+  return result;
+}
+
 export async function fetchCanvasAccessInfo(
   supabase: Supabase,
   canvasId: string,

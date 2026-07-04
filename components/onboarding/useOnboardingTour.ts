@@ -276,7 +276,7 @@ export function useOnboardingTour() {
   }, [active, refreshSpotlight]);
 
   useEffect(() => {
-    if (viewMode === "chat" && active) {
+    if (viewMode !== "canvas" && active) {
       useCanvasStore.getState().setViewMode("canvas");
     }
   }, [active, viewMode]);

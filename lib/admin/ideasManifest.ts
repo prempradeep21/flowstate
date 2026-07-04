@@ -23,6 +23,16 @@ export const GROUNDBREAKING_IDEAS: GroundbreakingIdea[] = [
     playgroundPath:
       "/admin/ideas/conversation-to-flowstate-transfer/playground",
   },
+  {
+    slug: "canvas-pet-stickman",
+    title: "Canvas Pet — Stickman",
+    tagline:
+      "A free-willed stickman that lives on the canvas — standing, running, and leaping between artifacts like footholds, at near-zero CPU cost.",
+    status: "Prototype",
+    dateAdded: "2026-07-03",
+    markdownPath: "docs/admin/ideas/canvas-pet-stickman.md",
+    playgroundPath: "/admin/ideas/canvas-pet-stickman/playground",
+  },
 ];
 
 export function getIdeaBySlug(slug: string): GroundbreakingIdea | undefined {

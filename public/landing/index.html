@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flowstate — An open canvas for your AI work</title>
+<meta name="description" content="Flowstate is an open, infinite canvas for working with AI — where everything you make stays visible, movable, reusable, and shareable." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23cfcec9'/%3E%3Ccircle cx='50' cy='50' r='26' fill='%230f4fc7'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- grain overlay -->
+<div class="grain" aria-hidden="true"></div>
+
+<!-- custom cursor -->
+<div class="cursor" aria-hidden="true">
+  <div class="cursor-dot"></div>
+  <div class="cursor-ring"></div>
+</div>
+
+<!-- scene counter -->
+<div class="scene-hud" aria-hidden="true">
+  <span class="scene-hud-num">scene 01</span>
+  <span class="scene-hud-name">— the canvas</span>
+</div>
+
+<!-- nav -->
+<header class="nav">
+  <a class="nav-logo" href="#top" data-nav>
+    <span class="nav-logo-dot"></span>Flowstate
+  </a>
+  <nav class="nav-links" aria-label="Primary">
+    <a class="nav-link" href="#top" data-nav>Home</a>
+    <a class="nav-link" href="blog.html">Blog</a>
+  </nav>
+  <div class="nav-right">
+    <a class="btn btn-ink nav-cta" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+  </div>
+</header>
+
+<!-- section scroll arrows -->
+<div class="scroll-nav">
+  <button class="scroll-btn scroll-up" type="button" aria-label="Previous section">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button class="scroll-btn scroll-down" type="button" aria-label="Next section">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<main id="top">
+
+<!-- ============ SCENE 01 — HERO ============ -->
+<section class="hero scene" id="hero" data-scene="01" data-scene-name="the canvas">
+  <div class="dotgrid hero-grid" aria-hidden="true"></div>
+
+  <!-- draggable artifacts -->
+  <div class="hero-stage">
+
+    <article class="art-card drag-card card-table" data-depth="1.4" style="--x:6%; --y:14%; --r:-4deg">
+      <header class="art-head"><span class="art-icon">​<svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Trip budget<span class="art-kind">Table</span></header>
+      <table class="mini-table">
+        <tr><th>City</th><th>Nights</th><th>€</th><th></th></tr>
+        <tr><td>Lisbon</td><td>4</td><td>420</td><td><span class="chip chip-blue">Booked</span></td></tr>
+        <tr><td>Porto</td><td>3</td><td>310</td><td><span class="chip">Compare</span></td></tr>
+        <tr><td>Madrid</td><td>2</td><td>240</td><td><span class="chip">Pending</span></td></tr>
+      </table>
+    </article>
+
+    <article class="art-card drag-card card-chart" data-depth="1" style="--x:76%; --y:10%; --r:3deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Runway<span class="art-kind">Chart</span></header>
+      <div class="mini-chart" aria-hidden="true">
+        <div class="bar" style="--h:34%"></div><div class="bar" style="--h:58%"></div>
+        <div class="bar" style="--h:42%"></div><div class="bar bar-hot" style="--h:88%"></div>
+        <div class="bar" style="--h:66%"></div><div class="bar" style="--h:74%"></div>
+      </div>
+    </article>
+
+    <article class="art-card drag-card card-todo" data-depth="1.8" style="--x:80%; --y:58%; --r:-2.5deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12M4 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Launch week<span class="art-kind">To-do</span></header>
+      <ul class="mini-todo">
+        <li class="done">Rename 14 chats “final”</li>
+        <li class="done">Give up on that</li>
+        <li>Move it all to a canvas</li>
+      </ul>
+    </article>
+
+    <article class="art-card drag-card card-sticky" data-depth="2.2" style="--x:14%; --y:64%; --r:5deg">
+      <p>yes — you can<br/>drag these <span class="arrow-ink">↷</span></p>
+    </article>
+
+    <article class="art-card drag-card card-map-mini" data-depth="1.2" style="--x:58%; --y:66%; --r:1.5deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Alfama, Lisbon<span class="art-kind">Map</span></header>
+      <div class="mini-map" aria-hidden="true">
+        <div class="mini-map-roads"></div>
+        <div class="mini-map-pin"></div>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="hero-center">
+    <p class="eyebrow mono">flowstate — an open canvas for your ai work</p>
+    <h1 class="hero-title">A more intuitive<br/>way to work<br/>with <span class="scribble-wrap">AI<svg class="scribble" viewBox="0 0 260 90" aria-hidden="true"><path d="M12 48 C 60 20, 120 18, 178 30 C 216 38, 240 50, 246 58 M 30 66 C 90 44, 170 42, 232 55" fill="none" stroke-width="7" stroke-linecap="round"/></svg></span>.</h1>
+    <p class="hero-sub">Flowstate is an open, infinite canvas for working with AI. Instead of an endless chat scroll, everything you make — docs, tables, maps, little tools — stays visible, movable, and reusable in one shared&nbsp;space.</p>
+  </div>
+
+  <div class="hero-hint mono" aria-hidden="true">scroll — the canvas is waiting ↓</div>
+</section>
+
+<!-- ============ SCENE 02 — THE CANVAS (full-bleed, interactive) ============ -->
+<section class="playground scene" id="playground" data-scene="02" data-scene-name="bring everything">
+  <div class="playground-head">
+    <p class="mono eyebrow">your whole workspace</p>
+    <h2>Bring everything you work with<br/>to <em>Flowstate</em>.</h2>
+    <p class="mono playground-hint">drag the cards by their handles · play the video · pan the map · it’s all yours to move</p>
+  </div>
+
+  <div class="canvas-frame" id="canvasFrame">
+    <div class="dotgrid canvas-grid" aria-hidden="true"></div>
+    <div class="canvas-plane" id="canvasPlane">
+
+      <article class="art-card play-card pc-map" style="--x:3%; --y:14%; --r:-1.6deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Weekend in Lisbon<span class="art-kind">Map · live</span></header>
+        <iframe title="Map of Alfama, Lisbon" src="https://www.google.com/maps?q=Alfama,+Lisbon,+Portugal&z=14&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </article>
+
+      <article class="art-card play-card pc-doc" style="--x:26%; --y:6%; --r:1.2deg">
+        <header class="art-head grab"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#4285F4"/><path d="M14 2l5 5h-5z" fill="#a1c2fa"/><path d="M8 11h8M8 14h8M8 17h5" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg></span>Trip itinerary<span class="art-kind">Google Docs</span></header>
+        <div class="mini-doc" aria-hidden="true">
+          <span class="doc-line doc-h"></span>
+          <span class="doc-line" style="--w:96%"></span>
+          <span class="doc-line" style="--w:88%"></span>
+          <span class="doc-line" style="--w:92%"></span>
+          <span class="doc-line" style="--w:60%"></span>
+          <span class="doc-line doc-h doc-h2"></span>
+          <span class="doc-line" style="--w:90%"></span>
+          <span class="doc-line" style="--w:74%"></span>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-video" style="--x:51%; --y:11%; --r:1.4deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 12 21 8.8v6.4L15.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Intro to LLMs — Karpathy<span class="art-kind">Video</span></header>
+        <div class="yt-lite" data-yt="zjkBMFhNj_g">
+          <img src="https://i.ytimg.com/vi/zjkBMFhNj_g/hqdefault.jpg" alt="Video thumbnail: Intro to Large Language Models" loading="lazy"/>
+          <button class="yt-play" aria-label="Play video"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-tweet" style="--x:78%; --y:9%; --r:-2deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.1 9.3L4.4 20h2.4l5.4-5.4L16.8 20H20l-7.4-9.7L18.9 4h-2.4l-4.9 4.9L7.2 4H4z" fill="currentColor"/></svg></span>From the community<span class="art-kind">Post</span></header>
+        <div class="tweet-body">
+          <div class="tweet-who">
+            <img src="https://i.pravatar.cc/72?img=32" alt="" loading="lazy"/>
+            <div><strong>maya</strong><span class="mono">@tabhoarder</span></div>
+          </div>
+          <p>moved my whole job hunt onto one canvas. research, questions, salary math — all just… there. my chats are for chatting again 🥲</p>
+          <div class="tweet-meta mono"><span>♡ 1.2k</span><span>↻ 214</span><span>2:14 AM</span></div>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-sheet" style="--x:5%; --y:60%; --r:2deg">
+        <header class="art-head grab"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#0F9D58"/><path d="M14 2l5 5h-5z" fill="#87ceac"/><rect x="8" y="11" width="8" height="7.5" fill="none" stroke="#fff" stroke-width="1.1"/><path d="M8 14.5h8M11.5 11v7.5" stroke="#fff" stroke-width="1.1"/></svg></span>Cost breakdown<span class="art-kind">Google Sheets</span></header>
+        <div class="mini-sheet" aria-hidden="true">
+          <div class="sheet-row sheet-head"><span>A</span><span>B</span><span>C</span><span>D</span></div>
+          <div class="sheet-row"><span class="sheet-v">Flights</span><span>820</span><span>2</span><span class="sheet-hot">410</span></div>
+          <div class="sheet-row"><span class="sheet-v">Hotels</span><span>970</span><span>9</span><span>108</span></div>
+          <div class="sheet-row"><span class="sheet-v">Food</span><span>540</span><span>9</span><span>60</span></div>
+          <div class="sheet-row"><span class="sheet-v">Sum</span><span class="sheet-hot">2330</span><span></span><span></span></div>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-code" style="--x:29%; --y:56%; --r:-1.2deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m10 10-2.2 2L10 14M14 10l2.2 2L14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>split.ts<span class="art-kind">Code</span></header>
+        <div class="mini-code" aria-hidden="true">
+          <div class="code-line"><span class="ln">1</span><span class="tok-kw">export function</span> <span class="tok-fn">split</span>(bill, n) {</div>
+          <div class="code-line"><span class="ln">2</span>  <span class="tok-kw">const</span> tip = bill * <span class="tok-num">0.18</span></div>
+          <div class="code-line"><span class="ln">3</span>  <span class="tok-kw">return</span> (bill + tip) / n</div>
+          <div class="code-line"><span class="ln">4</span>}</div>
+          <div class="code-line"><span class="ln">5</span><span class="tok-com">// each pays →</span> <span class="tok-num">21.00</span></div>
+        </div>
+      </article>
+
+      <article class="art-card play-card card-sticky pc-sticky" style="--x:44%; --y:82%; --r:4deg">
+        <p>everything here is yours<br/>to move. <em>like it should be.</em></p>
+      </article>
+
+      <!-- source tiles: everything you already use, draggable -->
+      <article class="art-card play-card src-card src-docs" style="--x:16%; --y:2%; --r:-2deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#4285F4"/><path d="M14 2l5 5h-5z" fill="#a1c2fa"/><path d="M8 11h8M8 14h8M8 17h5" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+        <span class="src-label">Google Docs</span>
+      </article>
+
+      <article class="art-card play-card src-card src-sheets" style="--x:34%; --y:3.5%; --r:2deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#0F9D58"/><path d="M14 2l5 5h-5z" fill="#87ceac"/><rect x="8" y="11" width="8" height="7.5" fill="none" stroke="#fff" stroke-width="1.1"/><path d="M8 14.5h8M11.5 11v7.5" stroke="#fff" stroke-width="1.1"/></svg></span>
+        <span class="src-label">Google Sheets</span>
+      </article>
+
+      <article class="art-card play-card src-card src-slides" style="--x:64%; --y:2%; --r:-1.5deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#F4B400"/><path d="M14 2l5 5h-5z" fill="#fadf9a"/><rect x="8" y="11" width="8" height="5.5" rx="1" fill="none" stroke="#fff" stroke-width="1.3"/></svg></span>
+        <span class="src-label">Google Slides</span>
+      </article>
+
+      <article class="art-card play-card src-card src-x" style="--x:90%; --y:2%; --r:2.5deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#000"/><path d="M6.6 6l4.4 5.9L6.4 18h1.6l3.5-3.8L14.7 18H18l-4.6-6.2L17.5 6H16l-3.2 3.5L10.2 6H6.6z" fill="#fff"/></svg></span>
+        <span class="src-label">Tweets / X</span>
+      </article>
+
+      <article class="art-card play-card src-card src-web" style="--x:70%; --y:30%; --r:-2deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="#0f4fc7" stroke-width="1.7"/><path d="M3 12h18M12 2.8c3 3 3 15.4 0 18.4M12 2.8c-3 3-3 15.4 0 18.4M4.7 7.5h14.6M4.7 16.5h14.6" fill="none" stroke="#0f4fc7" stroke-width="1.25"/></svg></span>
+        <span class="src-label">Websites</span>
+      </article>
+
+      <article class="art-card play-card src-card src-gh" style="--x:47%; --y:34%; --r:1.5deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M12 1.6A10.4 10.4 0 0 0 8.7 21.9c.5.1.7-.2.7-.5v-1.8c-2.9.6-3.5-1.4-3.5-1.4-.5-1.2-1.2-1.5-1.2-1.5-.9-.7.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.3-.3-4.7-1.2-4.7-5.1 0-1.1.4-2 1.05-2.75-.1-.3-.45-1.3.1-2.7 0 0 .85-.3 2.8 1.05a9.6 9.6 0 0 1 5.1 0c1.95-1.35 2.8-1.05 2.8-1.05.55 1.4.2 2.4.1 2.7.65.75 1.05 1.65 1.05 2.75 0 3.9-2.4 4.8-4.7 5.05.35.35.7.95.7 1.95v2.9c0 .3.2.65.7.5A10.4 10.4 0 0 0 12 1.6z" fill="#181717"/></svg></span>
+        <span class="src-label">GitHub</span>
+      </article>
+
+      <article class="art-card play-card src-card src-notion" style="--x:88%; --y:40%; --r:-1.5deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="3.5" fill="#fff" stroke="#111" stroke-width="1.5"/><path d="M8 16.6V7.8l8 8.6V7.6" fill="none" stroke="#111" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="src-label">Notion</span>
+      </article>
+
+      <article class="art-card play-card src-card src-figma" style="--x:62%; --y:44%; --r:2deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M8.7 2.2h3.3v6.6H8.7a3.3 3.3 0 1 1 0-6.6z" fill="#F24E1E"/><path d="M12 2.2h3.3a3.3 3.3 0 0 1 0 6.6H12z" fill="#FF7262"/><path d="M8.7 8.8h3.3v6.6H8.7a3.3 3.3 0 1 1 0-6.6z" fill="#A259FF"/><circle cx="15.3" cy="12.1" r="3.3" fill="#1ABCFE"/><path d="M8.7 15.4h3.3v3.3a3.3 3.3 0 1 1-3.3-3.3z" fill="#0ACF83"/></svg></span>
+        <span class="src-label">Figma</span>
+      </article>
+
+      <article class="art-card play-card src-card src-pdf" style="--x:30%; --y:64%; --r:-2deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#E2231A"/><path d="M14 2l5 5h-5z" fill="#f4a19b"/><text x="11.6" y="17.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.4" font-weight="700" fill="#fff">PDF</text></svg></span>
+        <span class="src-label">PDF files</span>
+      </article>
+
+      <article class="art-card play-card src-card src-li" style="--x:88%; --y:72%; --r:1.5deg">
+        <span class="src-logo"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path d="M7.2 9.6H4.9V18h2.3V9.6zM6 5.9a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7zM18.6 18v-4.8c0-2.35-1.25-3.45-2.95-3.45-1.35 0-1.95.75-2.3 1.25V9.6H11V18h2.35v-4.5c0-1 .2-1.95 1.45-1.95s1.45 1.15 1.45 2.05V18h2.35z" fill="#fff"/></svg></span>
+        <span class="src-label">LinkedIn</span>
+      </article>
+
+      <article class="art-card play-card pc-tweet2" style="--x:73%; --y:58%; --r:1.8deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.1 9.3L4.4 20h2.4l5.4-5.4L16.8 20H20l-7.4-9.7L18.9 4h-2.4l-4.9 4.9L7.2 4H4z" fill="currentColor"/></svg></span>From the community<span class="art-kind">Post</span></header>
+        <div class="tweet-body">
+          <div class="tweet-who">
+            <img src="https://i.pravatar.cc/72?img=13" alt="" loading="lazy"/>
+            <div><strong>dev</strong><span class="mono">@solo_founder_era</span></div>
+          </div>
+          <p>sent my co-founder one link. she moved two cards, added a column, and we were done. no “which doc is current”. no exports. one canvas.</p>
+          <div class="tweet-meta mono"><span>♡ 3.4k</span><span>↻ 890</span><span>11:03 PM</span></div>
+        </div>
+      </article>
+
+    </div>
+    <div class="canvas-frame-label mono" aria-hidden="true">canvas · 60% zoom · autosaved</div>
+  </div>
+</section>
+
+<!-- ============ SCENE 03 — ARTIFACTS (reusable outputs) ============ -->
+<section class="artifacts scene" id="artifacts" data-scene="03" data-scene-name="the artifacts">
+  <div class="playground-head">
+    <p class="mono eyebrow">outputs, not dead ends</p>
+    <h2>Create artifacts you can<br/><em>use and reuse.</em></h2>
+    <p class="mono playground-hint">every answer becomes a real thing on the canvas — live, editable, and yours to build on</p>
+  </div>
+
+  <div class="artifact-grid">
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Coffee spend<span class="art-kind">Graph</span></header>
+      <div class="mini-chart big-chart" aria-hidden="true">
+        <div class="bar" style="--h:40%"></div><div class="bar" style="--h:65%"></div>
+        <div class="bar" style="--h:52%"></div><div class="bar bar-hot" style="--h:90%"></div>
+        <div class="bar" style="--h:70%"></div><div class="bar" style="--h:58%"></div>
+        <div class="bar" style="--h:76%"></div><div class="bar" style="--h:47%"></div>
+      </div>
+    </article>
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Competitors<span class="art-kind">Table</span></header>
+      <table class="mini-table">
+        <tr><th>Tool</th><th>Price</th><th></th></tr>
+        <tr><td>Ours</td><td>Free</td><td><span class="chip chip-blue">You</span></td></tr>
+        <tr><td>Acme</td><td>$29</td><td><span class="chip">$$</span></td></tr>
+        <tr><td>Globex</td><td>$18</td><td><span class="chip">$</span></td></tr>
+      </table>
+    </article>
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Launch week<span class="art-kind">To-do</span></header>
+      <ul class="mini-todo">
+        <li class="done">Write the copy</li>
+        <li class="done">Record the demo</li>
+        <li>Ship it</li>
+        <li>Tell everyone</li>
+      </ul>
+    </article>
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>June<span class="art-kind">Calendar</span></header>
+      <div class="mini-calendar" aria-hidden="true">
+        <div class="cal-dow"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+        <div class="cal-grid">
+          <span></span><span></span><span></span><span></span><span></span><span class="cal-dim">1</span><span class="cal-dim">2</span>
+          <span>3</span><span>4</span><span class="cal-on">5</span><span>6</span><span>7</span><span class="cal-dim">8</span><span class="cal-dim">9</span>
+          <span>10</span><span>11</span><span>12</span><span class="cal-hot">13</span><span>14</span><span class="cal-dim">15</span><span class="cal-dim">16</span>
+          <span>17</span><span>18</span><span>19</span><span>20</span><span class="cal-on">21</span><span class="cal-dim">22</span><span class="cal-dim">23</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="6" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="12" r="2.2" fill="currentColor"/></svg></span>Version history<span class="art-kind">Timeline</span></header>
+      <div class="mini-timeline" aria-hidden="true">
+        <div class="tl-line"></div>
+        <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">v0</span></div>
+        <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">v2</span></div>
+        <div class="tl-node tl-active"><span class="tl-dot"></span><span class="tl-lbl">v5</span></div>
+        <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">v7</span></div>
+      </div>
+    </article>
+
+    <article class="art-card af-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="12.5" y="15" width="4" height="3" rx="1" fill="currentColor"/></svg></span>Tip splitter<span class="art-kind">Custom tool</span></header>
+      <div class="mini-tool" aria-hidden="true">
+        <div class="tool-row"><span class="tool-lbl">Bill</span><span class="tool-val">$84.00</span></div>
+        <div class="tool-slider"><span class="tool-track"></span><span class="tool-knob"></span></div>
+        <div class="tool-row"><span class="tool-lbl">Split 4 ways</span><span class="tool-val tool-hot">$21.00</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============ SCENE 04 — THE CHATFLOW (one chat, everything buried) ============ -->
+<section class="chatflow scene" id="chatflow" data-scene="04" data-scene-name="lost in the scroll">
+  <div class="chatflow-pin">
+
+    <!-- the swarm: chat windows that erupt out of the first one (populated by JS) -->
+    <div class="cf-swarm" id="cfSwarm" aria-hidden="true"></div>
+
+    <!-- the live chat window -->
+    <div class="cf-window" id="cfWindow">
+      <div class="cf-bar mono">
+        <span class="cf-dots"><i class="cf-dot"></i><i class="cf-dot"></i><i class="cf-dot"></i></span>
+        <span>new chat · just now</span>
+      </div>
+      <div class="cf-thread" id="cfThread">
+        <div class="cf-viewport" id="cfViewport">
+
+          <!-- 1 · a question -->
+          <div class="cf-item cf-user">Plan me a 5-day Portugal trip on a budget — and check this receipt.</div>
+
+          <!-- 2 · a dropped input -->
+          <div class="cf-item cf-drop">
+            <span class="cf-drop-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m5 19 5.5-5.5L14 17l3-3 3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+            receipt.png · dropped input
+          </div>
+
+          <!-- 3 · a graph -->
+          <div class="cf-item cf-ai cf-art">
+            <div class="cf-art-head mono"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>daily spend</div>
+            <div class="mini-chart big-chart" aria-hidden="true">
+              <div class="bar" style="--h:44%"></div><div class="bar" style="--h:66%"></div>
+              <div class="bar" style="--h:52%"></div><div class="bar bar-hot" style="--h:90%"></div>
+              <div class="bar" style="--h:70%"></div><div class="bar" style="--h:58%"></div>
+            </div>
+          </div>
+
+          <!-- 4 · a document -->
+          <div class="cf-item cf-ai cf-art">
+            <div class="cf-art-head mono"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 21V4.5A1.5 1.5 0 0 1 6.5 3z M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>itinerary.md</div>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line doc-h"></span>
+              <span class="doc-line" style="--w:96%"></span>
+              <span class="doc-line" style="--w:88%"></span>
+              <span class="doc-line" style="--w:92%"></span>
+              <span class="doc-line" style="--w:64%"></span>
+            </div>
+          </div>
+
+          <!-- 5 · some code -->
+          <div class="cf-item cf-ai cf-art">
+            <div class="cf-art-head mono"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m10 10-2.2 2L10 14M14 10l2.2 2L14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>split.ts</div>
+            <div class="mini-code" aria-hidden="true">
+              <div class="code-line"><span class="ln">1</span><span class="tok-kw">export function</span> <span class="tok-fn">split</span>(bill, n) {</div>
+              <div class="code-line"><span class="ln">2</span>  <span class="tok-kw">const</span> tip = bill * <span class="tok-num">0.18</span></div>
+              <div class="code-line"><span class="ln">3</span>  <span class="tok-kw">return</span> (bill + tip) / n</div>
+              <div class="code-line"><span class="ln">4</span>}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- the statement — lands after the swarm recedes -->
+    <div class="cf-statement" aria-hidden="true">
+      <p class="cf-statement-line" id="cfStatementLine">Your inputs and outputs<br/>shouldn’t be <em>lost in chats.</em></p>
+      <p class="cf-statement-sub mono">reuse them · repurpose them · keep them</p>
+    </div>
+
+    <p class="mono chatflow-hint">↓ one chat — and everything you made is already buried</p>
+  </div>
+</section>
+
+<!-- ============ SCENE 05 — THE REVEAL (what if it stayed) ============ -->
+<section class="reveal scene" id="reveal" data-scene="05" data-scene-name="what if it stayed">
+  <div class="reveal-pin">
+    <div class="dotgrid reveal-grid" aria-hidden="true"></div>
+    <p class="reveal-ask" id="revealAsk">What if everything you made…<br/><em>just stayed?</em></p>
+  </div>
+</section>
+
+<!-- ============ SCENE 06 — ASK ON THE CANVAS ============ -->
+<section class="interact scene" id="interact" data-scene="06" data-scene-name="ask on the canvas">
+  <div class="playground-head">
+    <p class="mono eyebrow">everything is live</p>
+    <h2>Ask anything.<br/>Right on the <em>canvas.</em></h2>
+    <p class="mono playground-hint">drop a question anywhere · wire it to something you added · or pull it from an artifact and watch it update</p>
+  </div>
+
+  <div class="interact-stage">
+    <svg id="interactSvg" class="interact-svg" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <marker id="wireHead" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M1 1 L7 4.5 L1 8" fill="none" stroke="var(--blue)" stroke-width="1.7"/></marker>
+      </defs>
+
+      <!-- connectors -->
+      <path class="ix-wire ix-wire1" d="M300 220 C 370 250, 405 300, 470 312" fill="none" marker-end="url(#wireHead)"/>
+      <path class="ix-wire ix-wire2" d="M730 300 C 770 296, 788 300, 830 300" fill="none" marker-end="url(#wireHead)"/>
+
+      <!-- INPUT: a dropped screenshot -->
+      <g class="ix-card ix-input" transform="translate(46 130)">
+        <rect class="ix-bg" width="254" height="184" rx="14"/>
+        <line class="ix-div" x1="0" y1="36" x2="254" y2="36"/>
+        <text class="ix-title" x="16" y="24">receipt.png</text>
+        <text class="ix-kind" x="238" y="24" text-anchor="end">dropped input</text>
+        <rect class="ix-img" x="16" y="50" width="222" height="118" rx="8"/>
+        <circle class="ix-img-sun" cx="52" cy="88" r="12"/>
+        <path class="ix-img-hill" d="M16 168 L74 120 L120 150 L182 108 L238 168 Z"/>
+      </g>
+
+      <!-- QUESTION node (outer <g> holds position, inner <g> is animated) -->
+      <g class="ix-card" transform="translate(470 250)">
+        <g class="ix-q">
+          <rect class="ix-q-bg" width="260" height="118" rx="20"/>
+          <circle class="ix-q-badge" cx="36" cy="38" r="18"/>
+          <text class="ix-q-mark" x="36" y="45" text-anchor="middle">?</text>
+          <text class="ix-q-line1" x="66" y="40">If Porto becomes</text>
+          <text class="ix-q-line2" x="66" y="66">4 nights — new total?</text>
+          <text class="ix-q-kind" x="238" y="102" text-anchor="end">question</text>
+        </g>
+      </g>
+
+      <!-- ARTIFACT: budget table that updates -->
+      <g class="ix-card ix-artifact" transform="translate(830 150)">
+        <rect class="ix-bg" width="300" height="272" rx="14"/>
+        <line class="ix-div" x1="0" y1="40" x2="300" y2="40"/>
+        <text class="ix-title" x="16" y="26">Trip budget</text>
+        <text class="ix-kind" x="284" y="26" text-anchor="end">table · live</text>
+
+        <text class="ix-th" x="16" y="66">City</text>
+        <text class="ix-th" x="168" y="66">Nights</text>
+        <text class="ix-th" x="284" y="66" text-anchor="end">€</text>
+
+        <text class="ix-td" x="16" y="100">Lisbon</text>
+        <text class="ix-td" x="168" y="100">4</text>
+        <text class="ix-td ix-num" x="284" y="100" text-anchor="end">420</text>
+
+        <rect class="ix-hl" x="150" y="116" width="142" height="26" rx="7"/>
+        <text class="ix-td" x="16" y="134">Porto</text>
+        <text class="ix-td ix-porto-n" x="168" y="134">3</text>
+        <text class="ix-td ix-num ix-porto-e" x="284" y="134" text-anchor="end">310</text>
+
+        <text class="ix-td" x="16" y="168">Madrid</text>
+        <text class="ix-td" x="168" y="168">2</text>
+        <text class="ix-td ix-num" x="284" y="168" text-anchor="end">240</text>
+
+        <line class="ix-rowline" x1="16" y1="190" x2="284" y2="190"/>
+        <text class="ix-total-l" x="16" y="222">Total</text>
+        <text class="ix-total ix-num" x="284" y="222" text-anchor="end">970</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ SCENE 07 — WHAT YOU CAN DO ============ -->
+<section class="usecases scene" id="usecases" data-scene="07" data-scene-name="what you can do">
+  <div class="playground-head">
+    <p class="mono eyebrow">a canvas for anything</p>
+    <h2>What you can do<br/>on <em>Flowstate</em>.</h2>
+    <p class="mono playground-hint">start blank — or from one of these — and let it grow</p>
+  </div>
+
+  <div class="usecase-grid">
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Plan a trip<span class="art-kind">Maps</span></header>
+      <p class="usecase-body">Pin places, build the budget, and draft the itinerary side by side — ask “what if we add a night?” and the total redoes itself.</p>
+    </article>
+
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Research a topic<span class="art-kind">Board</span></header>
+      <p class="usecase-body">Pull articles, videos, and notes onto one board, then ask questions across all of them at once.</p>
+    </article>
+
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a3.7 3.7 0 0 0-4.9 4.4L3 17.5 6.5 21l6.8-6.8a3.7 3.7 0 0 0 4.4-4.9l-2.3 2.3-2.4-.6-.6-2.4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Build a mini tool<span class="art-kind">Live</span></header>
+      <p class="usecase-body">Turn a question into a working calculator or widget you can keep on the canvas and reuse.</p>
+    </article>
+
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7.5" width="18" height="12.5" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 7.5V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v1.5M3 13h18" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Run a job hunt<span class="art-kind">Track</span></header>
+      <p class="usecase-body">Track roles, tailor answers, and run the salary math — all in one place instead of ten tabs.</p>
+    </article>
+
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 6.2C10.4 4.9 8 4.3 4.5 4.5v13c3.5-.2 5.9.4 7.5 1.7 1.6-1.3 4-1.9 7.5-1.7v-13C16 4.3 13.6 4.9 12 6.2zM12 6.2V19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Study something<span class="art-kind">Learn</span></header>
+      <p class="usecase-body">Collect explainers, turn them into notes and flashcards, then quiz yourself right where you learned it.</p>
+    </article>
+
+    <article class="usecase-card">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M14 4c3.5 0 6 2.5 6 6 0 3-2.2 6.4-6 9-3.8-2.6-6-6-6-9 0-3.5 2.5-6 6-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="14" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 15c-2 .6-3 2.2-3 5 2.8 0 4.4-1 5-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Launch a product<span class="art-kind">Ship</span></header>
+      <p class="usecase-body">Checklists, timelines, and copy your whole team can move and edit together in real time.</p>
+    </article>
+  </div>
+</section>
+
+<!-- ============ SCENE 08 — FINALE: THE COLLABORATIVE CANVAS ============ -->
+<section class="collab scene" id="collab" data-scene="08" data-scene-name="better together">
+  <div class="dotgrid collab-grid" aria-hidden="true"></div>
+
+  <div class="collab-stage" id="collabStage" aria-hidden="true">
+
+    <!-- items the crew keeps dropping on the canvas -->
+    <div class="collab-item collab-q" id="ciQ1" style="--x:6%; --y:14%; --r:-3deg">
+      <span class="mono q-tag">question · mo</span>
+      <p>@ai — can we fit Lisbon <em>and</em> Porto into one weekend?</p>
+    </div>
+
+    <article class="art-card collab-item collab-sticky card-sticky" id="ciSticky2" style="--x:42%; --y:6%; --r:3.5deg">
+      <p>everyone’s actually<br/>here 👀</p>
+    </article>
+
+    <article class="art-card collab-item collab-video" id="ciVideo" style="--x:70%; --y:11%; --r:2deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 12 21 8.8v6.4L15.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>But what is a neural network?<span class="art-kind">Video</span></header>
+      <div class="yt-lite"><img src="https://i.ytimg.com/vi/aircAruvnKk/hqdefault.jpg" alt="" loading="lazy"/><span class="yt-play yt-play-mini"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span></div>
+    </article>
+
+    <article class="art-card collab-item collab-sticky card-sticky" id="ciSticky" style="--x:80%; --y:38%; --r:-4deg">
+      <p>this is the version.<br/>ship it 🚀</p>
+    </article>
+
+    <article class="art-card collab-item collab-tweet" id="ciTweet" style="--x:71%; --y:64%; --r:-2deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.1 9.3L4.4 20h2.4l5.4-5.4L16.8 20H20l-7.4-9.7L18.9 4h-2.4l-4.9 4.9L7.2 4H4z" fill="currentColor"/></svg></span>Found this<span class="art-kind">Post</span></header>
+      <div class="tweet-body">
+        <div class="tweet-who">
+          <img src="https://i.pravatar.cc/72?img=14" alt="" loading="lazy"/>
+          <div><strong>sam</strong><span class="mono">@canvasbrain</span></div>
+        </div>
+        <p>our whole team plans inside one flowstate canvas now. meetings got 20 minutes shorter. not a joke.</p>
+        <div class="tweet-meta mono"><span>♡ 842</span><span>↻ 96</span><span>9:41 AM</span></div>
+      </div>
+    </article>
+
+    <div class="collab-item collab-q" id="ciQ2" style="--x:46%; --y:78%; --r:2deg">
+      <span class="mono q-tag">question · kai</span>
+      <p>@ai — turn this thread into a launch checklist</p>
+    </div>
+
+    <article class="art-card collab-item collab-todo" id="ciTodo" style="--x:18%; --y:74%; --r:2.5deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12M4 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Launch day<span class="art-kind">To-do</span></header>
+      <ul class="mini-todo">
+        <li class="done">Draft announcement</li>
+        <li class="done">Fix pricing page</li>
+        <li>Press the big button</li>
+      </ul>
+    </article>
+
+    <article class="art-card collab-item collab-chart" id="ciChart" style="--x:5%; --y:42%; --r:-2deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Signups this week<span class="art-kind">Chart</span></header>
+      <div class="mini-chart" aria-hidden="true">
+        <div class="bar" style="--h:28%"></div><div class="bar" style="--h:46%"></div>
+        <div class="bar" style="--h:60%"></div><div class="bar" style="--h:52%"></div>
+        <div class="bar bar-hot" style="--h:92%"></div><div class="bar" style="--h:70%"></div>
+      </div>
+    </article>
+
+    <!-- the crew -->
+    <div class="collab-cursor" id="curMo" style="--c:#e0563f"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">mo</span></div>
+    <div class="collab-cursor" id="curZed" style="--c:#14976b"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">zed</span></div>
+    <div class="collab-cursor" id="curKai" style="--c:#8a4fd8"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">kai</span></div>
+    <div class="collab-cursor" id="curIvy" style="--c:#d9930d"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">ivy</span></div>
+
+  </div>
+
+  <div class="collab-center">
+    <p class="mono eyebrow">made for more than one</p>
+    <h2 class="collab-title">A truly <em>collaborative</em><br/>AI workspace.</h2>
+    <a class="btn btn-blue btn-big" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+  </div>
+
+  <footer class="footer">
+    <span class="mono">© 2026 Flowstate</span>
+    <span class="mono">made for flow · flowstatetool.com</span>
+  </footer>
+</section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/Draggable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/InertiaPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrambleTextPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

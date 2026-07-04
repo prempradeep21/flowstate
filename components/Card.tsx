@@ -43,7 +43,6 @@ import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { finalizeCardResponse } from "@/lib/artifactGeneration";
-import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import {
   clearQaTurnTimeout,
   startQaTurnTimeout,
@@ -630,44 +629,9 @@ function CardInner({ card }: CardProps) {
   const submitQuestion = (question: string, options?: FollowUpOptions) => {
     const q = question.trim();
     if (!q || turnInProgress || !canEdit) return;
-    recordUndo();
     if (user?.id) stampContributor(user.id, card.id);
     restartAsk();
-    const st = useCanvasStore.getState();
-    const attachedFromPlug = resolveCardAttachedArtifactRefs(card.id, {
-      cards: st.cards,
-      artifactPlugConnections: st.artifactPlugConnections,
-      canvasArtifactNodes: st.canvasArtifactNodes,
-      plugComposerAttachments: st.plugComposerAttachments,
-      sessionArtifacts: st.sessionArtifacts,
-    });
-    const attachedArtifacts =
-      options?.attachedArtifacts?.length
-        ? options.attachedArtifacts
-        : card.attachedArtifacts?.length
-          ? card.attachedArtifacts
-          : attachedFromPlug.length
-            ? attachedFromPlug
-            : undefined;
-    updateCard(card.id, {
-      question: q,
-      answer: "",
-      status: "thinking",
-      thinkingLabel: "Thinking",
-      responseType: "text",
-      artifactPayload: undefined,
-      pendingEmittedArtifacts: undefined,
-      attachedImages: options?.pendingImages,
-      images: undefined,
-      outputArtifactId: undefined,
-      outputArtifactVersionId: undefined,
-      attachedArtifacts,
-      attachedAssets: options?.attachedAssets,
-      pendingFiles: options?.pendingFiles,
-      quotedSelection: undefined,
-      answerExplains: undefined,
-      ...turnMetricsOnSubmit(),
-    });
+    useCanvasStore.getState().submitCardQuestion(card.id, q, options);
   };
 
   const submitFollowUp = (question: string, options?: FollowUpOptions) => {

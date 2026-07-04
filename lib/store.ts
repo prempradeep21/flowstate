@@ -80,8 +80,15 @@ import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import {
   getFamilyCardIds,
   getThreadRootCard,
+  getThreadTailCardId,
   pickDefaultThreadId,
 } from "@/lib/chatThreads";
+import {
+  computeFocusRootCardPosition,
+  getLatestArtifactIdForThread,
+  getLatestThreadIdForArtifact,
+} from "@/lib/focusView";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { runSilentAutoCollapse } from "@/lib/collapseSoundSuppress";
 import {
   registerThreadInactivityHandlers,
@@ -433,7 +440,7 @@ export interface Viewport {
 }
 
 export type ConnectorStyle = "curvy" | "orthogonal" | "straight";
-export type AppViewMode = "canvas" | "chat";
+export type AppViewMode = "canvas" | "chat" | "focus";
 
 export type CanvasBackgroundStyle = "grid" | "ambient-gradient" | "static-image";
 
@@ -616,6 +623,26 @@ interface CanvasState {
   activeThreadId: string | null;
   setViewMode: (mode: AppViewMode) => void;
   setActiveThreadId: (threadId: string) => void;
+
+  /** Focus view — artifact shown in the middle panel (session-only). */
+  focusArtifactId: string | null;
+  /** Focus view — "New chat" pressed; thread is created on first submit (session-only). */
+  focusDraftChat: { artifactRef: AttachedArtifactRef | null } | null;
+  setFocusArtifactId: (artifactId: string | null) => void;
+  focusSelectChat: (threadId: string) => void;
+  focusSelectArtifact: (artifactId: string) => void;
+  focusStartNewChat: (artifactRef: AttachedArtifactRef | null) => void;
+  /** Submit a question into an existing (empty/root) card — shared by Card and focus view. */
+  submitCardQuestion: (
+    cardId: string,
+    question: string,
+    options?: FollowUpOptions,
+  ) => void;
+  /** Focus view composer submit — routes to draft root, empty tail, or follow-up. */
+  submitFocusMessage: (
+    question: string,
+    options?: FollowUpOptions,
+  ) => string | null;
 
   canvasPlacementRequest: CanvasPlacementTool | null;
   activeCanvasPlacement: CanvasPlacementTool | null;
@@ -1920,12 +1947,150 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ artifactPlacementRequest: pick, viewMode: "canvas" }),
   setViewMode: (mode) =>
     set((state) => {
-      if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
-        return { viewMode: mode, activeThreadId: state.threadOrder[0] };
+      const next: Partial<CanvasState> = { viewMode: mode };
+      if (
+        (mode === "chat" || mode === "focus") &&
+        !state.activeThreadId &&
+        state.threadOrder[0]
+      ) {
+        next.activeThreadId = state.threadOrder[0];
       }
-      return { viewMode: mode };
+      if (mode === "focus" && state.focusArtifactId === null) {
+        const threadId = next.activeThreadId ?? state.activeThreadId;
+        if (threadId) {
+          next.focusArtifactId = getLatestArtifactIdForThread(state, threadId);
+        }
+      }
+      return next;
     }),
   setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
+
+  focusArtifactId: null,
+  focusDraftChat: null,
+  setFocusArtifactId: (artifactId) => set({ focusArtifactId: artifactId }),
+  focusSelectChat: (threadId) =>
+    set((state) => ({
+      activeThreadId: threadId,
+      focusDraftChat: null,
+      focusArtifactId: getLatestArtifactIdForThread(state, threadId),
+    })),
+  focusSelectArtifact: (artifactId) =>
+    set((state) => {
+      const threadId = getLatestThreadIdForArtifact(state, artifactId);
+      return threadId
+        ? {
+            focusArtifactId: artifactId,
+            activeThreadId: threadId,
+            focusDraftChat: null,
+          }
+        : { focusArtifactId: artifactId };
+    }),
+  focusStartNewChat: (artifactRef) =>
+    set({
+      focusDraftChat: { artifactRef },
+      ...(artifactRef ? {} : { focusArtifactId: null }),
+    }),
+
+  submitCardQuestion: (cardId, question, options) => {
+    const q = question.trim();
+    if (!q) return;
+    const st = get();
+    const card = st.cards[cardId];
+    if (!card) return;
+    st.recordUndo();
+    const attachedFromPlug = resolveCardAttachedArtifactRefs(cardId, {
+      cards: st.cards,
+      artifactPlugConnections: st.artifactPlugConnections,
+      canvasArtifactNodes: st.canvasArtifactNodes,
+      plugComposerAttachments: st.plugComposerAttachments,
+      sessionArtifacts: st.sessionArtifacts,
+    });
+    const attachedArtifacts = options?.attachedArtifacts?.length
+      ? options.attachedArtifacts
+      : card.attachedArtifacts?.length
+        ? card.attachedArtifacts
+        : attachedFromPlug.length
+          ? attachedFromPlug
+          : undefined;
+    st.updateCard(cardId, {
+      question: q,
+      answer: "",
+      status: "thinking",
+      thinkingLabel: "Thinking",
+      responseType: "text",
+      artifactPayload: undefined,
+      pendingEmittedArtifacts: undefined,
+      attachedImages: options?.pendingImages,
+      images: undefined,
+      outputArtifactId: undefined,
+      outputArtifactVersionId: undefined,
+      attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
+      pendingFiles: options?.pendingFiles,
+      quotedSelection: undefined,
+      answerExplains: undefined,
+      ...turnMetricsOnSubmit(),
+    });
+  },
+
+  submitFocusMessage: (question, options) => {
+    const q = question.trim();
+    if (!q) return null;
+    const state = get();
+    if (state.canvasReadOnly) return null;
+    const draft = state.focusDraftChat;
+    const activeThreadId = state.activeThreadId;
+
+    if (draft || !activeThreadId || !state.threads[activeThreadId]) {
+      const ref = draft?.artifactRef ?? null;
+      const position = computeFocusRootCardPosition(state);
+      const cardId = ref
+        ? state.createRootCardWithAttachment(position, ref)
+        : state.createRootCard(position);
+      if (!cardId) return null;
+      if (ref) {
+        const node = findCanvasNodeByArtifactId(
+          get().canvasArtifactNodes,
+          ref.artifactId,
+        );
+        if (node) {
+          get().addArtifactPlugConnection({
+            artifactNodeId: node.id,
+            cardId,
+            fromSide: "right",
+            toSide: "left",
+          });
+        }
+      }
+      get().submitCardQuestion(cardId, q, options);
+      const threadId = get().cards[cardId]?.threadId ?? null;
+      set({
+        focusDraftChat: null,
+        ...(threadId ? { activeThreadId: threadId } : {}),
+      });
+      return cardId;
+    }
+
+    const tailId = getThreadTailCardId(
+      {
+        cards: state.cards,
+        connections: state.connections,
+        cardOrder: state.cardOrder,
+        threads: {},
+        threadOrder: [],
+      },
+      activeThreadId,
+    );
+    if (!tailId) return null;
+    const tail = state.cards[tailId];
+    if (!tail) return null;
+    if (tail.status === "empty") {
+      get().submitCardQuestion(tailId, q, options);
+      return tailId;
+    }
+    if (tail.status !== "done") return null;
+    return get().createFollowUp(tailId, q, options);
+  },
 
   viewport: { x: 0, y: 0, scale: 1 },
   viewportSettledScale: 1,
@@ -5236,6 +5401,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       activeCanvasPlacement: null,
       artifactPlacementRequest: null,
       viewMode: "canvas",
+      focusArtifactId: null,
+      focusDraftChat: null,
       collaborationHasEdits: false,
       canvasReadOnly: false,
       canvasLoadReveal: null,
@@ -5349,6 +5516,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSkillOrder: [...(snapshotNorm.canvasSkillOrder ?? [])],
         canvasLoadReveal: preserveEphemeral ? state.canvasLoadReveal : canvasLoadReveal,
         activeThreadId: preserveEphemeral ? state.activeThreadId : (threadOrder[0] ?? null),
+        focusArtifactId: preserveEphemeral ? state.focusArtifactId : null,
+        focusDraftChat: preserveEphemeral ? state.focusDraftChat : null,
         openArtifactCardId: preserveEphemeral ? state.openArtifactCardId : null,
         openGroupArtifactId: preserveEphemeral ? state.openGroupArtifactId : null,
         openSessionArtifactId: preserveEphemeral ? state.openSessionArtifactId : null,
