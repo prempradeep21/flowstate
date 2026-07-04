@@ -348,17 +348,27 @@ function MapView({
   const [addPinMode, setAddPinMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewingLabel, setViewingLabel] = useState<string | null>(null);
+  const [optimisticPlaces, setOptimisticPlaces] = useState<MapSavedPlace[]>([]);
 
   addPinModeRef.current = addPinMode;
   canEditRef.current = canEdit;
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
 
+  useEffect(() => {
+    setOptimisticPlaces([]);
+  }, [savedPlaces]);
+
   const handleRemove = useCallback(
     (placeId: string) => {
-      onSavePlaces(savedPlaces.filter((p) => p.id !== placeId));
+      const isOptimistic = optimisticPlaces.some((p) => p.id === placeId);
+      if (isOptimistic) {
+        setOptimisticPlaces((current) => current.filter((p) => p.id !== placeId));
+      } else {
+        onSavePlaces(savedPlaces.filter((p) => p.id !== placeId));
+      }
     },
-    [onSavePlaces, savedPlaces],
+    [onSavePlaces, savedPlaces, optimisticPlaces],
   );
 
   onRemoveRef.current = handleRemove;
@@ -441,6 +451,9 @@ function MapView({
           type?: string;
         };
         const place = createMapSavedPlace(hit);
+        // Optimistically update the UI immediately
+        setOptimisticPlaces((current) => [...current, place]);
+        // Then save to the artifact
         onSavePlacesRef.current([...savedPlacesRef.current, place]);
       } finally {
         setSaving(false);
@@ -470,8 +483,9 @@ function MapView({
     const map = mapRef.current;
     const layer = savedLayerRef.current;
     if (!map || !layer) return;
-    syncSavedMarkers(map, layer, savedPlaces);
-  }, [savedPlaces, canEdit, syncSavedMarkers]);
+    const combinedPlaces = [...savedPlaces, ...optimisticPlaces];
+    syncSavedMarkers(map, layer, combinedPlaces);
+  }, [savedPlaces, optimisticPlaces, canEdit, syncSavedMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -496,10 +510,11 @@ function MapView({
   return (
     <div className="relative h-full w-full min-h-0 cursor-default">
       <div ref={containerRef} data-no-drag className="h-full w-full" />
+      <MapSearchBar onSelect={handleSearchSelect} />
       {canEdit && (
         <div
           data-no-drag
-          className="absolute left-2 top-2 z-[500]"
+          className="absolute right-80 top-2 z-[500]"
         >
           <AddPinButton
             active={addPinMode}
@@ -508,7 +523,6 @@ function MapView({
           />
         </div>
       )}
-      <MapSearchBar onSelect={handleSearchSelect} />
       {showLabel && (
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
           {viewingLabel && viewingLabel !== primaryLabel && (
