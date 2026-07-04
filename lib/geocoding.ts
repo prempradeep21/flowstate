@@ -1,4 +1,8 @@
-import type { MapArtifactData, MapPlace } from "@/lib/artifactTypes";
+import type {
+  MapArtifactData,
+  MapPlace,
+  MapSavedPlace,
+} from "@/lib/artifactTypes";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
@@ -128,12 +132,14 @@ export async function searchPlaces(
     .filter((r): r is MapSearchResult => r !== null);
 }
 
-export async function geocodeMapArtifact(
-  data: Record<string, unknown>,
-): Promise<MapArtifactData | null> {
-  const query = placeNameFromData(data);
-  if (!query) return null;
+/** Cap how many saved pins we geocode per emit to bound latency/abuse. */
+const MAX_SAVED_PLACES_TO_GEOCODE = 15;
 
+function newSavedPlaceId(): string {
+  return `pin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+async function geocodeOneHit(query: string): Promise<NominatimResult | null> {
   const url = new URL(NOMINATIM_URL);
   url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
@@ -143,7 +149,84 @@ export async function geocodeMapArtifact(
   if (!res.ok) return null;
 
   const results = (await res.json()) as NominatimResult[];
-  const hit = results[0];
+  return results[0] ?? null;
+}
+
+/**
+ * Resolve the AI-emitted `savedPlaces` into pins with real coordinates.
+ *
+ * The model reliably produces place *names* but not accurate lat/lng, so any
+ * pin lacking valid coordinates is geocoded by name. Pins that already carry
+ * finite coordinates (e.g. preserved from a prior version or a user click) are
+ * trusted as-is so editing a map never re-geocodes existing markers.
+ */
+async function geocodeSavedPlaces(
+  data: Record<string, unknown>,
+  context: string,
+): Promise<MapSavedPlace[]> {
+  const rawList = Array.isArray(data.savedPlaces) ? data.savedPlaces : [];
+  const out: MapSavedPlace[] = [];
+
+  for (const raw of rawList.slice(0, MAX_SAVED_PLACES_TO_GEOCODE)) {
+    if (!raw || typeof raw !== "object") continue;
+    const o = raw as Record<string, unknown>;
+
+    const id =
+      typeof o.id === "string" && o.id.trim() ? o.id.trim() : newSavedPlaceId();
+    const type =
+      typeof o.type === "string" && o.type.trim() ? o.type.trim() : undefined;
+    const name = typeof o.name === "string" ? o.name.trim() : "";
+    const label = typeof o.label === "string" ? o.label.trim() : "";
+    const displayLabel = label || name;
+
+    const existingLat =
+      typeof o.lat === "number" ? o.lat : parseFloat(String(o.lat ?? ""));
+    const existingLng =
+      typeof o.lng === "number" ? o.lng : parseFloat(String(o.lng ?? ""));
+
+    // Trust coordinates the model/user already provided.
+    if (
+      Number.isFinite(existingLat) &&
+      Number.isFinite(existingLng) &&
+      displayLabel
+    ) {
+      out.push({ id, label: displayLabel, lat: existingLat, lng: existingLng, type });
+      continue;
+    }
+
+    // Otherwise geocode by name, disambiguated with the primary place.
+    const queryBase = name || label;
+    if (!queryBase) continue;
+    const query =
+      context && !queryBase.toLowerCase().includes(context.toLowerCase())
+        ? `${queryBase}, ${context}`
+        : queryBase;
+
+    const hit = await geocodeOneHit(query);
+    if (!hit) continue;
+    const lat = parseFloat(hit.lat);
+    const lng = parseFloat(hit.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+    out.push({
+      id,
+      label: displayLabel || queryBase,
+      lat,
+      lng,
+      type: type ?? hit.type,
+    });
+  }
+
+  return out;
+}
+
+export async function geocodeMapArtifact(
+  data: Record<string, unknown>,
+): Promise<MapArtifactData | null> {
+  const query = placeNameFromData(data);
+  if (!query) return null;
+
+  const hit = await geocodeOneHit(query);
   if (!hit) return null;
 
   const lat = parseFloat(hit.lat);
@@ -157,8 +240,11 @@ export async function geocodeMapArtifact(
     lng,
   };
 
+  const savedPlaces = await geocodeSavedPlaces(data, query);
+
   return {
     place,
     zoom: zoomFromNominatim(hit.type, hit.class),
+    savedPlaces,
   };
 }
