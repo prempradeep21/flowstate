@@ -107,26 +107,6 @@
     addEventListener("resize", updateArrows);
   }
 
-  /* ---------- scene HUD (live midpoint check — pin-spacer safe) ---------- */
-  const hudNum = document.querySelector(".scene-hud-num");
-  const hudName = document.querySelector(".scene-hud-name");
-  const hudSections = [...document.querySelectorAll("[data-scene]")];
-  const hudTotal = String(hudSections.length).padStart(2, "0");
-  let hudCurrent = "";
-  gsap.ticker.add(() => {
-    const mid = innerHeight * 0.55;
-    let active = null;
-    for (const sec of hudSections) {
-      const r = sec.getBoundingClientRect();
-      if (r.top <= mid && r.bottom >= mid) { active = sec; break; }
-    }
-    if (active && active.dataset.scene !== hudCurrent) {
-      hudCurrent = active.dataset.scene;
-      hudNum.textContent = `scene ${hudCurrent} / ${hudTotal}`;
-      hudName.textContent = `— ${active.dataset.sceneName}`;
-    }
-  });
-
   /* ============================================================
      SCENE 01 — HERO
      ============================================================ */

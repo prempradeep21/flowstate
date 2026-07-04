@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="/landing/css/style.css" />
 </head>
 <body>
 
@@ -22,12 +22,6 @@
   <div class="cursor-ring"></div>
 </div>
 
-<!-- scene counter -->
-<div class="scene-hud" aria-hidden="true">
-  <span class="scene-hud-num">scene 01</span>
-  <span class="scene-hud-name">— the canvas</span>
-</div>
-
 <!-- nav -->
 <header class="nav">
   <a class="nav-logo" href="#top" data-nav>
@@ -35,7 +29,7 @@
   </a>
   <nav class="nav-links" aria-label="Primary">
     <a class="nav-link" href="#top" data-nav>Home</a>
-    <a class="nav-link" href="blog.html">Blog</a>
+    <a class="nav-link" href="/landing/blog.html">Blog</a>
   </nav>
   <div class="nav-right">
     <a class="btn btn-ink nav-cta" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
@@ -602,8 +596,12 @@
   </div>
 
   <footer class="footer">
-    <span class="mono">© 2026 Flowstate</span>
-    <span class="mono">made for flow · flowstatetool.com</span>
+    <span class="footer-left mono">© 2026 Flowstate</span>
+    <nav class="footer-center" aria-label="Legal">
+      <a class="footer-link" href="/terms">Terms &amp; Conditions</a>
+      <a class="footer-link" href="/privacy">Privacy Policy</a>
+    </nav>
+    <a class="footer-right" href="https://flowstatetool.com" target="_blank" rel="noopener">flowstatetool.com</a>
   </footer>
 </section>
 
@@ -617,6 +615,6 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrambleTextPlugin.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
-<script src="js/main.js"></script>
+<script src="/landing/js/main.js"></script>
 </body>
 </html>

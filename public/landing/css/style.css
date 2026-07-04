@@ -49,12 +49,14 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 .aside {
   font-family: var(--font-serif);
-  font-style: italic;
+  font-style: normal;
   font-weight: 400;
+  color: var(--blue);
   font-optical-sizing: auto;
 }
 
-em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
+/* emphasis is shown with the cobalt accent, never italics */
+em { font-family: inherit; font-style: normal; font-weight: 600; color: var(--blue); }
 
 /* ---------- grain ---------- */
 .grain {
@@ -97,15 +99,6 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 .cursor-none, .cursor-none * { cursor: none !important; }
 @media (pointer: coarse) { .cursor { display: none; } }
 
-/* ---------- scene hud ---------- */
-.scene-hud {
-  position: fixed; left: 1.4rem; bottom: 1.2rem; z-index: 900;
-  font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em;
-  color: rgba(16,16,16,0.62);
-  display: flex; gap: 0.45rem;
-}
-.scene-hud-num { color: var(--blue); }
-
 /* ---------- nav ---------- */
 .nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
@@ -134,9 +127,9 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 .nav-links { display: flex; align-items: center; gap: 1.5rem; }
 .nav-link {
   position: relative;
-  font-family: var(--font-mono); font-size: 0.74rem;
-  letter-spacing: 0.05em; text-transform: lowercase;
-  color: rgba(16,16,16,0.7);
+  font-family: var(--font-display); font-size: 0.92rem; font-weight: 500;
+  letter-spacing: 0.005em;
+  color: rgba(16,16,16,0.72);
   padding: 0.15rem 0.1rem;
   transition: color 0.22s var(--ease-out);
 }
@@ -156,21 +149,20 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
   display: flex; flex-direction: column; gap: 0.6rem;
 }
 .scroll-btn {
-  width: 46px; height: 46px; border-radius: 50%;
-  border: 1.6px solid var(--ink);
+  width: 58px; height: 58px; border-radius: 50%;
+  border: 1.8px solid var(--ink);
   background: var(--card); color: var(--ink);
   display: grid; place-items: center;
-  box-shadow: 0 2px 0 rgba(16,16,16,0.5);
-  transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out),
+  transition: transform 0.22s var(--ease-out),
               background 0.22s, color 0.22s, opacity 0.3s;
 }
-.scroll-btn svg { width: 21px; height: 21px; display: block; }
+.scroll-btn svg { width: 28px; height: 28px; display: block; }
 .scroll-btn:hover {
   transform: translateY(-2px); background: var(--blue); color: #f2f5ff;
-  border-color: var(--blue-deep); box-shadow: 0 5px 0 var(--blue-deep);
+  border-color: var(--blue-deep);
 }
-.scroll-btn:active { transform: translateY(0); box-shadow: 0 1px 0 var(--blue-deep); }
-.scroll-btn:disabled { opacity: 0.3; pointer-events: none; box-shadow: none; }
+.scroll-btn:active { transform: translateY(0); }
+.scroll-btn:disabled { opacity: 0.3; pointer-events: none; }
 @media (pointer: coarse) { .scroll-nav { right: 0.9rem; bottom: 0.9rem; } }
 
 /* ---------- buttons / pills / chips ---------- */
@@ -329,7 +321,7 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
   border: none; border-radius: 4px;
   box-shadow: 0 8px 20px rgba(16,16,16,0.2);
   padding: 0.95rem 1rem 1.1rem;
-  font-family: var(--font-serif); font-style: italic; font-size: 0.95rem; line-height: 1.35;
+  font-family: var(--font-serif); font-style: normal; font-size: 0.95rem; line-height: 1.35;
 }
 .card-sticky::before {
   content: ""; position: absolute; top: -9px; left: 50%; transform: translateX(-50%) rotate(-2deg);
@@ -701,11 +693,31 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 .collab-sticky.card-sticky { width: 156px; font-size: 0.88rem; }
 .footer {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
-  display: flex; justify-content: space-between;
-  padding: 1.1rem 1.4rem;
-  color: rgba(16,16,16,0.55);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  gap: 1rem;
+  padding: 1.15rem 1.7rem;
+  color: rgba(16,16,16,0.62);
   border-top: 1px dashed rgba(16,16,16,0.3);
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
+.footer .mono { font-size: 0.82rem; }
+.footer-left { justify-self: start; }
+.footer-center { justify-self: center; display: flex; align-items: center; gap: 1.6rem; }
+.footer-right { justify-self: end; }
+.footer-link {
+  font-size: 0.86rem; font-weight: 500; letter-spacing: 0.005em;
+  color: rgba(16,16,16,0.72);
+  transition: color 0.2s var(--ease-out);
+}
+.footer-link:hover { color: var(--blue); }
+.footer-right {
+  font-family: var(--font-display); font-size: 0.86rem; font-weight: 500;
+  color: rgba(16,16,16,0.72);
+  transition: color 0.2s var(--ease-out);
+}
+.footer-right:hover { color: var(--blue); }
 
 /* ============================================================
    SCENE 08 — THE JOURNAL (blog)
@@ -843,9 +855,6 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 /* ============================================================
    RESPONSIVE
    ============================================================ */
-@media (max-width: 900px) {
-  .scene-hud { display: none; }
-}
 
 @media (max-width: 640px) {
   .hide-sm { display: none; }
@@ -859,9 +868,10 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
   .nav-cta { padding: 0.5rem 0.75rem; font-size: 0.72rem; white-space: nowrap; }
   .nav-right { gap: 0.4rem; }
   .nav-logo { font-size: 0.95rem; }
-  .nav-links { gap: 0.85rem; }
-  .nav-link { font-size: 0.66rem; letter-spacing: 0.03em; }
-  .scroll-btn { width: 42px; height: 42px; }
+  .nav-links { gap: 0.95rem; }
+  .nav-link { font-size: 0.84rem; letter-spacing: 0.005em; }
+  .scroll-btn { width: 52px; height: 52px; }
+  .scroll-btn svg { width: 25px; height: 25px; }
   .cf-thread { height: 52svh; }
   .cf-statement-line { font-size: clamp(1.7rem, 8vw, 2.4rem); }
 
@@ -903,7 +913,12 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
   #ciTweet { --x: 52%; }
   #ciVideo { --x: 56%; }
   #ciSticky { --x: 70%; }
-  .footer { flex-direction: column; gap: 0.3rem; align-items: center; text-align: center; }
+  .footer {
+    grid-template-columns: 1fr; justify-items: center; text-align: center;
+    gap: 0.45rem; padding: 0.95rem 1rem;
+  }
+  .footer-left, .footer-center, .footer-right { justify-self: center; }
+  .footer-center { gap: 1.2rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -948,7 +963,7 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 .mini-code .tok-kw { color: #c07cf0; }
 .mini-code .tok-fn { color: #6fb3ff; }
 .mini-code .tok-num { color: #f0a35e; }
-.mini-code .tok-com { color: #626b7a; font-style: italic; }
+.mini-code .tok-com { color: #626b7a; font-style: normal; }
 
 /* ============================================================
    SCENE 03 — ARTIFACTS GRID
@@ -1096,4 +1111,38 @@ em { font-family: var(--font-serif); font-style: italic; font-weight: 420; }
 @media (max-width: 640px) {
   .usecase-grid { grid-template-columns: 1fr; }
   .usecases { padding-top: 4.5rem; }
+}
+
+/* ============================================================
+   MOBILE HARDENING — narrow phones (≤430px)
+   Scoped tightly so nothing here can affect tablet/desktop.
+   ============================================================ */
+@media (max-width: 430px) {
+  /* nav: keep logo + links + CTA on one comfortable row */
+  .nav { padding: 0.7rem 0.75rem; }
+  .nav-logo { font-size: 0.88rem; }
+  .nav-logo-dot { width: 9px; height: 9px; }
+  .nav-links { gap: 0.75rem; }
+  .nav-link { font-size: 0.8rem; letter-spacing: 0.005em; }
+  .nav-right { gap: 0.35rem; }
+  .nav-cta { padding: 0.44rem 0.66rem; font-size: 0.66rem; }
+
+  /* corner scroll arrows: still generous but clear of the thumb zone */
+  .scroll-btn { width: 48px; height: 48px; }
+  .scroll-btn svg { width: 23px; height: 23px; }
+
+  /* hero: guarantee the headline never overflows very narrow screens */
+  .hero-center { padding: 0 1rem; }
+  .hero-title { font-size: clamp(2rem, 10.5vw, 2.5rem); }
+  .hero-sub { font-size: 0.98rem; }
+
+  /* section intros: tighten side padding + long mono hint lines */
+  .playground-head,
+  .artifacts .playground-head,
+  .interact .playground-head,
+  .usecases .playground-head { padding-left: 1rem; padding-right: 1rem; }
+  .playground-hint { font-size: 0.6rem; line-height: 1.5; }
+
+  /* CTA button: comfortable tap target without overflowing */
+  .btn-big { font-size: 1rem; padding: 0.85rem 1.5rem; }
 }
