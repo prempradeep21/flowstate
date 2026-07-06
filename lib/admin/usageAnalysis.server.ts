@@ -8,6 +8,8 @@ import type {
   UsageAnalysisSnapshotRow,
 } from "@/lib/admin/usageAnalysisTypes";
 import {
+  CACHE_READ_COST_MULTIPLIER,
+  CACHE_WRITE_COST_MULTIPLIER,
   USAGE_ANALYSIS_LIMITATIONS,
   USAGE_ANALYSIS_TIMEZONE,
 } from "@/lib/admin/usageAnalysisTypes";
@@ -21,7 +23,12 @@ type CanvasRow = {
     cards?: Record<
       string,
       {
-        turnUsage?: { inputTokens?: number; outputTokens?: number };
+        turnUsage?: {
+          inputTokens?: number;
+          outputTokens?: number;
+          cacheReadTokens?: number;
+          cacheCreationTokens?: number;
+        };
       }
     >;
   } | null;
@@ -57,24 +64,40 @@ function dayKey(iso: string): string {
 function extractCardUsage(canvas: CanvasRow): {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
   cardsWithUsage: number;
 } {
   const cards = canvas.state?.cards ?? {};
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheCreationTokens = 0;
   let cardsWithUsage = 0;
 
   for (const card of Object.values(cards)) {
     if (!card?.turnUsage) continue;
     const input = card.turnUsage.inputTokens ?? 0;
     const output = card.turnUsage.outputTokens ?? 0;
-    if (input === 0 && output === 0) continue;
+    const cacheRead = card.turnUsage.cacheReadTokens ?? 0;
+    const cacheCreation = card.turnUsage.cacheCreationTokens ?? 0;
+    if (input === 0 && output === 0 && cacheRead === 0 && cacheCreation === 0) {
+      continue;
+    }
     inputTokens += input;
     outputTokens += output;
+    cacheReadTokens += cacheRead;
+    cacheCreationTokens += cacheCreation;
     cardsWithUsage += 1;
   }
 
-  return { inputTokens, outputTokens, cardsWithUsage };
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    cardsWithUsage,
+  };
 }
 
 function buildSignupsByDay(
@@ -212,6 +235,8 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
     {
       inputTokens: number;
       outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
       canvasesWithUsage: Set<string>;
     }
   >();
@@ -219,7 +244,14 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
 
   for (const canvas of canvasRows) {
     const usage = extractCardUsage(canvas);
-    if (usage.inputTokens === 0 && usage.outputTokens === 0) continue;
+    if (
+      usage.inputTokens === 0 &&
+      usage.outputTokens === 0 &&
+      usage.cacheReadTokens === 0 &&
+      usage.cacheCreationTokens === 0
+    ) {
+      continue;
+    }
 
     const totalTokens = usage.inputTokens + usage.outputTokens;
     const user = userById.get(canvas.owner_id);
@@ -231,6 +263,8 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
       totalTokens,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheCreationTokens: usage.cacheCreationTokens,
       cardsWithUsage: usage.cardsWithUsage,
       updatedAt: canvas.updated_at,
     });
@@ -238,10 +272,14 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
     const prev = accountAgg.get(canvas.owner_id) ?? {
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
       canvasesWithUsage: new Set<string>(),
     };
     prev.inputTokens += usage.inputTokens;
     prev.outputTokens += usage.outputTokens;
+    prev.cacheReadTokens += usage.cacheReadTokens;
+    prev.cacheCreationTokens += usage.cacheCreationTokens;
     prev.canvasesWithUsage.add(canvas.id);
     accountAgg.set(canvas.owner_id, prev);
   }
@@ -250,15 +288,21 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
 
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheCreationTokens = 0;
 
   const accounts: UsageAnalysisAccount[] = users
     .map((user) => {
       const agg = accountAgg.get(user.id);
       const inputTokens = agg?.inputTokens ?? 0;
       const outputTokens = agg?.outputTokens ?? 0;
+      const cacheReadTokens = agg?.cacheReadTokens ?? 0;
+      const cacheCreationTokens = agg?.cacheCreationTokens ?? 0;
       const totalTokens = inputTokens + outputTokens;
       totalInputTokens += inputTokens;
       totalOutputTokens += outputTokens;
+      totalCacheReadTokens += cacheReadTokens;
+      totalCacheCreationTokens += cacheCreationTokens;
 
       const email = user.email ?? "unknown@user";
       const metaName =
@@ -269,6 +313,8 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
         displayName: profileMap.get(user.id) ?? metaName,
         inputTokens,
         outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
         totalTokens,
         sharePct: 0,
         canvasesWithUsage: agg?.canvasesWithUsage.size ?? 0,
@@ -306,10 +352,26 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
       ? Math.round((topFourCanvasTokens / totalTokens) * 1000) / 10
       : 0;
 
+  // Billing-equivalent savings from caching: cache reads would otherwise be
+  // full-price input; instead they bill at ~10% (reads) / ~125% (writes).
+  const cachedTokens = totalCacheReadTokens + totalCacheCreationTokens;
+  const withoutCaching = totalInputTokens + cachedTokens;
+  const withCaching =
+    totalInputTokens +
+    totalCacheReadTokens * CACHE_READ_COST_MULTIPLIER +
+    totalCacheCreationTokens * CACHE_WRITE_COST_MULTIPLIER;
+  const cacheSavingsPct =
+    withoutCaching > 0
+      ? Math.round((1 - withCaching / withoutCaching) * 1000) / 10
+      : 0;
+
   const summary: UsageAnalysisSnapshot["summary"] = {
     totalInputTokens,
     totalOutputTokens,
     totalTokens,
+    totalCacheReadTokens,
+    totalCacheCreationTokens,
+    cacheSavingsPct,
     usersWithUsage,
     totalUsers: users.length,
     canvasesWithUsage,

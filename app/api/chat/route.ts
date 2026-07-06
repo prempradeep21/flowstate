@@ -171,6 +171,33 @@ function mcpImages(imgs: McpImage[]) {
 
 const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
 
+/**
+ * Add an ephemeral cache breakpoint to the final block of the final message so
+ * the conversation prefix (history + question, and prior tool-loop rounds) is
+ * read from cache on later rounds/turns instead of being re-billed as fresh
+ * input. Only applied when the last message is a user turn (the common path:
+ * question or tool_result), which always carries cache-compatible blocks.
+ * Returns a shallow copy — never mutates the input array.
+ */
+function withMessageCache(
+  msgs: Anthropic.MessageParam[],
+): Anthropic.MessageParam[] {
+  const last = msgs[msgs.length - 1];
+  if (!last || last.role !== "user") return msgs;
+  const blocks: Anthropic.ContentBlockParam[] =
+    typeof last.content === "string"
+      ? [{ type: "text", text: last.content }]
+      : last.content.slice();
+  if (blocks.length === 0) return msgs;
+  blocks[blocks.length - 1] = {
+    ...blocks[blocks.length - 1],
+    cache_control: { type: "ephemeral" },
+  } as Anthropic.ContentBlockParam;
+  const out = msgs.slice();
+  out[out.length - 1] = { ...last, content: blocks };
+  return out;
+}
+
 /** Match client hard cap for Q&A turns when enabled. Keep in sync with QA_TURN_TIMEOUT_SECONDS. */
 export const maxDuration = 180;
 
@@ -405,8 +432,10 @@ export async function POST(req: Request) {
         const MAX_TOOL_TURNS = 5;
         let artifactEmitted = false;
         for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-          const systemPrompt = [
-            BASE_SYSTEM,
+          // Per-request, variable instructions (topic recap, intent notes,
+          // artifact-edit payload). Kept in a SEPARATE, uncached system block
+          // that follows the cached BASE_SYSTEM prefix below.
+          const variableSystem = [
             systemContext,
             todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
             calendarIntent && !editingArtifact
@@ -426,11 +455,25 @@ export async function POST(req: Request) {
           ]
             .filter(Boolean)
             .join("\n\n");
+          // Cache the large, stable instruction prefix (tools + BASE_SYSTEM,
+          // ~3.6k tokens). The cache breakpoint on this first system block
+          // covers all preceding tool schemas too, so repeat turns and every
+          // extra tool-loop round read it at ~10% cost instead of full price.
+          const system: Anthropic.TextBlockParam[] = [
+            {
+              type: "text",
+              text: BASE_SYSTEM,
+              cache_control: { type: "ephemeral" },
+            },
+          ];
+          if (variableSystem) {
+            system.push({ type: "text", text: variableSystem });
+          }
           const stream = anthropic.messages.stream({
             model,
             max_tokens: customUiIntent ? 8192 : 4096,
-            system: systemPrompt,
-            messages,
+            system,
+            messages: withMessageCache(messages),
             tools: allTools,
             ...((todoIntent ||
               calendarIntent ||
@@ -468,13 +511,25 @@ export async function POST(req: Request) {
           }
 
           const msg = await stream.finalMessage();
+          // Anthropic reports cache hits/writes separately: `input_tokens` is
+          // the UNcached (full-price) portion, while cache reads are ~10% cost.
+          // Surfacing all four lets the dashboard show the true cost + savings.
+          const cacheReadTokens = msg.usage.cache_read_input_tokens ?? 0;
+          const cacheCreationTokens = msg.usage.cache_creation_input_tokens ?? 0;
           totalUsage.inputTokens += msg.usage.input_tokens;
           totalUsage.outputTokens += msg.usage.output_tokens;
-          if (msg.usage.input_tokens || msg.usage.output_tokens) {
+          if (
+            msg.usage.input_tokens ||
+            msg.usage.output_tokens ||
+            cacheReadTokens ||
+            cacheCreationTokens
+          ) {
             emit({
               usage: {
                 inputTokens: msg.usage.input_tokens,
                 outputTokens: msg.usage.output_tokens,
+                cacheReadTokens,
+                cacheCreationTokens,
               },
             });
           }

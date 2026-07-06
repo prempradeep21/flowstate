@@ -22,10 +22,13 @@ type SortKey =
   | "canvasesWithUsage"
   | "likelyRegion";
 
-function fmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return n.toLocaleString();
+function fmt(n: number | undefined | null): string {
+  // Older snapshots predate cache fields — coerce missing values to 0 so the
+  // dashboard never crashes on `undefined.toLocaleString()`.
+  const v = Number.isFinite(Number(n)) ? Number(n) : 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
+  return v.toLocaleString();
 }
 
 function formatWhen(iso: string | null): string {
@@ -122,13 +125,15 @@ function ChartCard({
 
 function exportAccountsCsv(accounts: UsageAnalysisAccount[]) {
   const header =
-    "email,display_name,input_tokens,output_tokens,total_tokens,share_pct,canvases_with_usage,likely_region,last_sign_in,signup_at";
+    "email,display_name,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,total_tokens,share_pct,canvases_with_usage,likely_region,last_sign_in,signup_at";
   const rows = accounts.map((a) =>
     [
       a.email,
       a.displayName ?? "",
       a.inputTokens,
       a.outputTokens,
+      a.cacheReadTokens ?? 0,
+      a.cacheCreationTokens ?? 0,
       a.totalTokens,
       a.sharePct,
       a.canvasesWithUsage,
@@ -374,7 +379,7 @@ export function UsageAnalysisDashboard() {
             <KpiCard
               label="Total tracked tokens"
               value={<AnimatedNumber value={snapshot.summary.totalTokens} />}
-              sub={`↑ ${fmt(snapshot.summary.totalInputTokens)} input · ↓ ${fmt(snapshot.summary.totalOutputTokens)} output`}
+              sub={`↑ ${fmt(snapshot.summary.totalInputTokens)} in · ↓ ${fmt(snapshot.summary.totalOutputTokens)} out · ⚡ ${fmt(snapshot.summary.totalCacheReadTokens)} cache-read · ✎ ${fmt(snapshot.summary.totalCacheCreationTokens)} cache-write`}
               accent="linear-gradient(90deg, #6B7DB3, #5B8C7A)"
             />
             <KpiCard
@@ -412,6 +417,69 @@ export function UsageAnalysisDashboard() {
               sub="Anonymous / unsaved usage not in Supabase"
               accent="linear-gradient(90deg, #9A8F7A, #D4D0CB)"
             />
+          </section>
+
+          <section className="rounded-canvas border border-canvas-border bg-canvas-card p-5 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg font-medium text-canvas-ink">
+                Prompt caching
+              </h3>
+              <span className="rounded-full border border-canvas-accent/30 bg-canvas-accent/10 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-accent">
+                Reads bill at 10% · writes at 125% of input
+              </span>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                  Uncached input
+                </p>
+                <p className="mt-1 font-display text-2xl font-medium tabular-nums text-canvas-ink">
+                  {fmt(snapshot.summary.totalInputTokens)}
+                </p>
+                <p className="text-canvas-micro text-canvas-muted">
+                  full-price input tokens
+                </p>
+              </div>
+              <div>
+                <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                  Cache reads
+                </p>
+                <p className="mt-1 font-display text-2xl font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {fmt(snapshot.summary.totalCacheReadTokens)}
+                </p>
+                <p className="text-canvas-micro text-canvas-muted">
+                  prefix re-read at 0.1×
+                </p>
+              </div>
+              <div>
+                <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                  Cache writes
+                </p>
+                <p className="mt-1 font-display text-2xl font-medium tabular-nums text-canvas-ink">
+                  {fmt(snapshot.summary.totalCacheCreationTokens)}
+                </p>
+                <p className="text-canvas-micro text-canvas-muted">
+                  one-time prefix writes
+                </p>
+              </div>
+              <div>
+                <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                  Est. input savings
+                </p>
+                <p className="mt-1 font-display text-2xl font-medium tabular-nums text-canvas-ink">
+                  {snapshot.summary.cacheSavingsPct > 0
+                    ? `${snapshot.summary.cacheSavingsPct}%`
+                    : "—"}
+                </p>
+                <p className="text-canvas-micro text-canvas-muted">
+                  {(snapshot.summary.totalCacheReadTokens ?? 0) +
+                    (snapshot.summary.totalCacheCreationTokens ?? 0) ===
+                  0
+                    ? "no cache activity recorded yet"
+                    : "vs. paying full price"}
+                </p>
+              </div>
+            </div>
           </section>
 
           {snapshot.insights.length > 0 ? (
@@ -589,6 +657,13 @@ export function UsageAnalysisDashboard() {
                             ↑{account.inputTokens.toLocaleString()} ↓
                             {account.outputTokens.toLocaleString()}
                           </div>
+                          {account.cacheReadTokens > 0 ||
+                          account.cacheCreationTokens > 0 ? (
+                            <div className="text-canvas-micro text-emerald-700 dark:text-emerald-300">
+                              ⚡{fmt(account.cacheReadTokens)} ✎
+                              {fmt(account.cacheCreationTokens)}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-3 py-3 tabular-nums">
                           {account.sharePct}%
@@ -667,8 +742,14 @@ export function UsageAnalysisDashboard() {
             <p className="font-medium text-canvas-ink">Methodology</p>
             <p className="mt-1">
               Data source: <code className="text-canvas-accent">canvases.state.cards.*.turnUsage</code>{" "}
+              (<code className="text-canvas-accent">inputTokens</code>,{" "}
+              <code className="text-canvas-accent">outputTokens</code>,{" "}
+              <code className="text-canvas-accent">cacheReadTokens</code>,{" "}
+              <code className="text-canvas-accent">cacheCreationTokens</code>){" "}
               aggregated nightly at midnight IST into{" "}
               <code className="text-canvas-accent">usage_analysis_snapshots</code>.
+              Uncached input bills at full price, cache reads at ~10%, cache
+              writes at ~125%.
             </p>
             <ul className="mt-3 list-disc space-y-1 pl-5">
               {snapshot.limitations.map((item) => (

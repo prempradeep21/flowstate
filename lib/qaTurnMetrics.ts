@@ -1,12 +1,24 @@
 import type { Card } from "@/lib/store";
 
-export type TurnUsage = { inputTokens: number; outputTokens: number };
+export type TurnUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  /** Cached prefix read at ~10% cost (Anthropic prompt caching). */
+  cacheReadTokens?: number;
+  /** Tokens written to the cache on a cache miss (one-time ~25% surcharge). */
+  cacheCreationTokens?: number;
+};
 
 /** Reset turn timing and usage when a question is submitted or retried. */
 export function turnMetricsOnSubmit(): Pick<Card, "askStartedAt" | "turnUsage"> {
   return {
     askStartedAt: Date.now(),
-    turnUsage: { inputTokens: 0, outputTokens: 0 },
+    turnUsage: {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    },
   };
 }
 
