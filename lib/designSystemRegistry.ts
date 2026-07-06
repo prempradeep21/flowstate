@@ -80,11 +80,9 @@ const LIVE_PREVIEW_ONLY_IDS = new Set([
   "map",
   "streetview",
   "3d",
-  "repo",
   "website",
   "embed",
-  "audio-short",
-  "audio-long",
+  "audio",
   "video",
 ]);
 

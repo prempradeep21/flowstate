@@ -69,13 +69,11 @@ export function WebsiteArtifactContent({
   fill = false,
   sidebar = false,
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "website" }>;
   fill?: boolean;
   sidebar?: boolean;
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const { url, title, faviconUrl, previewImageUrl } = payload.data;
   const pending = isWebsiteTitlePending(payload);
@@ -99,7 +97,7 @@ export function WebsiteArtifactContent({
             {previewImageUrl && (
               <WebsiteFavicon
                 faviconUrl={faviconUrl}
-                className="h-4 w-4 shrink-0 rounded-sm"
+                className="h-4 w-4 shrink-0 rounded-canvas-xs"
               />
             )}
             <span
@@ -120,7 +118,14 @@ export function WebsiteArtifactContent({
 
   const card = (
     <div className="flex flex-col gap-4 p-4">
-      {previewImageUrl ? (
+      {pending && !previewImageUrl ? (
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
+          <div className="flex h-full flex-col items-center justify-center gap-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent" />
+            <span className="text-canvas-micro text-canvas-muted">Loading preview…</span>
+          </div>
+        </div>
+      ) : previewImageUrl ? (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
           <PreviewThumbnail
             previewImageUrl={previewImageUrl}
@@ -128,7 +133,14 @@ export function WebsiteArtifactContent({
             className="h-full w-full object-contain"
           />
         </div>
-      ) : null}
+      ) : (
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-canvas-muted">
+            <ArtifactTypeIcon kind="website" className="h-8 w-8 opacity-40" />
+            <span className="text-canvas-micro">No preview image</span>
+          </div>
+        </div>
+      )}
       <div className="flex items-start gap-3">
         <WebsiteFavicon
           faviconUrl={faviconUrl}
@@ -155,7 +167,6 @@ export function WebsiteArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className="h-full !bg-transparent"
       >
         <div className="flex h-full min-h-0 flex-col overflow-auto">{card}</div>

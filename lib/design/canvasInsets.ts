@@ -6,7 +6,7 @@ import { canvasSpacing } from "@/lib/design/tokens";
  * Canvas inset tiers — one meaning per size:
  * - `compact` (12px): asset chips, floating chrome — tight nodes on the canvas grid
  * - `section` (16px): Q&A blocks and panel bodies — readable content regions
- * - `artifactChrome` (16px): artifact node padding when chrome is revealed
+ * - `artifactChrome` (16px): horizontal inset on canvas artifact header row
  */
 export { canvasSpacing };
 

@@ -30,6 +30,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     quickAction: true,
   },
   {
+    href: "/admin/tools/artifact-intent",
+    label: "Artifact Intent",
+    description:
+      "When and how each artifact type is spun up — intent rules and spawn behavior.",
+    icon: "compass",
+    group: "build",
+  },
+  {
     href: "/admin/tools/sound",
     label: "Sound Console",
     description: "Map seslen presets to UI events and preview specimens.",
@@ -39,7 +47,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
     href: "/admin/tools/design-system",
     label: "Design System",
-    description: "Tokens, cards, connectors, and design documentation.",
+    description: "Live theme controls — presets, colors, radius, and reference.",
     icon: "design-system",
     group: "build",
   },

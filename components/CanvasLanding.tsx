@@ -138,6 +138,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       <div
         className={riseProps(500).className}
         style={{ width: "100%", ...riseProps(500).style }}
+        data-coach-target="ask-composer"
       >
         <ChatComposer
           variant="landing"
@@ -149,7 +150,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
         />
       </div>
 
-      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 [html.onboarding-tour-active_&]:pointer-events-none [html.onboarding-tour-active_&]:opacity-0">
         <div
           className={riseProps(TIP_DELAYS[0]).className}
           style={riseProps(TIP_DELAYS[0]).style}

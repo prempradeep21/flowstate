@@ -1,35 +1,17 @@
 export const LANDING_SECTIONS = [
-  { id: "hero", label: "Start" },
-  { id: "problem", label: "Why" },
-  { id: "vision", label: "Vision" },
-  { id: "how-it-works", label: "Canvas" },
+  { id: "canvas-hero", label: "The canvas" },
   { id: "artifacts", label: "Artifacts" },
   { id: "inputs", label: "Inputs" },
-  { id: "start", label: "Begin" },
+  { id: "use-cases", label: "Use cases" },
 ] as const;
 
 export type LandingSectionId = (typeof LANDING_SECTIONS)[number]["id"];
 
 export const LANDING_COPY = {
-  hero: {
-    eyebrow: "Flowstate",
-    title: "Your thoughts deserve a map, not a scroll",
-    body: "When you research, plan, or figure something out, your mind branches. Flowstate gives you a canvas where every question stays where you put it — and nothing gets buried above the fold.",
-  },
-  problem: {
-    eyebrow: "Why this exists",
-    title: "Linear chat was never built for how you think",
-    body: "You jump between threads, lose the earlier branch, and scroll back hunting for context. On a canvas, your parallel lines stay visible — and you always know where you are.",
-  },
-  vision: {
-    eyebrow: "What changes for you",
-    title: "Hold more in your head, with less effort",
-    body: "You can explore a side question without abandoning the main one. Dead ends stay on the map. When two threads connect, you see it — because the shape of your session is right in front of you.",
-  },
-  howItWorks: {
-    eyebrow: "The canvas",
-    title: "Same cards, same curves — the real product",
-    body: "Pan, zoom, and branch exactly like you would in Flowstate. Press Q to drop a question. Pull a side plug to split a thread. Every card keeps the full context of what came before.",
+  canvasHero: {
+    tagline: "Open canvas for AI work",
+    title: "An open canvas for your AI work.",
+    body: "Flowstate turns linear AI chat into a spatial canvas — so your best prompts, docs, research, and builds live somewhere you can actually find, reuse, and share.",
   },
   artifacts: {
     eyebrow: "What you can make",
@@ -39,11 +21,54 @@ export const LANDING_COPY = {
   inputs: {
     eyebrow: "What you can bring",
     title: "Paste a link, drop a file, attach a skill",
-    body: "Bring your references into a question — images, PDFs, YouTube links, GitHub repos, Google Docs, and more. The composer uses the same attachment UI as the app.",
+    body: "Bring your references into a question — images, PDFs, YouTube links, Google Docs, and more. The composer uses the same attachment UI as the app.",
   },
-  start: {
-    eyebrow: "Begin",
-    title: "Open a blank canvas and start where you are",
-    body: "No setup ritual. Drop your first question, branch when you need to, and come back tomorrow — your session keeps its shape.",
+  useCases: {
+    title: "Bring anything you're working on.",
+    body: "From a side project to a job hunt to next week's dinners — if you're working it out with AI, it belongs on a canvas.",
+    cards: [
+      {
+        id: "interview",
+        icon: "interview" as const,
+        title: "Prepare for an interview",
+        description:
+          "Research, questions, and notes side by side — ready when you are.",
+      },
+      {
+        id: "tool",
+        icon: "tool" as const,
+        title: "Build a tool",
+        description:
+          "Keep prompts, code, and iterations in one place as the build takes shape.",
+      },
+      {
+        id: "trip",
+        icon: "trip" as const,
+        title: "Plan a trip",
+        description:
+          "Itineraries, maps, and options laid out instead of scrolled past.",
+      },
+      {
+        id: "meals",
+        icon: "meals" as const,
+        title: "Plan meals & workouts",
+        description:
+          "A living plan you can adjust, not a thread you have to dig through.",
+      },
+      {
+        id: "finance",
+        icon: "finance" as const,
+        title: "Sort personal finances",
+        description:
+          "Numbers, scenarios, and decisions captured where you can compare them.",
+      },
+      {
+        id: "learn",
+        icon: "learn" as const,
+        title: "Learn something new",
+        description:
+          "Turn a sprawling chat into a canvas you can actually study from.",
+      },
+    ],
   },
 } as const;

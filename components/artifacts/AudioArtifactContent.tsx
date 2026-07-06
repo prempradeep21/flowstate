@@ -8,10 +8,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
 import {
-  AudioPlaybackControls,
   type AudioPlaybackRate,
 } from "@/components/artifacts/AudioPlaybackControls";
+import { ArtifactMenuAudioSpeedRow } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import {
   AUDIO_WAVEFORM_HEIGHT_PX,
@@ -108,14 +109,12 @@ export function AudioArtifactContent({
   sidebar = false,
   allowInteraction = false,
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "audio" }>;
   fill?: boolean;
   sidebar?: boolean;
   allowInteraction?: boolean;
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const { peaks, durationMs, publicUrl } = payload.data;
   const waveformWidth = sidebar
@@ -235,6 +234,18 @@ export function AudioArtifactContent({
   const elapsedLabel = formatAudioDuration(currentTimeMs);
   const canControl = allowInteraction && Boolean(publicUrl);
 
+  useArtifactMenuDisplayExtras(
+    !sidebar,
+    () => (
+      <ArtifactMenuAudioSpeedRow
+        rate={playbackRate}
+        onRateChange={setPlaybackRate}
+        disabled={!canControl}
+      />
+    ),
+    [canControl, playbackRate, sidebar],
+  );
+
   const transportRow = (
     <div
       className={`flex min-w-0 items-stretch gap-3 ${
@@ -319,8 +330,6 @@ export function AudioArtifactContent({
       <ArtifactContentStage
         artifactId={artifactId}
         fill={fill}
-        showControls={false}
-        showFontControls={false}
         className="min-h-0"
       >
         {body}
@@ -332,16 +341,7 @@ export function AudioArtifactContent({
     <ArtifactContentStage
       artifactId={artifactId}
       fill={fill}
-      showControls={showControls}
-      showFontControls={false}
       className={fill ? "flex min-h-0 flex-col" : "min-h-0"}
-      controls={
-        <AudioPlaybackControls
-          rate={playbackRate}
-          onRateChange={setPlaybackRate}
-          disabled={!canControl}
-        />
-      }
     >
       {body}
     </ArtifactContentStage>

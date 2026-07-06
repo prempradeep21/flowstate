@@ -8,7 +8,7 @@ import { TIMELINE_EVENT_COLORS } from "@/lib/timelineLayout";
 /** Source card id for user-initiated calendar saves (no chat turn). */
 export const MANUAL_CALENDAR_SOURCE_CARD_ID = "__manual__";
 
-/** Fits month nav + weekday row + six 52px week rows inside canvas chrome (110px overhead). */
+/** Fits month nav + weekday row + six 52px week rows inside canvas chrome (72px header overhead). */
 export const CALENDAR_ARTIFACT_HEIGHT = 500;
 
 function newCalendarEventId(): string {

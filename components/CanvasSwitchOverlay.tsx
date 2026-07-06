@@ -130,7 +130,7 @@ export function CanvasSwitchOverlay({
           GHOST_NODES.map((node, i) => (
             <div
               key={i}
-              className="switch-node-in absolute rounded-canvas border border-canvas-border/80 bg-canvas-card/90 shadow-card"
+              className="switch-node-in absolute rounded-canvas border border-canvas-border/80 bg-canvas-card/90 shadow-artifact"
               style={{
                 left: `${node.x}%`,
                 top: `${node.y}%`,

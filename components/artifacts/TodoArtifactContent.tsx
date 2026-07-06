@@ -24,10 +24,20 @@ const PRIORITY_OPTIONS: { value: TodoPriority | ""; label: string }[] = [
 ];
 
 const PRIORITY_STYLES: Record<TodoPriority, string> = {
-  low: "text-canvas-muted bg-canvas-border/40",
+  low: "text-canvas-muted bg-canvas-muted/15 ring-1 ring-canvas-muted/45",
   medium: "text-canvas-warningText bg-canvas-warningSoft ring-1 ring-canvas-warningRing/80",
   high: "text-canvas-accent bg-canvas-artifactIconBg ring-1 ring-canvas-accent/30",
 };
+
+/** Task label size — 1.5× the default `text-canvas-body` (14px → 21px). */
+const TODO_ITEM_LABEL_CLASS = "text-[21px] leading-snug";
+
+/** `canvas-border` is too light on pure-white card surfaces for 1px UI strokes. */
+const TODO_CHECKBOX_UNCHECKED =
+  "border-canvas-ink/40 bg-canvas-card hover:border-canvas-ink/60";
+const TODO_ROW_DIVIDER = "border-canvas-ink/12";
+const TODO_SECTION_DIVIDER = "border-canvas-ink/15";
+const TODO_PROGRESS_TRACK = "bg-canvas-muted/25";
 
 function payloadsEqual(
   a: Extract<ArtifactPayload, { type: "todo" }>,
@@ -64,10 +74,10 @@ function TodoCheckbox({
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`group relative mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all duration-200 ease-out ${
+      className={`group relative mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] border-2 transition-all duration-200 ease-out ${
         checked
           ? "border-canvas-accent bg-canvas-accent"
-          : "border-canvas-border bg-canvas-card hover:border-canvas-muted"
+          : TODO_CHECKBOX_UNCHECKED
       } ${disabled ? "cursor-default opacity-60" : "cursor-pointer"}`}
     >
       <svg
@@ -103,7 +113,7 @@ function TodoRow({
 }) {
   return (
     <li
-      className="group todo-row-animate flex items-start gap-3 border-b border-canvas-border/50 px-4 py-3 last:border-0"
+      className={`group todo-row-animate flex items-start gap-3 border-b ${TODO_ROW_DIVIDER} px-4 py-3 last:border-0`}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
       <TodoCheckbox
@@ -115,9 +125,9 @@ function TodoRow({
       <div className="min-w-0 flex-1 space-y-2">
         {readOnly ? (
           <p
-            className={`text-canvas-body leading-snug ${
+            className={`${TODO_ITEM_LABEL_CLASS} ${
               item.checked
-                ? "text-canvas-muted line-through decoration-canvas-border"
+                ? "text-canvas-muted line-through decoration-canvas-muted/70"
                 : "text-canvas-ink"
             }`}
           >
@@ -129,9 +139,9 @@ function TodoRow({
             value={item.label}
             onChange={(e) => onUpdate({ label: e.target.value })}
             placeholder="What needs doing?"
-            className={`w-full bg-transparent text-canvas-body leading-snug outline-none placeholder:text-canvas-muted/60 ${
+            className={`w-full bg-transparent ${TODO_ITEM_LABEL_CLASS} outline-none placeholder:text-canvas-muted/70 ${
               item.checked
-                ? "text-canvas-muted line-through decoration-canvas-border"
+                ? "text-canvas-muted line-through decoration-canvas-muted/70"
                 : "text-canvas-ink"
             }`}
           />
@@ -156,7 +166,7 @@ function TodoRow({
             </>
           ) : (
             <>
-              <label className="inline-flex items-center gap-1 rounded-canvas border border-transparent px-1 py-0.5 text-canvas-caption text-canvas-muted transition-colors hover:border-canvas-border hover:bg-canvas-card">
+              <label className="inline-flex items-center gap-1 rounded-canvas border border-canvas-ink/15 px-1 py-0.5 text-canvas-caption text-canvas-muted transition-colors hover:border-canvas-ink/30 hover:bg-canvas-bg/60">
                 <CalendarIcon />
                 <input
                   type="date"
@@ -177,7 +187,7 @@ function TodoRow({
                 className={`rounded-full px-2 py-0.5 text-canvas-micro font-medium uppercase tracking-wide outline-none transition-colors ${
                   item.priority
                     ? PRIORITY_STYLES[item.priority]
-                    : "bg-canvas-border/30 text-canvas-muted"
+                    : "bg-canvas-muted/15 text-canvas-muted ring-1 ring-canvas-muted/40"
                 }`}
               >
                 {PRIORITY_OPTIONS.map((opt) => (
@@ -217,7 +227,7 @@ function CalendarIcon() {
   return (
     <svg
       viewBox="0 0 14 14"
-      className="h-3 w-3 shrink-0 opacity-70"
+      className="h-3 w-3 shrink-0 text-canvas-muted"
       aria-hidden
       fill="none"
       stroke="currentColor"
@@ -374,7 +384,7 @@ export function TodoArtifactContent({
       className={fill ? "flex flex-col" : ""}
     >
       <div className={`flex flex-col ${fill ? "min-h-0 flex-1" : ""}`}>
-        <div className="shrink-0 border-b border-canvas-border/60 px-4 pb-3 pt-4">
+        <div className={`shrink-0 border-b ${TODO_SECTION_DIVIDER} px-4 pb-3 pt-4`}>
           <div className="mb-2 flex items-baseline justify-between gap-3">
             <span className="font-display text-canvas-body-sm tracking-wide text-canvas-ink">
               {total === 0
@@ -389,7 +399,7 @@ export function TodoArtifactContent({
               </span>
             )}
           </div>
-          <div className="h-[3px] overflow-hidden rounded-full bg-canvas-border/60">
+          <div className={`h-[3px] overflow-hidden rounded-full ${TODO_PROGRESS_TRACK}`}>
             <div
               className="h-full rounded-full bg-canvas-accent transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
@@ -449,13 +459,13 @@ export function TodoArtifactContent({
         </div>
 
         {isEditing && !readOnly && (
-          <div className="shrink-0 border-t border-canvas-border/60 bg-canvas-card/80 backdrop-blur-sm">
+          <div className={`shrink-0 border-t ${TODO_SECTION_DIVIDER} bg-canvas-card/80 backdrop-blur-sm`}>
             <button
               type="button"
               onClick={addItem}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-canvas border border-dashed border-canvas-border text-canvas-muted">
+              <span className="flex h-5 w-5 items-center justify-center rounded-canvas border border-dashed border-canvas-ink/35 text-canvas-muted">
                 +
               </span>
               Add task

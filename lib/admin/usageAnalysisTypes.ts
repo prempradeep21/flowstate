@@ -39,7 +39,7 @@ export type UsageAnalysisAccount = {
   totalTokens: number;
   sharePct: number;
   canvasesWithUsage: number;
-  lastSignInAt: string | null;
+  lastActiveAt: string | null;
   signupAt: string;
   likelyRegion: LikelyRegion;
 };
@@ -84,4 +84,5 @@ export const USAGE_ANALYSIS_LIMITATIONS = [
   "Region labels are inferred from email domains — not geo-IP or Google Analytics.",
   "Per-day token trends are unavailable; cards do not store usage timestamps.",
   "Cache read/write tokens only exist for turns generated after prompt caching shipped — older turns show zero cache activity.",
+  "Last active is the latest canvas save or profile update — not sign-in time or live presence.",
 ] as const;

@@ -305,7 +305,7 @@ body {
   grid-template-columns: 140px 1fr;
   gap: 1rem 1.25rem;
   padding: 1.1rem 1.25rem;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid rgb(var(--canvas-border) / 0.8);
   background: rgb(var(--canvas-card) / var(--card-bg-alpha));
   box-shadow: var(--canvas-card-shadow);

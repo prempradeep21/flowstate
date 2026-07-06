@@ -1,227 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { QuestionAttachments } from "@/components/QuestionAttachments";
-import { getQuestionAttachedImages } from "@/lib/questionAttachments";
-import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
+import { useEffect, useMemo } from "react";
 import { ChatComposer } from "@/components/ChatComposer";
-import { CardQaMenu } from "@/components/CardQaMenu";
-import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
-import { QaStatusBadge } from "@/components/QaStatusBadge";
-import {
-  QaQuestionHeaderRow,
-  QaQuestionSection,
-  QaTranslucentSurface,
-} from "@/components/QaQuestionSection";
-import { qaInsetStyle } from "@/lib/design/canvasInsets";
-import { useAuth } from "@/components/AuthProvider";
-import { useContributorProfiles } from "@/lib/contributorProfiles";
-import {
-  isQaResponseFinalError,
-  isQaTurnInProgress,
-  resolveQaStatusLabel,
-  shouldShowQaAnswerText,
-} from "@/lib/qaStreamDisplay";
+import { ChatThreadTree } from "@/components/chat/ChatThreadTree";
+import { ChatThreadMessages } from "@/components/chat/QnaThreadMessages";
 import {
   buildSidebarTree,
-  getThreadCardChain,
   getThreadTailCardId,
   pickDefaultThreadId,
-  SidebarNode,
 } from "@/lib/chatThreads";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
-
-function SidebarItem({
-  node,
-  depth,
-  activeThreadId,
-  threads,
-  onSelect,
-}: {
-  node: SidebarNode;
-  depth: number;
-  activeThreadId: string | null;
-  threads: Record<string, { accentColour: string }>;
-  onSelect: (threadId: string) => void;
-}) {
-  const isActive = node.threadId === activeThreadId;
-  const accent = threads[node.threadId]?.accentColour;
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => onSelect(node.threadId)}
-        className={`flex w-full items-start gap-2 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm transition-colors ${
-          isActive
-            ? "bg-canvas-ink/8 text-canvas-ink"
-            : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-        }`}
-        style={{ paddingLeft: 10 + depth * 14 }}
-      >
-        {accent && (
-          <span
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-            style={{ background: accent }}
-          />
-        )}
-        <span className="line-clamp-2 min-w-0 flex-1 leading-snug">
-          {depth > 0 ? "↳ " : ""}
-          {node.title}
-        </span>
-      </button>
-      {node.branches.map((branch) => (
-        <SidebarItem
-          key={branch.threadId}
-          node={branch}
-          depth={depth + 1}
-          activeThreadId={activeThreadId}
-          threads={threads}
-          onSelect={onSelect}
-        />
-      ))}
-    </>
-  );
-}
-
-function QnaTurnBlock({ cardId }: { cardId: string }) {
-  const card = useCanvasStore((s) => s.cards[cardId]);
-  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
-  const createFollowUp = useCanvasStore((s) => s.createFollowUp);
-  const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
-  const accent = useCanvasStore(
-    (s) => s.threads[card?.threadId ?? ""]?.accentColour,
-  );
-  const { members, accessInfo, onlineUserIds } = useAuth();
-  const contributorProfiles = useContributorProfiles(
-    card?.contributorIds,
-    members,
-    accessInfo?.ownerId,
-  );
-  const showContributors =
-    members.length > 1 &&
-    collaborationHasEdits &&
-    contributorProfiles.length > 0;
-
-  const handleTryAgain = useCallback(() => {
-    if (!card?.question.trim()) return;
-    const attachedImages = card ? getQuestionAttachedImages(card) : [];
-    createFollowUp(cardId, card.question, {
-      pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
-    });
-  }, [card, cardId, createFollowUp]);
-
-  if (!card || card.status === "empty") return null;
-
-  const turnInProgress = isQaTurnInProgress(card, canvasArtifactNodes);
-  const showFinalError = isQaResponseFinalError(card, canvasArtifactNodes);
-  const showStatusBadge = turnInProgress || showFinalError;
-  const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
-  const showAnswer =
-    turnInProgress ||
-    shouldShowQaAnswerText(card) ||
-    showFinalError ||
-    card.artifactPayload != null ||
-    card.outputArtifactId != null;
-
-  return (
-    <div className="relative border-t border-canvas-border/80 first:border-t-0">
-      <QaTranslucentSurface>
-        <QaQuestionSection accentColour={accent} style={qaInsetStyle("chatPanel")}>
-          <QaQuestionHeaderRow
-            collaborators={
-              showContributors || showStatusBadge ? (
-                <div className="flex min-w-0 items-center gap-2">
-                  {showContributors && (
-                    <ContributorAvatarStack
-                      profiles={contributorProfiles}
-                      onlineUserIds={onlineUserIds}
-                    />
-                  )}
-                  {showStatusBadge && (
-                    <QaStatusBadge
-                      card={card}
-                      canvasArtifactNodes={canvasArtifactNodes}
-                    />
-                  )}
-                </div>
-              ) : null
-            }
-            controls={<CardQaMenu cardId={cardId} layout="embedded" />}
-          />
-          <QuestionAttachments card={card} />
-
-          <p className="text-canvas-body-lg font-medium leading-snug text-canvas-accent">
-            {card.question}
-          </p>
-        </QaQuestionSection>
-
-        {showAnswer && (
-          <div style={qaInsetStyle("answer")}>
-            <CardAnswerBody
-              card={card}
-              isStreaming={card.status === "streaming"}
-              showPendingPlaceholder={
-                turnInProgress && !shouldShowQaAnswerText(card)
-              }
-              pendingLabel={qaStatusLabel}
-              onTryAgain={handleTryAgain}
-            />
-          </div>
-        )}
-      </QaTranslucentSurface>
-    </div>
-  );
-}
-
-function ChatMessages({ threadId }: { threadId: string }) {
-  const cards = useCanvasStore((s) => s.cards);
-  const connections = useCanvasStore((s) => s.connections);
-  const cardOrder = useCanvasStore((s) => s.cardOrder);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  const chain = useMemo(
-    () =>
-      getThreadCardChain(
-        { cards, connections, cardOrder, threads: {}, threadOrder: [] },
-        threadId,
-      ),
-    [cards, connections, cardOrder, threadId],
-  );
-
-  const visibleChain = chain.filter(
-    (id) => cards[id] && cards[id].status !== "empty",
-  );
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [visibleChain, cards]);
-
-  if (visibleChain.length === 0) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-canvas-body text-canvas-muted">
-        No messages in this chat yet.
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={scrollRef}
-      className="flex-1 overflow-y-auto px-4 py-6 md:px-8"
-    >
-      <div className="relative mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
-          {visibleChain.map((cardId) => (
-            <QnaTurnBlock key={cardId} cardId={cardId} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ThreadChatComposer({ threadId }: { threadId: string }) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
@@ -313,16 +101,12 @@ export function ChatView() {
               Start a conversation on the canvas (press Q) to see it here.
             </p>
           ) : (
-            sidebar.map((node) => (
-              <SidebarItem
-                key={node.threadId}
-                node={node}
-                depth={0}
-                activeThreadId={activeThreadId}
-                threads={threads}
-                onSelect={setActiveThreadId}
-              />
-            ))
+            <ChatThreadTree
+              nodes={sidebar}
+              activeThreadId={activeThreadId}
+              threads={threads}
+              onSelect={setActiveThreadId}
+            />
           )}
         </nav>
       </aside>
@@ -330,7 +114,7 @@ export function ChatView() {
       <div className="flex min-w-0 flex-1 flex-col">
         {activeThreadId ? (
           <>
-            <ChatMessages threadId={activeThreadId} />
+            <ChatThreadMessages threadId={activeThreadId} />
             <ThreadChatComposer threadId={activeThreadId} />
           </>
         ) : (

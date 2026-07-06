@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/app/admin/AdminShell";
-import { DesignSystemApp } from "@/app/dev/design-system/DesignSystemApp";
+import { DesignPanelApp } from "@/app/admin/tools/design-system/panel/DesignPanelApp";
 import type { DesignSystemDocContent } from "@/app/dev/design-system/sections/DocsSection";
 import { getAdminUser } from "@/lib/adminAccess.server";
 import { DESIGN_SYSTEM_DOCS } from "@/lib/designSystemRegistry";
@@ -25,10 +25,10 @@ export default async function AdminDesignSystemPage() {
   return (
     <AdminShell
       title="Design System"
-      description="Exportable UI specimens and documentation."
+      description="Live theme controls, tokens, and reference specimens."
     >
       <div className="h-full min-h-0">
-        <DesignSystemApp docs={docs} embedded />
+        <DesignPanelApp docs={docs} />
       </div>
     </AdminShell>
   );

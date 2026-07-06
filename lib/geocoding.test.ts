@@ -21,6 +21,40 @@ describe("geocodeMapArtifact", () => {
     expect(result!.place.lng).toBeTypeOf("number");
     expect(result!.zoom).toBeGreaterThan(0);
   }, 15000);
+
+  it("geocodes saved pins by name when coordinates are absent", async () => {
+    const result = await geocodeMapArtifact({
+      place: { name: "London, UK" },
+      savedPlaces: [
+        { name: "The British Museum, London", type: "museum" },
+        { name: "Tower of London", label: "Tower of London" },
+      ],
+    });
+    expect(result).not.toBeNull();
+    expect(result!.savedPlaces).toHaveLength(2);
+    for (const pin of result!.savedPlaces!) {
+      expect(Number.isFinite(pin.lat)).toBe(true);
+      expect(Number.isFinite(pin.lng)).toBe(true);
+      expect(pin.id).toBeTruthy();
+      expect(pin.label.length).toBeGreaterThan(0);
+    }
+  }, 30000);
+
+  it("preserves saved pins that already have coordinates", async () => {
+    const result = await geocodeMapArtifact({
+      place: { name: "Paris, France" },
+      savedPlaces: [
+        { id: "pin_keep", label: "Louvre", lat: 48.8606, lng: 2.3376 },
+      ],
+    });
+    expect(result!.savedPlaces).toHaveLength(1);
+    expect(result!.savedPlaces![0]).toMatchObject({
+      id: "pin_keep",
+      label: "Louvre",
+      lat: 48.8606,
+      lng: 2.3376,
+    });
+  }, 15000);
 });
 
 describe("searchPlaces", () => {

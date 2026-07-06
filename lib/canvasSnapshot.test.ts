@@ -35,6 +35,38 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("ambient-gradient");
   });
 
+  it("preserves static-image style and image id", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "static-image",
+      canvasBackgroundImageId: "grok-7e162978",
+    });
+    expect(snapshot.canvasBackgroundStyle).toBe("static-image");
+    expect(snapshot.canvasBackgroundImageId).toBe("grok-7e162978");
+  });
+
+  it("falls back to default image id for invalid canvasBackgroundImageId", () => {
+    const snapshot = normalizeCanvasSnapshot({
+      version: 1,
+      canvasBackgroundStyle: "static-image",
+      canvasBackgroundImageId: "missing-image",
+    });
+    expect(snapshot.canvasBackgroundImageId).toBe("grok-5f2e9dd9");
+  });
+
+  it("preserves chat and focus view modes and coerces unknown values", () => {
+    expect(
+      normalizeCanvasSnapshot({ version: 1, viewMode: "chat" }).viewMode,
+    ).toBe("chat");
+    expect(
+      normalizeCanvasSnapshot({ version: 1, viewMode: "focus" }).viewMode,
+    ).toBe("focus");
+    expect(
+      normalizeCanvasSnapshot({ version: 1, viewMode: "bogus" }).viewMode,
+    ).toBe("canvas");
+    expect(normalizeCanvasSnapshot({ version: 1 }).viewMode).toBe("canvas");
+  });
+
   it("falls back to grid for removed canvasBackgroundStyle values", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,

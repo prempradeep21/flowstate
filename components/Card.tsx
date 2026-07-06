@@ -15,6 +15,7 @@ import { CardQuestionText } from "@/components/cards/CardQuestionText";
 import { ConversationCardSurface } from "@/components/admin/ConversationCardSurface";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { CardQaMenu } from "@/components/CardQaMenu";
 import { QuestionAttachments } from "@/components/QuestionAttachments";
@@ -42,7 +43,6 @@ import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
 import { finalizeCardResponse } from "@/lib/artifactGeneration";
-import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import {
   clearQaTurnTimeout,
   startQaTurnTimeout,
@@ -629,44 +629,9 @@ function CardInner({ card }: CardProps) {
   const submitQuestion = (question: string, options?: FollowUpOptions) => {
     const q = question.trim();
     if (!q || turnInProgress || !canEdit) return;
-    recordUndo();
     if (user?.id) stampContributor(user.id, card.id);
     restartAsk();
-    const st = useCanvasStore.getState();
-    const attachedFromPlug = resolveCardAttachedArtifactRefs(card.id, {
-      cards: st.cards,
-      artifactPlugConnections: st.artifactPlugConnections,
-      canvasArtifactNodes: st.canvasArtifactNodes,
-      plugComposerAttachments: st.plugComposerAttachments,
-      sessionArtifacts: st.sessionArtifacts,
-    });
-    const attachedArtifacts =
-      options?.attachedArtifacts?.length
-        ? options.attachedArtifacts
-        : card.attachedArtifacts?.length
-          ? card.attachedArtifacts
-          : attachedFromPlug.length
-            ? attachedFromPlug
-            : undefined;
-    updateCard(card.id, {
-      question: q,
-      answer: "",
-      status: "thinking",
-      thinkingLabel: "Thinking",
-      responseType: "text",
-      artifactPayload: undefined,
-      pendingEmittedArtifacts: undefined,
-      attachedImages: options?.pendingImages,
-      images: undefined,
-      outputArtifactId: undefined,
-      outputArtifactVersionId: undefined,
-      attachedArtifacts,
-      attachedAssets: options?.attachedAssets,
-      pendingFiles: options?.pendingFiles,
-      quotedSelection: undefined,
-      answerExplains: undefined,
-      ...turnMetricsOnSubmit(),
-    });
+    useCanvasStore.getState().submitCardQuestion(card.id, q, options);
   };
 
   const submitFollowUp = (question: string, options?: FollowUpOptions) => {
@@ -814,7 +779,7 @@ function CardInner({ card }: CardProps) {
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
       } ${hideForLanding ? "pointer-events-none invisible" : ""} ${
         isEmptyComposer
-          ? "overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card"
+          ? "overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-artifact"
           : ""
       }`}
       style={{
@@ -839,11 +804,9 @@ function CardInner({ card }: CardProps) {
       {showBranchPlugs && (
         <>
           <div
-            className={`pointer-events-none absolute inset-y-0 left-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
-              lateralBranches.some((b) => b.side === "left")
-                ? "opacity-100"
-                : "opacity-0"
-            }`}
+            className={canvasSidePlugWrapperClass("left", "card", {
+              alwaysVisible: lateralBranches.some((b) => b.side === "left"),
+            })}
           >
             <Plug
               side="left"
@@ -867,11 +830,9 @@ function CardInner({ card }: CardProps) {
             )}
           </div>
           <div
-            className={`pointer-events-none absolute inset-y-0 right-0 z-30 transition-opacity group-hover/card:opacity-100 [&_button]:pointer-events-auto ${
-              lateralBranches.some((b) => b.side === "right")
-                ? "opacity-100"
-                : "opacity-0"
-            }`}
+            className={canvasSidePlugWrapperClass("right", "card", {
+              alwaysVisible: lateralBranches.some((b) => b.side === "right"),
+            })}
           >
             <Plug
               side="right"
@@ -900,6 +861,7 @@ function CardInner({ card }: CardProps) {
         <div
           className="relative min-w-0 overflow-hidden"
           style={qaInsetStyle("emptyComposer")}
+          data-coach-target="ask-composer"
         >
           <CanvasSharpContent className="w-full min-w-0">
             <ChatComposer
@@ -929,7 +891,7 @@ function CardInner({ card }: CardProps) {
         </div>
       ) : (
       <div
-        className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-card transition-shadow hover:shadow-cardHover ${
+        className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
             ? "border-canvas-ink ring-2 ring-canvas-ink/25"
             : "border-canvas-border"

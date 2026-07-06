@@ -70,6 +70,13 @@ describe("classifyPastedUrl", () => {
     ).toBe("google-doc");
   });
 
+  it("routes direct image URLs to image", () => {
+    expect(classifyPastedUrl("https://cdn.example.com/photo.png")).toBe("image");
+    expect(classifyPastedUrl("https://example.com/assets/hero.jpg")).toBe(
+      "image",
+    );
+  });
+
   it("routes social embed URLs to embed", () => {
     expect(
       classifyPastedUrl("https://www.reddit.com/r/test/comments/abc123/x/"),
@@ -84,9 +91,9 @@ describe("classifyPastedText", () => {
     expect(result?.url).toBe("https://youtu.be/abc123");
   });
 
-  it("classifies pasted website text", () => {
-    const result = classifyPastedText("github.com");
-    expect(result?.kind).toBe("website");
-    expect(result?.url).toBe("https://github.com/");
+  it("classifies pasted image URL text", () => {
+    const result = classifyPastedText("https://cdn.example.com/photo.webp");
+    expect(result?.kind).toBe("image");
+    expect(result?.url).toBe("https://cdn.example.com/photo.webp");
   });
 });

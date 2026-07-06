@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { OfficeAssetPreview } from "@/components/canvas/OfficeAssetPreview";
 import { TabularPreviewTable } from "@/components/canvas/TabularPreviewTable";
 import { highlightCode, languageFromPath } from "@/lib/codeHighlight";
@@ -13,7 +13,9 @@ import {
   resolvePreviewKind,
   type AssetPreviewRenderer,
 } from "@/lib/documentPreview";
+import { refreshAssetSignedUrl } from "@/lib/refreshAssetUrl";
 import type { CanvasAsset } from "@/lib/store";
+import { useCanvasStore } from "@/lib/store";
 
 function PreviewFallback({
   asset,
@@ -446,6 +448,61 @@ function TextBasedPreview({
   );
 }
 
+function ImageAssetPreview({
+  asset,
+  compact,
+}: {
+  asset: CanvasAsset;
+  compact: boolean;
+}) {
+  const [src, setSrc] = useState(asset.publicUrl);
+  const [failed, setFailed] = useState(false);
+  const refreshedRef = useRef(false);
+
+  useEffect(() => {
+    setSrc(asset.publicUrl);
+    setFailed(false);
+    refreshedRef.current = false;
+  }, [asset.id, asset.publicUrl]);
+
+  const handleError = () => {
+    if (!refreshedRef.current && asset.storagePath) {
+      refreshedRef.current = true;
+      void refreshAssetSignedUrl(asset.storagePath).then((nextUrl) => {
+        if (nextUrl) {
+          setSrc(nextUrl);
+          useCanvasStore.getState().patchCanvasAssetPublicUrl(asset.id, nextUrl);
+          return;
+        }
+        setFailed(true);
+      });
+      return;
+    }
+    setFailed(true);
+  };
+
+  if (failed) {
+    return (
+      <PreviewFallback
+        asset={asset}
+        message="Preview unavailable"
+        compact={compact}
+      />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={asset.name}
+      draggable={false}
+      className={`h-full w-full ${compact ? "object-cover" : "object-contain"}`}
+      onError={handleError}
+    />
+  );
+}
+
 export function AssetContentPreview({
   asset,
   layout = "canvas",
@@ -463,15 +520,7 @@ export function AssetContentPreview({
   const previewKind = resolvePreviewKind(asset);
 
   if (previewKind === "image") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={asset.publicUrl}
-        alt={asset.name}
-        draggable={false}
-        className={`h-full w-full ${compact ? "object-cover" : "object-contain"}`}
-      />
-    );
+    return <ImageAssetPreview asset={asset} compact={compact} />;
   }
 
   if (previewKind === "office") {

@@ -19,6 +19,11 @@ import {
   PENCIL_STROKE_WIDTH,
 } from "@/lib/canvasStroke";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
+import {
+  cycleCanvasBackgroundImageId,
+  DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+  normalizeCanvasBackgroundImageId,
+} from "@/lib/canvasBackgroundImages";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import {
   isCardSourcedArtifactBuild,
@@ -75,8 +80,15 @@ import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import {
   getFamilyCardIds,
   getThreadRootCard,
+  getThreadTailCardId,
   pickDefaultThreadId,
 } from "@/lib/chatThreads";
+import {
+  computeFocusRootCardPosition,
+  getLatestArtifactIdForThread,
+  getLatestThreadIdForArtifact,
+} from "@/lib/focusView";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { runSilentAutoCollapse } from "@/lib/collapseSoundSuppress";
 import {
   registerThreadInactivityHandlers,
@@ -433,13 +445,14 @@ export interface Viewport {
 }
 
 export type ConnectorStyle = "curvy" | "orthogonal" | "straight";
-export type AppViewMode = "canvas" | "chat";
+export type AppViewMode = "canvas" | "chat" | "focus";
 
-export type CanvasBackgroundStyle = "grid" | "ambient-gradient";
+export type CanvasBackgroundStyle = "grid" | "ambient-gradient" | "static-image";
 
 export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "grid",
   "ambient-gradient",
+  "static-image",
 ] as const;
 
 export type CanvasTheme = "light" | "dark";
@@ -560,6 +573,7 @@ interface CanvasState {
   addUploadedAttachment: (attachment: UploadedAttachment) => void;
   removeUploadedAttachment: (id: string) => void;
   addCanvasAsset: (asset: CanvasAsset) => void;
+  patchCanvasAssetPublicUrl: (assetId: string, publicUrl: string) => void;
   removeCanvasAsset: (assetId: string) => void;
   spawnCanvasAsset: (
     assetId: string,
@@ -614,6 +628,26 @@ interface CanvasState {
   activeThreadId: string | null;
   setViewMode: (mode: AppViewMode) => void;
   setActiveThreadId: (threadId: string) => void;
+
+  /** Focus view — artifact shown in the middle panel (session-only). */
+  focusArtifactId: string | null;
+  /** Focus view — "New chat" pressed; thread is created on first submit (session-only). */
+  focusDraftChat: { artifactRef: AttachedArtifactRef | null } | null;
+  setFocusArtifactId: (artifactId: string | null) => void;
+  focusSelectChat: (threadId: string) => void;
+  focusSelectArtifact: (artifactId: string) => void;
+  focusStartNewChat: (artifactRef: AttachedArtifactRef | null) => void;
+  /** Submit a question into an existing (empty/root) card — shared by Card and focus view. */
+  submitCardQuestion: (
+    cardId: string,
+    question: string,
+    options?: FollowUpOptions,
+  ) => void;
+  /** Focus view composer submit — routes to draft root, empty tail, or follow-up. */
+  submitFocusMessage: (
+    question: string,
+    options?: FollowUpOptions,
+  ) => string | null;
 
   canvasPlacementRequest: CanvasPlacementTool | null;
   activeCanvasPlacement: CanvasPlacementTool | null;
@@ -687,6 +721,7 @@ interface CanvasState {
   finishCanvasStroke: (strokeId: string) => void;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId: string;
   canvasTheme: CanvasTheme;
   /** UI sound effects enabled for this session. */
   soundEnabled: boolean;
@@ -1046,6 +1081,8 @@ interface CanvasState {
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
   setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
+  setCanvasBackgroundImageId: (id: string) => void;
+  cycleCanvasBackgroundImage: (delta: -1 | 1) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSoundVolume: (volume: number) => void;
@@ -1490,6 +1527,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasAssets: { ...state.canvasAssets, [asset.id]: asset },
       collaborationHasEdits: true,
     })),
+  patchCanvasAssetPublicUrl: (assetId, publicUrl) =>
+    set((state) => {
+      const asset = state.canvasAssets[assetId];
+      if (!asset) return state;
+      return {
+        canvasAssets: {
+          ...state.canvasAssets,
+          [assetId]: { ...asset, publicUrl },
+        },
+      };
+    }),
   removeCanvasAsset: (assetId) =>
     set((state) => {
       if (!state.canvasAssets[assetId]) return state;
@@ -1930,12 +1978,150 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ artifactPlacementRequest: pick, viewMode: "canvas" }),
   setViewMode: (mode) =>
     set((state) => {
-      if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
-        return { viewMode: mode, activeThreadId: state.threadOrder[0] };
+      const next: Partial<CanvasState> = { viewMode: mode };
+      if (
+        (mode === "chat" || mode === "focus") &&
+        !state.activeThreadId &&
+        state.threadOrder[0]
+      ) {
+        next.activeThreadId = state.threadOrder[0];
       }
-      return { viewMode: mode };
+      if (mode === "focus" && state.focusArtifactId === null) {
+        const threadId = next.activeThreadId ?? state.activeThreadId;
+        if (threadId) {
+          next.focusArtifactId = getLatestArtifactIdForThread(state, threadId);
+        }
+      }
+      return next;
     }),
   setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
+
+  focusArtifactId: null,
+  focusDraftChat: null,
+  setFocusArtifactId: (artifactId) => set({ focusArtifactId: artifactId }),
+  focusSelectChat: (threadId) =>
+    set((state) => ({
+      activeThreadId: threadId,
+      focusDraftChat: null,
+      focusArtifactId: getLatestArtifactIdForThread(state, threadId),
+    })),
+  focusSelectArtifact: (artifactId) =>
+    set((state) => {
+      const threadId = getLatestThreadIdForArtifact(state, artifactId);
+      return threadId
+        ? {
+            focusArtifactId: artifactId,
+            activeThreadId: threadId,
+            focusDraftChat: null,
+          }
+        : { focusArtifactId: artifactId };
+    }),
+  focusStartNewChat: (artifactRef) =>
+    set({
+      focusDraftChat: { artifactRef },
+      ...(artifactRef ? {} : { focusArtifactId: null }),
+    }),
+
+  submitCardQuestion: (cardId, question, options) => {
+    const q = question.trim();
+    if (!q) return;
+    const st = get();
+    const card = st.cards[cardId];
+    if (!card) return;
+    st.recordUndo();
+    const attachedFromPlug = resolveCardAttachedArtifactRefs(cardId, {
+      cards: st.cards,
+      artifactPlugConnections: st.artifactPlugConnections,
+      canvasArtifactNodes: st.canvasArtifactNodes,
+      plugComposerAttachments: st.plugComposerAttachments,
+      sessionArtifacts: st.sessionArtifacts,
+    });
+    const attachedArtifacts = options?.attachedArtifacts?.length
+      ? options.attachedArtifacts
+      : card.attachedArtifacts?.length
+        ? card.attachedArtifacts
+        : attachedFromPlug.length
+          ? attachedFromPlug
+          : undefined;
+    st.updateCard(cardId, {
+      question: q,
+      answer: "",
+      status: "thinking",
+      thinkingLabel: "Thinking",
+      responseType: "text",
+      artifactPayload: undefined,
+      pendingEmittedArtifacts: undefined,
+      attachedImages: options?.pendingImages,
+      images: undefined,
+      outputArtifactId: undefined,
+      outputArtifactVersionId: undefined,
+      attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
+      pendingFiles: options?.pendingFiles,
+      quotedSelection: undefined,
+      answerExplains: undefined,
+      ...turnMetricsOnSubmit(),
+    });
+  },
+
+  submitFocusMessage: (question, options) => {
+    const q = question.trim();
+    if (!q) return null;
+    const state = get();
+    if (state.canvasReadOnly) return null;
+    const draft = state.focusDraftChat;
+    const activeThreadId = state.activeThreadId;
+
+    if (draft || !activeThreadId || !state.threads[activeThreadId]) {
+      const ref = draft?.artifactRef ?? null;
+      const position = computeFocusRootCardPosition(state);
+      const cardId = ref
+        ? state.createRootCardWithAttachment(position, ref)
+        : state.createRootCard(position);
+      if (!cardId) return null;
+      if (ref) {
+        const node = findCanvasNodeByArtifactId(
+          get().canvasArtifactNodes,
+          ref.artifactId,
+        );
+        if (node) {
+          get().addArtifactPlugConnection({
+            artifactNodeId: node.id,
+            cardId,
+            fromSide: "right",
+            toSide: "left",
+          });
+        }
+      }
+      get().submitCardQuestion(cardId, q, options);
+      const threadId = get().cards[cardId]?.threadId ?? null;
+      set({
+        focusDraftChat: null,
+        ...(threadId ? { activeThreadId: threadId } : {}),
+      });
+      return cardId;
+    }
+
+    const tailId = getThreadTailCardId(
+      {
+        cards: state.cards,
+        connections: state.connections,
+        cardOrder: state.cardOrder,
+        threads: {},
+        threadOrder: [],
+      },
+      activeThreadId,
+    );
+    if (!tailId) return null;
+    const tail = state.cards[tailId];
+    if (!tail) return null;
+    if (tail.status === "empty") {
+      get().submitCardQuestion(tailId, q, options);
+      return tailId;
+    }
+    if (tail.status !== "done") return null;
+    return get().createFollowUp(tailId, q, options);
+  },
 
   viewport: { x: 0, y: 0, scale: 1 },
   viewportSettledScale: 1,
@@ -2014,6 +2200,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
+  canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "dark",
   soundEnabled: true,
   soundVolume: 0.7,
@@ -2995,7 +3182,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setConnectorStyle: (style) => set({ connectorStyle: style }),
 
   setCanvasBackgroundStyle: (style) =>
-    set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
+    set((state) => ({
+      canvasBackgroundStyle: style,
+      canvasBackgroundImageId:
+        style === "static-image"
+          ? normalizeCanvasBackgroundImageId(state.canvasBackgroundImageId)
+          : state.canvasBackgroundImageId,
+      collaborationHasEdits: true,
+    })),
+
+  setCanvasBackgroundImageId: (id) =>
+    set({
+      canvasBackgroundImageId: normalizeCanvasBackgroundImageId(id),
+      collaborationHasEdits: true,
+    }),
+
+  cycleCanvasBackgroundImage: (delta) =>
+    set((state) => ({
+      canvasBackgroundStyle: "static-image",
+      canvasBackgroundImageId: cycleCanvasBackgroundImageId(
+        state.canvasBackgroundImageId,
+        delta,
+      ),
+      collaborationHasEdits: true,
+    })),
 
   setCanvasTheme: (theme) =>
     set((state) => ({
@@ -5138,6 +5348,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       groups: state.groups,
       connectorStyle: state.connectorStyle,
       canvasBackgroundStyle: state.canvasBackgroundStyle,
+      canvasBackgroundImageId: state.canvasBackgroundImageId,
       canvasTheme: state.canvasTheme,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
@@ -5221,6 +5432,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       activeCanvasPlacement: null,
       artifactPlacementRequest: null,
       viewMode: "canvas",
+      focusArtifactId: null,
+      focusDraftChat: null,
       collaborationHasEdits: false,
       canvasReadOnly: false,
       canvasLoadReveal: null,
@@ -5319,6 +5532,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
+        canvasBackgroundImageId: snapshotNorm.canvasBackgroundImageId,
         canvasTheme: snapshotNorm.canvasTheme,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
@@ -5333,6 +5547,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSkillOrder: [...(snapshotNorm.canvasSkillOrder ?? [])],
         canvasLoadReveal: preserveEphemeral ? state.canvasLoadReveal : canvasLoadReveal,
         activeThreadId: preserveEphemeral ? state.activeThreadId : (threadOrder[0] ?? null),
+        focusArtifactId: preserveEphemeral ? state.focusArtifactId : null,
+        focusDraftChat: preserveEphemeral ? state.focusDraftChat : null,
         openArtifactCardId: preserveEphemeral ? state.openArtifactCardId : null,
         openGroupArtifactId: preserveEphemeral ? state.openGroupArtifactId : null,
         openSessionArtifactId: preserveEphemeral ? state.openSessionArtifactId : null,

@@ -384,7 +384,6 @@ export function GoogleWorkspaceArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={!sidebar}
         className="h-full min-h-0 !bg-transparent"
       >
         {preview}

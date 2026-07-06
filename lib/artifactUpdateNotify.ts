@@ -12,6 +12,7 @@ import {
   artifactDisplayTitle,
   getLatestVersion,
   getVersionById,
+  type SessionArtifact,
 } from "@/lib/sessionArtifacts";
 import { useArtifactUpdateStore } from "@/lib/artifactUpdateStore";
 import { useCanvasStore } from "@/lib/store";
@@ -20,13 +21,26 @@ const MANUAL_SOURCE_PREFIXES = ["__manual", "manual-"] as const;
 
 export function isCardSourcedArtifactBuild(
   sourceCardId: string,
-  cards: Record<string, { id: string }>,
+  cards: Record<string, unknown>,
 ): boolean {
   if (!sourceCardId) return false;
   if (MANUAL_SOURCE_PREFIXES.some((prefix) => sourceCardId.startsWith(prefix))) {
     return false;
   }
   return Boolean(cards[sourceCardId]);
+}
+
+/** Card-generated artifacts (not manual canvas drops or catalog samples). */
+export function isOutputSessionArtifact(
+  artifact: SessionArtifact,
+  cards: Record<string, { outputArtifactId?: string }>,
+): boolean {
+  for (const card of Object.values(cards)) {
+    if (card.outputArtifactId === artifact.id) return true;
+  }
+  const first = artifact.versions[0];
+  if (!first) return false;
+  return isCardSourcedArtifactBuild(first.sourceCardId, cards);
 }
 
 export function pushArtifactReadyUpdate(artifactId: string, nodeId?: string): void {

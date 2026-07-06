@@ -60,7 +60,6 @@ export function ImagesArtifactContent({
   allowMediaInteraction = false,
   onContentHeightChange,
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "images" }>;
   fill?: boolean;
@@ -69,7 +68,6 @@ export function ImagesArtifactContent({
   /** Reports the grid's natural height so the canvas node can wrap around it. */
   onContentHeightChange?: (heightPx: number) => void;
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const items = payload.data.items;
   const isVideo = isVideoArtifactPayload(payload);
@@ -111,7 +109,6 @@ export function ImagesArtifactContent({
         <ArtifactContentStage
           fill
           artifactId={artifactId}
-          showControls={showControls}
           className="h-full !bg-transparent"
         >
           {emptyBody}
@@ -121,7 +118,6 @@ export function ImagesArtifactContent({
     return (
       <ArtifactContentStage
         artifactId={artifactId}
-        showControls={showControls}
         className="!bg-transparent"
       >
         {emptyBody}
@@ -171,7 +167,6 @@ export function ImagesArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className="h-full !bg-transparent"
       >
         <div className="h-full overflow-auto">
@@ -186,7 +181,6 @@ export function ImagesArtifactContent({
   return (
     <ArtifactContentStage
       artifactId={artifactId}
-      showControls={showControls}
       className="!bg-transparent"
     >
       <div className="p-3">{grid}</div>

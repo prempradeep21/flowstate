@@ -7,10 +7,16 @@ import {
   THEME_OPTIONS,
 } from "@/components/canvasBackgrounds/registry";
 import { CanvasFontSettingsSections } from "@/components/CanvasFontPopover";
+import { CanvasBackgroundImageCarousel } from "@/components/CanvasBackgroundImageCarousel";
+import { StaticImageBackground } from "@/components/canvasBackgrounds/StaticImageBackground";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
+import {
+  CANVAS_STATIC_BACKGROUND_IMAGES,
+  getCanvasBackgroundImageById,
+} from "@/lib/canvasBackgroundImages";
 import { useCanvasStore, type CanvasTheme } from "@/lib/store";
 
 interface Props {
@@ -44,6 +50,7 @@ export function CanvasSettingsPopover({
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
   const setCanvasTheme = useCanvasStore((s) => s.setCanvasTheme);
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
+  const canvasBackgroundImageId = useCanvasStore((s) => s.canvasBackgroundImageId);
   const setCanvasBackgroundStyle = useCanvasStore(
     (s) => s.setCanvasBackgroundStyle,
   );
@@ -79,6 +86,13 @@ export function CanvasSettingsPopover({
   if (!open) return null;
 
   const backgroundOptions = getBackgroundOptionsForTheme(canvasTheme);
+  const previewImageId =
+    canvasBackgroundStyle === "static-image"
+      ? canvasBackgroundImageId
+      : CANVAS_STATIC_BACKGROUND_IMAGES[0]!.id;
+  const previewImage =
+    getCanvasBackgroundImageById(previewImageId) ??
+    CANVAS_STATIC_BACKGROUND_IMAGES[0]!;
 
   return (
     <MotionFlowSize
@@ -155,6 +169,7 @@ export function CanvasSettingsPopover({
         {backgroundOptions.map((option) => {
           const Preview = BACKGROUND_COMPONENTS[option.id];
           const selected = canvasBackgroundStyle === option.id;
+          const isStaticImage = option.id === "static-image";
           return (
             <button
               key={option.id}
@@ -168,13 +183,22 @@ export function CanvasSettingsPopover({
               }`}
             >
               <div className="relative h-12 w-full overflow-hidden bg-canvas-bg">
-                <div className="absolute inset-0 scale-[1] origin-top-left">
-                  <Preview animate={false} className="!absolute inset-0" />
-                </div>
+                {isStaticImage ? (
+                  <StaticImageBackground
+                    imageId={previewImageId}
+                    className="!absolute inset-0"
+                  />
+                ) : (
+                  <div className="absolute inset-0 scale-[1] origin-top-left">
+                    <Preview animate={false} className="!absolute inset-0" />
+                  </div>
+                )}
               </div>
               <div className="px-2 py-1.5">
                 <span className="text-canvas-compact font-medium text-canvas-ink">
-                  {option.label}
+                  {isStaticImage && selected
+                    ? previewImage.label
+                    : option.label}
                 </span>
               </div>
               {selected && (
@@ -189,6 +213,9 @@ export function CanvasSettingsPopover({
           );
         })}
       </div>
+      {canvasBackgroundStyle === "static-image" && (
+        <CanvasBackgroundImageCarousel />
+      )}
 
       <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
         Sounds

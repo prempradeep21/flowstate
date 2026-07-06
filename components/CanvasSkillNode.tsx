@@ -17,6 +17,7 @@ import {
   useCanvasStore,
   type CanvasSkillNode as CanvasSkillNodeType,
 } from "@/lib/store";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 0;
@@ -162,14 +163,15 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
         data-canvas-skill
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className={`group/skill absolute rounded-[20px] border bg-canvas-card shadow-card transition-shadow ${
+        className={`group/skill absolute rounded-[20px] border bg-canvas-card shadow-artifact transition-shadow ${
           isSelected
-            ? "border-canvas-ink shadow-cardHover"
-            : "border-canvas-border hover:shadow-cardHover"
+            ? "border-canvas-ink shadow-artifactHover"
+            : "border-canvas-border hover:shadow-artifactHover"
         }`}
         style={{
           left: node.position.x,
@@ -178,31 +180,39 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from left"
-          onPointerDown={handleSkillPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from right"
-          onPointerDown={handleSkillPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "skill")}>
+              <Plug
+                side="left"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from left"
+                onPointerDown={handleSkillPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "skill")}>
+              <Plug
+                side="right"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from right"
+                onPointerDown={handleSkillPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
           <div className="relative flex h-full w-full flex-col items-center justify-center px-3 pb-3 pt-5">
-            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-canvas-ink px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-canvas-card">
+            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-canvas-ink px-3 py-0.5 text-canvas-caption font-bold uppercase tracking-wider text-canvas-card">
               Skill
             </span>
             <SkillBrainIcon className="h-11 w-11 shrink-0 text-canvas-ink" />
-            <span className="mt-2 line-clamp-2 text-center text-[13px] font-medium leading-tight text-canvas-ink">
+            <span className="mt-2 line-clamp-2 text-center text-canvas-body-sm font-medium leading-tight text-canvas-ink">
               {skill.title}
             </span>
           </div>
@@ -217,7 +227,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
               recordUndo();
               removeCanvasSkillNode(node.id);
             }}
-            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-canvas-compact text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
               isSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/skill:opacity-100"

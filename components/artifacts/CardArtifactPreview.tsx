@@ -58,8 +58,8 @@ export function CardArtifactPreview({ card }: { card: Card }) {
       <div
         className={
           item.status === "generating"
-            ? "pointer-events-none max-w-md opacity-90"
-            : "max-w-md"
+            ? "pointer-events-none w-full opacity-90"
+            : "w-full"
         }
       >
         <ArtifactPreviewPill
@@ -77,7 +77,7 @@ export function CardArtifactPreview({ card }: { card: Card }) {
   }
 
   return (
-    <div className="flex max-w-md flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       {items.map((item) => (
         <div
           key={item.key}

@@ -416,7 +416,7 @@ export function CanvasMinimap({
         )}
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-[10px] font-medium tabular-nums leading-none text-canvas-muted/90"
+          className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-canvas-caption font-medium tabular-nums leading-none text-canvas-muted/90"
         >
           {zoomPercent}%
         </span>

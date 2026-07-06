@@ -30,15 +30,19 @@ export function AdminPortalButton() {
   }
 
   return (
-    <Link
-      href="/admin"
-      aria-label="Open admin portal"
-      className="flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80"
-    >
-      <AdminIcon className="h-5 w-5 shrink-0" />
-      <span className="hidden text-canvas-body-sm font-medium sm:inline">
-        Admin
-      </span>
-    </Link>
+    <div className="shrink-0 rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
+      <div className="floating-chrome-padding flex items-center">
+        <Link
+          href="/admin"
+          aria-label="Open admin portal"
+          className="flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80"
+        >
+          <AdminIcon className="h-5 w-5 shrink-0" />
+          <span className="hidden text-canvas-body-sm font-medium sm:inline">
+            Admin
+          </span>
+        </Link>
+      </div>
+    </div>
   );
 }

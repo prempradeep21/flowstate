@@ -556,7 +556,7 @@ function RepoSpokeCard({
     <m.div
       ref={cardRef}
       data-no-drag
-      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{
         left: spoke.x,
         top: spoke.y,
@@ -969,7 +969,7 @@ export function RepoArtifactContent({
       <m.div
         ref={hubRef}
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
-        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-card"
+        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-artifact"
         style={{
           left: hub.cx - hub.w / 2,
           top: hub.cy - hub.h / 2,
@@ -991,7 +991,7 @@ export function RepoArtifactContent({
           <span className="text-canvas-micro font-medium text-canvas-muted/90">Drag</span>
         </div>
         <div className="artifact-content-body relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
-          <div className="flex flex-col items-center rounded-canvas-sm px-2 py-1">
+          <div className="flex w-full min-w-0 flex-col items-center rounded-canvas-sm px-2 py-1">
             <a
               href={repoUrl}
               target="_blank"
@@ -1004,6 +1004,7 @@ export function RepoArtifactContent({
             </a>
             <EditableArtifactTitle
               as="p"
+              wrap
               displayTitle={title}
               renameTitle={
                 sessionArtifact
@@ -1014,7 +1015,7 @@ export function RepoArtifactContent({
               onRename={(next) => {
                 if (artifactId) renameSessionArtifactTitle(artifactId, next);
               }}
-              className="mt-1.5 line-clamp-2 text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
+              className="mt-1.5 line-clamp-3 w-full text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
             />
           </div>
           {explorer.overview.data ? (

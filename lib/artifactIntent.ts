@@ -217,35 +217,103 @@ const CHART_VIZ_INTENT =
 const CHART_PERSONAL_INTENT =
   /\b(spending|budget|sleep|steps|weight|savings|habit|goal|progress|track(?:ing)?)\b/i;
 
-const ISO_DATE_IN_Q = /\b\d{4}-\d{2}-\d{2}\b/;
-const MONTH_YEAR =
-  /\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b[^.]{0,20}\d{4}/i;
+const CHART_NUMERIC_KEYWORD =
+  /\b(revenue|sales|growth|graph|chart|bar|line|area|pie|numbers?|statistics|data|metric|percent|rate)\b/i;
 
 export function detectChartIntent(question: string): boolean {
   const q = question.trim();
   if (!q) return false;
   if (detectTimelineIntent(q) && !CHART_VIZ_INTENT.test(q)) return false;
-  return (
-    CHART_TREND_INTENT.test(q) ||
-    CHART_COMPARE_INTENT.test(q) ||
-    CHART_VIZ_INTENT.test(q) ||
-    CHART_PERSONAL_INTENT.test(q) ||
-    ISO_DATE_IN_Q.test(q) ||
-    MONTH_YEAR.test(q)
-  );
+  if (CHART_VIZ_INTENT.test(q)) return true;
+  if (
+    CHART_PERSONAL_INTENT.test(q) &&
+    (CHART_TREND_INTENT.test(q) || CHART_COMPARE_INTENT.test(q))
+  ) {
+    return true;
+  }
+  if (CHART_TREND_INTENT.test(q) && CHART_NUMERIC_KEYWORD.test(q)) return true;
+  if (CHART_COMPARE_INTENT.test(q) && CHART_VIZ_INTENT.test(q)) return true;
+  return false;
 }
 
-export const CHART_INTENT_SYSTEM_NOTE = `
+export const CHART_FETCH_INTENT_SYSTEM_NOTE = `
 MANDATORY — Chart / trend request detected:
-- If the user did not paste complete numbers, use web_search first to gather real or best-available numeric series for the topic.
+- First call fetch_chart_data to gather numeric series (unless the user already pasted complete numbers in their message).
 - Then call emit_artifact with type "chart" and a populated data payload.
+- Pick chartType: line for time trends; area for filled/cumulative trends; bar for category comparison; pie for share-of-whole; gauge for single goal progress.
+- data shape: bar/line/area use data.categories + data.series[{ name, data[] }]; pie uses data.slices[{ name, value }]; gauge uses data.gaugeValue, data.gaugeMax, data.gaugeLabel.
+- Keep text reply to 1–2 sentences; the chart is the deliverable.
+- Include data.source when numbers came from research.
+`.trim();
+
+export const CHART_LIVE_INTENT_SYSTEM_NOTE = `
+MANDATORY — Chart with live/current data detected:
+- Use web_search once to gather the latest numeric series, then call emit_artifact with type "chart".
 - Pick chartType: line for time trends; area for filled/cumulative trends; bar for category comparison; pie for share-of-whole; gauge for single goal progress.
 - data shape: bar/line/area use data.categories + data.series[{ name, data[] }]; pie uses data.slices[{ name, value }]; gauge uses data.gaugeValue, data.gaugeMax, data.gaugeLabel.
 - Keep text reply to 1–2 sentences; the chart is the deliverable.
 - Include data.source when numbers came from web research.
 `.trim();
 
+export const CHART_INTENT_SYSTEM_NOTE = CHART_FETCH_INTENT_SYSTEM_NOTE;
+
 export const CHART_THINKING_LABEL = "Gathering data and building chart…";
+
+/** Detect tabular list / comparison requests. */
+const TABLE_EXPLICIT = /\bin a table\b|\bas a table\b|\btable format\b|\btabular\b/i;
+const TABLE_REQUEST =
+  /\b(give\s+me|show\s+me|create|make|build|put)\b.{0,48}\b(table|columns?|rows?)\b/i;
+const TABLE_TOP_N =
+  /\b(top\s+\d+|list\s+(?:the|of)|compare|comparison)\b.{0,80}\b(table|columns?|rows?)\b/i;
+
+export function detectTableIntent(question: string): boolean {
+  const q = stripAppendedQuestionContext(question);
+  if (!q) return false;
+  return (
+    TABLE_EXPLICIT.test(q) || TABLE_REQUEST.test(q) || TABLE_TOP_N.test(q)
+  );
+}
+
+export const TABLE_INTENT_SYSTEM_NOTE = `
+MANDATORY — Table request detected:
+- You MUST call emit_artifact with type "table" in this turn.
+- Put the full table in data.columns and data.rows.
+- Do NOT also emit a map artifact unless the user explicitly asked for a map preview.
+- Answer from your knowledge for evergreen lists and comparisons — do not use web_search.
+- Keep your text reply to 1–2 short sentences.
+`.trim();
+
+export const TABLE_THINKING_LABEL = "Building table…";
+
+/** True when the question needs current / time-sensitive web data. */
+const LIVE_DATA_RECENCY =
+  /\b(today|latest|current|currently|right now|as of now|this week|this month|breaking|live|real[- ]?time|now)\b/i;
+const LIVE_DATA_YEAR = /\b(2025|2026)\b/;
+const EXPLICIT_WEB_SEARCH =
+  /\b(search the web|look up online|find current|browse for|google)\b/i;
+const LIVE_DATA_FEEDS =
+  /\b(stock price|weather today|news today|exchange rate today|market cap today)\b/i;
+const HISTORICAL_SERIES =
+  /\b(last\s+\d+\s+years?|past\s+\d+\s+years?|since\s+\d{4}|historical|over the last decade|ten years|10 years)\b/i;
+
+export function detectLiveDataIntent(question: string): boolean {
+  const q = stripAppendedQuestionContext(question);
+  if (!q) return false;
+  if (HISTORICAL_SERIES.test(q) && !LIVE_DATA_RECENCY.test(q)) return false;
+  return (
+    LIVE_DATA_RECENCY.test(q) ||
+    LIVE_DATA_YEAR.test(q) ||
+    EXPLICIT_WEB_SEARCH.test(q) ||
+    LIVE_DATA_FEEDS.test(q)
+  );
+}
+
+export const LIVE_DATA_SYSTEM_NOTE = `
+Live data mode: web_search is available for this turn.
+- Use web_search ONLY for current, time-sensitive facts not reliably in training data.
+- Do NOT use web_search for historical series, evergreen travel lists, or well-known comparisons.
+- Prefer at most one focused search query.
+`.trim();
 
 const APPENDED_CONTEXT_MARKERS = [
   "\n\nAttached asset context:",
@@ -294,6 +362,7 @@ const THINKING_LABEL_BY_KIND: Partial<Record<ArtifactKind, string>> = {
   chart: CHART_THINKING_LABEL,
   custom: CUSTOM_UI_THINKING_LABEL,
   map: MAP_THINKING_LABEL,
+  table: TABLE_THINKING_LABEL,
 };
 
 /**
@@ -313,12 +382,45 @@ export function resolvePrimaryArtifactKind(
 
   if (isCustomUiWork(q, editingPayload)) return "custom";
   if (detectTodoListIntent(q)) return "todo";
+  if (detectTableIntent(q)) return "table";
   if (detectTimelineIntent(q)) return "timeline";
   if (detectChartIntent(q)) return "chart";
   if (detectTravelMapIntent(q)) return "map";
   if (detectCalendarIntent(q)) return "calendar";
   if (detectSpecificPlaceIntent(q)) return "streetview";
   return null;
+}
+
+/**
+ * Single intent system note for the primary artifact kind (avoids stacked
+ * conflicting MANDATORY notes).
+ */
+export function resolvePrimaryIntentSystemNote(
+  question: string,
+  editingPayload?: { type?: string } | null,
+  opts?: { useFetchChartData?: boolean; liveData?: boolean },
+): string | null {
+  if (editingPayload) return null;
+
+  const kind = resolvePrimaryArtifactKind(question, editingPayload);
+  switch (kind) {
+    case "todo":
+      return TODO_INTENT_SYSTEM_NOTE;
+    case "calendar":
+      return CALENDAR_INTENT_SYSTEM_NOTE;
+    case "timeline":
+      return TIMELINE_INTENT_SYSTEM_NOTE;
+    case "chart":
+      if (opts?.liveData) return CHART_LIVE_INTENT_SYSTEM_NOTE;
+      if (opts?.useFetchChartData) return CHART_FETCH_INTENT_SYSTEM_NOTE;
+      return CHART_FETCH_INTENT_SYSTEM_NOTE;
+    case "custom":
+      return CUSTOM_UI_INTENT_SYSTEM_NOTE;
+    case "table":
+      return TABLE_INTENT_SYSTEM_NOTE;
+    default:
+      return null;
+  }
 }
 
 /** Status copy shown while the model turn is in flight. */

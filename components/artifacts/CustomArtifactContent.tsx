@@ -17,7 +17,6 @@ export function CustomArtifactContent({
   sidebarPreview = false,
   layout = "panel",
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "custom" }>;
   fill?: boolean;
@@ -25,7 +24,6 @@ export function CustomArtifactContent({
   sidebarPreview?: boolean;
   layout?: "canvas" | "panel" | "sidebar";
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const isCanvas = layout === "canvas";
   const readOnlyShell = !isCanvas ? "pointer-events-none " : "";
@@ -45,7 +43,6 @@ export function CustomArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className={sidebarPreview ? "h-full w-full" : "h-full min-h-0"}
       >
         <div className={`${readOnlyShell}h-full w-full`}>
@@ -60,7 +57,6 @@ export function CustomArtifactContent({
       className="aspect-[4/3] min-h-[280px]"
       minHeight="280px"
       artifactId={artifactId}
-      showControls={showControls}
     >
       <div className={`${readOnlyShell}h-full w-full`}>
         <DynamicUiFrame data={payload.data} />

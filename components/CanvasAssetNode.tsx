@@ -32,6 +32,7 @@ import {
 } from "@/lib/store";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 
 const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
@@ -254,6 +255,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         data-canvas-asset
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -261,11 +263,11 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         className={`group/asset absolute rounded-canvas border transition-shadow ${
           hasRichPreview
             ? isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-cardHover"
-              : "border-canvas-border/60 bg-canvas-card shadow-card hover:shadow-cardHover"
+              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
+              : "border-canvas-border/60 bg-canvas-card shadow-artifact hover:shadow-artifactHover"
             : isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-cardHover"
-              : "border-canvas-border bg-canvas-card shadow-card hover:shadow-cardHover"
+              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
+              : "border-canvas-border bg-canvas-card shadow-artifact hover:shadow-artifactHover"
         }`}
         style={{
           left: node.position.x,
@@ -274,20 +276,28 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from left"
-          onPointerDown={handleAssetPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from right"
-          onPointerDown={handleAssetPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "asset")}>
+              <Plug
+                side="left"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from left"
+                onPointerDown={handleAssetPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "asset")}>
+              <Plug
+                side="right"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from right"
+                onPointerDown={handleAssetPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}
@@ -321,7 +331,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
               recordUndo();
               removeCanvasAssetNode(node.id);
             }}
-            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-canvas-compact text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
               isSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/asset:opacity-100"

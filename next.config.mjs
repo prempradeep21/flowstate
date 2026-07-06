@@ -7,6 +7,16 @@ const nextConfig = {
   // Isolate showcase dev cache so it can run alongside `npm run dev`.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   serverExternalPackages: ["@cursor/sdk", "sqlite3"],
+  // Serve the static landing page at a clean /landing URL (no /index.html)
+  // by rewriting internally instead of redirecting the browser.
+  async rewrites() {
+    return [
+      {
+        source: "/landing",
+        destination: "/landing/index.html",
+      },
+    ];
+  },
   ...(isDesignSystemExport
     ? {
         output: "export",

@@ -9,29 +9,28 @@ import { geocodeMapArtifact } from "@/lib/geocoding";
 import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
 import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
 import {
+  buildWebSearchTool,
+  getMaxPauseTurns,
   isAnthropicWebSearchEnabled,
-  WEB_SEARCH_TOOL,
 } from "@/lib/anthropicWebSearch";
+import { fetchChartData } from "@/lib/chartDataFetch";
 import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
-  CALENDAR_INTENT_SYSTEM_NOTE,
-  CHART_INTENT_SYSTEM_NOTE,
   CUSTOM_UI_EDIT_SYSTEM_NOTE,
   CUSTOM_UI_INLINE_CODE_NOTE,
-  CUSTOM_UI_INTENT_SYSTEM_NOTE,
   detectCalendarIntent,
   detectChartIntent,
   detectInlineSourceInQuestion,
+  detectLiveDataIntent,
   detectTimelineIntent,
   detectTodoListIntent,
-  detectTravelMapIntent,
   isCustomUiWork,
+  LIVE_DATA_SYSTEM_NOTE,
   resolveInitialThinkingLabel,
   resolvePrimaryArtifactKind,
+  resolvePrimaryIntentSystemNote,
   stripAppendedQuestionContext,
   TIMELINE_EDIT_SYSTEM_NOTE,
-  TIMELINE_INTENT_SYSTEM_NOTE,
-  TODO_INTENT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
 import {
   customEditAckText,
@@ -57,6 +56,7 @@ import {
   shouldAutoFetchUrl,
 } from "@/lib/fetchPageContent";
 import { extractUrlsFromText } from "@/lib/urlDetection";
+import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
 
 const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
   name: "search_images",
@@ -80,7 +80,8 @@ const BASE_SYSTEM =
   `Linked pages:\n` +
   `- When the user includes a URL, Flowstate may attach fetched page text below their message. Summarize and explain from that attached content when present.\n` +
   `- Do not say you cannot read or browse a URL when fetched page content is attached.\n` +
-  `- Use web_search only when attached content is missing, failed, or insufficient for the question.\n` +
+  `- Default to your training knowledge for historical facts, evergreen lists, and well-known comparisons.\n` +
+  `- web_search is only available when the question requires current/live data — use it sparingly (at most one focused query).\n` +
   `- Cite the source URL when summarizing fetched or searched content.\n\n` +
   `Image tool guidance:\n` +
   `- To GENERATE or CREATE an AI image (artistic, fictional, stylized), use the image generation MCP tool if one is connected. Do NOT use search_images for generation requests.\n` +
@@ -88,7 +89,33 @@ const BASE_SYSTEM =
   `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
   ARTIFACT_PROMPT;
 
-type ChatTool = Anthropic.Tool | typeof WEB_SEARCH_TOOL;
+type ChatTool = Anthropic.Tool | ReturnType<typeof buildWebSearchTool>;
+
+const FETCH_CHART_DATA_TOOL: Anthropic.Tool = {
+  name: "fetch_chart_data",
+  description:
+    "Research numeric data for a chart visualization. Call before emit_artifact type chart when the user did not supply complete numbers and the data is not live/current.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      topic: { type: "string", description: "Subject to research" },
+      chartType: {
+        type: "string",
+        enum: ["bar", "area", "line", "pie", "gauge"],
+        description: "Intended chart type",
+      },
+      timeRange: {
+        type: "string",
+        description: "Optional range e.g. 2018-2024",
+      },
+      unit: {
+        type: "string",
+        description: "Optional unit e.g. USD, hours, %",
+      },
+    },
+    required: ["topic", "chartType"],
+  },
+};
 
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
@@ -213,8 +240,9 @@ export async function POST(req: Request) {
 
   interface IncomingFile { name: string; type: string; data: string; }
   interface HistoryMessage { question: string; answer: string; }
-  const { question, model, files, history: rawHistory, editingArtifact } = await req.json() as {
+  const { question, model, files, history: rawHistory, editingArtifact, conversationId, canvasId } = await req.json() as {
     conversationId: string;
+    canvasId?: string;
     question: string;
     model: string;
     files?: IncomingFile[];
@@ -252,16 +280,38 @@ export async function POST(req: Request) {
     }
   }
 
-  const webSearchEnabled = isAnthropicWebSearchEnabled();
+  const intentQuestion = stripAppendedQuestionContext(question);
+
+  const liveDataIntent = detectLiveDataIntent(intentQuestion);
+  const todoIntent = detectTodoListIntent(intentQuestion);
+  const calendarIntent = detectCalendarIntent(intentQuestion);
+  const timelineIntent = detectTimelineIntent(intentQuestion);
+  const chartIntent = detectChartIntent(intentQuestion);
+  const useFetchChartData = chartIntent && !liveDataIntent;
+  const webSearchEnabled =
+    isAnthropicWebSearchEnabled() && liveDataIntent;
+
   const allTools: ChatTool[] = [
-    ...(webSearchEnabled ? [WEB_SEARCH_TOOL] : []),
+    ...(webSearchEnabled ? [buildWebSearchTool()] : []),
+    ...(useFetchChartData ? [FETCH_CHART_DATA_TOOL] : []),
     SEARCH_IMAGES_TOOL,
     EMIT_ARTIFACT_TOOL,
     ...mcp.anthropicTools,
   ];
 
+  const editingPayload =
+    editingArtifact?.payload &&
+    typeof editingArtifact.payload === "object" &&
+    "type" in (editingArtifact.payload as object)
+      ? (editingArtifact.payload as { type?: string; title?: string })
+      : null;
+
+  const editingCustom = editingPayload?.type === "custom";
+  const customUiIntent = isCustomUiWork(intentQuestion, editingPayload);
+  const inlineSourceIntent = detectInlineSourceInQuestion(intentQuestion);
+  const primaryKind = resolvePrimaryArtifactKind(question, editingPayload);
+
   // Build the content for the current user message.
-  // If files are attached, send them as image/document blocks before the text.
   const userContent: Anthropic.ContentBlockParam[] = [];
   for (const file of files ?? []) {
     if (file.type.startsWith("image/")) {
@@ -278,25 +328,6 @@ export async function POST(req: Request) {
     }
   }
   userContent.push({ type: "text", text: question });
-
-  const intentQuestion = stripAppendedQuestionContext(question);
-
-  const todoIntent = detectTodoListIntent(intentQuestion);
-  const calendarIntent = detectCalendarIntent(intentQuestion);
-  const timelineIntent = detectTimelineIntent(intentQuestion);
-  const travelMapIntent = detectTravelMapIntent(intentQuestion);
-  const chartIntent = detectChartIntent(intentQuestion);
-
-  const editingPayload =
-    editingArtifact?.payload &&
-    typeof editingArtifact.payload === "object" &&
-    "type" in (editingArtifact.payload as object)
-      ? (editingArtifact.payload as { type?: string; title?: string })
-      : null;
-
-  const editingCustom = editingPayload?.type === "custom";
-  const customUiIntent = isCustomUiWork(intentQuestion, editingPayload);
-  const inlineSourceIntent = detectInlineSourceInQuestion(intentQuestion);
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
@@ -330,6 +361,12 @@ export async function POST(req: Request) {
 
       const totalUsage = { inputTokens: 0, outputTokens: 0 };
       let closed = false;
+      const turnStartedAt = Date.now();
+      let turnError: string | null = null;
+      let toolTurns = 0;
+      let pauseTurns = 0;
+      let webSearchBlocks = 0;
+      let searchThinkingEmitted = false;
       const closeStream = () => {
         if (closed) return;
         closed = true;
@@ -339,9 +376,8 @@ export async function POST(req: Request) {
       const hardTimeout =
         QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0
           ? setTimeout(() => {
-              emit({
-                error: `Request timed out after ${QA_TURN_TIMEOUT_SECONDS / 60} minutes.`,
-              });
+              turnError = `Request timed out after ${QA_TURN_TIMEOUT_SECONDS / 60} minutes.`;
+              emit({ error: turnError });
               closeStream();
             }, QA_TURN_TIMEOUT_MS_ACTIVE)
           : null;
@@ -385,17 +421,14 @@ export async function POST(req: Request) {
           });
           emit({ text: fastCustom.text });
         } else {
-        const primaryKind = resolvePrimaryArtifactKind(
-          question,
-          editingPayload,
-        );
         if (
           primaryKind &&
           (primaryKind === "calendar" ||
             primaryKind === "timeline" ||
             primaryKind === "custom" ||
             primaryKind === "map" ||
-            primaryKind === "chart")
+            primaryKind === "chart" ||
+            primaryKind === "table")
         ) {
           emit({
             thinking: resolveInitialThinkingLabel(question, editingPayload),
@@ -428,26 +461,24 @@ export async function POST(req: Request) {
           ];
         }
 
-        // Tool-use loop: Claude may call tools multiple times before a final reply.
         const MAX_TOOL_TURNS = 5;
+        const MAX_PAUSE_TURNS = getMaxPauseTurns();
         let artifactEmitted = false;
-        for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+        let toolTurn = 0;
+
+        while (toolTurn < MAX_TOOL_TURNS) {
+          const primaryIntentNote = resolvePrimaryIntentSystemNote(
+            question,
+            editingPayload,
+            { useFetchChartData, liveData: liveDataIntent },
+          );
           // Per-request, variable instructions (topic recap, intent notes,
           // artifact-edit payload). Kept in a SEPARATE, uncached system block
           // that follows the cached BASE_SYSTEM prefix below.
           const variableSystem = [
             systemContext,
-            todoIntent && !editingArtifact ? TODO_INTENT_SYSTEM_NOTE : null,
-            calendarIntent && !editingArtifact
-              ? CALENDAR_INTENT_SYSTEM_NOTE
-              : null,
-            timelineIntent && !editingArtifact
-              ? TIMELINE_INTENT_SYSTEM_NOTE
-              : null,
-            chartIntent && !editingArtifact ? CHART_INTENT_SYSTEM_NOTE : null,
-            customUiIntent && !editingArtifact
-              ? CUSTOM_UI_INTENT_SYSTEM_NOTE
-              : null,
+            webSearchEnabled ? LIVE_DATA_SYSTEM_NOTE : null,
+            primaryIntentNote,
             inlineSourceIntent && !editingArtifact
               ? CUSTOM_UI_INLINE_CODE_NOTE
               : null,
@@ -478,14 +509,16 @@ export async function POST(req: Request) {
             ...((todoIntent ||
               calendarIntent ||
               timelineIntent ||
-              customUiIntent) &&
+              customUiIntent ||
+              primaryKind === "table") &&
             (!editingArtifact ||
               (timelineIntent && editingPayload?.type === "timeline") ||
               (todoIntent && editingPayload?.type === "todo") ||
               (calendarIntent && editingPayload?.type === "calendar") ||
-              (customUiIntent && editingCustom)) &&
+              (customUiIntent && editingCustom) ||
+              (primaryKind === "table" && editingPayload?.type === "table")) &&
             !artifactEmitted &&
-            turn === 0
+            toolTurn === 0
               ? {
                   tool_choice: {
                     type: "tool" as const,
@@ -505,7 +538,11 @@ export async function POST(req: Request) {
             if (event.type === "content_block_start") {
               const block = event.content_block as { type?: string; name?: string };
               if (block.type === "server_tool_use" && block.name === "web_search") {
-                emit({ thinking: "Searching the web…" });
+                webSearchBlocks += 1;
+                if (!searchThinkingEmitted) {
+                  searchThinkingEmitted = true;
+                  emit({ thinking: "Searching the web…" });
+                }
               }
             }
           }
@@ -539,12 +576,20 @@ export async function POST(req: Request) {
           }
 
           if (msg.stop_reason === "pause_turn") {
+            pauseTurns += 1;
+            if (pauseTurns >= MAX_PAUSE_TURNS) {
+              turnError = "Too many web search continuations.";
+              emit({ error: turnError });
+              break;
+            }
             messages = [
               ...messages,
               { role: "assistant" as const, content: msg.content },
             ];
             continue;
           }
+
+          toolTurn += 1;
 
           const toolUseBlocks = msg.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
@@ -557,7 +602,27 @@ export async function POST(req: Request) {
             let resultContent = "";
 
             try {
-              if (block.name === "search_images") {
+              if (block.name === "fetch_chart_data") {
+                const topic = input.topic as string;
+                const chartType = input.chartType as
+                  | "bar"
+                  | "area"
+                  | "line"
+                  | "pie"
+                  | "gauge";
+                emit({ thinking: `Researching data for "${topic}"…` });
+                const fetched = await fetchChartData({
+                  topic,
+                  chartType,
+                  timeRange:
+                    typeof input.timeRange === "string"
+                      ? input.timeRange
+                      : undefined,
+                  unit:
+                    typeof input.unit === "string" ? input.unit : undefined,
+                });
+                resultContent = JSON.stringify(fetched, null, 2);
+              } else if (block.name === "search_images") {
                 const query = input.query as string;
                 const count =
                   typeof input.count === "number" ? input.count : 4;
@@ -712,11 +777,11 @@ export async function POST(req: Request) {
             { role: "user" as const, content: toolResults },
           ];
         }
+        toolTurns = toolTurn;
         if (customUiIntent && !artifactEmitted) {
-          emit({
-            error:
-              "Custom UI was not saved — no valid artifact was emitted. Try again with a smaller code snippet.",
-          });
+          turnError =
+            "Custom UI was not saved — no valid artifact was emitted. Try again with a smaller code snippet.";
+          emit({ error: turnError });
         }
         }
       } catch (err) {
@@ -728,12 +793,38 @@ export async function POST(req: Request) {
         } catch {
           /* not JSON */
         }
+        turnError = msg;
         if (customUiIntent) {
           msg = `${msg} Custom UI builds can take up to ${CUSTOM_UI_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
         }
         emit({ error: msg });
       } finally {
         if (hardTimeout) clearTimeout(hardTimeout);
+
+        const durationMs = Date.now() - turnStartedAt;
+        const outcome =
+          turnError?.includes("timed out") || turnError?.includes("timeout")
+            ? "timeout"
+            : turnError
+              ? "error"
+              : "success";
+
+        logQaTurnEvent({
+          cardId: conversationId ?? null,
+          canvasId: canvasId ?? null,
+          question,
+          model,
+          durationMs,
+          inputTokens: totalUsage.inputTokens,
+          outputTokens: totalUsage.outputTokens,
+          toolTurns,
+          pauseTurns,
+          webSearchBlocks,
+          artifactKind: primaryKind,
+          outcome,
+          errorMessage: turnError,
+        });
+
         if (closed) return;
         closeStream();
       }

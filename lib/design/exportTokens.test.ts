@@ -8,7 +8,7 @@ import {
 describe("buildDesignTokenExport", () => {
   it("exports light/dark colors and css variable maps", () => {
     const tokens = buildDesignTokenExport();
-    expect(tokens.version).toBe("1.0.0");
+    expect(tokens.version).toBe("1.1.0");
     expect(tokens.colors.light.accent).toBe("#6B4EFF");
     expect(tokens.colors.dark.accent).toBe("#8E78FF");
     expect(tokens.cssVariables.light["--canvas-bg"]).toBe("240 240 240");
@@ -25,6 +25,6 @@ describe("buildDesignTokenExport", () => {
   it("generates tailwind token map entries", () => {
     const map = buildTailwindTokenMap();
     expect(map["colors.canvas-accent"]).toContain("--canvas-accent");
-    expect(map["borderRadius.canvas"]).toBe("12px");
+    expect(map["borderRadius.canvas"]).toBe("var(--canvas-radius-lg)");
   });
 });
