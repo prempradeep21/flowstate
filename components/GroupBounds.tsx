@@ -58,7 +58,7 @@ export function GroupBounds({ group }: GroupBoundsProps) {
           strokeDasharray={`${dash} ${gap}`}
         />
       </svg>
-      <span className="absolute left-3 top-3 rounded-canvas border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-muted shadow-card">
+      <span className="absolute left-3 top-3 rounded-canvas border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-muted shadow-artifact">
         {group.label}
       </span>
     </div>

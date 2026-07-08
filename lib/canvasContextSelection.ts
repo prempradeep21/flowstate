@@ -13,6 +13,7 @@ const NODE_SELECTOR: Record<CanvasSelectionKind, string> = {
   artifact: "[data-canvas-artifact]",
   asset: "[data-canvas-asset]",
   gif: "[data-canvas-gif]",
+  "3d": "[data-canvas-3d]",
   skill: "[data-canvas-skill]",
   label: "[data-canvas-text-label]",
 };
@@ -59,12 +60,13 @@ export function applyContextMenuSelection(
   });
 }
 
+export { canCopyCanvasSelection } from "@/lib/canvasClipboard";
+
 export function hasCanvasSelection(store: CanvasStore): boolean {
   return (
     store.selectedFamilyRootIds.length > 0 || store.canvasSelection.length > 0
   );
 }
-
 /** Whether the current selection would actually remove something from the canvas. */
 export function canRemoveCanvasSelection(store: CanvasStore): boolean {
   if (store.canvasReadOnly) return false;

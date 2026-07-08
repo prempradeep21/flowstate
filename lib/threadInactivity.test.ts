@@ -188,4 +188,27 @@ describe("threadInactivity", () => {
     vi.advanceTimersByTime(INACTIVITY_MS);
     expect(collapsed).toEqual([["t1"]]);
   });
+
+  it("resetting activity on manual expand prevents immediate re-collapse", () => {
+    const state = makeState();
+    const collapsed: string[][] = [];
+    registerThreadInactivityHandlers({
+      readState: () => state,
+      applyCollapse: (threadIds) => {
+        collapsed.push(threadIds);
+      },
+    });
+    const expiredAt = Date.now() - INACTIVITY_MS - 1;
+    resetThreadActivity(["t1"], expiredAt);
+    expect(collectExpiredThreadsToCollapse(state, getThreadLastActivityMap(), Date.now())).toEqual([
+      "t1",
+    ]);
+
+    touchThreadActivity("t1", () => state);
+    expect(collectExpiredThreadsToCollapse(state, getThreadLastActivityMap(), Date.now())).toEqual(
+      [],
+    );
+    runCollapsePass();
+    expect(collapsed).toEqual([]);
+  });
 });

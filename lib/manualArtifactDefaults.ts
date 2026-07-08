@@ -3,6 +3,14 @@ import { CATALOG_CUBBON_PARK } from "@/lib/artifactCatalogSamples";
 import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
+import {
+  DEFAULT_3D_SAMPLE_URL,
+  MANUAL_3D_SOURCE_CARD_ID,
+} from "@/lib/threeDArtifact";
+import {
+  defaultStickyNoteColorId,
+  MANUAL_STICKY_NOTE_SOURCE_CARD_ID,
+} from "@/lib/stickyNoteArtifact";
 import { MANUAL_TODO_SOURCE_CARD_ID, normalizeTodoItem } from "@/lib/todoArtifact";
 
 /** Source card ids for user-initiated manual artifact drops (no chat turn). */
@@ -11,6 +19,7 @@ export const MANUAL_CHART_SOURCE_CARD_ID = "__manual_chart__";
 export const MANUAL_IMAGES_SOURCE_CARD_ID = "__manual_images__";
 
 export type ManualArtifactType =
+  | "stickynote"
   | "todo"
   | "calendar"
   | "timeline"
@@ -18,7 +27,8 @@ export type ManualArtifactType =
   | "chart"
   | "map"
   | "streetview"
-  | "images";
+  | "images"
+  | "3d";
 
 function todayIsoDate(): string {
   const d = new Date();
@@ -36,6 +46,8 @@ function todayIsoDateTime(): string {
 
 export function manualArtifactSourceCardId(type: ManualArtifactType): string {
   switch (type) {
+    case "stickynote":
+      return MANUAL_STICKY_NOTE_SOURCE_CARD_ID;
     case "todo":
       return MANUAL_TODO_SOURCE_CARD_ID;
     case "calendar":
@@ -52,6 +64,8 @@ export function manualArtifactSourceCardId(type: ManualArtifactType): string {
       return MANUAL_MAP_SOURCE_CARD_ID;
     case "images":
       return MANUAL_IMAGES_SOURCE_CARD_ID;
+    case "3d":
+      return MANUAL_3D_SOURCE_CARD_ID;
   }
 }
 
@@ -59,6 +73,15 @@ export function createManualArtifactPayload(
   type: ManualArtifactType,
 ): ArtifactPayload {
   switch (type) {
+    case "stickynote":
+      return {
+        type: "stickynote",
+        title: "Sticky note",
+        data: {
+          text: "",
+          colorId: defaultStickyNoteColorId(),
+        },
+      };
     case "todo":
       return {
         type: "todo",
@@ -162,6 +185,15 @@ export function createManualArtifactPayload(
         type: "images",
         title: "Untitled gallery",
         data: { items: [] },
+      };
+    case "3d":
+      return {
+        type: "3d",
+        title: "3D model",
+        data: {
+          modelUrl: DEFAULT_3D_SAMPLE_URL,
+          format: "glb",
+        },
       };
   }
 }

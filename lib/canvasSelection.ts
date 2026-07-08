@@ -1,5 +1,6 @@
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { getCanvasGifBounds } from "@/lib/canvasGifBounds";
+import { getCanvas3DBounds } from "@/lib/canvas3dBounds";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { estimateTextLabelBounds } from "@/lib/canvasTextLabelBounds";
@@ -12,6 +13,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasGifNode,
+  Canvas3DNode,
   CanvasSkill,
   CanvasSkillNode,
   CanvasTextLabel,
@@ -30,6 +32,7 @@ export type CanvasSelectionKind =
   | "artifact"
   | "asset"
   | "gif"
+  | "3d"
   | "skill"
   | "label";
 
@@ -59,6 +62,8 @@ export interface CanvasNodesState extends ChatThreadState {
   canvasAssetOrder: string[];
   canvasGifNodes: Record<string, CanvasGifNode>;
   canvasGifOrder: string[];
+  canvas3DNodes: Record<string, Canvas3DNode>;
+  canvas3DOrder: string[];
   canvasSkills: Record<string, CanvasSkill>;
   canvasSkillNodes: Record<string, CanvasSkillNode>;
   canvasSkillOrder: string[];
@@ -145,6 +150,15 @@ export function collectCanvasItemsInWorldRect(
     const { w, h } = getCanvasGifBounds(node);
     if (aabbIntersectsRect(node.position.x, node.position.y, w, h, worldRect)) {
       items.push({ kind: "gif", id });
+    }
+  }
+
+  for (const id of state.canvas3DOrder) {
+    const node = state.canvas3DNodes[id];
+    if (!node) continue;
+    const { w, h } = getCanvas3DBounds(node);
+    if (aabbIntersectsRect(node.position.x, node.position.y, w, h, worldRect)) {
+      items.push({ kind: "3d", id });
     }
   }
 
@@ -256,6 +270,12 @@ function itemBounds(
       const node = state.canvasGifNodes[item.id];
       if (!node) return null;
       const { w, h } = getCanvasGifBounds(node);
+      return { x: node.position.x, y: node.position.y, w, h };
+    }
+    case "3d": {
+      const node = state.canvas3DNodes[item.id];
+      if (!node) return null;
+      const { w, h } = getCanvas3DBounds(node);
       return { x: node.position.x, y: node.position.y, w, h };
     }
     case "skill": {

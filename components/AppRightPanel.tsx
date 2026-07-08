@@ -4,7 +4,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
+import { LiveDrakkar } from "@/components/LiveDrakkar";
+import { LocalSessionTag } from "@/components/LocalSessionTag";
 import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
@@ -61,12 +64,16 @@ export function AppRightPanel() {
 
     <div className="pointer-events-auto absolute right-3 top-3 z-40 flex items-start gap-2">
 
+      <LocalSessionTag />
+
+      <LiveDrakkar />
+
+      <AdminPortalButton />
+
       <BetaFeedbackButton />
 
       <aside
-
         className={[
-
           "flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
 
           collapsed ? "w-auto" : "w-[462px]",
@@ -88,6 +95,7 @@ export function AppRightPanel() {
           <button
 
             type="button"
+            data-coach-target="artifacts-panel-entry"
 
             onClick={toggleRightPanel}
 
@@ -144,11 +152,12 @@ export function AppRightPanel() {
 
               </div>
 
-              <button
+          <button
 
-                type="button"
+            type="button"
+            data-coach-target="artifacts-panel-entry"
 
-                onClick={toggleRightPanel}
+            onClick={toggleRightPanel}
 
                 aria-label="Collapse artifacts panel"
 

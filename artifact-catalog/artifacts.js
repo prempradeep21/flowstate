@@ -207,11 +207,6 @@ export const THEME_OPTIONS = [
 export const BACKGROUND_OPTIONS = [
   { id: "grid", label: "Dot grid", description: "Classic dotted canvas grid" },
   { id: "ambient-gradient", label: "Ambient", description: "Soft diffused color gradients" },
-  { id: "sky", label: "Sky", description: "Slow-moving clouds over a deep sky" },
-  { id: "network", label: "Network", description: "Linked particles drifting on a dark canvas" },
-  { id: "rising-sun", label: "Rising Sun", description: "Warm animated sunrise glow" },
-  { id: "gradient-grid", label: "Gradient grid", description: "Line grid with a soft purple glow" },
-  { id: "neat-gradient", label: "Neat gradient", description: "Animated deep blue gradient" },
 ];
 
 export const LIGHT_THEME_BACKGROUNDS = ["grid", "ambient-gradient"];

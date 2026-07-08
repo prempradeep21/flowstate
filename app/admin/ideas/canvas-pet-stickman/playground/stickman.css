@@ -1,0 +1,214 @@
+/*
+ * Canvas Pet — stickman pose animations.
+ *
+ * Everything here runs on the CSS compositor: only `transform` and `opacity`
+ * are animated, on SVG groups with fixed joint origins. State switching is a
+ * single `data-pose` attribute swap on the pet wrapper — no JS per frame for
+ * limbs, and no JS at all for the static poses (stand / dance / rest).
+ */
+
+.sm-pet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.sm-facing {
+  transition: transform 120ms ease-out;
+}
+.sm-pet[data-facing="-1"] .sm-facing {
+  transform: scaleX(-1);
+}
+
+.sm-figure {
+  display: block;
+  overflow: visible;
+}
+
+/* Joints: origins are viewBox coordinates. */
+.sm-arm,
+.sm-leg,
+.sm-body {
+  transform-box: view-box;
+  transition: transform 160ms ease-out;
+}
+.sm-arm {
+  transform-origin: 12px 13.5px;
+}
+.sm-leg {
+  transform-origin: 12px 28px;
+}
+.sm-body {
+  transform-origin: 12px 44px;
+}
+
+.sm-zzz {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 18px 6px;
+}
+
+/* ---------- stand: slow breathing ---------- */
+.sm-pet[data-pose="stand"] .sm-body {
+  animation: sm-breathe 3.2s ease-in-out infinite;
+}
+@keyframes sm-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.985);
+  }
+}
+
+/* ---------- run: alternating limb swing ---------- */
+.sm-pet[data-pose="run"] .sm-body {
+  animation: sm-run-lean 0.44s ease-in-out infinite;
+}
+.sm-pet[data-pose="run"] .sm-leg-l {
+  animation: sm-run-swing 0.44s ease-in-out infinite;
+}
+.sm-pet[data-pose="run"] .sm-leg-r {
+  animation: sm-run-swing 0.44s ease-in-out infinite;
+  animation-delay: -0.22s;
+}
+.sm-pet[data-pose="run"] .sm-arm-l {
+  animation: sm-run-swing 0.44s ease-in-out infinite;
+  animation-delay: -0.22s;
+}
+.sm-pet[data-pose="run"] .sm-arm-r {
+  animation: sm-run-swing 0.44s ease-in-out infinite;
+}
+@keyframes sm-run-swing {
+  0%,
+  100% {
+    transform: rotate(32deg);
+  }
+  50% {
+    transform: rotate(-32deg);
+  }
+}
+@keyframes sm-run-lean {
+  0%,
+  100% {
+    transform: rotate(4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-1.5px);
+  }
+}
+
+/* ---------- jump: static tuck (transitions do the work) ---------- */
+.sm-pet[data-pose="jump"] .sm-leg-l {
+  transform: rotate(45deg);
+}
+.sm-pet[data-pose="jump"] .sm-leg-r {
+  transform: rotate(20deg);
+}
+.sm-pet[data-pose="jump"] .sm-arm-l {
+  transform: rotate(-150deg);
+}
+.sm-pet[data-pose="jump"] .sm-arm-r {
+  transform: rotate(150deg);
+}
+
+/* ---------- dance: arms wave, body bounce ---------- */
+.sm-pet[data-pose="dance"] .sm-body {
+  animation: sm-dance-bounce 0.5s ease-in-out infinite;
+}
+.sm-pet[data-pose="dance"] .sm-arm-l {
+  animation: sm-dance-wave-l 0.5s ease-in-out infinite;
+}
+.sm-pet[data-pose="dance"] .sm-arm-r {
+  animation: sm-dance-wave-r 0.5s ease-in-out infinite;
+}
+.sm-pet[data-pose="dance"] .sm-leg-l {
+  animation: sm-dance-kick 0.5s ease-in-out infinite;
+}
+.sm-pet[data-pose="dance"] .sm-leg-r {
+  animation: sm-dance-kick 0.5s ease-in-out infinite;
+  animation-delay: -0.25s;
+}
+@keyframes sm-dance-bounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(3deg);
+  }
+}
+@keyframes sm-dance-wave-l {
+  0%,
+  100% {
+    transform: rotate(-170deg);
+  }
+  50% {
+    transform: rotate(-120deg);
+  }
+}
+@keyframes sm-dance-wave-r {
+  0%,
+  100% {
+    transform: rotate(120deg);
+  }
+  50% {
+    transform: rotate(170deg);
+  }
+}
+@keyframes sm-dance-kick {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(14deg);
+  }
+}
+
+/* ---------- rest: sit down, snooze ---------- */
+.sm-pet[data-pose="rest"] .sm-body {
+  transform: translateY(9px) rotate(-4deg);
+}
+.sm-pet[data-pose="rest"] .sm-leg-l {
+  transform: rotate(78deg);
+}
+.sm-pet[data-pose="rest"] .sm-leg-r {
+  transform: rotate(64deg);
+}
+.sm-pet[data-pose="rest"] .sm-arm-l {
+  transform: rotate(-24deg);
+}
+.sm-pet[data-pose="rest"] .sm-arm-r {
+  transform: rotate(24deg);
+}
+.sm-pet[data-pose="rest"] .sm-zzz {
+  animation: sm-zzz-float 2s ease-in-out infinite;
+}
+@keyframes sm-zzz-float {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.8);
+  }
+  40% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(1.1);
+  }
+}
+
+/* Respect reduced-motion: freeze the cycles, keep static poses. */
+@media (prefers-reduced-motion: reduce) {
+  .sm-pet .sm-body,
+  .sm-pet .sm-arm,
+  .sm-pet .sm-leg,
+  .sm-pet .sm-zzz {
+    animation: none !important;
+  }
+}

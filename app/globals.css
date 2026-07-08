@@ -6,12 +6,13 @@
   /* Visual tokens — RGB channels (mirror lib/design/tokens.ts canvasColors).
      Consumed as rgb(var(--canvas-x) / <alpha>) so utilities support opacity
      and flip under html[data-theme="dark"]. */
-  --canvas-bg: 250 250 248;
+  --canvas-bg: 240 240 240;
   --canvas-dot: 139 138 134;
   --canvas-card: 255 255 255;
   --canvas-border: 230 228 223;
   --canvas-ink: 44 42 38;
-  --canvas-muted: 138 134 126;
+  /* AA-compliant muted text (4.65:1 on bg, 5.30:1 on card). */
+  --canvas-muted: 111 107 99;
   --canvas-accent: 107 78 255;
   --canvas-artifact-icon-bg: 237 233 254;
   --canvas-artifact-stage: 243 242 239;
@@ -43,10 +44,44 @@
   --canvas-tag-danger-soft: 255 241 242;
   --canvas-tag-danger-ring: 254 205 211;
   --dot-color: rgb(var(--canvas-dot));
-  /* Elevation shadows — warm, soft in light mode. */
-  --canvas-card-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
+  /* Corner radius scale — one tweakable base drives every tier
+     (mirror lib/design/tokens.ts canvasRadiusFactors). */
+  --canvas-radius-base: 10px;
+  --canvas-radius-xs: 2px;
+  --canvas-radius-sm: calc(var(--canvas-radius-base) * 0.6);
+  --canvas-radius-md: var(--canvas-radius-base);
+  --canvas-radius-lg: calc(var(--canvas-radius-base) * 1.4);
+  --canvas-radius-inner: max(
+    calc(var(--canvas-radius-lg) - 12px),
+    var(--canvas-radius-xs)
+  );
+  /* Secondary + tertiary semantic roles (themable; mirror tokens.ts). */
+  --canvas-secondary: 91 127 214;
+  --canvas-tertiary: 217 119 6;
+  /* Artifact category fills — header icon circles, themable per preset.
+     Generated: deriveCategoryFill() over the default preset's category bases
+     (lib/design/theme/presets.ts + color.ts). */
+  --artifact-cat-data-bg: 226 221 253;
+  --artifact-cat-data-fg: 45 19 174;
+  --artifact-cat-viz-bg: 221 242 253;
+  --artifact-cat-viz-fg: 21 121 173;
+  --artifact-cat-geo-bg: 225 249 234;
+  --artifact-cat-geo-fg: 38 156 81;
+  --artifact-cat-media-bg: 249 226 226;
+  --artifact-cat-media-fg: 153 41 41;
+  --artifact-cat-docs-bg: 252 238 222;
+  --artifact-cat-docs-fg: 170 102 24;
+  --artifact-cat-dev-bg: 235 237 240;
+  --artifact-cat-dev-fg: 84 95 110;
+  --artifact-cat-planning-bg: 249 226 236;
+  --artifact-cat-planning-fg: 152 42 91;
+  /* Elevation — UI chrome (panels, toolbar, popovers) is flat; only
+     canvas-level elements (artifact windows, cards) carry shadows. */
+  --canvas-card-shadow: none;
+  --canvas-card-shadow-hover: none;
+  --canvas-artifact-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
     0 4px 16px rgba(20, 18, 14, 0.06);
-  --canvas-card-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
+  --canvas-artifact-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
     0 8px 24px rgba(20, 18, 14, 0.1);
   /* Flowstate motion tokens (mirror lib/motion/tokens.ts) */
   --motion-ease-light: cubic-bezier(0.22, 1, 0.36, 1);
@@ -69,8 +104,11 @@
 }
 
 /* Dark theme — warm near-black surfaces, off-white text, lightened accents.
-   Grounded in Material Design + Apple HIG dark-mode guidance. */
-html[data-theme="dark"] {
+   Grounded in Material Design + Apple HIG dark-mode guidance.
+   `.theme-scope-dark` lets a subtree (e.g. the Home view) opt into the same
+   token set independently of the document theme. */
+html[data-theme="dark"],
+.theme-scope-dark {
   --canvas-bg: 24 23 21;
   --canvas-dot: 58 56 51;
   --canvas-card: 33 31 28;
@@ -107,14 +145,62 @@ html[data-theme="dark"] {
   --canvas-tag-danger: 251 113 133;
   --canvas-tag-danger-soft: 42 22 32;
   --canvas-tag-danger-ring: 92 42 58;
-  /* On dark, elevation reads through lighter surfaces + deeper shadows. */
-  --canvas-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
+  /* On dark, artifact elevation reads through deeper shadows; chrome stays flat. */
+  --canvas-artifact-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.5);
-  --canvas-card-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
+  --canvas-artifact-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45),
     0 10px 28px rgba(0, 0, 0, 0.6);
+  /* Secondary + tertiary — dark variants (deriveDarkAccent). */
+  --canvas-secondary: 142 166 224;
+  --canvas-tertiary: 245 164 71;
+  /* Artifact category fills — dark variants (deriveCategoryFill). */
+  --artifact-cat-data-bg: 34 26 77;
+  --artifact-cat-data-fg: 159 142 246;
+  --artifact-cat-viz-bg: 26 59 76;
+  --artifact-cat-viz-fg: 143 210 245;
+  --artifact-cat-geo-bg: 32 70 46;
+  --artifact-cat-geo-fg: 154 233 183;
+  --artifact-cat-media-bg: 69 33 33;
+  --artifact-cat-media-fg: 231 156 156;
+  --artifact-cat-docs-bg: 75 53 27;
+  --artifact-cat-docs-fg: 243 197 145;
+  --artifact-cat-dev-bg: 47 50 55;
+  --artifact-cat-dev-fg: 185 192 202;
+  --artifact-cat-planning-bg: 69 33 49;
+  --artifact-cat-planning-fg: 231 157 190;
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);
+}
+
+/* Scoped light theme — re-asserts the light token set on a subtree so it stays
+   light even when the app runs in dark mode. Custom properties resolve from the
+   nearest ancestor, overriding html[data-theme]. Pairs with .theme-scope-dark. */
+.theme-scope-light {
+  color-scheme: light;
+  --canvas-bg: 240 240 240;
+  --canvas-dot: 139 138 134;
+  --canvas-card: 255 255 255;
+  --canvas-border: 230 228 223;
+  --canvas-ink: 44 42 38;
+  --canvas-muted: 111 107 99;
+  --canvas-accent: 107 78 255;
+  --canvas-artifact-icon-bg: 237 233 254;
+  --canvas-artifact-stage: 243 242 239;
+  --canvas-danger: 220 38 38;
+  --canvas-success: 16 185 129;
+  --canvas-success-text: 4 120 87;
+  --canvas-warning: 180 83 9;
+  --canvas-info: 2 132 199;
+  --canvas-card-shadow: none;
+  --canvas-card-shadow-hover: none;
+  --canvas-artifact-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
+    0 4px 16px rgba(20, 18, 14, 0.06);
+  --canvas-artifact-shadow-hover: 0 1px 2px rgba(20, 18, 14, 0.05),
+    0 8px 24px rgba(20, 18, 14, 0.1);
+  --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.42);
+  --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.62);
+  --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.78);
 }
 
 html,
@@ -285,17 +371,27 @@ body::-webkit-scrollbar-corner {
 }
 
 .canvas-translucent-fill {
-  background: radial-gradient(
+  /* Solid base stops animated canvas backgrounds from shimmering through text. */
+  background-color: rgb(var(--canvas-card) / 0.94);
+  background-image: radial-gradient(
     circle at center,
-    rgb(var(--canvas-card) / 0.1) 0%,
-    rgb(var(--canvas-card) / 0.3) 100%
+    rgb(var(--canvas-card) / 0.08) 0%,
+    rgb(var(--canvas-card) / 0.18) 100%
   );
 }
 
-/** Canvas artifact — outer container fill hides until hover/reveal; padding stays
-   fixed to avoid layout shift. The inner surface fill is ALWAYS visible and
-   theme-dependent so a naked artifact (container chrome hidden) still stands
-   against any canvas theme or background. Street view opts out by kind. */
+/** Question copy sits above the diffused accent band — own layer, no blur bleed. */
+.qa-question-text {
+  position: relative;
+  z-index: 20;
+  isolation: isolate;
+}
+
+/** Canvas artifact — outer container fill hides until hover/reveal; border/fill
+   transitions stay on this element so hover does not shift layout. The inner
+   surface fill is ALWAYS visible and theme-dependent so a naked artifact
+   (container chrome hidden) still stands against any canvas theme or
+   background. Street view opts out by kind. */
 .artifact-canvas-container-fill {
   transition:
     background 500ms ease-out,
@@ -307,7 +403,7 @@ body::-webkit-scrollbar-corner {
   transition-duration: 200ms;
 }
 
-.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]) .artifact-canvas-container-fill {
+.group\/artifact:not([data-chrome-hover]):not([data-chrome-reveal]):not([data-permission-preview]) .artifact-canvas-container-fill {
   background: transparent !important;
 }
 
@@ -318,6 +414,22 @@ body::-webkit-scrollbar-corner {
     rgb(var(--canvas-card) / 0.1) 0%,
     rgb(var(--canvas-card) / 0.3) 100%
   );
+}
+
+/** Permission suggestions always show the container fill so the ghost artefact has form. */
+.group\/artifact[data-permission-preview] .artifact-canvas-container-fill {
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--canvas-card) / 0.1) 0%,
+    rgb(var(--canvas-card) / 0.3) 100%
+  );
+}
+
+/** Naked artifacts (sticky notes, street view, media) supply their own surface. */
+.group\/artifact[data-naked-artifact] .artifact-canvas-container-fill,
+.group\/artifact[data-naked-artifact][data-chrome-hover] .artifact-canvas-container-fill,
+.group\/artifact[data-naked-artifact][data-chrome-reveal] .artifact-canvas-container-fill {
+  background: transparent !important;
 }
 
 /** Permanent solid artifact fill (theme token flips with html[data-theme]). */
@@ -352,13 +464,15 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/** Canvas artifact node — smooth settle when content area resizes (font scale, etc.). */
+/** Canvas artifact node — position is instant; only dimensions settle on resize (font scale, etc.). */
 .canvas-artifact-node-shell {
   transition:
     width var(--motion-duration-standard) var(--motion-ease-settle),
-    height var(--motion-duration-standard) var(--motion-ease-settle),
-    left var(--motion-duration-standard) var(--motion-ease-medium),
-    top var(--motion-duration-standard) var(--motion-ease-medium);
+    height var(--motion-duration-standard) var(--motion-ease-settle);
+}
+
+.canvas-artifact-node-shell[data-canvas-dragging] {
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -367,9 +481,9 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/** Matches canvasSpacing.section (16px) — artifact chrome reveal inset. */
+/** Canvas artifact casing — content is edge-flush; header carries its own px-4 inset. */
 .artifact-canvas-padding-chrome {
-  padding: 1rem;
+  padding: 0;
 }
 
 .floating-panel {
@@ -389,6 +503,59 @@ body::-webkit-scrollbar-corner {
   @apply p-3;
 }
 
+/** Artifact update center — scrollbar nearly invisible until hover. */
+.artifact-update-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.artifact-update-scroll:hover {
+  scrollbar-color: rgb(var(--canvas-muted) / 0.22) transparent;
+}
+
+.artifact-update-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.artifact-update-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+}
+
+.artifact-update-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--canvas-muted) / 0.22);
+}
+
+.artifact-update-scroll:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--canvas-muted) / 0.38);
+}
+
+/** Timeline phase background bands — flat 10% tint in light, a touch stronger
+    in dark so the sections stay legible on the dark canvas. */
+.timeline-band {
+  fill-opacity: 0.1;
+}
+
+html[data-theme="dark"] .timeline-band {
+  fill-opacity: 0.18;
+}
+
+/** Pencil tool — custom cursor aligned to nib tip. */
+.canvas-pencil-cursor {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M16.5 3.5 20.5 7.5 8.5 19.5 3.5 20.5l1-5L16.5 3.5Z' stroke='%23211F1C' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M14.5 5.5 18.5 9.5' stroke='%23211F1C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
+      2 20,
+    crosshair;
+}
+
+.dark .canvas-pencil-cursor,
+[data-canvas-theme="dark"] .canvas-pencil-cursor {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M16.5 3.5 20.5 7.5 8.5 19.5 3.5 20.5l1-5L16.5 3.5Z' stroke='%23F5F3EF' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M14.5 5.5 18.5 9.5' stroke='%23F5F3EF' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")
+      2 20,
+    crosshair;
+}
+
 /** Typography for floating panel footer chips (save status, auth). */
 .floating-chrome-chip {
   @apply text-canvas-body-sm;
@@ -404,6 +571,60 @@ body::-webkit-scrollbar-corner {
     border-color: rgb(var(--canvas-muted) / 0.45);
     box-shadow: 0 0 0 1px rgb(var(--canvas-muted) / 0.12);
   }
+}
+
+/* Output artefact stroke while another chat builds the next version */
+@keyframes artifact-remote-stroke-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes artifact-remote-stroke-breathe {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.artifact-remote-update-stroke__ring {
+  padding: 1.5px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 55deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 62%, transparent) 95deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 135deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 235deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 38%, transparent) 275deg,
+    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 315deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation:
+    artifact-remote-stroke-spin 5.5s linear infinite,
+    artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
+}
+
+.artifact-remote-update-stroke__glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--artifact-update-stroke) 14%, transparent),
+    0 0 14px color-mix(in srgb, var(--artifact-update-stroke) 16%, transparent);
+  animation: artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
 }
 
 @keyframes todo-row-in {
@@ -474,13 +695,18 @@ body::-webkit-scrollbar-corner {
   width: 2px;
   transform: translateX(-50%);
   border-radius: 1px;
-  background-color: transparent;
-  transition: background-color 150ms ease;
+  background-color: var(--table-accent-border, rgb(var(--canvas-muted) / 0.35));
+  opacity: 0.75;
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease;
 }
 
 .table-col-resize-handle:hover::after,
-.table-col-resize-handle:active::after {
+.table-col-resize-handle:active::after,
+.table-col-resize-handle:focus-visible::after {
   background-color: var(--table-accent, rgb(var(--canvas-muted) / 0.5));
+  opacity: 1;
 }
 
 @keyframes switch-node-in {
@@ -606,6 +832,11 @@ body::-webkit-scrollbar-corner {
   animation: none;
   opacity: 1;
   transform: none;
+}
+
+.mask-fade-bottom {
+  mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
 }
 
 @keyframes thinking-pulse {

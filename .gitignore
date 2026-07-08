@@ -16,9 +16,15 @@
 /.next-showcase/
 /.next-playground/
 /.next-build-check/
+/.next-build-verify/
 /.next-repo-explorer/
 /.next-artifact-catalog/
+/.next-design-system/
+/.next-design-system-export/
 /.next-vercel-check/
+/.next-mobile-sdlc-sandbox/
+/.next-preview/
+/.design-system-export-stash/
 /out/
 build-vercel-check.log
 

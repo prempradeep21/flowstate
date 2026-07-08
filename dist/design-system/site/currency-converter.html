@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Currency Converter</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3b9eff;
+      --accent-dim: #2563a8;
+      --success: #34d399;
+      --radius: 14px;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, #1e3a5f 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 4px);
+      padding: 28px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 24px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+      margin-bottom: 14px;
+    }
+
+    .field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 1.05rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 158, 255, 0.2);
+    }
+
+    input[type="number"] {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .swap-wrap {
+      display: flex;
+      justify-content: center;
+      margin: 4px 0 10px;
+    }
+
+    .swap-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.2s;
+    }
+
+    .swap-btn:hover {
+      background: var(--accent-dim);
+      color: #fff;
+      transform: rotate(180deg);
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 18px;
+      background: linear-gradient(135deg, rgba(59, 158, 255, 0.12), rgba(52, 211, 153, 0.08));
+      border: 1px solid rgba(59, 158, 255, 0.25);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .result-amount {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    .result-rate {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .status {
+      margin-top: 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    .status.loading { color: var(--accent); }
+    .status.error { color: #f87171; }
+    .status.ok { color: var(--success); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Currency Converter</h1>
+    <p class="subtitle">Real-time conversion · local demo rates</p>
+
+    <div class="row">
+      <div class="field" style="flex: 1.2;">
+        <label for="amount">Amount</label>
+        <input id="amount" type="number" min="0" step="any" value="100" />
+      </div>
+      <div class="field">
+        <label for="from">From</label>
+        <select id="from"></select>
+      </div>
+    </div>
+
+    <div class="swap-wrap">
+      <button type="button" class="swap-btn" id="swap" title="Swap currencies">⇅</button>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="to">To</label>
+        <select id="to"></select>
+      </div>
+    </div>
+
+    <div class="result">
+      <div class="result-amount" id="output">—</div>
+      <div class="result-rate" id="rate"></div>
+    </div>
+    <p class="status" id="status">Loading rates…</p>
+  </main>
+
+  <script>
+    const CURRENCIES = [
+      ["USD", "US Dollar"],
+      ["EUR", "Euro"],
+      ["GBP", "British Pound"],
+      ["JPY", "Japanese Yen"],
+      ["INR", "Indian Rupee"],
+      ["AUD", "Australian Dollar"],
+      ["CAD", "Canadian Dollar"],
+      ["CHF", "Swiss Franc"],
+      ["CNY", "Chinese Yuan"],
+      ["SGD", "Singapore Dollar"],
+      ["AED", "UAE Dirham"],
+      ["MXN", "Mexican Peso"],
+      ["BRL", "Brazilian Real"],
+      ["KRW", "South Korean Won"],
+      ["ZAR", "South African Rand"],
+    ];
+
+    const amountEl = document.getElementById("amount");
+    const fromEl = document.getElementById("from");
+    const toEl = document.getElementById("to");
+    const outputEl = document.getElementById("output");
+    const rateEl = document.getElementById("rate");
+    const statusEl = document.getElementById("status");
+    const swapBtn = document.getElementById("swap");
+
+    let rate = null;
+    let debounceTimer = null;
+
+    function fillSelect(el, selected) {
+      el.innerHTML = CURRENCIES.map(([code, name]) =>
+        `<option value="${code}"${code === selected ? " selected" : ""}>${code} — ${name}</option>`
+      ).join("");
+    }
+
+    fillSelect(fromEl, "USD");
+    fillSelect(toEl, "EUR");
+
+    function formatMoney(value, code) {
+      try {
+        return new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: code,
+          maximumFractionDigits: code === "JPY" || code === "KRW" ? 0 : 2,
+        }).format(value);
+      } catch {
+        return value.toFixed(2) + " " + code;
+      }
+    }
+
+    async function fetchRate() {
+      const from = fromEl.value;
+      const to = toEl.value;
+
+      if (from === to) {
+        rate = 1;
+        statusEl.textContent = "Same currency — 1:1 rate";
+        statusEl.className = "status ok";
+        updateOutput();
+        return;
+      }
+
+      statusEl.textContent = "Fetching live rate…";
+      statusEl.className = "status loading";
+
+      try {
+        const res = await fetch(
+          `/api/exchange-rate?from=${from}&to=${to}`
+        );
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        rate = data.rate;
+        const date = data.date;
+        statusEl.textContent = `Rates updated · ${date}`;
+        statusEl.className = "status ok";
+        updateOutput();
+      } catch {
+        rate = null;
+        outputEl.textContent = "—";
+        rateEl.textContent = "";
+        statusEl.textContent = "Could not load rates. Check your connection.";
+        statusEl.className = "status error";
+      }
+    }
+
+    function updateOutput() {
+      if (rate == null) return;
+      const amount = parseFloat(amountEl.value) || 0;
+      const converted = amount * rate;
+      outputEl.textContent = formatMoney(converted, toEl.value);
+      rateEl.textContent = `1 ${fromEl.value} = ${rate.toFixed(4)} ${toEl.value}`;
+    }
+
+    function schedule() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchRate();
+      }, 200);
+    }
+
+    amountEl.addEventListener("input", updateOutput);
+    fromEl.addEventListener("change", schedule);
+    toEl.addEventListener("change", schedule);
+
+    swapBtn.addEventListener("click", () => {
+      const prevFrom = fromEl.value;
+      fromEl.value = toEl.value;
+      toEl.value = prevFrom;
+      schedule();
+    });
+
+    fetchRate();
+  </script>
+</body>
+</html>

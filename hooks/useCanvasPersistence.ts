@@ -9,8 +9,16 @@ import {
 import {
   buildCanvasSnapshot,
   buildEmptyCanvasSnapshot,
+  mergeCanvasSnapshots,
   type CanvasSnapshot,
 } from "@/lib/canvasSnapshot";
+import {
+  clearCanvasLocalBackup,
+  readCanvasLocalBackup,
+  shouldRestoreCanvasLocalBackup,
+  writeCanvasLocalBackup,
+} from "@/lib/canvasLocalBackup";
+import { isCanvasSaveConflictError } from "@/lib/canvasSaveConflict";
 import {
   createCanvas,
   createDefaultCanvas,
@@ -46,6 +54,9 @@ import { clearLandingAnimated } from "@/lib/motion/performance";
 import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
+import { isLandingCanvasSessionActive } from "@/lib/landingCanvasSession";
+import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
+import { isTranscriptImportPlaygroundSessionActive } from "@/lib/transcriptImportPlaygroundSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
@@ -61,6 +72,7 @@ function hasMeaningfulSavedViewport(viewport: Viewport): boolean {
 
 interface UseCanvasPersistenceOptions {
   user: User | null;
+  authLoading: boolean;
   supabaseConfigured: boolean;
   persistenceStatus: PersistenceStatus;
   setPersistenceStatus: (status: PersistenceStatus) => void;
@@ -70,6 +82,7 @@ interface UseCanvasPersistenceOptions {
 
 export function useCanvasPersistence({
   user,
+  authLoading,
   supabaseConfigured,
   persistenceStatus,
   setPersistenceStatus,
@@ -81,6 +94,8 @@ export function useCanvasPersistence({
   const loadGenerationRef = useRef(0);
   const isHydratingRef = useRef(false);
   const isSwitchingRef = useRef(false);
+  /** Blocks cloud auto-save until the first successful hydrate for this user session. */
+  const initialHydrationCompleteRef = useRef(false);
   const isDirtyRef = useRef(false);
   const contentEditDirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +106,8 @@ export function useCanvasPersistence({
   /** Pause viewport-only auto-save after DB statement timeout (large payload). */
   const viewportSaveBlockedUntilRef = useRef(0);
   const localReadOnlyRef = useRef(false);
+  /** Row `updated_at` from the last successful load or save — optimistic lock token. */
+  const canvasUpdatedAtRef = useRef<string | null>(null);
   /** In-memory canvas state for localhost read-only session (lost on reload). */
   const sessionSnapshotsRef = useRef(new Map<string, CanvasSnapshot>());
 
@@ -145,6 +162,20 @@ export function useCanvasPersistence({
     [],
   );
 
+  const persistLocalBackup = useCallback(
+    (canvasId: string, snapshot: CanvasSnapshot) => {
+      if (!user || localReadOnlyRef.current) return;
+      writeCanvasLocalBackup({
+        canvasId,
+        userId: user.id,
+        writtenAt: Date.now(),
+        dbUpdatedAt: canvasUpdatedAtRef.current,
+        snapshot,
+      });
+    },
+    [user],
+  );
+
   const executeSave = useCallback(
     async (
       targetCanvasId: string,
@@ -156,16 +187,83 @@ export function useCanvasPersistence({
       setSaveStatus("saving");
       try {
         const supabase = createClient();
-        await withSaveRetry(() =>
-          saveCanvasState(supabase, targetCanvasId, snapshotSource, {
+        let sourceToSave = snapshotSource;
+        let expectedUpdatedAt = canvasUpdatedAtRef.current ?? undefined;
+
+        const attemptSave = () =>
+          saveCanvasState(supabase, targetCanvasId, sourceToSave, {
             touchContentEditedAt,
-          }),
-        );
+            expectedUpdatedAt,
+          });
+
+        let result: Awaited<ReturnType<typeof saveCanvasState>>;
+        try {
+          result = await withSaveRetry(attemptSave);
+        } catch (err) {
+          if (!isCanvasSaveConflictError(err)) throw err;
+
+          const remote = await fetchCanvasById(supabase, targetCanvasId);
+          if (!remote) throw err;
+
+          const localSnapshot = buildCanvasSnapshot(snapshotSource);
+          const merged = mergeCanvasSnapshots(remote.state, localSnapshot);
+          sourceToSave = {
+            ...snapshotSource,
+            ...merged,
+            viewport: merged.viewport,
+            cards: merged.cards,
+            cardOrder: merged.cardOrder,
+            connections: merged.connections,
+            threads: merged.threads,
+            threadOrder: merged.threadOrder,
+            groups: merged.groups,
+            sessionArtifacts: merged.sessionArtifacts,
+            canvasAssets: merged.canvasAssets,
+            canvasArtifactNodes: merged.canvasArtifactNodes ?? {},
+            canvasArtifactOrder: merged.canvasArtifactOrder ?? [],
+            canvasAssetNodes: merged.canvasAssetNodes,
+            canvasAssetOrder: merged.canvasAssetOrder,
+            canvasSkills: merged.canvasSkills,
+            canvasSkillNodes: merged.canvasSkillNodes,
+            canvasSkillOrder: merged.canvasSkillOrder,
+            canvasTextLabels: merged.canvasTextLabels ?? {},
+            canvasTextLabelOrder: merged.canvasTextLabelOrder ?? [],
+            canvasStrokes: merged.canvasStrokes ?? {},
+            canvasStrokeOrder: merged.canvasStrokeOrder ?? [],
+            canvasGifNodes: merged.canvasGifNodes,
+            canvasGifOrder: merged.canvasGifOrder,
+            canvas3DNodes: merged.canvas3DNodes,
+            canvas3DOrder: merged.canvas3DOrder,
+            uploadedAttachments: merged.uploadedAttachments ?? [],
+            collaborationHasEdits: merged.collaborationHasEdits ?? false,
+          };
+          expectedUpdatedAt = remote.updatedAt;
+          canvasUpdatedAtRef.current = remote.updatedAt;
+
+          if (canvasIdRef.current === targetCanvasId) {
+            hydrateFromSnapshot(merged, { applyViewport: false });
+          }
+
+          result = await withSaveRetry(() =>
+            saveCanvasState(supabase, targetCanvasId, sourceToSave, {
+              touchContentEditedAt: true,
+              expectedUpdatedAt,
+            }),
+          );
+        }
+
+        canvasUpdatedAtRef.current = result.updatedAt;
 
         if (canvasIdRef.current === targetCanvasId) {
           isDirtyRef.current = false;
           contentEditDirtyRef.current = false;
           setSaveStatus("saved");
+          clearCanvasLocalBackup(targetCanvasId);
+          window.dispatchEvent(
+            new CustomEvent("flowstate:canvas-saved", {
+              detail: { canvasId: targetCanvasId },
+            }),
+          );
         }
 
         if (touchContentEditedAt) {
@@ -184,6 +282,10 @@ export function useCanvasPersistence({
         });
         if (canvasIdRef.current === targetCanvasId) {
           setSaveStatus("error");
+          persistLocalBackup(
+            targetCanvasId,
+            buildCanvasSnapshot(snapshotSource),
+          );
         }
         if (!touchContentEditedAt && isStatementTimeoutError(err)) {
           // Avoid hammering Postgres with repeated full-state writes after timeout.
@@ -192,7 +294,7 @@ export function useCanvasPersistence({
         throw err;
       }
     },
-    [bumpCanvasInList, setSaveStatus],
+    [bumpCanvasInList, hydrateFromSnapshot, persistLocalBackup, setSaveStatus],
   );
 
   const performSave = useCallback(async () => {
@@ -209,8 +311,15 @@ export function useCanvasPersistence({
 
     if (
       isArtifactCatalogSessionActive() ||
+      isLandingCanvasSessionActive() ||
+      isMobileSdlcSandboxSessionActive() ||
+      isTranscriptImportPlaygroundSessionActive() ||
       useCanvasStore.getState().canvasReadOnly
     ) {
+      return;
+    }
+
+    if (user && !initialHydrationCompleteRef.current) {
       return;
     }
 
@@ -336,17 +445,44 @@ export function useCanvasPersistence({
         isHydratingRef.current = false;
         return;
       }
-      hydrateFromSnapshot(row.state, {
+      let state = row.state;
+      let updatedAt = row.updatedAt;
+      const localBackup = readCanvasLocalBackup(row.id);
+      if (
+        localBackup &&
+        shouldRestoreCanvasLocalBackup(
+          localBackup,
+          userId,
+          row.updatedAt,
+          row.state,
+        )
+      ) {
+        state = localBackup.snapshot;
+        console.warn(
+          "[canvas] restored newer local backup after reload",
+          row.id,
+        );
+      }
+
+      hydrateFromSnapshot(state, {
         applyViewport: true,
         canvasReveal: true,
       });
-      if (hasMeaningfulSavedViewport(row.state.viewport)) {
+      if (hasMeaningfulSavedViewport(state.viewport)) {
         markViewportRestoredFromSnapshot();
       }
       canvasIdRef.current = row.id;
       setActiveCanvasId(row.id);
-      isDirtyRef.current = false;
-      contentEditDirtyRef.current = false;
+      canvasUpdatedAtRef.current = updatedAt;
+      if (!isStaleLoad(generation)) {
+        initialHydrationCompleteRef.current = true;
+      }
+      const restoredFromBackup = state !== row.state;
+      isDirtyRef.current = restoredFromBackup;
+      contentEditDirtyRef.current = restoredFromBackup;
+      if (restoredFromBackup) {
+        void performSave();
+      }
 
       if (!localReadOnlyRef.current) {
         const supabase = createClient();
@@ -362,7 +498,7 @@ export function useCanvasPersistence({
         isHydratingRef.current = false;
       }
     },
-    [closeArtifact, hydrateFromSnapshot, isStaleLoad],
+    [closeArtifact, hydrateFromSnapshot, isStaleLoad, performSave],
   );
 
   const loadCanvasRow = useCallback(
@@ -391,6 +527,7 @@ export function useCanvasPersistence({
 
       setPersistenceStatus("loading");
       isHydratingRef.current = true;
+      initialHydrationCompleteRef.current = false;
 
       try {
         const supabase = createClient();
@@ -427,15 +564,19 @@ export function useCanvasPersistence({
           await loadCanvasRow(canvasId, nextUser.id, generation);
         } else {
           if (isStaleLoad(generation)) return;
-          const created = await createDefaultCanvas(
-            supabase,
-            nextUser.id,
-            getSnapshotSource(),
-          );
+          const created = await createDefaultCanvas(supabase, nextUser.id);
+          hydrateFromSnapshot(created.state, {
+            applyViewport: true,
+            canvasReveal: true,
+          });
           canvasIdRef.current = created.id;
           setActiveCanvasId(created.id);
+          canvasUpdatedAtRef.current = created.updatedAt;
           isDirtyRef.current = false;
           contentEditDirtyRef.current = false;
+          if (!isStaleLoad(generation)) {
+            initialHydrationCompleteRef.current = true;
+          }
           await updateLastActiveCanvas(supabase, nextUser.id, created.id);
           const refreshed = await fetchCanvasList(supabase, nextUser.id);
           setCanvases(refreshed);
@@ -456,7 +597,7 @@ export function useCanvasPersistence({
       }
     },
     [
-      getSnapshotSource,
+      hydrateFromSnapshot,
       isStaleLoad,
       loadCanvasRow,
       setPersistenceStatus,
@@ -490,7 +631,11 @@ export function useCanvasPersistence({
         if (targetMeta?.localOnly || (localReadOnlyRef.current && cached)) {
           const state = cached ?? buildEmptyCanvasSnapshot();
           await applyCanvasRow(
-            { id: canvasId, state },
+            {
+              id: canvasId,
+              state,
+              updatedAt: new Date().toISOString(),
+            },
             user.id,
             { awaitLastActive: false },
           );
@@ -558,6 +703,7 @@ export function useCanvasPersistence({
         setActiveCanvasId(id);
         isDirtyRef.current = false;
         contentEditDirtyRef.current = false;
+        initialHydrationCompleteRef.current = true;
         setCanvases((prev) =>
           sortCanvasesByContentEditedAt([
             {
@@ -585,6 +731,7 @@ export function useCanvasPersistence({
       setActiveCanvasId(created.id);
       isDirtyRef.current = false;
       contentEditDirtyRef.current = false;
+      initialHydrationCompleteRef.current = true;
       await updateLastActiveCanvas(supabase, user.id, created.id);
 
       const refreshed = await fetchCanvasList(supabase, user.id);
@@ -699,11 +846,7 @@ export function useCanvasPersistence({
               await applyCanvasRow(row, user.id, { awaitLastActive: false });
             }
           } else {
-            const created = await createDefaultCanvas(
-              supabase,
-              user.id,
-              getSnapshotSource(),
-            );
+            const created = await createDefaultCanvas(supabase, user.id);
             hydrateFromSnapshot(created.state, {
               applyViewport: true,
               canvasReveal: true,
@@ -712,6 +855,7 @@ export function useCanvasPersistence({
             setActiveCanvasId(created.id);
             isDirtyRef.current = false;
             contentEditDirtyRef.current = false;
+            initialHydrationCompleteRef.current = true;
             await updateLastActiveCanvas(supabase, user.id, created.id);
             const refreshed = await fetchCanvasList(supabase, user.id);
             setCanvases(refreshed);
@@ -743,7 +887,6 @@ export function useCanvasPersistence({
       applyCanvasRow,
       canvases,
       closeArtifact,
-      getSnapshotSource,
       hydrateFromSnapshot,
       resetCanvasState,
       setSaveStatus,
@@ -759,6 +902,11 @@ export function useCanvasPersistence({
       return;
     }
 
+    if (authLoading) {
+      setPersistenceStatus("loading");
+      return;
+    }
+
     if (!user) {
       loadGenerationRef.current += 1;
       canvasIdRef.current = null;
@@ -766,6 +914,7 @@ export function useCanvasPersistence({
       setCanvases([]);
       isDirtyRef.current = false;
       contentEditDirtyRef.current = false;
+      initialHydrationCompleteRef.current = true;
       resetCanvasState();
       resetViewportBootstrap();
       clearLandingAnimated();
@@ -774,6 +923,7 @@ export function useCanvasPersistence({
       return;
     }
 
+    initialHydrationCompleteRef.current = false;
     const generation = loadGenerationRef.current + 1;
     loadGenerationRef.current = generation;
     void loadCanvasForUser(user, generation);
@@ -782,6 +932,7 @@ export function useCanvasPersistence({
       loadGenerationRef.current += 1;
     };
   }, [
+    authLoading,
     loadCanvasForUser,
     resetCanvasState,
     setPersistenceStatus,
@@ -815,12 +966,19 @@ export function useCanvasPersistence({
     let prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
 
     const scheduleSave = () => {
-      if (isArtifactCatalogSessionActive()) return;
+      if (
+        isArtifactCatalogSessionActive() ||
+        isLandingCanvasSessionActive() ||
+        isMobileSdlcSandboxSessionActive() ||
+        isTranscriptImportPlaygroundSessionActive()
+      )
+        return;
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||
         isRemoteUpdateRef?.current ||
-        !canvasIdRef.current
+        !canvasIdRef.current ||
+        !initialHydrationCompleteRef.current
       ) {
         return;
       }
@@ -838,6 +996,14 @@ export function useCanvasPersistence({
       isDirtyRef.current = true;
       if (contentEdit) {
         contentEditDirtyRef.current = true;
+      }
+
+      const activeId = canvasIdRef.current;
+      if (activeId && user) {
+        persistLocalBackup(
+          activeId,
+          buildCanvasSnapshot(useCanvasStore.getState().getCanvasSnapshotSource()),
+        );
       }
 
       if (contentEdit) {
@@ -873,7 +1039,46 @@ export function useCanvasPersistence({
         clearTimeout(viewportSaveTimerRef.current);
       }
     };
-  }, [isRemoteUpdateRef, performSave, persistenceStatus, supabaseConfigured, user]);
+  }, [
+    isRemoteUpdateRef,
+    performSave,
+    persistLocalBackup,
+    persistenceStatus,
+    supabaseConfigured,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (!supabaseConfigured || !user) return;
+
+    const flushOnExit = () => {
+      if (!isDirtyRef.current || !canvasIdRef.current) return;
+      persistLocalBackup(
+        canvasIdRef.current,
+        buildCanvasSnapshot(getSnapshotSource()),
+      );
+      void flushSave();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        flushOnExit();
+      }
+    };
+
+    window.addEventListener("pagehide", flushOnExit);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flushOnExit);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [
+    flushSave,
+    getSnapshotSource,
+    persistLocalBackup,
+    supabaseConfigured,
+    user,
+  ]);
 
   const refreshOwnedCanvasList = useCallback(async () => {
     if (!user || !supabaseConfigured) return;
@@ -886,6 +1091,7 @@ export function useCanvasPersistence({
     loadCanvasForUser,
     loadCanvasRow,
     canvasIdRef,
+    canvasUpdatedAtRef,
     isDirtyRef,
     isHydratingRef,
     activeCanvasId,

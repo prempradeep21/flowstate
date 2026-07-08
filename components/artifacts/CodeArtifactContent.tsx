@@ -11,13 +11,11 @@ export function CodeArtifactContent({
   fill = false,
   onActiveFileChange,
   artifactId,
-  showControls = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "code" }>;
   fill?: boolean;
   onActiveFileChange?: (path: string) => void;
   artifactId?: string;
-  showControls?: boolean;
 }) {
   const files = payload.data.files ?? [];
   const [activeIdx, setActiveIdx] = useState(0);
@@ -44,7 +42,6 @@ export function CodeArtifactContent({
         minHeight={fill ? undefined : "240px"}
         fill={fill}
         artifactId={artifactId}
-        showControls={showControls}
       >
         <p className="p-4 text-canvas-body-sm text-canvas-muted">No files in this artifact.</p>
       </ArtifactContentStage>
@@ -59,7 +56,6 @@ export function CodeArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={showControls}
         className="h-full"
       >
         {files.length > 1 && (
@@ -94,7 +90,6 @@ export function CodeArtifactContent({
     <ArtifactContentStage
       minHeight="240px"
       artifactId={artifactId}
-      showControls={showControls}
     >
       {files.length > 1 && (
         <div className="flex flex-wrap gap-1 border-b border-canvas-border/40 px-3 pb-2 pt-3">

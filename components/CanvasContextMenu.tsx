@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   ContextMenuItem,
+  CopyIcon,
   TrashIcon,
   TypeIcon,
   UndoIcon,
@@ -13,6 +14,7 @@ export interface ContextMenuState {
   screenX: number;
   screenY: number;
   showDelete?: boolean;
+  showCopy?: boolean;
 }
 
 interface CanvasContextMenuProps {
@@ -20,6 +22,7 @@ interface CanvasContextMenuProps {
   onClose: () => void;
   onAddText: () => void;
   onDelete?: () => void;
+  onCopy?: () => void;
 }
 
 export function CanvasContextMenu({
@@ -27,12 +30,14 @@ export function CanvasContextMenu({
   onClose,
   onAddText,
   onDelete,
+  onCopy,
 }: CanvasContextMenuProps) {
   const undo = useCanvasStore((s) => s.undo);
   const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const showDelete = Boolean(menu.showDelete && onDelete && !canvasReadOnly);
+  const showCopy = Boolean(menu.showCopy && onCopy);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -71,6 +76,16 @@ export function CanvasContextMenu({
           />
           <div className="my-1 h-px bg-canvas-border" />
         </>
+      )}
+      {showCopy && (
+        <ContextMenuItem
+          icon={<CopyIcon />}
+          label="Copy"
+          onClick={() => {
+            onCopy?.();
+            onClose();
+          }}
+        />
       )}
       <ContextMenuItem
         icon={<TypeIcon />}

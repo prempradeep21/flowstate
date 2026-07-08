@@ -17,9 +17,14 @@ import {
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/audioArtifact";
 import { streetViewArtifactHeightForWidth, STREET_VIEW_NODE_CHROME_PX } from "@/lib/streetViewArtifact";
+import {
+  STICKY_NOTE_ARTIFACT_HEIGHT,
+  STICKY_NOTE_ARTIFACT_WIDTH,
+  clampStickyNoteArtifactSize,
+  stickyNoteContentFloors,
+} from "@/lib/stickyNoteArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
-import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX } from "@/lib/artifactCanvasChrome";
-import { ARTIFACT_CONTROLS_BAR_HEIGHT_PX } from "@/lib/artifactFontScale";
+import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX, artifactKindUsesCanvasPaddingChrome } from "@/lib/artifactCanvasChrome";
 import {
   DEFAULT_CANVAS_TUNING,
   resolveTuning,
@@ -29,8 +34,8 @@ import {
 export const CARD_WIDTH = 420;
 export const CANVAS_ARTIFACT_WIDTH = 520;
 export const CANVAS_TABLE_ARTIFACT_WIDTH = 680;
-/** Horizontal padding on canvas artifact casing (16px × 2). */
-export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 32;
+/** Horizontal padding on canvas artifact casing — content is edge-flush (0). */
+export const CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX = 0;
 export { REPO_ARTIFACT_HEIGHT, REPO_ARTIFACT_WIDTH };
 export { TIMELINE_ARTIFACT_HEIGHT, TIMELINE_ARTIFACT_WIDTH, MAX_TIMELINE_ARTIFACT_WIDTH };
 export {
@@ -69,10 +74,37 @@ export function getArtifactContentFloors(
         return audioArtifactContentFloors(payload.data.durationMs);
       }
       return audioArtifactContentFloors(0);
+    case "stickynote":
+      return stickyNoteContentFloors();
     default:
       return null;
   }
 }
+
+/**
+ * Pixel size for sidebar preview content — matches the artifact body on canvas
+ * (stage width/height inside chrome and controls), not the clipped tile frame.
+ */
+export function getSidebarPreviewContentSize(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  const floors = getArtifactContentFloors(kind, payload);
+  if (floors) {
+    return { w: floors.minWidth, h: floors.minHeight };
+  }
+
+  const node = getDefaultArtifactSize(kind, payload);
+  const horizontalPad = artifactKindUsesCanvasPaddingChrome(kind)
+    ? CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX
+    : 0;
+
+  return {
+    w: node.w - horizontalPad,
+    h: node.h - ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+  };
+}
+
 /** Composer-only empty cards are much shorter than answered cards. */
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
@@ -81,9 +113,8 @@ export const TABLE_ARTIFACT_HEIGHT = 512;
 /** Content stage height (control strip + table body) inside a default table node. */
 export const TABLE_ARTIFACT_STAGE_HEIGHT =
   TABLE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
-/** Minimum table body height within the content stage (excludes the 48px control strip). */
-export const TABLE_ARTIFACT_BODY_MIN_HEIGHT =
-  TABLE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
+/** Minimum table body height within the content stage. */
+export const TABLE_ARTIFACT_BODY_MIN_HEIGHT = TABLE_ARTIFACT_STAGE_HEIGHT;
 /** Content stage width inside a default table canvas node. */
 export const TABLE_ARTIFACT_STAGE_WIDTH =
   CANVAS_TABLE_ARTIFACT_WIDTH - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
@@ -93,23 +124,21 @@ export const TIMELINE_ARTIFACT_STAGE_WIDTH =
 /** Content stage height (control strip + timeline body) inside a default timeline node. */
 export const TIMELINE_ARTIFACT_STAGE_HEIGHT =
   TIMELINE_ARTIFACT_HEIGHT - ARTIFACT_CANVAS_CHROME_HEIGHT_PX;
-/** Minimum timeline body height within the content stage (excludes the 48px control strip). */
-export const TIMELINE_ARTIFACT_BODY_MIN_HEIGHT =
-  TIMELINE_ARTIFACT_STAGE_HEIGHT - ARTIFACT_CONTROLS_BAR_HEIGHT_PX;
+/** Minimum timeline body height within the content stage. */
+export const TIMELINE_ARTIFACT_BODY_MIN_HEIGHT = TIMELINE_ARTIFACT_STAGE_HEIGHT;
 /* Per-kind intended heights — sized so default nodes reveal the full content
-   without cropping. Canvas chrome overhead is ~110px (16px padding ×2,
-   56px header band, 22px header gap); content components budget the rest,
-   including the 48px artifact control strip. */
-/** Chart toolbar + canvas chart height + stage padding (control strip is 48px). */
-export const CHART_ARTIFACT_HEIGHT = 440;
+   without cropping. Canvas chrome overhead is 72px (header row + 14px vertical padding). */
+/** Canvas chart height + stage padding. */
+export const CHART_ARTIFACT_HEIGHT = 392;
 /** Progress header plus ~6 task rows before the list scrolls. */
 export const TODO_ARTIFACT_HEIGHT = 440;
 /** File tabs plus ~12 code lines before the pane scrolls. */
 export const CODE_ARTIFACT_HEIGHT = 420;
 /** Author-defined widgets get a taller stage than the generic default. */
 export const CUSTOM_ARTIFACT_HEIGHT = 380;
-/** Image / video grids and website previews. */
+/** Image / video grids, website previews, and 3D model viewers. */
 export const MEDIA_ARTIFACT_HEIGHT = 400;
+export const THREE_D_ARTIFACT_HEIGHT = 400;
 export const MAP_ARTIFACT_HEIGHT = 380;
 /** Default street-view height for a {@link CANVAS_ARTIFACT_WIDTH} node (square circle body). */
 export const STREET_VIEW_ARTIFACT_HEIGHT =
@@ -129,6 +158,17 @@ export function clampArtifactSize(
   return {
     w: Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w)),
     h: Math.min(maxH, Math.max(MIN_ARTIFACT_HEIGHT, h)),
+  };
+}
+
+/** Table artifacts have no maximum width/height — users widen freely on canvas. */
+export function clampTableArtifactSize(
+  w: number,
+  h: number,
+): { w: number; h: number } {
+  return {
+    w: Math.max(MIN_ARTIFACT_WIDTH, w),
+    h: Math.max(MIN_ARTIFACT_HEIGHT, h),
   };
 }
 
@@ -226,6 +266,8 @@ export function getDefaultArtifactSize(
     case "website":
     case "google-doc":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
+    case "3d":
+      return { w: CANVAS_ARTIFACT_WIDTH, h: THREE_D_ARTIFACT_HEIGHT };
     case "map":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MAP_ARTIFACT_HEIGHT };
     case "audio":
@@ -233,6 +275,11 @@ export function getDefaultArtifactSize(
         return getDefaultAudioArtifactSize(payload);
       }
       return { w: MIN_ARTIFACT_WIDTH, h: AUDIO_ARTIFACT_HEIGHT };
+    case "stickynote":
+      return clampStickyNoteArtifactSize(
+        STICKY_NOTE_ARTIFACT_WIDTH,
+        STICKY_NOTE_ARTIFACT_HEIGHT,
+      );
     default:
       return { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   }

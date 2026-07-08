@@ -19,6 +19,7 @@ export function useViewportCulling(
       s.canvasArtifactOrder.length +
       s.canvasAssetOrder.length +
       s.canvasGifOrder.length +
+      s.canvas3DOrder.length +
       s.canvasSkillOrder.length +
       s.canvasTextLabelOrder.length,
   );
@@ -68,6 +69,11 @@ export function useViewportCulling(
           alwaysVisibleGifs.add(state.selectedCanvasGifId);
         }
 
+        const alwaysVisible3D = new Set<string>();
+        if (state.selectedCanvas3DId) {
+          alwaysVisible3D.add(state.selectedCanvas3DId);
+        }
+
         const alwaysVisibleSkills = new Set<string>();
         if (state.selectedCanvasSkillId) {
           alwaysVisibleSkills.add(state.selectedCanvasSkillId);
@@ -83,8 +89,14 @@ export function useViewportCulling(
           if (item.kind === "artifact") alwaysVisibleArtifacts.add(item.id);
           else if (item.kind === "asset") alwaysVisibleAssets.add(item.id);
           else if (item.kind === "gif") alwaysVisibleGifs.add(item.id);
+          else if (item.kind === "3d") alwaysVisible3D.add(item.id);
           else if (item.kind === "skill") alwaysVisibleSkills.add(item.id);
           else alwaysVisibleLabels.add(item.id);
+        }
+
+        for (const id of Object.keys(state.composerDraftsByCardId)) {
+          const draft = state.composerDraftsByCardId[id]?.trim();
+          if (draft) alwaysVisibleCards.add(id);
         }
 
         setVisible(
@@ -100,6 +112,8 @@ export function useViewportCulling(
               canvasAssetOrder: state.canvasAssetOrder,
               canvasGifNodes: state.canvasGifNodes,
               canvasGifOrder: state.canvasGifOrder,
+              canvas3DNodes: state.canvas3DNodes,
+              canvas3DOrder: state.canvas3DOrder,
               canvasSkills: state.canvasSkills,
               canvasSkillNodes: state.canvasSkillNodes,
               canvasSkillOrder: state.canvasSkillOrder,
@@ -113,6 +127,7 @@ export function useViewportCulling(
               artifacts: alwaysVisibleArtifacts,
               assets: alwaysVisibleAssets,
               gifs: alwaysVisibleGifs,
+              threeD: alwaysVisible3D,
               skills: alwaysVisibleSkills,
               labels: alwaysVisibleLabels,
             },
@@ -135,6 +150,8 @@ export function useViewportCulling(
         state.canvasAssetOrder !== prevState.canvasAssetOrder ||
         state.canvasGifNodes !== prevState.canvasGifNodes ||
         state.canvasGifOrder !== prevState.canvasGifOrder ||
+        state.canvas3DNodes !== prevState.canvas3DNodes ||
+        state.canvas3DOrder !== prevState.canvas3DOrder ||
         state.canvasSkills !== prevState.canvasSkills ||
         state.canvasSkillNodes !== prevState.canvasSkillNodes ||
         state.canvasSkillOrder !== prevState.canvasSkillOrder ||
@@ -145,8 +162,10 @@ export function useViewportCulling(
         state.selectedCanvasArtifactId !== prevState.selectedCanvasArtifactId ||
         state.selectedCanvasAssetId !== prevState.selectedCanvasAssetId ||
         state.selectedCanvasGifId !== prevState.selectedCanvasGifId ||
+        state.selectedCanvas3DId !== prevState.selectedCanvas3DId ||
         state.selectedCanvasSkillId !== prevState.selectedCanvasSkillId ||
-        state.selectedCanvasTextLabelId !== prevState.selectedCanvasTextLabelId
+        state.selectedCanvasTextLabelId !== prevState.selectedCanvasTextLabelId ||
+        state.composerDraftsByCardId !== prevState.composerDraftsByCardId
       ) {
         update();
       }

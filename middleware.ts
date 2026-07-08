@@ -9,6 +9,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dev/artifact-catalog", request.url));
   }
 
+  if (
+    process.env.NEXT_DIST_DIR === ".next-design-system" &&
+    request.nextUrl.pathname === "/"
+  ) {
+    return NextResponse.redirect(new URL("/dev/design-system", request.url));
+  }
+
   const code = request.nextUrl.searchParams.get("code");
   if (code && request.nextUrl.pathname === "/") {
     const callbackUrl = request.nextUrl.clone();
@@ -49,6 +56,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|landing(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { TagChip } from "@/components/repo-explorer/WidgetCard";
-import { LandingArtifactPreview } from "@/components/landing-page/shared/LandingArtifactPreview";
+import { LandingArtifactPreview, previewHeightForEntry } from "@/components/landing-page/shared/LandingArtifactPreview";
 import { LandingSectionShell } from "@/components/landing-page/LandingSectionShell";
 import { LANDING_COPY } from "@/components/landing-page/landingSections";
 import {
@@ -13,13 +13,6 @@ import {
 import { playSound } from "@/lib/sounds/engine";
 
 const ARTIFACT_TABS: ArtifactCatalogCategory[] = ["flowstate", "custom-example"];
-
-function previewHeightForEntry(id: string): number {
-  if (id.startsWith("chart") || id === "repo") return 360;
-  if (id === "map" || id === "streetview" || id === "3d") return 340;
-  if (id === "custom" || id.startsWith("timezone") || id === "currency") return 280;
-  return 300;
-}
 
 export function ArtifactsSection() {
   const [tab, setTab] = useState<ArtifactCatalogCategory>("flowstate");

@@ -34,7 +34,7 @@ interface UseCanvasPieMenuOptions {
  * Hold-Z pie menu controller. Pure gesture mode: the menu lives only while
  * Z is held; keyup fires the armed sector (or nothing) and always closes.
  *
- * Esc and Q/T accelerators are handled by the Canvas key handlers via
+ * Esc and Q/T/S accelerators are handled by the Canvas key handlers via
  * `pieStateRef` + `closePie` so event ordering against the existing
  * capture-phase listeners stays deterministic.
  */

@@ -39,7 +39,7 @@ function PlayButton({
       }}
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas-sm border border-canvas-border text-canvas-muted transition-colors hover:border-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
     >
-      <span aria-hidden className="text-[10px] leading-none">
+      <span aria-hidden className="text-canvas-caption leading-none">
         ▶
       </span>
     </button>

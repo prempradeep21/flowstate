@@ -1,6 +1,7 @@
 import RBush from "rbush";
 import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasGifBounds } from "@/lib/canvasGifBounds";
+import { getCanvas3DBounds } from "@/lib/canvas3dBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { estimateTextLabelBounds } from "@/lib/canvasTextLabelBounds";
@@ -10,6 +11,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasGifNode,
+  Canvas3DNode,
   CanvasSkill,
   CanvasSkillNode,
   CanvasTextLabel,
@@ -29,6 +31,7 @@ export interface VisibleNodes {
   artifacts: Set<string>;
   assets: Set<string>;
   gifs: Set<string>;
+  threeD: Set<string>;
   skills: Set<string>;
   labels: Set<string>;
 }
@@ -38,7 +41,7 @@ interface SpatialEntry {
   minY: number;
   maxX: number;
   maxY: number;
-  kind: "card" | "artifact" | "asset" | "gif" | "skill" | "label";
+  kind: "card" | "artifact" | "asset" | "gif" | "3d" | "skill" | "label";
   id: string;
 }
 
@@ -55,6 +58,8 @@ export interface CanvasSpatialInput {
   canvasAssetOrder: string[];
   canvasGifNodes: Record<string, CanvasGifNode>;
   canvasGifOrder: string[];
+  canvas3DNodes: Record<string, Canvas3DNode>;
+  canvas3DOrder: string[];
   canvasSkills: Record<string, CanvasSkill>;
   canvasSkillNodes: Record<string, CanvasSkillNode>;
   canvasSkillOrder: string[];
@@ -142,6 +147,20 @@ export function buildCanvasSpatialIndex(
     });
   }
 
+  for (const id of input.canvas3DOrder) {
+    const node = input.canvas3DNodes[id];
+    if (!node) continue;
+    const { w, h } = getCanvas3DBounds(node);
+    entries.push({
+      minX: node.position.x,
+      minY: node.position.y,
+      maxX: node.position.x + w,
+      maxY: node.position.y + h,
+      kind: "3d",
+      id,
+    });
+  }
+
   for (const id of input.canvasSkillOrder) {
     const node = input.canvasSkillNodes[id];
     if (!node) continue;
@@ -183,6 +202,7 @@ export function queryVisibleNodes(
     artifacts?: Iterable<string>;
     assets?: Iterable<string>;
     gifs?: Iterable<string>;
+    threeD?: Iterable<string>;
     skills?: Iterable<string>;
     labels?: Iterable<string>;
   } = {},
@@ -199,6 +219,7 @@ export function queryVisibleNodes(
   const artifacts = new Set<string>(alwaysVisible.artifacts ?? []);
   const assets = new Set<string>(alwaysVisible.assets ?? []);
   const gifs = new Set<string>(alwaysVisible.gifs ?? []);
+  const threeD = new Set<string>(alwaysVisible.threeD ?? []);
   const skills = new Set<string>(alwaysVisible.skills ?? []);
   const labels = new Set<string>(alwaysVisible.labels ?? []);
 
@@ -207,11 +228,12 @@ export function queryVisibleNodes(
     else if (hit.kind === "artifact") artifacts.add(hit.id);
     else if (hit.kind === "asset") assets.add(hit.id);
     else if (hit.kind === "gif") gifs.add(hit.id);
+    else if (hit.kind === "3d") threeD.add(hit.id);
     else if (hit.kind === "skill") skills.add(hit.id);
     else labels.add(hit.id);
   }
 
-  return { cards, artifacts, assets, gifs, skills, labels };
+  return { cards, artifacts, assets, gifs, threeD, skills, labels };
 }
 
 export function shouldEnableViewportCulling(nodeCount: number): boolean {

@@ -20,6 +20,20 @@ async function findFreePort(start = 3000, end = 3010) {
 (async () => {
   require('./check-supabase-env');
 
+  const nodeMajor = Number(process.versions.node.split('.')[0]);
+  const nodeMinor = Number(process.versions.node.split('.')[1] ?? 0);
+  if (nodeMajor < 22 && (nodeMajor < 20 || nodeMinor < 4)) {
+    console.warn(
+      `\n⚠ Node ${process.versions.node} is below recommended for custom UI (Node 22+).`,
+      `\n  @cursor/sdk needs Symbol.dispose — a polyfill is applied, but Node 22+ is more reliable.\n`,
+    );
+  } else if (nodeMajor < 22) {
+    console.warn(
+      `\n⚠ Node ${process.versions.node}: custom UI uses @cursor/sdk which prefers Node 22+ (Symbol.dispose).`,
+      `\n  A runtime polyfill is applied automatically.\n`,
+    );
+  }
+
   const preferred = 3000;
   const port = await findFreePort(preferred, 3010);
   if (port !== preferred) {

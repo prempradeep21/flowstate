@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flowstate — Interaction Checklist</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <header class="sidebar-header">
+          <div class="logo-mark" aria-hidden="true"></div>
+          <div>
+            <p class="eyebrow">Flowstate</p>
+            <h1 class="sidebar-title">Interaction Checklist</h1>
+          </div>
+        </header>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="search-wrap">
+          <input
+            type="search"
+            id="search"
+            class="search-input"
+            placeholder="Search checklist…"
+            autocomplete="off"
+          />
+        </div>
+
+        <nav class="nav" id="nav" aria-label="Categories"></nav>
+
+        <footer class="sidebar-footer">
+          <p>Source: <code>ui-interaction-motion-instructions.md</code></p>
+          <p class="muted">Last 14 days of Cursor chats</p>
+        </footer>
+      </aside>
+
+      <button
+        type="button"
+        class="sidebar-toggle"
+        id="sidebar-toggle"
+        aria-label="Toggle navigation"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <main class="main" id="main">
+        <article class="doc" id="doc"></article>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

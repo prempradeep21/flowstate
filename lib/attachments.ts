@@ -3,6 +3,7 @@ import type { CanvasAsset, CanvasAssetKind } from "@/lib/store";
 import {
   officeKindForExtension,
   officeKindForMime,
+  OFFICE_FILE_ACCEPT,
   PRESENTATION_TYPES,
   SPREADSHEET_TYPES,
   WORD_TYPES,
@@ -13,6 +14,10 @@ import {
   AUDIO_ASSET_MAX_BYTES,
   isAudioFile,
 } from "@/lib/audioArtifact";
+import {
+  isThreeDModelFile,
+  THREE_D_MODEL_MAX_BYTES,
+} from "@/lib/threeDArtifact";
 
 export type UploadCategory = "images" | "documents" | "code";
 
@@ -21,6 +26,14 @@ export const UPLOAD_CATEGORY_LABELS: Record<UploadCategory, string> = {
   documents: "Documents",
   code: "Code",
 };
+
+export const DOCUMENT_FILE_ACCEPT =
+  "application/pdf,text/plain,text/markdown,text/csv,application/json," +
+  ".pdf,.txt,.md,.csv,.json," +
+  OFFICE_FILE_ACCEPT;
+
+export const CODE_FILE_ACCEPT =
+  ".ts,.tsx,.js,.jsx,.py,.sql,.css,.html,.go,.rs,.java,.cpp,.c,.cs,.php,.rb,.sh,.yaml,.yml";
 
 export const ASSET_STORAGE_BUCKET = "asset-files";
 
@@ -124,6 +137,9 @@ function mimeFromExtension(ext: string): string {
   switch (ext) {
     case "md":
       return "text/markdown";
+    case "html":
+    case "htm":
+      return "text/html";
     case "csv":
       return "text/csv";
     case "json":
@@ -164,6 +180,10 @@ function mimeFromExtension(ext: string): string {
       return "audio/ogg";
     case "webm":
       return "audio/webm";
+    case "glb":
+      return "model/gltf-binary";
+    case "gltf":
+      return "model/gltf+json";
     default:
       return "text/plain";
   }
@@ -188,6 +208,15 @@ export function maxBytesForAssetKind(kind: CanvasAssetKind): number {
   if (kind === "code") return CODE_ASSET_MAX_BYTES;
   if (kind === "image") return IMAGE_ASSET_MAX_BYTES;
   return DOCUMENT_ASSET_MAX_BYTES;
+}
+
+export function isDocumentAssetKind(kind: CanvasAssetKind): boolean {
+  return (
+    kind === "document" ||
+    kind === "spreadsheet" ||
+    kind === "word" ||
+    kind === "presentation"
+  );
 }
 
 export function formatBytes(bytes: number): string {
@@ -306,6 +335,24 @@ export function validateAudioFile(file: File): true | AssetUploadError {
   return true;
 }
 
+export function validateThreeDModelFile(file: File): true | AssetUploadError {
+  if (!isThreeDModelFile(file)) {
+    return {
+      fileName: file.name,
+      code: "unsupported-type",
+      message: `${file.name} is not a supported 3D model (GLB or GLTF).`,
+    };
+  }
+  if (file.size > THREE_D_MODEL_MAX_BYTES) {
+    return {
+      fileName: file.name,
+      code: "file-too-large",
+      message: `${file.name} is ${formatBytes(file.size)}; the limit is ${formatBytes(THREE_D_MODEL_MAX_BYTES)}.`,
+    };
+  }
+  return true;
+}
+
 export interface AudioUploadResult {
   fileName: string;
   mimeType: string;
@@ -314,15 +361,19 @@ export interface AudioUploadResult {
   sizeBytes: number;
 }
 
-export async function uploadAudioFile(
+export type ThreeDModelUploadResult = AudioUploadResult;
+
+async function uploadBinaryAssetFile(
   file: File,
   context: AssetUploadContext | null,
+  validate: (file: File) => true | AssetUploadError,
+  missingContextMessage: string,
 ): Promise<{ upload: AudioUploadResult } | { error: AssetUploadError }> {
   if (!context?.canvasId || !context.userId) {
     return {
       error: {
         code: "missing-context",
-        message: "Sign in and open a canvas before uploading audio.",
+        message: missingContextMessage,
       },
     };
   }
@@ -337,7 +388,7 @@ export async function uploadAudioFile(
     };
   }
 
-  const validation = validateAudioFile(file);
+  const validation = validate(file);
   if (validation !== true) {
     return { error: validation };
   }
@@ -388,6 +439,30 @@ export async function uploadAudioFile(
       sizeBytes: file.size,
     },
   };
+}
+
+export async function uploadAudioFile(
+  file: File,
+  context: AssetUploadContext | null,
+): Promise<{ upload: AudioUploadResult } | { error: AssetUploadError }> {
+  return uploadBinaryAssetFile(
+    file,
+    context,
+    validateAudioFile,
+    "Sign in and open a canvas before uploading audio.",
+  );
+}
+
+export async function uploadThreeDModelFile(
+  file: File,
+  context: AssetUploadContext | null,
+): Promise<{ upload: ThreeDModelUploadResult } | { error: AssetUploadError }> {
+  return uploadBinaryAssetFile(
+    file,
+    context,
+    validateThreeDModelFile,
+    "Sign in and open a canvas before uploading 3D models.",
+  );
 }
 
 function getImageDimensions(file: File): Promise<{

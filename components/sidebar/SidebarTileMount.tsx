@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export function SidebarTileMount({ children }: { children: ReactNode }) {
+export function SidebarTileMount({
+  children,
+  fixedHeight,
+}: {
+  children: ReactNode;
+  fixedHeight?: number;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -25,11 +31,14 @@ export function SidebarTileMount({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div ref={ref} className="h-full min-h-0 w-full">
+    <div ref={ref} className="absolute inset-0">
       {visible ? (
         children
       ) : (
-        <div className="h-full min-h-[80px] w-full bg-canvas-artifactStage/50" />
+        <div
+          className="h-full w-full bg-canvas-artifactStage/50"
+          style={fixedHeight != null ? { height: fixedHeight } : undefined}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 
 export function ArtifactAttachmentPill({
@@ -15,18 +16,25 @@ export function ArtifactAttachmentPill({
   onRemove?: () => void;
 }) {
   return (
-    <div className="flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-1.5">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink">
-        <ArtifactTypeIcon kind={kind} className="h-3 w-3" />
+    <div
+      className="inline-flex max-w-full items-center gap-3 rounded-canvas border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5"
+    >
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-canvas text-canvas-ink"
+        style={artifactCategoryStyle(kind)}
+      >
+        <ArtifactTypeIcon kind={kind} className="h-4 w-4" />
       </span>
-      <span className="min-w-0 flex-1 overflow-hidden">
+      <span className="min-w-0">
         <span
-          className="block overflow-hidden text-ellipsis whitespace-nowrap text-canvas-compact font-medium text-canvas-ink"
+          className="block max-w-[220px] truncate text-canvas-compact font-medium text-canvas-ink"
           title={title}
         >
           {title}
         </span>
-        <span className="text-canvas-micro italic text-canvas-muted">Version {versionNumber}</span>
+        <span className="text-canvas-micro italic text-canvas-muted">
+          Version {versionNumber}
+        </span>
       </span>
       {onRemove && (
         <button

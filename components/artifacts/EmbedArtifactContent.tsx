@@ -146,8 +146,9 @@ function EmbedFrame({
   interactive: boolean;
   onActivate?: () => void;
 }) {
-  const { iframeSrc, embedHtml, embedWidth, embedHeight, title, provider } =
+  const { iframeSrc, embedHtml, embedWidth, embedHeight, title, fallback } =
     payload.data;
+  const previewImageUrl = fallback?.previewImageUrl;
 
   const frame = iframeSrc ? (
     <iframe
@@ -155,16 +156,17 @@ function EmbedFrame({
       title={title}
       width={embedWidth}
       height={embedHeight}
-      className={`max-h-full max-w-full border-0 bg-white ${
+      loading="lazy"
+      className={`relative z-[1] max-h-full max-w-full border-0 bg-white ${
         interactive ? "pointer-events-auto" : "pointer-events-none"
       }`}
       allow="autoplay; encrypted-media; fullscreen; clipboard-write"
       referrerPolicy="strict-origin-when-cross-origin"
       allowFullScreen
     />
-  ) : embedHtml && provider !== "twitter" ? (
+  ) : embedHtml ? (
     <div
-      className={`h-full w-full ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
+      className={`relative z-[1] h-full w-full ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
       style={{ width: embedWidth, height: embedHeight, maxWidth: "100%", maxHeight: "100%" }}
     >
       <EmbedHtmlFrame html={embedHtml} />
@@ -173,6 +175,15 @@ function EmbedFrame({
 
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-canvas-bg">
+      {previewImageUrl ? (
+        <div className="absolute inset-0">
+          <PreviewThumbnail
+            previewImageUrl={previewImageUrl}
+            alt={title}
+            className="h-full w-full object-cover opacity-40"
+          />
+        </div>
+      ) : null}
       {frame}
       {!interactive && onActivate ? (
         <button
@@ -292,7 +303,6 @@ export function EmbedArtifactContent({
         <ArtifactContentStage
           fill
           artifactId={artifactId}
-          showControls={!sidebar}
           className="h-full !bg-transparent"
         >
           {loading}
@@ -311,7 +321,6 @@ export function EmbedArtifactContent({
         <ArtifactContentStage
           fill
           artifactId={artifactId}
-          showControls={!sidebar}
           className="h-full !bg-transparent"
         >
           <div className="flex h-full min-h-0 flex-col overflow-auto">{failed}</div>
@@ -336,7 +345,6 @@ export function EmbedArtifactContent({
       <ArtifactContentStage
         fill
         artifactId={artifactId}
-        showControls={!sidebar}
         className="h-full min-h-0 !bg-transparent"
       >
         {ready}

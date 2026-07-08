@@ -22,8 +22,8 @@ export function LandingCanvasFrame({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-canvas border border-canvas-border bg-canvas-bg shadow-card ${className}`}
-      style={{ height }}
+      className={`relative overflow-hidden rounded-canvas border border-canvas-border bg-canvas-bg shadow-artifact ${className}`}
+      style={height != null ? { height } : { height: "100%", minHeight: 480 }}
       aria-label={label}
     >
       <ThemeApplier />

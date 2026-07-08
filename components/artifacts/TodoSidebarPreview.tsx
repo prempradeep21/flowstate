@@ -6,10 +6,10 @@ import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 function SidebarCheckbox({ checked }: { checked: boolean }) {
   return (
     <span
-      className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border ${
+      className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border-2 ${
         checked
           ? "border-canvas-accent bg-canvas-accent"
-          : "border-canvas-border bg-canvas-card"
+          : "border-canvas-ink/40 bg-canvas-card"
       }`}
       aria-hidden
     >
@@ -24,7 +24,7 @@ function SidebarCheckbox({ checked }: { checked: boolean }) {
 
 function SidebarTodoRow({ item }: { item: TodoItem }) {
   return (
-    <li className="flex items-start gap-2 border-b border-canvas-border/40 px-2.5 py-1.5 last:border-0">
+    <li className="flex items-start gap-2 border-b border-canvas-ink/12 px-2.5 py-1.5 last:border-0">
       <SidebarCheckbox checked={item.checked} />
       <span
         className={`rich-text min-w-0 flex-1 text-canvas-caption leading-snug ${

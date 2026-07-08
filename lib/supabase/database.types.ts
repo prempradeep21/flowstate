@@ -224,6 +224,92 @@ export interface Database {
         };
         Relationships: [];
       };
+      usage_analysis_snapshots: {
+        Row: {
+          id: string;
+          computed_at: string;
+          timezone: string;
+          payload: Json;
+          stats: Json;
+        };
+        Insert: {
+          id?: string;
+          computed_at?: string;
+          timezone?: string;
+          payload: Json;
+          stats?: Json;
+        };
+        Update: {
+          id?: string;
+          computed_at?: string;
+          timezone?: string;
+          payload?: Json;
+          stats?: Json;
+        };
+        Relationships: [];
+      };
+      qa_turn_events: {
+        Row: {
+          id: string;
+          created_at: string;
+          card_id: string | null;
+          canvas_id: string | null;
+          question: string | null;
+          model: string | null;
+          duration_ms: number | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          tool_turns: number | null;
+          pause_turns: number | null;
+          web_search_blocks: number | null;
+          artifact_kind: string | null;
+          outcome: string;
+          error_message: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          card_id?: string | null;
+          canvas_id?: string | null;
+          question?: string | null;
+          model?: string | null;
+          duration_ms?: number | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          tool_turns?: number | null;
+          pause_turns?: number | null;
+          web_search_blocks?: number | null;
+          artifact_kind?: string | null;
+          outcome: string;
+          error_message?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          card_id?: string | null;
+          canvas_id?: string | null;
+          question?: string | null;
+          model?: string | null;
+          duration_ms?: number | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          tool_turns?: number | null;
+          pause_turns?: number | null;
+          web_search_blocks?: number | null;
+          artifact_kind?: string | null;
+          outcome?: string;
+          error_message?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qa_turn_events_canvas_id_fkey";
+            columns: ["canvas_id"];
+            isOneToOne: false;
+            referencedRelation: "canvases";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

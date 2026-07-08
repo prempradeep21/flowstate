@@ -6,13 +6,14 @@ import { ArtifactCanvasSizeReportProvider } from "@/components/artifacts/Artifac
 import type { ArtifactContentAreaSize } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import { ArtifactContent, type ArtifactLayout } from "@/components/artifacts/ArtifactContent";
 import { ArtifactExportProvider } from "@/components/artifacts/ArtifactExportContext";
-import { ArtifactExportToast } from "@/components/artifacts/ArtifactExportToast";
+import { ArtifactMenuControlsProvider } from "@/components/artifacts/ArtifactMenuControlsContext";
 import { ArtifactPanelHeader } from "@/components/artifacts/ArtifactPanelHeader";
 import type { TodoArtifactActions } from "@/components/artifacts/TodoArtifactContent";
 import { useAuth } from "@/components/AuthProvider";
 import { artifactContributorProfiles } from "@/lib/contributorProfiles";
 import {
   artifactDisplayTitle,
+  artifactRenameTitle,
   getLatestVersion,
   getVersionById,
   type SessionArtifact,
@@ -34,7 +35,6 @@ export function ArtifactShell({
   onVersionChange,
   menuVariant,
   layout = "panel",
-  onExpand,
   onRemoveFromCanvas,
   onTodoEditingChange,
   catalogPreview = false,
@@ -47,7 +47,6 @@ export function ArtifactShell({
   onVersionChange: (versionId: string) => void;
   menuVariant: "canvas" | "panel";
   layout?: ArtifactLayout;
-  onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   onTodoEditingChange?: (editing: boolean) => void;
   /** Dev catalog: enable edits and interaction without canvas chrome. */
@@ -60,18 +59,19 @@ export function ArtifactShell({
   contentInteractive?: boolean;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
-  const [exportToast, setExportToast] = useState<{ message: string; isError?: boolean } | null>(
-    null,
-  );
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
   const [isTodoDirty, setIsTodoDirty] = useState(false);
   const todoActionsRef = useRef<TodoArtifactActions | null>(null);
   const { members, accessInfo } = useAuth();
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
+  const renameSessionArtifactTitle = useCanvasStore(
+    (s) => s.renameSessionArtifactTitle,
+  );
   const readOnly = catalogPreview ? false : canvasReadOnly;
 
   const cards = useCanvasStore((s) => s.cards);
+
   const contributorProfiles = useMemo(() => {
     if (members.length <= 1 || !collaborationHasEdits) return [];
     return artifactContributorProfiles(
@@ -115,6 +115,7 @@ export function ArtifactShell({
   const displayPayload = streamingPayload ?? activeVersion?.payload;
 
   const isLatest = versionId === sessionArtifact.latestVersionId;
+  const isStreamingTitle = Boolean(streamingPayload?.title);
   const isTodo = sessionArtifact.kind === "todo";
   const isMap = sessionArtifact.kind === "map";
   const isCalendar = sessionArtifact.kind === "calendar";
@@ -153,19 +154,9 @@ export function ArtifactShell({
     [isTodoDirty, isTodoEditing, onVersionChange],
   );
 
-  const exitEditMode = useCallback(() => {
+  const exitTodoEditMode = useCallback(() => {
     setIsTodoEditing(false);
     setIsTodoDirty(false);
-  }, []);
-
-  useEffect(() => {
-    if (!exportToast) return;
-    const timer = window.setTimeout(() => setExportToast(null), 2800);
-    return () => window.clearTimeout(timer);
-  }, [exportToast]);
-
-  const handleExportToast = useCallback((message: string, isError?: boolean) => {
-    setExportToast({ message, isError });
   }, []);
 
   if (!activeVersion || !displayPayload) return null;
@@ -179,15 +170,26 @@ export function ArtifactShell({
 
   const isCanvasLayout = layout === "canvas";
   const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
+  const isStickyCanvas = isCanvasLayout && sessionArtifact.kind === "stickynote";
+  const showPanelHeader = !isRepoCanvas && !isStickyCanvas;
+  const menuControlsEnabled =
+    !catalogPreview && layout !== "sidebar" && layout !== "sidebar-preview";
+  const showFontControls =
+    menuControlsEnabled && sessionArtifact.kind !== "audio";
 
   return (
     <ArtifactExportProvider>
+    <ArtifactMenuControlsProvider
+      artifactId={sessionArtifact.id}
+      showFontControls={showFontControls}
+      menuControlsEnabled={menuControlsEnabled}
+    >
     <div
       className={
         isCanvasLayout ? "flex min-h-0 flex-1 flex-col" : undefined
       }
     >
-      {!isRepoCanvas ? (
+      {showPanelHeader ? (
       <div
         className={isCanvasLayout ? "pointer-events-auto shrink-0" : undefined}
       >
@@ -195,6 +197,11 @@ export function ArtifactShell({
           kind={sessionArtifact.kind}
           isVideo={isVideo}
           title={title}
+          renameTitle={artifactRenameTitle(sessionArtifact)}
+          canRenameTitle={!readOnly && !isStreamingTitle}
+          onRenameTitle={(next) =>
+            renameSessionArtifactTitle(sessionArtifact.id, next)
+          }
           artifactId={sessionArtifact.id}
           versions={sessionArtifact.versions}
           activeVersionId={activeVersion.id}
@@ -221,7 +228,6 @@ export function ArtifactShell({
               : undefined
           }
           menuVariant={menuVariant}
-          onExpand={onExpand}
           onRemoveFromCanvas={onRemoveFromCanvas}
           contributorProfiles={contributorProfiles}
           todoEditControls={
@@ -237,30 +243,23 @@ export function ArtifactShell({
                   onDiscard: () => {
                     todoActionsRef.current?.discard();
                   },
-                  onCancelEdit: exitEditMode,
+                  onCancelEdit: exitTodoEditMode,
                 }
               : undefined
           }
           exportPayload={displayPayload}
-          onExportToast={handleExportToast}
         />
       </div>
       ) : null}
       <div
         className={
           isCanvasLayout
-            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas-sm ${
+            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas ${
                 isRepoCanvas
                   ? "bg-transparent"
                   : artifactKindUsesCanvasSurfaceFill(sessionArtifact.kind)
                     ? ARTIFACT_CANVAS_SURFACE_FILL
                     : ""
-              } ${
-                isRepoCanvas
-                  ? ""
-                  : sessionArtifact.kind === "streetview"
-                    ? "mt-0 min-h-0 flex-1"
-                    : "mt-[22px]"
               } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`
             : "mt-[22px]"
         }
@@ -288,7 +287,7 @@ export function ArtifactShell({
                     onActionsReady: (actions) => {
                       todoActionsRef.current = actions;
                     },
-                    onSaved: exitEditMode,
+                    onSaved: exitTodoEditMode,
                   }
                 : undefined
             }
@@ -328,11 +327,11 @@ export function ArtifactShell({
                       onActionsReady: (actions) => {
                         todoActionsRef.current = actions;
                       },
-                      onSaved: exitEditMode,
+                      onSaved: exitTodoEditMode,
                     }
                   : undefined
               }
-              mapCanEdit={canEditMap}
+            mapCanEdit={canEditMap}
               calendarCanEdit={canEditCalendar}
               timelineCanEdit={canEditTimeline}
               catalogPreview={catalogPreview}
@@ -342,8 +341,8 @@ export function ArtifactShell({
         )}
         </ArtifactCanvasSizeReportProvider>
       </div>
-      <ArtifactExportToast message={exportToast?.message ?? null} isError={exportToast?.isError} />
     </div>
+    </ArtifactMenuControlsProvider>
     </ArtifactExportProvider>
   );
 }

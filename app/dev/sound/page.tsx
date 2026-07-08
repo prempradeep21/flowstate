@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { SoundMappingApp } from "./SoundMappingApp";
+import { SoundMappingApp } from "./SoundMappingAppLoader";
 
 /** Dev-only sound mapping tool — blocked in production builds. */
 export default function SoundMappingPage() {

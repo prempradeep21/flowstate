@@ -4,7 +4,12 @@ import {
   appendPendingEmittedArtifact,
   processArtifactSpawnQueue,
 } from "@/lib/processArtifactSpawnQueue";
-export { shouldEarlySpawnArtifact } from "@/lib/processArtifactSpawnQueue";
+export {
+  ensureEarlyCanvasPlaceholder,
+  shouldEarlySpawnArtifact,
+} from "@/lib/processArtifactSpawnQueue";
+import { isCardAskInFlight } from "@/lib/cardAskRegistry";
+import { notifyArtifactFailureForCard } from "@/lib/artifactUpdateNotify";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
   getLatestVersion,
@@ -92,6 +97,8 @@ export function finalizeCardResponse(
   const card = state.cards[cardId];
   if (!card) return null;
 
+  if (isCardAskInFlight(cardId)) return null;
+
   const hasQueue =
     (card.pendingEmittedArtifacts?.length ?? 0) > 0 || !!card.artifactPayload;
 
@@ -105,21 +112,20 @@ export function finalizeCardResponse(
           [cardId]: {
             ...base,
             status: "done",
-            thinkingLabel: resolveDoneThinkingLabel(cardId, {
-              ...base,
-              status: "done",
-            }),
+            thinkingLabel: undefined,
+            sdkBuildStages: undefined,
             pendingFiles: undefined,
             responseType: opts.responseType ?? base.responseType ?? "text",
           },
         },
       };
     });
+    useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
+    notifyArtifactFailureForCard(cardId);
     return null;
   }
 
   const artifactId = processArtifactSpawnQueue(cardId);
-
   useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
 
   if (opts.responseType) {
@@ -127,6 +133,8 @@ export function finalizeCardResponse(
       responseType: opts.responseType,
     });
   }
+
+  notifyArtifactFailureForCard(cardId);
 
   return artifactId;
 }

@@ -45,6 +45,7 @@ const ARTIFACT_MINIMAP_COLORS: Record<ArtifactKind, string> = {
   timeline: "rgb(var(--canvas-success) / 0.32)",
   chart: "rgb(var(--canvas-accent) / 0.38)",
   audio: "rgb(var(--canvas-warning) / 0.36)",
+  stickynote: "rgb(var(--canvas-warning) / 0.44)",
 };
 
 const ARTIFACT_MINIMAP_FALLBACK = "rgb(var(--canvas-ink) / 0.25)";
@@ -101,6 +102,7 @@ export function CanvasMinimap({
   const setViewport = useCanvasStore((s) => s.setViewport);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
@@ -108,6 +110,8 @@ export function CanvasMinimap({
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
@@ -193,6 +197,8 @@ export function CanvasMinimap({
         canvasAssetOrder,
         canvasGifNodes,
         canvasGifOrder,
+        canvas3DNodes,
+        canvas3DOrder,
         canvasSkills,
         canvasSkillNodes,
         canvasSkillOrder,
@@ -210,6 +216,8 @@ export function CanvasMinimap({
       canvasAssetOrder,
       canvasGifNodes,
       canvasGifOrder,
+      canvas3DNodes,
+      canvas3DOrder,
       canvasSkills,
       canvasSkillNodes,
       canvasSkillOrder,
@@ -222,6 +230,7 @@ export function CanvasMinimap({
   const transform = useMemo(() => minimapTransform(bounds), [bounds]);
 
   const cardDots = useMemo(() => {
+    if (chatsGloballyHidden) return [];
     const dots: { id: string; left: number; top: number }[] = [];
     for (const id of cardOrder) {
       const card = cards[id];
@@ -240,7 +249,7 @@ export function CanvasMinimap({
       });
     }
     return dots;
-  }, [cardOrder, cards, bounds, transform]);
+  }, [cardOrder, cards, bounds, transform, chatsGloballyHidden]);
 
   const artifactDots = useMemo(() => {
     const dots: { id: string; left: number; top: number; color: string }[] =
@@ -407,7 +416,7 @@ export function CanvasMinimap({
         )}
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-[10px] font-medium tabular-nums leading-none text-canvas-muted/90"
+          className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-canvas-caption font-medium tabular-nums leading-none text-canvas-muted/90"
         >
           {zoomPercent}%
         </span>

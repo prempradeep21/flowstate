@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Freelancer Price Calculator — INR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="../invoice-generator/calculator/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <main class="studio" id="calculatorStudio" aria-label="Price calculator">
+      <header class="controls" aria-label="Calculator controls">
+        <div class="controls__head">
+          <h1 class="controls__title">Price Calculator</h1>
+          <p class="controls__sub">INR · Indian freelancer · estimate by deliverable</p>
+        </div>
+
+        <div class="toolbar" role="toolbar" aria-label="Calculator toolbar">
+          <select id="tierSelect" class="toolbar-select" aria-label="Experience tier">
+            <option value="junior">Junior (0–2 yr)</option>
+            <option value="mid" selected>Mid (2–5 yr)</option>
+            <option value="senior">Senior (5+ yr)</option>
+          </select>
+
+          <select id="clientSelect" class="toolbar-select" aria-label="Client type">
+            <option value="indian_sme" selected>Indian SME</option>
+            <option value="indian_startup">Indian startup</option>
+            <option value="international">International</option>
+          </select>
+
+          <div class="toolbar__spacer" aria-hidden="true"></div>
+
+          <button type="button" class="toolbar-text-btn" id="resetCalcBtn">Reset</button>
+          <button type="button" class="toolbar-action-btn" id="copyBtn" aria-label="Copy estimate">
+            <span class="toolbar-action-label">Copy</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="document" aria-label="Calculator workspace">
+        <div class="document__scroll">
+          <article class="calc-card">
+            <header class="calc-card__banner">
+              <span class="calc-card__banner-prefix">Estimate</span>
+              <span class="calc-card__banner-sep">|</span>
+              <span class="calc-card__banner-title">Freelancer pricing</span>
+            </header>
+
+            <div class="calc-card__body">
+              <div class="deliverable-tabs" id="deliverableTabs" role="tablist" aria-label="Deliverable type"></div>
+
+              <div id="formPanels"></div>
+
+              <section class="form-section" aria-label="Timeline and tax">
+                <h3 class="form-section__heading">Timeline & tax</h3>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="rushSelect">Delivery</label>
+                    <select id="rushSelect" aria-label="Timeline">
+                      <option value="none">Standard timeline</option>
+                      <option value="rush_2w">2-week rush (+25%)</option>
+                      <option value="rush_1w">1-week rush (+50%)</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="extraRevisions">Extra revisions</label>
+                    <input type="number" id="extraRevisions" min="0" max="10" value="0" aria-label="Extra revision rounds" />
+                  </div>
+                </div>
+                <label class="check-chip">
+                  <input type="checkbox" id="gstToggle" checked />
+                  Include GST (18%)
+                </label>
+              </section>
+
+              <section class="estimate" aria-label="Estimate breakdown" aria-live="polite">
+                <div class="estimate__head">Breakdown</div>
+                <ul class="estimate__lines" id="estimateLines"></ul>
+                <div class="estimate__line estimate__line--subtotal">
+                  <span class="estimate__line-desc">Subtotal</span>
+                  <span class="estimate__line-amt" id="estimateSubtotal">₹0</span>
+                </div>
+                <div class="estimate__line" id="gstRow">
+                  <span class="estimate__line-desc">GST (18%)</span>
+                  <span class="estimate__line-amt" id="estimateGst">₹0</span>
+                </div>
+                <div class="estimate__total">
+                  <span>Total</span>
+                  <span class="estimate__total-amt" id="estimateTotal">₹0</span>
+                </div>
+                <p class="estimate__meta" id="estimateMeta"></p>
+              </section>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../invoice-generator/calculator/app.js" defer></script>
+</body>
+</html>

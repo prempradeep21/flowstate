@@ -11,7 +11,10 @@ import {
   MAX_CANVAS_MEMBERS,
   isCanvasOwner,
 } from "@/lib/collaborationPersistence";
-import type { CollaboratorRole } from "@/lib/collaborationTypes";
+import { showAppToast } from "@/lib/appToastStore";
+import type { CanvasMember, CollaboratorRole } from "@/lib/collaborationTypes";
+import { collaboratorStatusDotClass } from "@/lib/collaboratorActivity";
+import { useCollaboratorActivity } from "@/hooks/useCollaboratorActivity";
 
 export function ShareModal() {
   const {
@@ -32,6 +35,7 @@ export function ShareModal() {
     duplicateActiveCanvas,
     switchCanvas,
     user,
+    onlineUserIds,
   } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -68,6 +72,7 @@ export function ShareModal() {
     if (!shareLink?.token) return;
     const url = `${window.location.origin}/canvas/join/${shareLink.token}`;
     await navigator.clipboard.writeText(url);
+    showAppToast("Link copied");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [shareLink?.token]);
@@ -222,65 +227,20 @@ export function ShareModal() {
           </h3>
           <ul className="space-y-2">
             {members.map((member) => (
-              <li
+              <ShareMemberRow
                 key={member.userId}
-                className="flex items-center gap-2 rounded-canvas bg-canvas-bg px-3 py-2"
-              >
-                {member.profile.avatarUrl ? (
-                  <img
-                    src={member.profile.avatarUrl}
-                    alt=""
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-body font-semibold text-white">
-                    {(member.profile.displayName ?? "?").charAt(0).toUpperCase()}
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-canvas-body font-medium text-canvas-ink">
-                    {member.profile.displayName ?? "User"}
-                    {member.userId === user?.id ? " (you)" : ""}
-                  </p>
-                  <p className="text-canvas-compact capitalize text-canvas-muted">
-                    {member.role}
-                  </p>
-                </div>
-                {isOwner && member.role !== "owner" && (
-                  <div className="flex shrink-0 gap-1">
-                    <select
-                      value={member.role}
-                      onChange={(e) =>
-                        void changeMemberRole(
-                          member.userId,
-                          e.target.value as CollaboratorRole,
-                        )
-                      }
-                      className="rounded border border-canvas-border bg-canvas-card px-1 py-0.5 text-canvas-compact"
-                    >
-                      <option value="viewer">Viewer</option>
-                      <option value="editor">Editor</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => void removeMember(member.userId)}
-                      className="rounded px-2 py-0.5 text-canvas-compact text-canvas-danger hover:bg-canvas-dangerSoft"
-                    >
-                      Remove
-                    </button>
-                    {member.role === "editor" && (
-                      <button
-                        type="button"
-                        onClick={() => void transferOwnership(member.userId)}
-                        className="rounded px-2 py-0.5 text-canvas-compact text-canvas-muted hover:bg-canvas-bg"
-                        title="Transfer ownership"
-                      >
-                        Make owner
-                      </button>
-                    )}
-                  </div>
-                )}
-              </li>
+                member={member}
+                isSelf={member.userId === user?.id}
+                onlineUserIds={onlineUserIds}
+                isOwner={isOwner}
+                onChangeRole={(role) =>
+                  void changeMemberRole(member.userId, role)
+                }
+                onRemove={() => void removeMember(member.userId)}
+                onTransferOwnership={() =>
+                  void transferOwnership(member.userId)
+                }
+              />
             ))}
           </ul>
         </div>
@@ -313,5 +273,87 @@ export function ShareModal() {
         </div>
       )}
     </>
+  );
+}
+
+function ShareMemberRow({
+  member,
+  isSelf,
+  onlineUserIds,
+  isOwner,
+  onChangeRole,
+  onRemove,
+  onTransferOwnership,
+}: {
+  member: CanvasMember;
+  isSelf: boolean;
+  onlineUserIds: Set<string>;
+  isOwner: boolean;
+  onChangeRole: (role: CollaboratorRole) => void;
+  onRemove: () => void;
+  onTransferOwnership: () => void;
+}) {
+  const activity = useCollaboratorActivity(member.userId, onlineUserIds);
+  const label = member.profile.displayName ?? "User";
+
+  return (
+    <li className="flex items-center gap-2 rounded-canvas bg-canvas-bg px-3 py-2">
+      <div className="relative shrink-0">
+        {member.profile.avatarUrl ? (
+          <img
+            src={member.profile.avatarUrl}
+            alt=""
+            className="h-8 w-8 rounded-full object-cover"
+          />
+        ) : (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-body font-semibold text-white">
+            {label.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-canvas-bg ${collaboratorStatusDotClass(activity.status)}`}
+          aria-hidden
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-canvas-body font-medium text-canvas-ink">
+          {label}
+          {isSelf ? " (you)" : ""}
+        </p>
+        <p className="truncate text-canvas-compact capitalize text-canvas-muted">
+          {member.role}
+          {!isSelf ? ` · ${activity.label}` : ""}
+        </p>
+      </div>
+      {isOwner && member.role !== "owner" && (
+        <div className="flex shrink-0 gap-1">
+          <select
+            value={member.role}
+            onChange={(e) => onChangeRole(e.target.value as CollaboratorRole)}
+            className="rounded border border-canvas-border bg-canvas-card px-1 py-0.5 text-canvas-compact"
+          >
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded px-2 py-0.5 text-canvas-compact text-canvas-danger hover:bg-canvas-dangerSoft"
+          >
+            Remove
+          </button>
+          {member.role === "editor" && (
+            <button
+              type="button"
+              onClick={onTransferOwnership}
+              className="rounded px-2 py-0.5 text-canvas-compact text-canvas-muted hover:bg-canvas-bg"
+              title="Transfer ownership"
+            >
+              Make owner
+            </button>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

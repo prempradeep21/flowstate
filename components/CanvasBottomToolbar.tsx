@@ -5,20 +5,24 @@ import {
   ArtefactIcon,
   BranchForkIcon,
   ChatBubbleIcon,
+  FocusViewIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GearIcon,
+  PencilIcon,
   PlusIcon,
-  SettingsIcon,
   ShareIcon,
 } from "@/components/MenuIcons";
 import { CanvasAddMenu } from "@/components/CanvasAddMenu";
 import { CanvasArtifactMenu } from "@/components/CanvasArtifactMenu";
-import { CanvasFontPopover } from "@/components/CanvasFontPopover";
 import { CanvasGifPicker } from "@/components/CanvasGifPicker";
+import { CanvasPencilPopover } from "@/components/CanvasPencilPopover";
 import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
 import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
-import { UndoButton } from "@/components/UndoButton";
 import { useCanEditCanvas, useAuth } from "@/components/AuthProvider";
 import { isCanvasOwner } from "@/lib/collaborationPersistence";
-import { uploadAssetFiles } from "@/lib/attachments";
+import { uploadAssetFiles, type AssetUploadError, DOCUMENT_FILE_ACCEPT, CODE_FILE_ACCEPT, isDocumentAssetKind } from "@/lib/attachments";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
@@ -30,16 +34,19 @@ const iconToggleBtn =
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
-  const fontBtnRef = useRef<HTMLButtonElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const artefactBtnRef = useRef<HTMLButtonElement>(null);
+  const pencilBtnRef = useRef<HTMLButtonElement>(null);
   const toolbarShellRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [fontOpen, setFontOpen] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const codeFileInputRef = useRef<HTMLInputElement>(null);
+  const model3dInputRef = useRef<HTMLInputElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
+  const [pencilOpen, setPencilOpen] = useState(false);
   const canEdit = useCanEditCanvas();
   const {
     activeCanvasRole,
@@ -58,16 +65,32 @@ export function CanvasBottomToolbar() {
   const gifPickerOpen = useCanvasStore((s) => s.gifPickerOpen);
   const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
   const requestImagePlacement = useCanvasStore((s) => s.requestImagePlacement);
+  const createThreeDArtifactFromFile = useCanvasStore(
+    (s) => s.createThreeDArtifactFromFile,
+  );
+  const pencilToolActive = useCanvasStore((s) => s.pencilToolActive);
+  const pencilColor = useCanvasStore((s) => s.pencilColor);
+  const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
+  const setPencilColor = useCanvasStore((s) => s.setPencilColor);
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
+  const toggleChatsGloballyHidden = useCanvasStore(
+    (s) => s.toggleChatsGloballyHidden,
+  );
 
   const showShare =
     Boolean(user && activeCanvasId) && isCanvasOwner(activeCanvasRole);
 
   const closeSubpanels = () => {
-    setFontOpen(false);
     setSettingsOpen(false);
     setAddMenuOpen(false);
     setArtifactMenuOpen(false);
     setGifPickerOpen(false);
+    setPencilOpen(false);
+  };
+
+  const deactivatePencil = () => {
+    setPencilToolActive(false);
+    setPencilOpen(false);
   };
 
   const handleImageFiles = async (files: FileList | null) => {
@@ -77,9 +100,68 @@ export function CanvasBottomToolbar() {
       user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
     );
     const imageAsset = result.assets.find((asset) => asset.kind === "image");
-    if (!imageAsset) return;
-    addCanvasAsset(imageAsset);
-    requestImagePlacement(imageAsset.id);
+    for (const asset of result.assets) addCanvasAsset(asset);
+    if (imageAsset) requestImagePlacement(imageAsset.id);
+    if (result.errors.length > 0) {
+      showUploadErrorsToast(result.errors);
+    }
+  };
+
+  const handleDocumentFiles = async (files: FileList | null) => {
+    if (!files?.length || !canEdit) return;
+    const result = await uploadAssetFiles(
+      files,
+      user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
+    );
+    const documentAsset = result.assets.find((asset) =>
+      isDocumentAssetKind(asset.kind),
+    );
+    for (const asset of result.assets) addCanvasAsset(asset);
+    if (documentAsset) requestImagePlacement(documentAsset.id);
+    if (result.errors.length > 0) {
+      showUploadErrorsToast(result.errors);
+    }
+  };
+
+  const handleCodeFiles = async (files: FileList | null) => {
+    if (!files?.length || !canEdit) return;
+    const result = await uploadAssetFiles(
+      files,
+      user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
+    );
+    const codeAsset = result.assets.find((asset) => asset.kind === "code");
+    for (const asset of result.assets) addCanvasAsset(asset);
+    if (codeAsset) requestImagePlacement(codeAsset.id);
+    if (result.errors.length > 0) {
+      showUploadErrorsToast(result.errors);
+    }
+  };
+
+  const handle3DModelFiles = async (files: FileList | null) => {
+    if (!files?.length || !canEdit) return;
+    const uploadContext =
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null;
+    const errors: AssetUploadError[] = [];
+    let created = false;
+
+    for (let index = 0; index < files.length; index++) {
+      const result = await createThreeDArtifactFromFile(files[index]!, {
+        uploadContext,
+        index,
+        recordUndo: index === 0 && !created,
+      });
+      if ("error" in result) {
+        errors.push(result.error);
+      } else {
+        created = true;
+      }
+    }
+
+    if (errors.length > 0) {
+      showUploadErrorsToast(errors);
+    }
   };
 
   const artefactPlacementActive =
@@ -106,13 +188,37 @@ export function CanvasBottomToolbar() {
           e.target.value = "";
         }}
       />
+      <input
+        ref={documentInputRef}
+        type="file"
+        accept={DOCUMENT_FILE_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          void handleDocumentFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={codeFileInputRef}
+        type="file"
+        accept={CODE_FILE_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          void handleCodeFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={model3dInputRef}
+        type="file"
+        accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+        className="hidden"
+        onChange={(e) => {
+          void handle3DModelFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
       <div ref={toolbarShellRef} className="relative">
-        <CanvasFontPopover
-          open={fontOpen}
-          onClose={() => setFontOpen(false)}
-          anchorRef={fontBtnRef}
-          containerRef={toolbarShellRef}
-        />
         <CanvasSettingsPopover
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
@@ -127,6 +233,9 @@ export function CanvasBottomToolbar() {
           disabled={!canEdit}
           onAddText={() => requestCanvasPlacement("text")}
           onAddImage={() => imageInputRef.current?.click()}
+          onAdd3DModel={() => model3dInputRef.current?.click()}
+          onAddDocument={() => documentInputRef.current?.click()}
+          onAddCodeFile={() => codeFileInputRef.current?.click()}
           onAddGifs={() => {
             setAddMenuOpen(false);
             setGifPickerOpen(true);
@@ -151,39 +260,33 @@ export function CanvasBottomToolbar() {
           anchorRef={addBtnRef}
           containerRef={toolbarShellRef}
         />
+        <CanvasPencilPopover
+          open={pencilOpen}
+          onClose={() => setPencilOpen(false)}
+          anchorRef={pencilBtnRef}
+          containerRef={toolbarShellRef}
+          active={pencilToolActive}
+          color={pencilColor}
+          disabled={!canEdit}
+          onToggle={() => {
+            if (pencilToolActive) {
+              setPencilToolActive(false);
+              setPencilOpen(false);
+            } else {
+              setPencilToolActive(true);
+            }
+          }}
+          onColorChange={setPencilColor}
+        />
         <div
           className="floating-chrome-padding flex items-center gap-1 rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
           role="toolbar"
           aria-label="Canvas tools"
         >
           <button
-            ref={artefactBtnRef}
-            type="button"
-            disabled={!canEdit}
-            className={`${toolbarBtn} ${
-              artifactMenuOpen || artefactPlacementActive
-                ? "bg-canvas-bg text-canvas-ink"
-                : ""
-            }`}
-            aria-pressed={artifactMenuOpen || artefactPlacementActive}
-            aria-expanded={artifactMenuOpen}
-            aria-haspopup="menu"
-            onClick={() => {
-              setFontOpen(false);
-              setSettingsOpen(false);
-              setAddMenuOpen(false);
-              setGifPickerOpen(false);
-              setArtifactMenuOpen((v) => !v);
-            }}
-          >
-            <span className="text-canvas-muted">
-              <ArtefactIcon />
-            </span>
-            Add artefact
-          </button>
-          <button
             ref={addBtnRef}
             type="button"
+            data-coach-target="add-btn"
             disabled={!canEdit}
             className={`${toolbarBtn} ${
               addMenuOpen || gifPickerOpen || activeCanvasPlacement === "text"
@@ -193,7 +296,7 @@ export function CanvasBottomToolbar() {
             aria-expanded={addMenuOpen || gifPickerOpen}
             aria-haspopup="menu"
             onClick={() => {
-              setFontOpen(false);
+              deactivatePencil();
               setSettingsOpen(false);
               setGifPickerOpen(false);
               setArtifactMenuOpen(false);
@@ -205,8 +308,60 @@ export function CanvasBottomToolbar() {
             </span>
             Add
           </button>
+          <button
+            ref={artefactBtnRef}
+            type="button"
+            data-coach-target="artefact-btn"
+            disabled={!canEdit}
+            className={`${toolbarBtn} ${
+              artifactMenuOpen || artefactPlacementActive
+                ? "bg-canvas-bg text-canvas-ink"
+                : ""
+            }`}
+            aria-pressed={artifactMenuOpen || artefactPlacementActive}
+            aria-expanded={artifactMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => {
+              deactivatePencil();
+              setSettingsOpen(false);
+              setGifPickerOpen(false);
+              setArtifactMenuOpen((v) => !v);
+            }}
+          >
+            <span className="text-canvas-muted">
+              <ArtefactIcon />
+            </span>
+            Add artefact
+          </button>
 
-          {canEdit && <UndoButton variant="toolbar" />}
+          <button
+            ref={pencilBtnRef}
+            type="button"
+            disabled={!canEdit}
+            className={`${iconToggleBtn} ${
+              pencilOpen || pencilToolActive
+                ? "bg-canvas-bg text-canvas-ink"
+                : "text-canvas-muted hover:text-canvas-ink"
+            }`}
+            aria-label="Pencil tool"
+            aria-expanded={pencilOpen}
+            aria-pressed={pencilToolActive}
+            aria-haspopup="dialog"
+            onClick={() => {
+              if (pencilToolActive) {
+                setPencilOpen((v) => !v);
+                return;
+              }
+              setSettingsOpen(false);
+              setAddMenuOpen(false);
+              setGifPickerOpen(false);
+              setArtifactMenuOpen(false);
+              setPencilToolActive(true);
+              setPencilOpen(true);
+            }}
+          >
+            <PencilIcon />
+          </button>
 
           {(showShare || members.length > 1) && (
             <>
@@ -214,6 +369,7 @@ export function CanvasBottomToolbar() {
               {showShare && (
                 <button
                   type="button"
+                  data-coach-target="share-btn"
                   className={toolbarBtn}
                   onClick={() => setShareModalOpen(true)}
                 >
@@ -238,25 +394,22 @@ export function CanvasBottomToolbar() {
           />
 
           <button
-            ref={fontBtnRef}
             type="button"
-            className={`${iconToggleBtn} ${
-              fontOpen
-                ? "bg-canvas-bg text-canvas-ink"
-                : "text-canvas-muted hover:text-canvas-ink"
+            className={`${toolbarBtn} ${
+              chatsGloballyHidden ? "bg-canvas-bg text-canvas-ink" : ""
             }`}
-            aria-label="Font preview"
-            aria-expanded={fontOpen}
-            aria-haspopup="dialog"
+            aria-pressed={chatsGloballyHidden}
+            aria-label={chatsGloballyHidden ? "Show chats" : "Hide chats"}
             onClick={() => {
-              setSettingsOpen(false);
-              setAddMenuOpen(false);
-              setArtifactMenuOpen(false);
-              setGifPickerOpen(false);
-              setFontOpen((v) => !v);
+              deactivatePencil();
+              closeSubpanels();
+              toggleChatsGloballyHidden();
             }}
           >
-            <span className="text-canvas-body-lg font-semibold leading-none">Aa</span>
+            <span className="text-canvas-muted">
+              {chatsGloballyHidden ? <EyeIcon /> : <EyeOffIcon />}
+            </span>
+            {chatsGloballyHidden ? "Show chats" : "Hide chats"}
           </button>
 
           <button
@@ -267,18 +420,17 @@ export function CanvasBottomToolbar() {
                 ? "bg-canvas-bg text-canvas-ink"
                 : "text-canvas-muted hover:text-canvas-ink"
             }`}
-            aria-label="Canvas settings"
+            aria-label="Canvas controls"
             aria-expanded={settingsOpen}
             aria-haspopup="dialog"
             onClick={() => {
-              setFontOpen(false);
               setAddMenuOpen(false);
               setArtifactMenuOpen(false);
               setGifPickerOpen(false);
               setSettingsOpen((v) => !v);
             }}
           >
-            <SettingsIcon />
+            <GearIcon />
           </button>
 
           <div
@@ -298,6 +450,19 @@ export function CanvasBottomToolbar() {
               onClick={() => setViewMode("canvas")}
             >
               <BranchForkIcon />
+            </button>
+            <button
+              type="button"
+              className={`${iconToggleBtn} ${
+                viewMode === "focus"
+                  ? "bg-canvas-ink text-canvas-card shadow-card"
+                  : "text-canvas-muted hover:text-canvas-ink"
+              }`}
+              aria-label="Focus view"
+              aria-pressed={viewMode === "focus"}
+              onClick={() => setViewMode("focus")}
+            >
+              <FocusViewIcon />
             </button>
             <button
               type="button"

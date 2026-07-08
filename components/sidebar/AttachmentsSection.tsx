@@ -4,25 +4,13 @@ import { useRef, useState } from "react";
 import {
   groupCanvasAssets,
   uploadAssetFiles,
-  type AssetUploadError,
 } from "@/lib/attachments";
+import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
 import { OFFICE_FILE_ACCEPT } from "@/lib/officeAssetKinds";
 import { setSidebarDragData } from "@/lib/sidebarDnD";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useCanvasStore } from "@/lib/store";
 import { useAuth } from "@/components/AuthProvider";
-
-function AssetIcon({
-  kind,
-}: {
-  kind: "image" | "document" | "code" | "spreadsheet" | "word" | "presentation";
-}) {
-  if (kind === "code") return <span aria-hidden>{"</>"}</span>;
-  if (kind === "spreadsheet") return <span aria-hidden>xls</span>;
-  if (kind === "presentation") return <span aria-hidden>ppt</span>;
-  if (kind === "word") return <span aria-hidden>doc</span>;
-  if (kind === "document") return <span aria-hidden>doc</span>;
-  return <span aria-hidden>img</span>;
-}
 
 function DraggableAssetRow({ id }: { id: string }) {
   const asset = useCanvasStore((s) => s.canvasAssets[id]);
@@ -40,13 +28,8 @@ function DraggableAssetRow({ id }: { id: string }) {
         }}
         className="flex min-w-0 flex-1 cursor-grab items-center gap-2 px-1 py-1 text-canvas-body text-canvas-ink active:cursor-grabbing"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-canvas bg-canvas-bg text-[10px] uppercase text-canvas-muted">
-          {asset.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={asset.publicUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <AssetIcon kind={asset.kind} />
-          )}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-canvas bg-canvas-bg">
+          <AssetContentPreview asset={asset} layout="sidebar" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate">{asset.name}</span>
@@ -74,7 +57,6 @@ export function AttachmentsSection() {
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
   const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [errors, setErrors] = useState<AssetUploadError[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const groups = groupCanvasAssets(Object.values(canvasAssets));
@@ -86,7 +68,9 @@ export function AttachmentsSection() {
       user && activeCanvasId ? { userId: user.id, canvasId: activeCanvasId } : null,
     );
     for (const asset of result.assets) addCanvasAsset(asset);
-    setErrors(result.errors);
+    if (result.errors.length > 0) {
+      showUploadErrorsToast(result.errors);
+    }
     setUploading(false);
   };
 
@@ -124,16 +108,6 @@ export function AttachmentsSection() {
           Drop images, spreadsheets, documents, presentations, or code files here
         </p>
       </div>
-
-      {errors.length > 0 && (
-        <div className="mb-3 space-y-1 rounded-canvas border border-red-300/60 bg-red-50 px-2 py-2 text-canvas-body-sm text-red-700">
-          {errors.map((error, index) => (
-            <p key={`${error.code}-${error.fileName ?? index}`}>
-              {error.message}
-            </p>
-          ))}
-        </div>
-      )}
 
       <div className="space-y-3">
         {groups.map((group) => (

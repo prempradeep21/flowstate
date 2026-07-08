@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  areCanvasPersistSlicesEqual,
   classifyCanvasPersistChange,
   pickCanvasPersistSlice,
   type CanvasPersistSlice,
@@ -17,6 +18,7 @@ function emptySlice(overrides: Partial<CanvasPersistSlice> = {}): CanvasPersistS
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
+    canvasBackgroundImageId: "grok-5f2e9dd9",
     canvasTheme: "light",
     selectedModel: "claude-sonnet-4-6",
     viewMode: "canvas",
@@ -30,6 +32,10 @@ function emptySlice(overrides: Partial<CanvasPersistSlice> = {}): CanvasPersistS
     canvasTextLabelOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
+    canvas3DNodes: {},
+    canvas3DOrder: [],
+    canvasStrokes: {},
+    canvasStrokeOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
     ...overrides,
@@ -119,7 +125,7 @@ describe("classifyCanvasPersistChange", () => {
     });
   });
 
-  it("does not count answer-only card updates as content edits", () => {
+  it("counts answer-only card updates as priority content edits", () => {
     const prev = emptySlice({
       cards: { c1: baseCard },
       cardOrder: ["c1"],
@@ -132,7 +138,20 @@ describe("classifyCanvasPersistChange", () => {
     });
     expect(classifyCanvasPersistChange(prev, next)).toEqual({
       persist: true,
-      contentEdit: false,
+      contentEdit: true,
+    });
+  });
+
+  it("counts canvas image placement as a priority content edit", () => {
+    const prev = emptySlice();
+    const next = emptySlice({
+      canvasAssets: { a1: { id: "a1", kind: "image" } },
+      canvasAssetNodes: { n1: { id: "n1", assetId: "a1" } },
+      canvasAssetOrder: ["n1"],
+    });
+    expect(classifyCanvasPersistChange(prev, next)).toEqual({
+      persist: true,
+      contentEdit: true,
     });
   });
 
@@ -148,5 +167,17 @@ describe("classifyCanvasPersistChange", () => {
       persist: true,
       contentEdit: false,
     });
+  });
+
+  it("detects equal persist slices regardless of object identity", () => {
+    const a = emptySlice({
+      cards: { c1: baseCard },
+      cardOrder: ["c1"],
+    });
+    const b = emptySlice({
+      cards: { c1: { ...baseCard } },
+      cardOrder: ["c1"],
+    });
+    expect(areCanvasPersistSlicesEqual(a, b)).toBe(true);
   });
 });

@@ -3,6 +3,8 @@
 import {
   PointerEvent as ReactPointerEvent,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -10,23 +12,27 @@ import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import {
   clampTextLabelFontSize,
   clampTextLabelWidth,
+  estimateTextLabelBounds,
   getTextLabelWidth,
   MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
   CANVAS_NODE_INTERACTIVE_ATTR,
 } from "@/lib/canvasNodeInteraction";
-import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
-import { classifyPastedText } from "@/lib/urlDetection";
+import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
 import {
   useCanvasStore,
   type CanvasTextLabel,
 } from "@/lib/store";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-resize-handle]";
 
@@ -158,8 +164,15 @@ export function CanvasTextLabelNode({
   const containerWidth = hasFixedWidth ? label.width : undefined;
 
   useEffect(() => {
+    if (editing) return;
     setDraft(label.text);
-  }, [label.text]);
+  }, [label.text, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [editing]);
 
   useEffect(() => {
     if (!editing) return;
@@ -169,25 +182,31 @@ export function CanvasTextLabelNode({
     el.select();
   }, [editing]);
 
+  useLayoutEffect(() => {
+    if (!editing) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft, editing, label.fontSize, hasFixedWidth, containerWidth]);
+
   const commitEdit = () => {
     const trimmed = draft.trim();
     if (trimmed.length > 0) {
-      if (classifyPastedText(trimmed)) {
-        recordUndo();
-        createUrlArtifactFromText(trimmed, label.position, { recordUndo: false });
-        removeCanvasTextLabel(label.id);
-        setEditing(false);
-        return;
-      }
       if (trimmed !== label.text) {
         recordUndo();
         updateCanvasTextLabel(label.id, trimmed);
       }
-    } else if (trimmed.length === 0) {
+    } else {
       setDraft(label.text);
     }
     setEditing(false);
   };
+
+  const liveBounds = useMemo(
+    () => estimateTextLabelBounds({ ...label, text: draft }),
+    [label, draft],
+  );
 
   const measuredWidth = () => {
     const el = rootRef.current;
@@ -339,6 +358,7 @@ export function CanvasTextLabelNode({
         .duplicateCanvasTextLabel(label.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -391,11 +411,12 @@ export function CanvasTextLabelNode({
       }}
       className={`group/textlabel absolute cursor-grab active:cursor-grabbing ${
         isSelected ? "z-30" : "z-20"
-      } ${hasFixedWidth ? "" : "w-max"}`}
+      } ${hasFixedWidth || editing ? "" : "w-max"}`}
       style={{
         left: label.position.x,
         top: label.position.y,
-        width: containerWidth,
+        width: hasFixedWidth ? containerWidth : editing ? liveBounds.w : undefined,
+        minHeight: editing ? liveBounds.h : undefined,
         // The viewport wrapper has zero intrinsic size, so percentage-based
         // max-widths collapse to 0 — cap with the absolute label maximum.
         maxWidth: MAX_TEXT_LABEL_WIDTH,
@@ -432,7 +453,7 @@ export function CanvasTextLabelNode({
             }}
             onBlur={commitEdit}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 commitEdit();
               }
@@ -443,10 +464,11 @@ export function CanvasTextLabelNode({
               }
               e.stopPropagation();
             }}
-            className="block min-h-0 w-full resize-none border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25"
+            className={`block min-h-0 w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25 ${
+              hasFixedWidth ? "whitespace-pre-wrap break-words" : "whitespace-pre"
+            }`}
             style={{
               fontSize: label.fontSize,
-              width: hasFixedWidth ? "100%" : `${Math.max(draft.length, 4)}ch`,
             }}
           />
         ) : (

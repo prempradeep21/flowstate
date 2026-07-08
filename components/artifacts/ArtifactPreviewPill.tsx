@@ -1,6 +1,7 @@
 "use client";
 
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
 import {
   focusCanvasArtifact,
   focusCanvasArtifactNode,
@@ -55,7 +56,7 @@ export function ArtifactPreviewPill({
           focusCanvasArtifactNode(nodeId);
         }
       }}
-      className={`flex w-full max-w-md items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
+      className={`flex w-full max-w-full items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
       } ${
         status === "failed"
@@ -68,9 +69,10 @@ export function ArtifactPreviewPill({
       }`}
     >
       <span
-        className={`flex shrink-0 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-ink ${
+        className={`flex shrink-0 items-center justify-center rounded-full text-canvas-ink ${
           compact ? "h-5 w-5" : "h-8 w-8"
         }`}
+        style={artifactCategoryStyle(kind)}
       >
         <ArtifactTypeIcon kind={kind} className={compact ? "h-3 w-3" : "h-4 w-4"} />
       </span>

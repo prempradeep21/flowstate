@@ -1,4 +1,6 @@
 import type { Card, SessionArtifact } from "@/lib/store";
+import type { CanvasSnapshot } from "@/lib/canvasSnapshot";
+import { DEFAULT_CANVAS_BACKGROUND_IMAGE_ID } from "@/lib/canvasBackgroundImages";
 
 /** Store slices compared when deciding whether to persist canvas state. */
 export interface CanvasPersistSlice {
@@ -11,6 +13,7 @@ export interface CanvasPersistSlice {
   groups: Record<string, unknown>;
   connectorStyle: string;
   canvasBackgroundStyle: string;
+  canvasBackgroundImageId: string;
   canvasTheme: string;
   selectedModel: string;
   viewMode: string;
@@ -24,6 +27,10 @@ export interface CanvasPersistSlice {
   canvasTextLabelOrder: string[];
   canvasGifNodes?: Record<string, unknown>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, unknown>;
+  canvas3DOrder?: string[];
+  canvasStrokes?: Record<string, unknown>;
+  canvasStrokeOrder?: string[];
   uploadedAttachments: unknown[];
   collaborationHasEdits: boolean;
 }
@@ -41,6 +48,7 @@ export function pickCanvasPersistSlice(
     groups: state.groups,
     connectorStyle: state.connectorStyle,
     canvasBackgroundStyle: state.canvasBackgroundStyle,
+    canvasBackgroundImageId: state.canvasBackgroundImageId,
     canvasTheme: state.canvasTheme,
     selectedModel: state.selectedModel,
     viewMode: state.viewMode,
@@ -54,9 +62,50 @@ export function pickCanvasPersistSlice(
     canvasTextLabelOrder: state.canvasTextLabelOrder,
     canvasGifNodes: state.canvasGifNodes ?? {},
     canvasGifOrder: state.canvasGifOrder ?? [],
+    canvas3DNodes: state.canvas3DNodes ?? {},
+    canvas3DOrder: state.canvas3DOrder ?? [],
+    canvasStrokes: state.canvasStrokes ?? {},
+    canvasStrokeOrder: state.canvasStrokeOrder ?? [],
     uploadedAttachments: state.uploadedAttachments,
     collaborationHasEdits: state.collaborationHasEdits,
   };
+}
+
+export function pickCanvasPersistSliceFromSnapshot(
+  snapshot: CanvasSnapshot,
+): CanvasPersistSlice {
+  return pickCanvasPersistSlice({
+    viewport: snapshot.viewport,
+    cards: snapshot.cards,
+    cardOrder: snapshot.cardOrder,
+    connections: snapshot.connections,
+    threads: snapshot.threads,
+    threadOrder: snapshot.threadOrder,
+    groups: snapshot.groups,
+    connectorStyle: snapshot.connectorStyle,
+    canvasBackgroundStyle: snapshot.canvasBackgroundStyle,
+    canvasBackgroundImageId:
+      snapshot.canvasBackgroundImageId ?? DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+    canvasTheme: snapshot.canvasTheme,
+    selectedModel: snapshot.selectedModel,
+    viewMode: snapshot.viewMode,
+    sessionArtifacts: snapshot.sessionArtifacts,
+    canvasAssets: snapshot.canvasAssets ?? {},
+    canvasArtifactNodes: snapshot.canvasArtifactNodes ?? {},
+    canvasArtifactOrder: snapshot.canvasArtifactOrder ?? [],
+    canvasAssetNodes: snapshot.canvasAssetNodes ?? {},
+    canvasAssetOrder: snapshot.canvasAssetOrder ?? [],
+    canvasTextLabels: snapshot.canvasTextLabels ?? {},
+    canvasTextLabelOrder: snapshot.canvasTextLabelOrder ?? [],
+    canvasGifNodes: snapshot.canvasGifNodes ?? {},
+    canvasGifOrder: snapshot.canvasGifOrder ?? [],
+    canvas3DNodes: snapshot.canvas3DNodes ?? {},
+    canvas3DOrder: snapshot.canvas3DOrder ?? [],
+    canvasStrokes: snapshot.canvasStrokes ?? {},
+    canvasStrokeOrder: snapshot.canvasStrokeOrder ?? [],
+    uploadedAttachments: snapshot.uploadedAttachments ?? [],
+    collaborationHasEdits: snapshot.collaborationHasEdits ?? false,
+  });
 }
 
 function cardsQuestionEdit(
@@ -107,11 +156,24 @@ function viewportChanged(
 }
 
 /** Fast path: only viewport fields differ (common during pan/zoom). */
+function slicesEqualExceptViewport(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  const prevSlice = pickCanvasPersistSlice(prev);
+  const nextSlice = pickCanvasPersistSlice(next);
+  return (
+    JSON.stringify({ ...prevSlice, viewport: null }) ===
+    JSON.stringify({ ...nextSlice, viewport: null })
+  );
+}
+
 export function isViewportOnlyChange(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
 ): boolean {
   if (!viewportChanged(prev.viewport, next.viewport)) return false;
+  if (slicesEqualExceptViewport(prev, next)) return true;
   return (
     prev.cards === next.cards &&
     prev.cardOrder === next.cardOrder &&
@@ -121,6 +183,7 @@ export function isViewportOnlyChange(
     prev.groups === next.groups &&
     prev.connectorStyle === next.connectorStyle &&
     prev.canvasBackgroundStyle === next.canvasBackgroundStyle &&
+    prev.canvasBackgroundImageId === next.canvasBackgroundImageId &&
     prev.canvasTheme === next.canvasTheme &&
     prev.selectedModel === next.selectedModel &&
     prev.viewMode === next.viewMode &&
@@ -134,6 +197,10 @@ export function isViewportOnlyChange(
     prev.canvasTextLabelOrder === next.canvasTextLabelOrder &&
     prev.canvasGifNodes === next.canvasGifNodes &&
     prev.canvasGifOrder === next.canvasGifOrder &&
+    prev.canvas3DNodes === next.canvas3DNodes &&
+    prev.canvas3DOrder === next.canvas3DOrder &&
+    prev.canvasStrokes === next.canvasStrokes &&
+    prev.canvasStrokeOrder === next.canvasStrokeOrder &&
     prev.uploadedAttachments === next.uploadedAttachments &&
     prev.collaborationHasEdits === next.collaborationHasEdits
   );
@@ -155,8 +222,25 @@ export function classifyCanvasPersistChange(
   next: CanvasPersistSlice,
 ): { persist: boolean; contentEdit: boolean } {
   const persist = isPersistableChange(prev, next);
+  const viewportOnly =
+    persist &&
+    (isViewportOnlyChange(prev, next) ||
+      slicesEqualExceptViewport(prev, next));
   return {
     persist,
-    contentEdit: persist && isContentEditChange(prev, next),
+    // Any non-viewport canvas change (cards, assets, artifacts, answers, …)
+    // must use the priority save path — never the slow viewport debounce.
+    contentEdit: persist && !viewportOnly,
   };
+}
+
+/** True when persisted canvas content is unchanged (ignores object identity). */
+export function areCanvasPersistSlicesEqual(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  return (
+    JSON.stringify(pickCanvasPersistSlice(prev)) ===
+    JSON.stringify(pickCanvasPersistSlice(next))
+  );
 }

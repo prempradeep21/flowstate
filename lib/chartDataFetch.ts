@@ -35,7 +35,7 @@ export async function fetchChartData(
     return {
       success: false,
       error:
-        "TAVILY_API_KEY is not configured. Use connected web-search MCP tools or numbers from the user message, then call emit_artifact with type chart.",
+        "TAVILY_API_KEY is not configured. Use numbers from the user message or your knowledge, then call emit_artifact with type chart.",
       notes: "Set TAVILY_API_KEY for automatic server-side research.",
     };
   }
@@ -65,7 +65,7 @@ export async function fetchChartData(
     if (!res.ok) {
       return {
         success: false,
-        error: `Tavily search failed (${res.status}). Try MCP web search or user-provided numbers.`,
+        error: `Tavily search failed (${res.status}). Try user-provided numbers or model knowledge.`,
       };
     }
 

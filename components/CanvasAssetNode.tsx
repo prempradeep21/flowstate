@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
-import { OfficeAssetPreview } from "@/components/canvas/OfficeAssetPreview";
+import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -19,6 +19,7 @@ import {
   getCanvasAssetBounds,
   resizeAssetMaintainingAspect,
 } from "@/lib/canvasAssetBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -29,65 +30,13 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
-import {
-  CANVAS_ASSET_ICON_SIZE_PX,
-  CANVAS_ASSET_TITLE_MAX_WIDTH_PX,
-} from "@/lib/design/canvasInsets";
-import { canvasSpacing } from "@/lib/design/tokens";
 import { isGodViewMode } from "@/lib/zoomDisplay";
-import { isPreviewableOfficeKind } from "@/lib/officeAssetKinds";
+import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
-
-function AssetKindIcon({
-  kind,
-}: {
-  kind: "document" | "code" | "spreadsheet" | "word" | "presentation";
-}) {
-  if (kind === "code") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <path d="M11 9 6 14l5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M17 9l5 5-5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m15 7-2 14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (kind === "spreadsheet") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <rect x="6" y="5" width="16" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M6 11h16M6 16h16M11 11v12M16 11v12" stroke="currentColor" strokeWidth="1.7" />
-      </svg>
-    );
-  }
-  if (kind === "presentation") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <rect x="5" y="7" width="18" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M9 21h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (kind === "word") {
-    return (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-        <path d="M8 4.5h8l4 4V23a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 8 23V4.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-        <path d="M16 4.5v4h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-        <path d="M10 14h8M10 18h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <path d="M8 4.5h8l4 4V23a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 8 23V4.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M16 4.5v4h4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M11 14h6M11 18h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
@@ -104,17 +53,19 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
-  const [officeInteractive, setOfficeInteractive] = useState(false);
+  const [contentInteractive, setContentInteractive] = useState(false);
 
   const asset = assets[node.assetId];
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
-  const hasRichPreview =
-    asset?.kind === "image" ||
-    (asset ? isPreviewableOfficeKind(asset.kind) : false);
+  const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
+  const previewKind = asset ? resolvePreviewKind(asset) : null;
+  const needsClickToInteract = previewKind
+    ? previewRequiresClickToInteract(previewKind)
+    : false;
   const godView = isGodViewMode(scale);
 
   useEffect(() => {
-    if (!isSelected) setOfficeInteractive(false);
+    if (!isSelected) setContentInteractive(false);
   }, [isSelected]);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -247,6 +198,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       const copyId = useCanvasStore.getState().duplicateCanvasAssetNode(node.id);
       if (copyId) ds.targetId = copyId;
     }
+    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
     ds.didMove = true;
     ds.lastX = e.clientX;
     ds.lastY = e.clientY;
@@ -303,6 +255,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         data-canvas-asset
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -310,11 +263,11 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
         className={`group/asset absolute rounded-canvas border transition-shadow ${
           hasRichPreview
             ? isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-cardHover"
-              : "border-canvas-border/60 bg-canvas-card shadow-card hover:shadow-cardHover"
+              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
+              : "border-canvas-border/60 bg-canvas-card shadow-artifact hover:shadow-artifactHover"
             : isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-cardHover"
-              : "border-canvas-border bg-canvas-card shadow-card hover:shadow-cardHover"
+              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
+              : "border-canvas-border bg-canvas-card shadow-artifact hover:shadow-artifactHover"
         }`}
         style={{
           left: node.position.x,
@@ -323,77 +276,50 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from left"
-          onPointerDown={handleAssetPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#7C9EFF"
-          visible={!godView}
-          ariaLabel="Attach asset to question from right"
-          onPointerDown={handleAssetPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "asset")}>
+              <Plug
+                side="left"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from left"
+                onPointerDown={handleAssetPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "asset")}>
+              <Plug
+                side="right"
+                accentColour="#7C9EFF"
+                visible
+                ariaLabel="Attach asset to question from right"
+                onPointerDown={handleAssetPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          {asset.kind === "image" ? (
-            // No backdrop fill — transparent PNGs float directly on the canvas.
-            <div className="h-full w-full overflow-hidden rounded-canvas">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={asset.publicUrl}
-                alt={asset.name}
-                draggable={false}
-                className="h-full w-full object-contain"
-              />
-            </div>
-          ) : isPreviewableOfficeKind(asset.kind) ? (
-            <div className="h-full w-full overflow-hidden rounded-canvas">
-              <OfficeAssetPreview
-                asset={asset}
-                interactive={officeInteractive && isSelected}
-                onActivate={() => setOfficeInteractive(true)}
-                noDrag={isSelected}
-              />
-            </div>
-          ) : (
-            <div
-              className="flex h-full w-full items-center rounded-canvas"
-              style={{
-                gap: canvasSpacing.compact,
-                padding: canvasSpacing.compact,
-                paddingLeft: canvasSpacing.section,
-                paddingRight: canvasSpacing.section,
-              }}
-            >
-              <span
-                className="flex shrink-0 items-center justify-center rounded-canvas bg-canvas-bg text-canvas-muted"
-                style={{
-                  width: CANVAS_ASSET_ICON_SIZE_PX,
-                  height: CANVAS_ASSET_ICON_SIZE_PX,
-                }}
-              >
-                <AssetKindIcon kind={asset.kind} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span
-                  className="line-clamp-2 block break-words text-canvas-body font-medium leading-snug text-canvas-ink"
-                  style={{ maxWidth: CANVAS_ASSET_TITLE_MAX_WIDTH_PX }}
-                >
-                  {asset.name}
-                </span>
-                <span className="block text-canvas-caption uppercase tracking-wide text-canvas-muted">
-                  {asset.kind}
-                </span>
-              </span>
-            </div>
-          )}
+          <div className="h-full w-full overflow-hidden rounded-canvas">
+            <AssetContentPreview
+              asset={asset}
+              layout="canvas"
+              interactive={
+                needsClickToInteract
+                  ? contentInteractive && isSelected
+                  : isSelected
+              }
+              onActivate={
+                needsClickToInteract
+                  ? () => setContentInteractive(true)
+                  : undefined
+              }
+              noDrag={isSelected}
+            />
+          </div>
         </CanvasSharpContent>
 
         {!canvasReadOnly && (
@@ -405,7 +331,7 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
               recordUndo();
               removeCanvasAssetNode(node.id);
             }}
-            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-canvas-compact text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
               isSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/asset:opacity-100"

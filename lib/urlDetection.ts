@@ -1,3 +1,4 @@
+import { isImageUrl } from "@/lib/canvasImageImport";
 import { matchEmbedProvider } from "@/lib/embed/registry";
 import { parseGoogleDriveUrl } from "@/lib/google/parseDriveUrl";
 import { parseGithubRepoUrl } from "@/lib/github/parseRepoUrl";
@@ -27,6 +28,23 @@ export function extractUrlFromText(text: string): string | null {
   return normalizeHttpUrl(trimmed);
 }
 
+const URL_IN_TEXT_RE = /https?:\/\/[^\s<>"')\]]+/gi;
+
+/** Extract http(s) URLs embedded in a longer message (deduped, order preserved). */
+export function extractUrlsFromText(text: string): string[] {
+  const matches = text.match(URL_IN_TEXT_RE) ?? [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const raw of matches) {
+    const trimmed = raw.replace(/[.,;:!?)]+$/, "");
+    const normalized = normalizeHttpUrl(trimmed);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    urls.push(normalized);
+  }
+  return urls;
+}
+
 /** Hostname minus www and TLD → title-case fallback (e.g. github.com → Github). */
 export function domainDisplayLabel(url: string): string {
   try {
@@ -48,7 +66,13 @@ export function domainDisplayLabel(url: string): string {
   }
 }
 
-export type PastedUrlKind = "youtube" | "website" | "repo" | "embed" | "google-doc";
+export type PastedUrlKind =
+  | "youtube"
+  | "website"
+  | "repo"
+  | "embed"
+  | "google-doc"
+  | "image";
 
 /** Classify a normalized URL for artifact routing. */
 export function classifyPastedUrl(url: string): PastedUrlKind | null {
@@ -58,6 +82,7 @@ export function classifyPastedUrl(url: string): PastedUrlKind | null {
   if (parseGithubRepoUrl(normalized)) return "repo";
   if (parseGoogleDriveUrl(normalized)) return "google-doc";
   if (matchEmbedProvider(normalized)) return "embed";
+  if (isImageUrl(normalized)) return "image";
   return "website";
 }
 

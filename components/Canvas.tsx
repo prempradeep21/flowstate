@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   collectCanvasItemsInWorldRect,
   mergeCanvasSelections,
@@ -16,11 +17,15 @@ import {
 } from "@/lib/canvasSelection";
 import {
   applyContextMenuSelection,
+  canCopyCanvasSelection,
   canRemoveCanvasSelection,
   hasCanvasSelection,
   isContextHitInSelection,
   resolveCanvasContextHit,
 } from "@/lib/canvasContextSelection";
+import {
+  readCanvasClipboardFromDataTransfer,
+} from "@/lib/canvasClipboard";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import {
   allowSidebarDrop,
@@ -28,19 +33,24 @@ import {
   uploadedToPending,
 } from "@/lib/sidebarDnD";
 import { DEFAULT_GIF_WIDTH } from "@/lib/canvasGifBounds";
+import { DEFAULT_3D_WIDTH } from "@/lib/canvas3dBounds";
 import { DEFAULT_ASSET_IMAGE_WIDTH, getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { CANVAS_SKILL_SIZE } from "@/lib/canvasSkillBounds";
 import {
   uploadAssetFiles,
   type AssetUploadError,
 } from "@/lib/attachments";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { isAudioFile } from "@/lib/audioArtifact";
 import { getAudioFilesFromDataTransfer } from "@/lib/audioFileImport";
+import { getThreeDFilesFromDataTransfer } from "@/lib/threeDFileImport";
+import { isThreeDModelFile } from "@/lib/threeDArtifact";
 import {
   CANVAS_ARTIFACT_WIDTH,
   CANVAS_TEXT_LABEL_FONT_SIZE,
   useCanvasStore,
   type SpawnCanvasGifInput,
+  type SpawnCanvas3DInput,
 } from "@/lib/store";
 import { getArtifactBounds, getDefaultArtifactSize } from "@/lib/canvasNodeBounds";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
@@ -62,8 +72,10 @@ import { CanvasViewport } from "@/components/CanvasViewport";
 import { CanvasArtifactNode } from "@/components/CanvasArtifactNode";
 import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasGifNode } from "@/components/CanvasGifNode";
+import { Canvas3DNode } from "@/components/Canvas3DNode";
 import { CanvasSkillNode } from "@/components/CanvasSkillNode";
 import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
+import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
@@ -73,14 +85,16 @@ import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
 import { getCanvasFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
 import { useCanvasPan } from "@/hooks/useCanvasPan";
-import { useCanvasWheelZoom } from "@/hooks/useCanvasWheelZoom";
+import { useCanvasViewportInput } from "@/hooks/useCanvasViewportInput";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import {
+  fetchImageUrlAsFile,
   getImageFilesFromDataTransfer,
   isExternalImageDrag,
   isImageMime,
+  isImageUrl,
   resolveImageFileFromDataTransfer,
 } from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
@@ -130,6 +144,8 @@ interface ImagePlacementState extends PlacementState {
 
 interface GifPlacementState extends SpawnCanvasGifInput, PlacementState {}
 
+interface ThreeDPlacementState extends SpawnCanvas3DInput, PlacementState {}
+
 interface ArtifactPlacementState extends PlacementState {
   artifactType: ManualArtifactType;
 }
@@ -142,16 +158,22 @@ export function Canvas({
   const persistenceReady = usePersistenceReady();
   const {
     user,
+    authLoading,
     activeCanvasId,
     presenceChannelRef,
     presenceChannelReady,
+    onlineUserIds,
     isSwitchingCanvas,
   } = useAuth();
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
   const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
   const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
+  const connectionsBehindCards = useCanvasStore((s) =>
+    s.cardOrder.some((id) => s.cards[id]?.cardKind === "conversation"),
+  );
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
@@ -169,16 +191,30 @@ export function Canvas({
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
+  const canvasStrokes = useCanvasStore((s) => s.canvasStrokes);
+  const canvasStrokeOrder = useCanvasStore((s) => s.canvasStrokeOrder);
+  const activeCanvasStrokeId = useCanvasStore((s) => s.activeCanvasStrokeId);
+  const pencilToolActive = useCanvasStore((s) => s.pencilToolActive);
+  const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
+  const beginCanvasStroke = useCanvasStore((s) => s.beginCanvasStroke);
+  const appendCanvasStrokePoint = useCanvasStore((s) => s.appendCanvasStrokePoint);
+  const finishCanvasStroke = useCanvasStore((s) => s.finishCanvasStroke);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const removeSelectedFromCanvas = useCanvasStore(
     (s) => s.removeSelectedFromCanvas,
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
   const spawnCanvasGif = useCanvasStore((s) => s.spawnCanvasGif);
+  const spawnCanvas3D = useCanvasStore((s) => s.spawnCanvas3D);
   const setGifPickerOpen = useCanvasStore((s) => s.setGifPickerOpen);
   const imagePlacementAssetId = useCanvasStore((s) => s.imagePlacementAssetId);
   const gifPlacementRequest = useCanvasStore((s) => s.gifPlacementRequest);
+  const canvas3dPlacementRequest = useCanvasStore(
+    (s) => s.canvas3dPlacementRequest,
+  );
   const artifactPlacementRequest = useCanvasStore((s) => s.artifactPlacementRequest);
   const createManualArtifact = useCanvasStore((s) => s.createManualArtifact);
   const createVideoArtifactFromUrl = useCanvasStore(
@@ -187,10 +223,14 @@ export function Canvas({
   const createAudioArtifactFromFile = useCanvasStore(
     (s) => s.createAudioArtifactFromFile,
   );
+  const createThreeDArtifactFromFile = useCanvasStore(
+    (s) => s.createThreeDArtifactFromFile,
+  );
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
   const hiddenCardIds = useHiddenCardIds();
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const bodyFontId = useCanvasStore((s) => s.canvasPreviewBodyFontId);
   const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
   useCanvasFontLoader(bodyFontId, displayFontId);
@@ -203,6 +243,7 @@ export function Canvas({
       canvasArtifactOrder,
       canvasAssetOrder,
       canvasGifOrder,
+      canvas3DOrder,
       canvasSkillOrder,
       canvasTextLabelOrder,
     }),
@@ -225,6 +266,17 @@ export function Canvas({
   const landingViewportCenteredRef = useRef(false);
   const seedingRef = useRef(false);
   const [containerReady, setContainerReady] = useState(false);
+
+  useEffect(() => {
+    if (!pencilToolActive) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setPencilToolActive(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pencilToolActive, setPencilToolActive]);
 
   useEffect(() => {
     if (canvasLoadReveal?.phase !== "pending") return;
@@ -261,9 +313,12 @@ export function Canvas({
   }, [cardOrder.length]);
 
   usePlugDragSession(containerRef);
-  useCanvasWheelZoom(containerRef);
+  useCanvasViewportInput(containerRef);
   const queuePan = useCanvasPan();
   const panState = useRef<{ pointerId: number; lastX: number; lastY: number } | null>(
+    null,
+  );
+  const drawingState = useRef<{ pointerId: number; strokeId: string } | null>(
     null,
   );
   const marqueeState = useRef<{
@@ -275,7 +330,6 @@ export function Canvas({
   } | null>(null);
   const spaceHeldRef = useRef(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [assetDropErrors, setAssetDropErrors] = useState<AssetUploadError[]>([]);
   const [marqueeRect, setMarqueeRect] = useState<{
     x: number;
     y: number;
@@ -299,14 +353,21 @@ export function Canvas({
   const [gifPlacement, setGifPlacement] = useState<GifPlacementState | null>(
     null,
   );
+  const [threeDPlacement, setThreeDPlacement] =
+    useState<ThreeDPlacementState | null>(null);
   const [artifactPlacement, setArtifactPlacement] =
     useState<ArtifactPlacementState | null>(null);
+  const [placementScreen, setPlacementScreen] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [autoEditLabelId, setAutoEditLabelId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const placementRef = useRef<PlacementState | null>(null);
   const textPlacementRef = useRef<PlacementState | null>(null);
   const imagePlacementRef = useRef<ImagePlacementState | null>(null);
   const gifPlacementRef = useRef<GifPlacementState | null>(null);
+  const threeDPlacementRef = useRef<ThreeDPlacementState | null>(null);
   const artifactPlacementRef = useRef<ArtifactPlacementState | null>(null);
   useEffect(() => {
     placementRef.current = placement;
@@ -321,12 +382,16 @@ export function Canvas({
     gifPlacementRef.current = gifPlacement;
   }, [gifPlacement]);
   useEffect(() => {
+    threeDPlacementRef.current = threeDPlacement;
+  }, [threeDPlacement]);
+  useEffect(() => {
     artifactPlacementRef.current = artifactPlacement;
   }, [artifactPlacement]);
 
   const canvasPlacementRequest = useCanvasStore((s) => s.canvasPlacementRequest);
 
   const beginPlacementAtCursor = (tool: "question" | "text") => {
+    if (useCanvasStore.getState().canvasReadOnly) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const canvasPtr = canvasPointerRef.current;
@@ -341,6 +406,7 @@ export function Canvas({
     setContextMenu(null);
     setImagePlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     if (tool === "question") {
       setTextPlacement(null);
@@ -352,6 +418,7 @@ export function Canvas({
   };
 
   const beginArtifactPlacementAtCursor = (artifactType: ManualArtifactType) => {
+    if (useCanvasStore.getState().canvasReadOnly) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const canvasPtr = canvasPointerRef.current;
@@ -368,8 +435,14 @@ export function Canvas({
     setTextPlacement(null);
     setImagePlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement({ artifactType, ...pos });
+    setPlacementScreen({ x: clientX, y: clientY });
   };
+
+  useEffect(() => {
+    if (!artifactPlacement) setPlacementScreen(null);
+  }, [artifactPlacement]);
 
   // Hold-Z pie menu — north fires question placement, west fires text
   // placement (same code path as the Q/T shortcuts and toolbar buttons).
@@ -383,6 +456,7 @@ export function Canvas({
           textPlacementRef.current ||
           imagePlacementRef.current ||
           gifPlacementRef.current ||
+          threeDPlacementRef.current ||
           artifactPlacementRef.current ||
           marqueeState.current ||
           panState.current ||
@@ -391,6 +465,7 @@ export function Canvas({
     getCursor: () => canvasPointerRef.current ?? cursorRef.current,
     onSelect: (sector) => {
       if (sector === "north") beginPlacementAtCursor("question");
+      else if (sector === "east") beginArtifactPlacementAtCursor("stickynote");
       else if (sector === "west") beginPlacementAtCursor("text");
     },
   });
@@ -415,6 +490,7 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setGifPlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     setImagePlacement({
       assetId: asset.id,
@@ -440,8 +516,31 @@ export function Canvas({
     setPlacement(null);
     setTextPlacement(null);
     setImagePlacement(null);
+    setThreeDPlacement(null);
     setArtifactPlacement(null);
     setGifPlacement({ ...input, ...pos });
+  };
+
+  const begin3DPlacementAtCursor = (input: SpawnCanvas3DInput) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const canvasPtr = canvasPointerRef.current;
+    const cursor = cursorRef.current;
+    const rawX = canvasPtr?.x ?? cursor?.x ?? rect.left + rect.width / 2;
+    const rawY = canvasPtr?.y ?? cursor?.y ?? rect.top + rect.height / 2;
+    const clientX = Math.min(rect.right, Math.max(rect.left, rawX));
+    const clientY = Math.min(rect.bottom, Math.max(rect.top, rawY));
+    const world = computeWorldFromClient(clientX, clientY);
+    if (!world) return;
+    const pos = placementWorld(world);
+    setContextMenu(null);
+    setPlacement(null);
+    setTextPlacement(null);
+    setImagePlacement(null);
+    setGifPlacement(null);
+    setThreeDPlacement(null);
+    setArtifactPlacement(null);
+    setThreeDPlacement({ ...input, ...pos });
   };
 
   useEffect(() => {
@@ -469,6 +568,13 @@ export function Canvas({
   }, [gifPlacementRequest]);
 
   useEffect(() => {
+    if (!canvas3dPlacementRequest) return;
+    const input = canvas3dPlacementRequest;
+    useCanvasStore.setState({ canvas3dPlacementRequest: null });
+    begin3DPlacementAtCursor(input);
+  }, [canvas3dPlacementRequest]);
+
+  useEffect(() => {
     if (!artifactPlacementRequest) return;
     const pick = artifactPlacementRequest;
     useCanvasStore.setState({ artifactPlacementRequest: null });
@@ -484,13 +590,13 @@ export function Canvas({
       ? "question"
       : artifactPlacement
         ? "artifact"
-        : textPlacement || imagePlacement || gifPlacement
+        : textPlacement || imagePlacement || gifPlacement || threeDPlacement
           ? "text"
           : null;
     if (useCanvasStore.getState().activeCanvasPlacement !== mode) {
       useCanvasStore.setState({ activeCanvasPlacement: mode });
     }
-  }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement]);
+  }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement, threeDPlacement]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -550,9 +656,12 @@ export function Canvas({
     requestCanvasFocus(() => focusCanvasCard(cardId));
   };
 
-  // Seed the home card as soon as the container has size (do not wait on cloud load).
+  // Seed the home card for confirmed guests only — never while auth or cloud load is pending.
   useLayoutEffect(() => {
     if (!containerReady) return;
+    if (authLoading) return;
+    if (user) return;
+    if (!persistenceReady) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -584,10 +693,13 @@ export function Canvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, [
+    authLoading,
     cardOrder.length,
     containerReady,
     createRootCard,
+    persistenceReady,
     setViewport,
+    user,
   ]);
 
   // After persistence hydrates, center on the first card if we have not yet.
@@ -696,21 +808,6 @@ export function Canvas({
     return () => ro.disconnect();
   }, [showLanding, setViewport]);
 
-  // Prevent native page zoom (pinch / Ctrl+wheel) while interacting with the canvas.
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const preventGesture = (e: Event) => e.preventDefault();
-    el.addEventListener("gesturestart", preventGesture);
-    el.addEventListener("gesturechange", preventGesture);
-    el.addEventListener("gestureend", preventGesture);
-    return () => {
-      el.removeEventListener("gesturestart", preventGesture);
-      el.removeEventListener("gesturechange", preventGesture);
-      el.removeEventListener("gestureend", preventGesture);
-    };
-  }, []);
-
   // Track cursor position globally; also update ghost position when in placement.
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -739,7 +836,16 @@ export function Canvas({
           );
         }
       }
+      if (threeDPlacementRef.current) {
+        const world = computeWorldFromClient(e.clientX, e.clientY);
+        if (world) {
+          setThreeDPlacement((prev) =>
+            prev ? { ...prev, ...placementWorld(world) } : prev,
+          );
+        }
+      }
       if (artifactPlacementRef.current) {
+        setPlacementScreen({ x: e.clientX, y: e.clientY });
         const world = computeWorldFromClient(e.clientX, e.clientY);
         if (world) {
           setArtifactPlacement((prev) =>
@@ -827,9 +933,14 @@ export function Canvas({
           e.preventDefault();
           setGifPlacement(null);
         }
+        if (threeDPlacementRef.current) {
+          e.preventDefault();
+          setThreeDPlacement(null);
+        }
         if (artifactPlacementRef.current) {
           e.preventDefault();
           setArtifactPlacement(null);
+          setPlacementScreen(null);
         }
         setContextMenu(null);
         useCanvasStore.getState().clearSelection();
@@ -857,8 +968,32 @@ export function Canvas({
         return;
       }
 
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.code === "KeyC" && !e.altKey && !e.shiftKey) {
+        const st = useCanvasStore.getState();
+        if (canCopyCanvasSelection(st)) {
+          e.preventDefault();
+          void st.copySelectedCanvasItems();
+          return;
+        }
+        const target = e.target as HTMLElement | null;
+        if (target) {
+          const tag = target.tagName;
+          if (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            target.isContentEditable
+          ) {
+            return;
+          }
+        }
+        return;
+      }
+
       if (e.code !== "KeyQ" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
+
+      if (useCanvasStore.getState().canvasReadOnly) return;
 
       // Pie accelerator — Q while the pie is held open fires the north
       // sector through this same code path; just dismiss the pie first.
@@ -880,6 +1015,7 @@ export function Canvas({
         textPlacementRef.current ||
         imagePlacementRef.current ||
         gifPlacementRef.current ||
+        threeDPlacementRef.current ||
         artifactPlacementRef.current
       ) {
         return;
@@ -909,13 +1045,15 @@ export function Canvas({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [closePie, pieStateRef, removeSelectedFromCanvas]);
+  }, [closePie, pieStateRef, removeSelectedFromCanvas, activeCanvasId]);
 
   // T (enter text placement) — same rules as Q for focused inputs.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "KeyT" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
         return;
+
+      if (useCanvasStore.getState().canvasReadOnly) return;
 
       // Pie accelerator — T fires the west sector via this same path.
       if (pieStateRef.current) closePie();
@@ -932,6 +1070,7 @@ export function Canvas({
         textPlacementRef.current ||
         imagePlacementRef.current ||
         gifPlacementRef.current ||
+        threeDPlacementRef.current ||
         artifactPlacementRef.current
       ) {
         return;
@@ -950,11 +1089,75 @@ export function Canvas({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [closePie, pieStateRef]);
 
+  // S — pie-menu accelerator only (east / sticky note). No global shortcut.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "KeyS" || e.repeat || e.ctrlKey || e.metaKey || e.altKey)
+        return;
+      if (!pieStateRef.current) return;
+
+      closePie();
+
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        if (target.isContentEditable) return;
+      }
+
+      if (
+        placementRef.current ||
+        textPlacementRef.current ||
+        imagePlacementRef.current ||
+        gifPlacementRef.current ||
+        threeDPlacementRef.current ||
+        artifactPlacementRef.current
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu(null);
+      setPlacement(null);
+      setTextPlacement(null);
+      setImagePlacement(null);
+      setGifPlacement(null);
+      setArtifactPlacement(null);
+      target?.blur();
+      beginArtifactPlacementAtCursor("stickynote");
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [closePie, pieStateRef]);
+
   // Window-level click handler that finalises placement and consumes the event
   // so it doesn't focus inputs or trigger pan on the underlying surface.
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+
+      const threeDPos = threeDPlacementRef.current;
+      if (threeDPos) {
+        e.preventDefault();
+        e.stopPropagation();
+        const w = DEFAULT_3D_WIDTH;
+        spawnCanvas3D(
+          {
+            modelUrl: threeDPos.modelUrl,
+            format: threeDPos.format,
+            title: threeDPos.title,
+            sourceId: threeDPos.sourceId,
+          },
+          {
+            position: { x: threeDPos.x - w / 2, y: threeDPos.y - w / 2 },
+            focus: true,
+          },
+        );
+        setThreeDPlacement(null);
+        return;
+      }
 
       const gifPos = gifPlacementRef.current;
       if (gifPos) {
@@ -1012,6 +1215,7 @@ export function Canvas({
           position: { x: world.x - w / 2, y: world.y - h / 2 },
         });
         setArtifactPlacement(null);
+        setPlacementScreen(null);
         return;
       }
 
@@ -1029,6 +1233,7 @@ export function Canvas({
       }
 
       if (!placementRef.current) return;
+      if (useCanvasStore.getState().canvasReadOnly) return;
       e.preventDefault();
       e.stopPropagation();
       const world =
@@ -1044,7 +1249,7 @@ export function Canvas({
     window.addEventListener("pointerdown", onPointerDown, true);
     return () =>
       window.removeEventListener("pointerdown", onPointerDown, true);
-  }, [createRootCard, createManualArtifact, spawnCanvasAsset, spawnCanvasGif, spawnCanvasTextLabel]);
+  }, [createRootCard, createManualArtifact, spawnCanvasAsset, spawnCanvasGif, spawnCanvas3D, spawnCanvasTextLabel]);
 
   const placeCanvasAsset = (
     assetId: string,
@@ -1080,7 +1285,7 @@ export function Canvas({
       placeCanvasAsset(asset.id, world, index);
     });
     if (result.errors.length > 0) {
-      setAssetDropErrors(result.errors);
+      showUploadErrorsToast(result.errors);
     }
     return result.assets.length > 0;
   };
@@ -1112,7 +1317,39 @@ export function Canvas({
     }
 
     if (errors.length > 0) {
-      setAssetDropErrors(errors);
+      showUploadErrorsToast(errors);
+    }
+    return created > 0;
+  };
+
+  const importThreeDAtWorld = async (
+    files: File[],
+    world: { x: number; y: number },
+  ) => {
+    if (!files.length) return false;
+    const uploadContext =
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null;
+    const errors: AssetUploadError[] = [];
+    let created = 0;
+
+    for (let index = 0; index < files.length; index++) {
+      const result = await createThreeDArtifactFromFile(files[index]!, {
+        uploadContext,
+        position: world,
+        index,
+        recordUndo: index === 0,
+      });
+      if ("error" in result) {
+        errors.push(result.error);
+      } else {
+        created++;
+      }
+    }
+
+    if (errors.length > 0) {
+      showUploadErrorsToast(errors);
     }
     return created > 0;
   };
@@ -1138,6 +1375,24 @@ export function Canvas({
       const world = computeWorldFromClient(clientX, clientY);
       if (!world) return;
 
+      const internalPayload = readCanvasClipboardFromDataTransfer(e.clipboardData);
+      if (internalPayload && !useCanvasStore.getState().canvasReadOnly) {
+        const pasted = useCanvasStore.getState().pasteCanvasClipboardAt(
+          world,
+          internalPayload,
+          { canvasId: activeCanvasId ?? undefined },
+        );
+        if (pasted) {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenu(null);
+          setPlacement(null);
+          setImagePlacement(null);
+          setGifPlacement(null);
+          return;
+        }
+      }
+
       const imageFiles = getImageFilesFromDataTransfer(e.clipboardData);
       if (imageFiles.length > 0) {
         e.preventDefault();
@@ -1152,6 +1407,20 @@ export function Canvas({
 
       const text = e.clipboardData?.getData("text/plain") ?? "";
       if (!text.trim()) return;
+
+      const trimmedText = text.trim();
+      if (isImageUrl(trimmedText)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu(null);
+        setPlacement(null);
+        setImagePlacement(null);
+        setGifPlacement(null);
+        void fetchImageUrlAsFile(trimmedText).then((file) => {
+          if (file) void importImagesAtWorld([file], world);
+        });
+        return;
+      }
 
       if (!createUrlArtifactFromText(text, world)) return;
 
@@ -1183,7 +1452,7 @@ export function Canvas({
     if (draggedImage) {
       const ok = await importImagesAtWorld([draggedImage], world);
       if (ok) return;
-      setAssetDropErrors([
+      showUploadErrorsToast([
         {
           code: "upload-failed",
           message:
@@ -1196,10 +1465,20 @@ export function Canvas({
     const audioFiles = getAudioFilesFromDataTransfer(e.dataTransfer);
     if (audioFiles.length > 0) {
       await importAudioAtWorld(audioFiles, world);
+      return;
+    }
+
+    const threeDFiles = getThreeDFilesFromDataTransfer(e.dataTransfer);
+    if (threeDFiles.length > 0) {
+      await importThreeDAtWorld(threeDFiles, world);
+      return;
     }
 
     const otherFiles = Array.from(e.dataTransfer.files).filter(
-      (file) => !isAudioFile(file) && !isImageMime(file.type),
+      (file) =>
+        !isAudioFile(file) &&
+        !isImageMime(file.type) &&
+        !isThreeDModelFile(file),
     );
     if (otherFiles.length > 0) {
       const result = await uploadAssetFiles(
@@ -1213,7 +1492,7 @@ export function Canvas({
         placeCanvasAsset(asset.id, world, index);
       });
       if (result.errors.length > 0) {
-        setAssetDropErrors((prev) => [...prev, ...result.errors]);
+        showUploadErrorsToast(result.errors);
       }
       return;
     }
@@ -1264,6 +1543,26 @@ export function Canvas({
         },
         focus: true,
       });
+      return;
+    }
+
+    if (payload.kind === "3d") {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const w = DEFAULT_3D_WIDTH;
+      spawnCanvas3D(
+        {
+          modelUrl: payload.modelUrl,
+          format: payload.format,
+          title: payload.title,
+          sourceId: payload.sourceId,
+        },
+        {
+          position: { x: world.x - w / 2, y: world.y - w / 2 },
+          focus: true,
+        },
+      );
+      setGifPickerOpen(false);
       return;
     }
 
@@ -1338,6 +1637,7 @@ export function Canvas({
       textPlacementRef.current ||
       imagePlacementRef.current ||
       gifPlacementRef.current ||
+      threeDPlacementRef.current ||
       artifactPlacementRef.current
     ) {
       return;
@@ -1351,10 +1651,12 @@ export function Canvas({
       if (!isContextHitInSelection(st, hit)) {
         applyContextMenuSelection(st, hit);
       }
+      const next = useCanvasStore.getState();
       setContextMenu({
         screenX: e.clientX,
         screenY: e.clientY,
-        showDelete: canRemoveCanvasSelection(useCanvasStore.getState()),
+        showDelete: canRemoveCanvasSelection(next),
+        showCopy: canCopyCanvasSelection(next),
       });
       return;
     }
@@ -1363,7 +1665,12 @@ export function Canvas({
       screenX: e.clientX,
       screenY: e.clientY,
       showDelete: canRemoveCanvasSelection(st),
+      showCopy: canCopyCanvasSelection(st),
     });
+  };
+
+  const handleCopyAtContextMenu = () => {
+    void useCanvasStore.getState().copySelectedCanvasItems();
   };
 
   const handleAddTextAtContextMenu = () => {
@@ -1425,6 +1732,7 @@ export function Canvas({
       textPlacementRef.current ||
       imagePlacementRef.current ||
       gifPlacementRef.current ||
+      threeDPlacementRef.current ||
       artifactPlacementRef.current
     ) {
       return;
@@ -1437,6 +1745,15 @@ export function Canvas({
 
     const el = e.currentTarget as HTMLDivElement;
     el.setPointerCapture(e.pointerId);
+
+    const store = useCanvasStore.getState();
+    if (store.pencilToolActive && !store.canvasReadOnly) {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (!world) return;
+      const strokeId = store.beginCanvasStroke(world);
+      drawingState.current = { pointerId: e.pointerId, strokeId };
+      return;
+    }
 
     if (spaceHeldRef.current) {
       panState.current = {
@@ -1468,6 +1785,13 @@ export function Canvas({
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     canvasPointerRef.current = { x: e.clientX, y: e.clientY };
 
+    const ds = drawingState.current;
+    if (ds && ds.pointerId === e.pointerId) {
+      const world = computeWorldFromClient(e.clientX, e.clientY);
+      if (world) appendCanvasStrokePoint(ds.strokeId, world);
+      return;
+    }
+
     const ms = marqueeState.current;
     if (ms && ms.pointerId === e.pointerId) {
       const x = Math.min(ms.startX, e.clientX);
@@ -1491,6 +1815,18 @@ export function Canvas({
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const ds = drawingState.current;
+    if (ds && ds.pointerId === e.pointerId) {
+      finishCanvasStroke(ds.strokeId);
+      drawingState.current = null;
+      try {
+        (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     const ms = marqueeState.current;
     if (ms && ms.pointerId === e.pointerId) {
       const w = Math.abs(e.clientX - ms.startX);
@@ -1532,16 +1868,20 @@ export function Canvas({
       onContextMenu={handleContextMenu}
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
-      className={`absolute inset-0 overflow-hidden bg-canvas-bg font-sans select-none touch-none ${
+      className={`absolute inset-0 overflow-hidden font-sans select-none touch-none ${
+        canvasBackgroundStyle === "static-image" ? "bg-transparent" : "bg-canvas-bg"
+      } ${
         placement ||
         textPlacement ||
         imagePlacement ||
         gifPlacement ||
         artifactPlacement
           ? "cursor-crosshair"
-          : spaceHeld
-            ? "cursor-grab active:cursor-grabbing"
-            : "cursor-crosshair"
+          : pencilToolActive
+            ? "canvas-pencil-cursor"
+            : spaceHeld
+              ? "cursor-grab active:cursor-grabbing"
+              : "cursor-crosshair"
       }`}
     >
       <CanvasBackgroundLayer />
@@ -1549,9 +1889,11 @@ export function Canvas({
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
-        {groupList.map((group) => (
-          <GroupBounds key={group.id} group={group} />
-        ))}
+        {!chatsGloballyHidden &&
+          groupList.map((group) => (
+            <GroupBounds key={group.id} group={group} />
+          ))}
+        {connectionsBehindCards && <Connections />}
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
@@ -1589,6 +1931,14 @@ export function Canvas({
           }
           return <CanvasGifNode key={id} node={node} />;
         })}
+        {canvas3DOrder.map((id) => {
+          const node = canvas3DNodes[id];
+          if (!node) return null;
+          if (cullingEnabled && visibleNodes && !visibleNodes.threeD.has(id)) {
+            return null;
+          }
+          return <Canvas3DNode key={id} node={node} />;
+        })}
         {canvasSkillOrder.map((id) => {
           const node = canvasSkillNodes[id];
           if (!node) return null;
@@ -1611,52 +1961,42 @@ export function Canvas({
             />
           );
         })}
-        {groupList.map((group) =>
-          group.summaryMarkdown ? (
-            <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
-          ) : null,
-        )}
-        <Connections />
+        {!chatsGloballyHidden &&
+          groupList.map((group) =>
+            group.summaryMarkdown ? (
+              <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
+            ) : null,
+          )}
+        {!connectionsBehindCards && <Connections />}
+        <CanvasDrawingLayer
+          strokes={canvasStrokes}
+          strokeOrder={canvasStrokeOrder}
+          activeStrokeId={activeCanvasStrokeId}
+        />
         {placement && <GhostCard world={placement} />}
         {textPlacement && <GhostTextLabel world={textPlacement} />}
         {imagePlacement && <GhostImage world={imagePlacement} />}
         {gifPlacement && <GhostGif world={gifPlacement} />}
-        {artifactPlacement && <GhostArtifact world={artifactPlacement} />}
+        {threeDPlacement && <Ghost3D world={threeDPlacement} />}
       </CanvasViewport>
       {showLanding &&
+        !chatsGloballyHidden &&
         !placement &&
         !textPlacement &&
         !imagePlacement &&
         !gifPlacement &&
+        !threeDPlacement &&
         !artifactPlacement &&
         landingCardId && <CanvasLandingOverlay cardId={landingCardId} />}
       <SelectionOverlay rect={marqueeRect} />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
       {!marqueeRect && <SelectionToolbar />}
-      {assetDropErrors.length > 0 && (
-        <div className="pointer-events-auto absolute left-1/2 top-4 z-50 max-w-md -translate-x-1/2 rounded-canvas border border-red-300/60 bg-red-50 px-3 py-2 text-canvas-body-sm text-red-700 shadow-card">
-          {assetDropErrors.slice(0, 3).map((error, index) => (
-            <p key={`${error.code}-${error.fileName ?? index}`}>
-              {error.message}
-            </p>
-          ))}
-          {assetDropErrors.length > 3 && (
-            <p>{assetDropErrors.length - 3} more upload errors.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setAssetDropErrors([])}
-            className="mt-1 text-canvas-body-sm font-medium text-red-800"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}
           onClose={() => setContextMenu(null)}
           onAddText={handleAddTextAtContextMenu}
+          onCopy={handleCopyAtContextMenu}
           onDelete={() => removeSelectedFromCanvas()}
         />
       )}
@@ -1664,6 +2004,7 @@ export function Canvas({
         containerRef={containerRef}
         channelRef={presenceChannelRef}
         channelReady={presenceChannelReady}
+        onlineUserIds={onlineUserIds}
         currentUserId={user?.id}
         displayName={
           user?.user_metadata?.full_name ??
@@ -1674,6 +2015,16 @@ export function Canvas({
         avatarUrl={user?.user_metadata?.avatar_url as string | undefined}
       />
       <CanvasPieMenu state={pieState} />
+      {artifactPlacement &&
+        placementScreen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ArtifactCursorGhost
+            artifactType={artifactPlacement.artifactType}
+            screen={placementScreen}
+          />,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1719,6 +2070,27 @@ function GhostImage({ world }: { world: ImagePlacementState }) {
   );
 }
 
+function Ghost3D({ world }: { world: ThreeDPlacementState }) {
+  const w = DEFAULT_3D_WIDTH;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
+      style={{
+        left: world.x - w / 2,
+        top: world.y - w / 2,
+        width: w,
+        height: w,
+      }}
+    >
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-canvas-bg via-canvas-card to-canvas-bg p-2 text-center">
+        <span className="text-canvas-caption font-medium text-canvas-muted">3D</span>
+        <span className="line-clamp-2 text-canvas-caption text-canvas-ink">{world.title}</span>
+      </div>
+    </div>
+  );
+}
+
 function GhostGif({ world }: { world: GifPlacementState }) {
   const w = DEFAULT_GIF_WIDTH;
   const h = w / (world.aspectRatio > 0 ? world.aspectRatio : 1);
@@ -1744,31 +2116,37 @@ function GhostGif({ world }: { world: GifPlacementState }) {
   );
 }
 
-function GhostArtifact({ world }: { world: ArtifactPlacementState }) {
-  const payload = createManualArtifactPayload(world.artifactType);
+function ArtifactCursorGhost({
+  artifactType,
+  screen,
+}: {
+  artifactType: ManualArtifactType;
+  screen: { x: number; y: number };
+}) {
+  const payload = createManualArtifactPayload(artifactType);
   const kind = payloadToArtifactKind(payload);
-  const { w, h } = getDefaultArtifactSize(kind, payload);
   const label =
     MANUAL_ARTIFACT_MENU_ITEMS.find(
       (entry) =>
         entry.pick.kind === "artifact" &&
-        entry.pick.artifactType === world.artifactType,
+        entry.pick.artifactType === artifactType,
     )?.label ?? "Artefact";
 
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 opacity-60 shadow-card"
+      className="pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-artifact"
       style={{
-        left: world.x - w / 2,
-        top: world.y - h / 2,
-        width: w,
-        height: h,
+        left: screen.x,
+        top: screen.y,
+        transform: "translate(-50%, -50%)",
+        width: 120,
+        height: 88,
       }}
     >
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-canvas-muted">
-        <ArtifactTypeIcon kind={kind} className="h-6 w-6" />
-        <span className="text-center text-canvas-body-sm font-medium">{label}</span>
+      <div className="flex h-full flex-col items-center justify-center gap-1.5 p-2 text-canvas-muted">
+        <ArtifactTypeIcon kind={kind} className="h-5 w-5" />
+        <span className="text-center text-canvas-caption font-medium">{label}</span>
       </div>
     </div>
   );
@@ -1783,7 +2161,7 @@ function GhostCard({ world }: { world: PlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-card"
+      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-artifact"
       style={{
         left: pos.x,
         top: pos.y,

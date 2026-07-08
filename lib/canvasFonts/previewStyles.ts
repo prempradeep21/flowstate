@@ -17,9 +17,9 @@ export function getCanvasFontPreviewStyles(
     const body = getBodyFontOption(bodyId);
     if (body) {
       // Override the token for any font-sans descendants…
-      style["--font-parkinsans"] = body.family;
+      style["--font-figtree"] = body.family;
       // …and set font-family on the container so inherited text updates
-      // (body already resolved Parkinsans before this node).
+      // (body already resolved Figtree before this node).
       style.fontFamily = withEmojiFontFamily(body.family);
     }
   }

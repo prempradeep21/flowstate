@@ -25,6 +25,7 @@ export interface CanvasLandingInput {
   canvasAssetOrder?: string[];
 
   canvasGifOrder?: string[];
+  canvas3DOrder?: string[];
 
   canvasSkillOrder?: string[];
 
@@ -75,6 +76,7 @@ function hasCanvasContentBeyondHomeCard(input: CanvasLandingInput): boolean {
   if ((input.canvasAssetOrder?.length ?? 0) > 0) return true;
 
   if ((input.canvasGifOrder?.length ?? 0) > 0) return true;
+  if ((input.canvas3DOrder?.length ?? 0) > 0) return true;
 
   if ((input.canvasSkillOrder?.length ?? 0) > 0) return true;
 
@@ -129,6 +131,7 @@ export function pickCanvasLandingInput(
     canvasAssetOrder: state.canvasAssetOrder,
 
     canvasGifOrder: state.canvasGifOrder,
+    canvas3DOrder: state.canvas3DOrder,
 
     canvasSkillOrder: state.canvasSkillOrder,
 

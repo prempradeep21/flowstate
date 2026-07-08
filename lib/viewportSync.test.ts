@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  patternDotRadius,
   patternOffset,
   patternTileSize,
   positiveMod,
@@ -26,5 +27,25 @@ describe("patternOffset", () => {
     expect(offset.y).toBeGreaterThanOrEqual(0);
     expect(offset.x).toBeLessThan(tile);
     expect(offset.y).toBeLessThan(tile);
+  });
+});
+
+describe("patternDotRadius", () => {
+  it("scales proportionally without a screen-space floor", () => {
+    expect(patternDotRadius(0.5, 0.1)).toBe(0.05);
+    expect(patternDotRadius(0.5, 1)).toBe(0.5);
+    expect(patternDotRadius(0.5, 3)).toBe(1.5);
+  });
+
+  it("keeps a constant dot-to-spacing ratio across zoom levels", () => {
+    const baseSpacing = 22;
+    const baseRadius = 0.5;
+    const expectedRatio = baseRadius / baseSpacing;
+
+    for (const scale of [0.1, 0.25, 1, 2, 3]) {
+      const tile = patternTileSize(baseSpacing, scale);
+      const radius = patternDotRadius(baseRadius, scale);
+      expect(radius / tile).toBeCloseTo(expectedRatio, 5);
+    }
   });
 });

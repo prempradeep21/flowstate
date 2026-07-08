@@ -17,7 +17,7 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   images: { span: 1, aspectClass: "aspect-square" },
   table: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 200 },
   "3d": { span: 1, aspectClass: "aspect-square" },
-  custom: { span: 2, aspectClass: "aspect-square" },
+  custom: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 200 },
   todo: { span: 2, aspectClass: null, minHeight: 80, maxHeight: 180 },
   calendar: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
   code: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 140 },
@@ -28,6 +28,7 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   timeline: { span: 2, aspectClass: null, minHeight: 140, maxHeight: 200 },
   chart: { span: 2, aspectClass: null, minHeight: 200, maxHeight: 280 },
   audio: { span: 1, aspectClass: null, minHeight: 80, maxHeight: 120 },
+  stickynote: { span: 1, aspectClass: "aspect-square", minHeight: 120, maxHeight: 160 },
 };
 
 /** Wide map every 3rd map (1-indexed: 3rd, 6th, …). */
@@ -49,7 +50,11 @@ export function resolveSidebarTileLayout(
 
 export function sidebarTileStyle(layout: SidebarTileLayout): CSSProperties {
   const style: CSSProperties = {};
-  if (layout.minHeight != null) style.minHeight = layout.minHeight;
-  if (layout.maxHeight != null) style.maxHeight = layout.maxHeight;
+  if (layout.maxHeight != null) {
+    style.height = layout.maxHeight;
+    if (layout.minHeight != null) style.minHeight = layout.minHeight;
+  } else if (layout.minHeight != null) {
+    style.height = layout.minHeight;
+  }
   return style;
 }

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flowstate — An open canvas for your AI work</title>
+<meta name="description" content="Flowstate turns linear AI chat into an open canvas — so everything you make stays visible, movable, reusable, and shareable." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23cfcec9'/%3E%3Ccircle cx='50' cy='50' r='26' fill='%230f4fc7'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Newsreader:ital,opsz,wght@1,6..72,300..500&family=Azeret+Mono:wght@400;500;600&family=Gabarito:wght@500;600;700;800;900&family=Figtree:wght@400;500;600;700&family=Anton&family=Archivo:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<script>/* restore theme before paint */try{var t=localStorage.getItem("fs-theme");if(t==="pop"||t==="wild")document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+
+<!-- grain overlay -->
+<div class="grain" aria-hidden="true"></div>
+
+<!-- custom cursor -->
+<div class="cursor" aria-hidden="true">
+  <div class="cursor-dot"></div>
+  <div class="cursor-ring"></div>
+  <div class="cursor-coords">x:0 y:0</div>
+</div>
+
+<!-- scene counter -->
+<div class="scene-hud" aria-hidden="true">
+  <span class="scene-hud-num">scene 01 / 08</span>
+  <span class="scene-hud-name">— the canvas</span>
+</div>
+
+<!-- nav -->
+<header class="nav">
+  <a class="nav-logo" href="#top">
+    <span class="nav-logo-dot"></span>Flowstate
+  </a>
+  <div class="nav-right">
+    <button class="theme-toggle" id="themeToggle" aria-label="Switch visual theme">
+      <span class="tt-opt tt-canvas">canvas</span>
+      <span class="tt-opt tt-pop">pop</span>
+      <span class="tt-opt tt-wild">wild</span>
+    </button>
+    <a class="btn btn-ink nav-cta" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+  </div>
+</header>
+
+<!-- wild-theme left rail (units-style numbered blocks) -->
+<nav class="rail" aria-label="Scenes">
+  <a href="#hero" data-rail="01" style="--rc:#0072e3; --rt:#fff"><b>01</b><i>↗</i><span>the canvas</span></a>
+  <a href="#prologue" data-rail="02" style="--rc:#ffb200; --rt:#101010"><b>02</b><i>↗</i><span>a short history</span></a>
+  <a href="#lineplot" data-rail="03" style="--rc:#ff6100; --rt:#101010"><b>03</b><i>↗</i><span>plan vs. reality</span></a>
+  <a href="#pileup" data-rail="04" style="--rc:#00aa3c; --rt:#101010"><b>04</b><i>↗</i><span>the pile-up</span></a>
+  <a href="#reveal" data-rail="05" style="--rc:#ab54f7; --rt:#101010"><b>05</b><i>↗</i><span>the reveal</span></a>
+  <a href="#playground" data-rail="06" style="--rc:#ff5c38; --rt:#101010"><b>06</b><i>↗</i><span>playground</span></a>
+  <a href="#jugglers" data-rail="07" style="--rc:#ffdb08; --rt:#101010"><b>07</b><i>↗</i><span>the jugglers</span></a>
+  <a href="#share" data-rail="08" style="--rc:#1be349; --rt:#101010"><b>08</b><i>↗</i><span>just send it</span></a>
+</nav>
+
+<main id="top">
+
+<!-- ============ SCENE 01 — HERO ============ -->
+<section class="hero scene" id="hero" data-scene="01" data-scene-name="the canvas">
+  <div class="dotgrid hero-grid" aria-hidden="true"></div>
+
+  <!-- draggable artifacts -->
+  <div class="hero-stage">
+
+    <article class="art-card drag-card card-table" data-depth="1.4" style="--x:6%; --y:14%; --r:-4deg">
+      <header class="art-head"><span class="art-icon">​<svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Trip budget<span class="art-kind">Table</span></header>
+      <table class="mini-table">
+        <tr><th>City</th><th>Nights</th><th>€</th><th></th></tr>
+        <tr><td>Lisbon</td><td>4</td><td>420</td><td><span class="chip chip-blue">Booked</span></td></tr>
+        <tr><td>Porto</td><td>3</td><td>310</td><td><span class="chip">Compare</span></td></tr>
+        <tr><td>Madrid</td><td>2</td><td>240</td><td><span class="chip">Pending</span></td></tr>
+      </table>
+    </article>
+
+    <article class="art-card drag-card card-chart" data-depth="1" style="--x:76%; --y:10%; --r:3deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Runway<span class="art-kind">Chart</span></header>
+      <div class="mini-chart" aria-hidden="true">
+        <div class="bar" style="--h:34%"></div><div class="bar" style="--h:58%"></div>
+        <div class="bar" style="--h:42%"></div><div class="bar bar-hot" style="--h:88%"></div>
+        <div class="bar" style="--h:66%"></div><div class="bar" style="--h:74%"></div>
+      </div>
+    </article>
+
+    <article class="art-card drag-card card-todo" data-depth="1.8" style="--x:80%; --y:58%; --r:-2.5deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12M4 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Launch week<span class="art-kind">To-do</span></header>
+      <ul class="mini-todo">
+        <li class="done">Rename 14 chats “final”</li>
+        <li class="done">Give up on that</li>
+        <li>Move it all to a canvas</li>
+      </ul>
+    </article>
+
+    <article class="art-card drag-card card-sticky" data-depth="2.2" style="--x:14%; --y:64%; --r:5deg">
+      <p>yes — you can<br/>drag these <span class="arrow-ink">↷</span></p>
+    </article>
+
+    <article class="art-card drag-card card-map-mini" data-depth="1.2" style="--x:58%; --y:66%; --r:1.5deg">
+      <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Alfama, Lisbon<span class="art-kind">Map</span></header>
+      <div class="mini-map" aria-hidden="true">
+        <div class="mini-map-roads"></div>
+        <div class="mini-map-pin"></div>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="hero-center">
+    <p class="eyebrow mono">flowstate — an open canvas for your ai work</p>
+    <h1 class="hero-title">Your smartest<br/>work is trapped<br/>in a <span class="scribble-wrap">scroll<svg class="scribble" viewBox="0 0 260 90" aria-hidden="true"><path d="M12 48 C 60 20, 120 18, 178 30 C 216 38, 240 50, 246 58 M 30 66 C 90 44, 170 42, 232 55" fill="none" stroke-width="7" stroke-linecap="round"/></svg></span>.</h1>
+    <p class="hero-sub">Flowstate gives it a canvas instead — where everything you make with AI stays visible, movable, reusable, and&nbsp;shareable.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-blue" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+      <a class="btn btn-ghost" href="#prologue">Read the story <span class="btn-arrow">↓</span></a>
+    </div>
+  </div>
+
+  <div class="hero-hint mono" aria-hidden="true">scroll — the story is 8 scenes long ↓</div>
+</section>
+
+<!-- ============ SCENE 02 — PROLOGUE (2021 → 2026) ============ -->
+<section class="prologue scene" id="prologue" data-scene="02" data-scene-name="a short history">
+  <div class="prologue-pin">
+    <p class="mono prologue-kicker">a very short history of working with ai</p>
+    <h2 class="prologue-year mono" id="prologueYear">2021</h2>
+    <p class="prologue-line" id="prologueLine">Let there be intelligence.</p>
+
+    <div class="prologue-pills" aria-hidden="true">
+      <span class="pill">Prepare for an interview</span>
+      <span class="pill">Plan a trip</span>
+      <span class="pill">Build a tool</span>
+      <span class="pill">Learn something new</span>
+      <span class="pill">Sort personal finances</span>
+      <span class="pill">Plan meals &amp; workouts</span>
+    </div>
+
+    <p class="aside prologue-aside">Interviews. Trips. Market sizing. Meal plans. <br class="hide-sm"/>That weird little tool only you would ever need.</p>
+  </div>
+</section>
+
+<!-- ============ SCENE 03 — THE STRAIGHT LINE ============ -->
+<section class="lineplot scene" id="lineplot" data-scene="03" data-scene-name="the plan vs. reality">
+  <div class="lineplot-pin">
+    <div class="lineplot-copy">
+      <p class="mono lineplot-kicker">every session starts with a plan</p>
+      <h2 class="lineplot-title" id="lineplotTitle">Idea. Solution.<br/>A straight line.</h2>
+      <p class="aside lineplot-aside" id="lineplotAside">Reality, unfortunately, has other plans.</p>
+    </div>
+    <div class="lineplot-stage">
+      <svg id="journeySvg" viewBox="0 0 1440 760" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M1 1 L8 5 L1 9" fill="none" stroke="#101010" stroke-width="1.6"/></marker>
+        </defs>
+        <!-- the plan -->
+        <circle class="j-start" cx="110" cy="120" r="26" fill="none" stroke="#0F4FC7" stroke-width="7"/>
+        <text class="j-label mono" x="110" y="185" text-anchor="middle">idea / need</text>
+        <line class="j-straight" x1="150" y1="120" x2="1290" y2="120" stroke="#101010" stroke-width="2.5" marker-end="url(#arrowHead)"/>
+        <circle class="j-end" cx="1330" cy="120" r="27" fill="#0F4FC7"/>
+        <text class="j-label mono" x="1330" y="185" text-anchor="middle">solution</text>
+
+        <!-- the reality -->
+        <path class="j-tangle" d="M90 560 C 170 470, 210 640, 300 560 C 370 500, 330 400, 260 430 C 200 456, 224 540, 306 522 C 380 506, 420 470, 452 520 C 490 580, 430 660, 500 668 C 560 674, 570 600, 610 560 C 660 510, 720 560, 700 620 C 684 668, 610 660, 628 600 C 645 545, 730 520, 790 540 C 860 563, 850 640, 920 632 C 990 624, 970 540, 1040 520 C 1110 500, 1130 570, 1190 560 C 1260 548, 1280 480, 1360 470" fill="none" stroke="#101010" stroke-width="2.5" stroke-dasharray="7 9"/>
+        <path class="j-branch j-branch-1" d="M452 520 C 470 440, 530 420, 585 438" fill="none" stroke="#101010" stroke-width="2.2" stroke-dasharray="6 8"/>
+        <path class="j-branch j-branch-2" d="M790 540 C 800 460, 860 440, 915 470" fill="none" stroke="#101010" stroke-width="2.2" stroke-dasharray="6 8"/>
+
+        <g class="j-x j-x-1" transform="translate(585 438)"><path d="M-9 -9 L9 9 M9 -9 L-9 9" stroke="#101010" stroke-width="3.4" stroke-linecap="round"/></g>
+        <g class="j-x j-x-2" transform="translate(915 470)"><path d="M-9 -9 L9 9 M9 -9 L-9 9" stroke="#101010" stroke-width="3.4" stroke-linecap="round"/></g>
+        <g class="j-x j-x-3" transform="translate(1360 470)"><path d="M-10 -10 L10 10 M10 -10 L-10 10" stroke="#0F4FC7" stroke-width="4" stroke-linecap="round"/></g>
+
+        <text class="j-note mono j-note-1" x="585" y="410" text-anchor="middle">chat #3 (abandoned)</text>
+        <text class="j-note mono j-note-2" x="915" y="442" text-anchor="middle">asked again from scratch</text>
+        <text class="j-note mono j-note-3" x="1352" y="520" text-anchor="end">the answer you’ll never find again</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE 04 — THE PILE-UP ============ -->
+<section class="pileup scene" id="pileup" data-scene="04" data-scene-name="the pile-up">
+  <div class="pileup-pin">
+    <div class="pileup-captions">
+      <p class="pileup-caption is-active" data-step="0">So you open a chat.<br/><em>Then another. Then… seven.</em></p>
+      <p class="pileup-caption" data-step="1">Long scrolls to reach<br/><em>the one good output.</em></p>
+      <p class="pileup-caption" data-step="2">Chats that can’t<br/><em>pass notes to each other.</em></p>
+      <p class="pileup-caption" data-step="3">Milestones you literally<br/><em>cannot share.</em></p>
+      <p class="pileup-caption pileup-caption-final" data-step="4">The chat was never the point.<br/><em>The things you made in it were.</em></p>
+    </div>
+    <div class="pileup-track" id="pileupTrack"><!-- chat columns injected by JS --></div>
+    <p class="mono pileup-hint">← your last month with ai →</p>
+  </div>
+</section>
+
+<!-- ============ SCENE 05 — THE REVEAL ============ -->
+<section class="reveal scene" id="reveal" data-scene="05" data-scene-name="the canvas appears">
+  <div class="reveal-pin">
+    <div class="dotgrid reveal-grid" aria-hidden="true"></div>
+    <p class="reveal-ask" id="revealAsk">What if everything you made…<br/><em>just stayed?</em></p>
+    <div class="reveal-brand">
+      <h2 class="reveal-wordmark" id="revealWordmark">Flowstate</h2>
+      <p class="reveal-tag">An open canvas for your AI work.</p>
+    </div>
+    <div class="reveal-pills" aria-hidden="true">
+      <span class="pill" style="--px:8%;  --py:18%; --pr:-6deg">Curate</span>
+      <span class="pill" style="--px:24%; --py:70%; --pr:4deg">Ideate</span>
+      <span class="pill" style="--px:16%; --py:42%; --pr:-2deg">Create</span>
+      <span class="pill" style="--px:38%; --py:14%; --pr:3deg">Learn</span>
+      <span class="pill" style="--px:66%; --py:16%; --pr:-4deg">Build</span>
+      <span class="pill" style="--px:80%; --py:38%; --pr:5deg">Reference</span>
+      <span class="pill" style="--px:60%; --py:74%; --pr:-3deg">Research</span>
+      <span class="pill" style="--px:84%; --py:66%; --pr:2deg">Share</span>
+      <span class="pill" style="--px:44%; --py:82%; --pr:-5deg">Collaborate</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE 06 — THE PLAYGROUND ============ -->
+<section class="playground scene" id="playground" data-scene="06" data-scene-name="go on, touch it">
+  <div class="ribbon" aria-hidden="true">
+    <div class="ribbon-track">
+      <span>tables&ensp;⚡&ensp;charts&ensp;◆&ensp;maps&ensp;⚡&ensp;to-dos&ensp;◆&ensp;calendars&ensp;⚡&ensp;timelines&ensp;◆&ensp;street view&ensp;⚡&ensp;custom ui&ensp;◆&ensp;videos&ensp;⚡&ensp;3d models&ensp;◆&ensp;</span>
+      <span>tables&ensp;⚡&ensp;charts&ensp;◆&ensp;maps&ensp;⚡&ensp;to-dos&ensp;◆&ensp;calendars&ensp;⚡&ensp;timelines&ensp;◆&ensp;street view&ensp;⚡&ensp;custom ui&ensp;◆&ensp;videos&ensp;⚡&ensp;3d models&ensp;◆&ensp;</span>
+    </div>
+  </div>
+  <div class="playground-head">
+    <p class="mono eyebrow">enough telling</p>
+    <h2>This is a canvas.<br/><em>Go on, touch it.</em></h2>
+    <p class="mono playground-hint">drag the cards by their handles · check the boxes · play the video · pan the map</p>
+  </div>
+
+  <div class="canvas-frame" id="canvasFrame">
+    <div class="dotgrid canvas-grid" aria-hidden="true"></div>
+    <div class="canvas-plane" id="canvasPlane">
+
+      <article class="art-card play-card pc-map" style="--x:4%; --y:8%; --r:-1.6deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.1-7-11a7 7 0 1 1 14 0c0 5.9-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Weekend in Lisbon<span class="art-kind">Map · live</span></header>
+        <iframe title="Map of Alfama, Lisbon" src="https://www.google.com/maps?q=Alfama,+Lisbon,+Portugal&z=14&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </article>
+
+      <article class="art-card play-card pc-video" style="--x:44%; --y:2%; --r:1.4deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 12 21 8.8v6.4L15.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Intro to LLMs — Karpathy<span class="art-kind">Video</span></header>
+        <div class="yt-lite" data-yt="zjkBMFhNj_g">
+          <img src="https://i.ytimg.com/vi/zjkBMFhNj_g/hqdefault.jpg" alt="Video thumbnail: Intro to Large Language Models" loading="lazy"/>
+          <button class="yt-play" aria-label="Play video"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-tweet" style="--x:76%; --y:10%; --r:-2deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.1 9.3L4.4 20h2.4l5.4-5.4L16.8 20H20l-7.4-9.7L18.9 4h-2.4l-4.9 4.9L7.2 4H4z" fill="currentColor"/></svg></span>From the community<span class="art-kind">Post</span></header>
+        <div class="tweet-body">
+          <div class="tweet-who">
+            <img src="https://i.pravatar.cc/72?img=32" alt="" loading="lazy"/>
+            <div><strong>maya</strong><span class="mono">@tabhoarder</span></div>
+          </div>
+          <p>moved my whole job hunt onto one canvas. research, questions, salary math — all just… there. my chats are for chatting again 🥲</p>
+          <div class="tweet-meta mono"><span>♡ 1.2k</span><span>↻ 214</span><span>2:14 AM</span></div>
+        </div>
+      </article>
+
+      <article class="art-card play-card pc-todo" style="--x:8%; --y:62%; --r:2deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Packing list<span class="art-kind">To-do · interactive</span></header>
+        <ul class="live-todo">
+          <li><label><input type="checkbox" checked/><span>Passport (the drawer, not the “safe place”)</span></label></li>
+          <li><label><input type="checkbox"/><span>Download offline maps</span></label></li>
+          <li><label><input type="checkbox"/><span>Pastel de nata strategy: min. 2/day</span></label></li>
+          <li><label><input type="checkbox"/><span>Tell co-founder where the canvas is</span></label></li>
+        </ul>
+      </article>
+
+      <article class="art-card play-card pc-chart" style="--x:42%; --y:56%; --r:-1.2deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Coffee spend, obviously<span class="art-kind">Chart · click to re-roll</span></header>
+        <div class="mini-chart big-chart" id="playChart">
+          <div class="bar" style="--h:40%"></div><div class="bar" style="--h:65%"></div>
+          <div class="bar" style="--h:52%"></div><div class="bar bar-hot" style="--h:90%"></div>
+          <div class="bar" style="--h:70%"></div><div class="bar" style="--h:58%"></div>
+          <div class="bar" style="--h:76%"></div><div class="bar" style="--h:47%"></div>
+        </div>
+        <div class="chart-axis mono"><span>jan</span><span>feb</span><span>mar</span><span>apr</span><span>may</span><span>jun</span><span>jul</span><span>aug</span></div>
+      </article>
+
+      <article class="art-card play-card pc-tweet2" style="--x:74%; --y:58%; --r:1.8deg">
+        <header class="art-head grab"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.1 9.3L4.4 20h2.4l5.4-5.4L16.8 20H20l-7.4-9.7L18.9 4h-2.4l-4.9 4.9L7.2 4H4z" fill="currentColor"/></svg></span>From the community<span class="art-kind">Post</span></header>
+        <div class="tweet-body">
+          <div class="tweet-who">
+            <img src="https://i.pravatar.cc/72?img=13" alt="" loading="lazy"/>
+            <div><strong>dev</strong><span class="mono">@solo_founder_era</span></div>
+          </div>
+          <p>sent my co-founder one link. she moved two cards, added a column, and we were done. no “which doc is current”. no exports. one canvas.</p>
+          <div class="tweet-meta mono"><span>♡ 3.4k</span><span>↻ 890</span><span>11:03 PM</span></div>
+        </div>
+      </article>
+
+      <article class="art-card play-card card-sticky pc-sticky" style="--x:33%; --y:33%; --r:4deg">
+        <p>everything here is yours<br/>to move. <em>like it should be.</em></p>
+      </article>
+
+    </div>
+    <div class="canvas-frame-label mono" aria-hidden="true">canvas · 60% zoom · autosaved</div>
+  </div>
+</section>
+
+<!-- ============ SCENE 07 — THE JUGGLERS ============ -->
+<section class="jugglers scene" id="jugglers" data-scene="07" data-scene-name="for the jugglers">
+  <div class="jugglers-head">
+    <p class="mono eyebrow">who it’s for</p>
+    <h2>Built for people<br/><em>who juggle.</em></h2>
+  </div>
+
+  <div class="juggler-row">
+    <figure class="juggler-img">
+      <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200&auto=format&fit=crop" alt="A small team working across laptops and documents" loading="lazy" onerror="this.onerror=null;this.src='https://picsum.photos/seed/flowfounder/1000/720'"/>
+      <figcaption class="mono">solo founder · 9 docs · 4 formats · 1 deadline</figcaption>
+    </figure>
+    <div class="juggler-copy">
+      <h3>The solo founder</h3>
+      <p>Pitch deck, market research, financial model, competitor notes — different formats, different tabs, same 1&nbsp;a.m. panic. On a canvas they finally sit <em>side by side</em>, and the AI can see all of them at once.</p>
+      <div class="juggler-chips">
+        <span class="chip chip-blue">Table · Competitor matrix</span>
+        <span class="chip">Chart · TAM, honest version</span>
+        <span class="chip">Doc · The why</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="juggler-row is-flipped">
+    <figure class="juggler-img">
+      <img src="https://images.unsplash.com/photo-1476703993599-0035a21b17a9?q=80&w=1200&auto=format&fit=crop" alt="Two people reading together at home" loading="lazy" onerror="this.onerror=null;this.src='https://picsum.photos/seed/flowfamily/1000/720'"/>
+      <figcaption class="mono">two people · one second trimester · zero forwarded chats</figcaption>
+    </figure>
+    <div class="juggler-copy">
+      <h3>The soon-to-be parents</h3>
+      <p>Everything you learned about the second trimester — the checklists, the questions for the doctor, the “is this normal?” answers — shareable with your partner in <em>one link</em>. Not seventeen screenshots.</p>
+      <div class="juggler-chips">
+        <span class="chip chip-blue">To-do · Week 24 checklist</span>
+        <span class="chip">Calendar · Appointments</span>
+        <span class="chip">Doc · Questions for Dr. Rao</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="juggler-row">
+    <figure class="juggler-img">
+      <img src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=1200&auto=format&fit=crop" alt="Code on a laptop screen" loading="lazy" onerror="this.onerror=null;this.src='https://picsum.photos/seed/flowbuilder/1000/720'"/>
+      <figcaption class="mono">one human · one weird use case · zero deployments</figcaption>
+    </figure>
+    <div class="juggler-copy">
+      <h3>The tiny-tool builder</h3>
+      <p>That calculator only you need. The tracker with rules only you understand. Build it on the canvas, use it on the canvas, send it as a link. <em>No repo. No hosting. No drama.</em></p>
+      <div class="juggler-chips">
+        <span class="chip chip-blue">Custom UI · Tip splitter</span>
+        <span class="chip">Custom UI · Habit gauge</span>
+        <span class="chip">Timeline · v0 → v7</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE 08 — SHARING + FINALE ============ -->
+<section class="share scene" id="share" data-scene="08" data-scene-name="just send the canvas">
+  <div class="share-inner">
+    <p class="mono eyebrow">the last mile</p>
+    <h2>Sharing shouldn’t be<br/><em>a side quest.</em></h2>
+
+    <ul class="share-nope">
+      <li><span class="nope-text">Export a markdown file and pray</span><span class="nope-strike"></span></li>
+      <li><span class="nope-text">Zip up your custom instructions</span><span class="nope-strike"></span></li>
+      <li><span class="nope-text">Host an actual website for a tip calculator</span><span class="nope-strike"></span></li>
+    </ul>
+
+    <p class="share-yes">Just send<br/>the canvas.</p>
+
+    <button class="link-pill" id="copyLink">
+      <span class="mono">flowstatetool.com/c/weekend-in-lisbon</span>
+      <span class="link-pill-btn">copy</span>
+    </button>
+    <p class="mono share-toast" id="shareToast">link copied. that’s it. that’s the feature.</p>
+  </div>
+</section>
+
+<section class="finale" id="finale">
+  <div class="dotgrid finale-grid" aria-hidden="true"></div>
+  <div class="finale-pills" aria-hidden="true">
+    <span class="pill" style="--px:10%; --py:20%; --pr:-5deg">Curate</span>
+    <span class="pill" style="--px:20%; --py:66%; --pr:3deg">Ideate</span>
+    <span class="pill" style="--px:34%; --py:30%; --pr:-2deg">Create</span>
+    <span class="pill" style="--px:52%; --py:14%; --pr:4deg">Learn</span>
+    <span class="pill" style="--px:70%; --py:26%; --pr:-3deg">Build</span>
+    <span class="pill" style="--px:86%; --py:44%; --pr:5deg">Reference</span>
+    <span class="pill" style="--px:64%; --py:70%; --pr:-4deg">Research</span>
+    <span class="pill" style="--px:38%; --py:78%; --pr:2deg">Share</span>
+    <span class="pill" style="--px:82%; --py:80%; --pr:-2deg">Collaborate</span>
+  </div>
+  <div class="finale-center">
+    <h2 class="finale-wordmark">Flowstate</h2>
+    <p class="finale-line">Get out of the scroll.<br/><em>Get into flow.</em></p>
+    <a class="btn btn-blue btn-big" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+  </div>
+  <footer class="footer">
+    <span class="mono">© 2026 Flowstate</span>
+    <span class="mono">made for flow · flowstatetool.com</span>
+  </footer>
+</section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/Draggable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/InertiaPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrambleTextPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
