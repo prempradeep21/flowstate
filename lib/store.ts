@@ -351,7 +351,12 @@ export interface Card {
   /** Wall-clock start when the current question was submitted. */
   askStartedAt?: number;
   /** Token usage accumulated for the current question turn. */
-  turnUsage?: { inputTokens: number; outputTokens: number };
+  turnUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
   /** Cursor SDK custom UI pipeline stages (live build progress). */
   sdkBuildStages?: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[];
 }
@@ -665,9 +670,25 @@ interface CanvasState {
     opts?: { position?: { x: number; y: number } },
   ) => { artifactId: string; versionId: string };
 
-  sessionUsage: { inputTokens: number; outputTokens: number };
-  addUsage: (input: number, output: number) => void;
-  addCardTurnUsage: (cardId: string, input: number, output: number) => void;
+  sessionUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
+  addUsage: (
+    input: number,
+    output: number,
+    cacheRead?: number,
+    cacheCreation?: number,
+  ) => void;
+  addCardTurnUsage: (
+    cardId: string,
+    input: number,
+    output: number,
+    cacheRead?: number,
+    cacheCreation?: number,
+  ) => void;
 
   viewport: Viewport;
   /** Scale used for stroke/chrome compensation; lags during active zoom gestures. */
@@ -1455,17 +1476,24 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedModel: "claude-sonnet-4-6",
-  sessionUsage: { inputTokens: 0, outputTokens: 0 },
-  addUsage: (input, output) =>
+  sessionUsage: {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  },
+  addUsage: (input, output, cacheRead = 0, cacheCreation = 0) =>
     set((s) => ({
       sessionUsage: {
         inputTokens: s.sessionUsage.inputTokens + input,
         outputTokens: s.sessionUsage.outputTokens + output,
+        cacheReadTokens: s.sessionUsage.cacheReadTokens + cacheRead,
+        cacheCreationTokens: s.sessionUsage.cacheCreationTokens + cacheCreation,
       },
     })),
-  addCardTurnUsage: (cardId, input, output) =>
+  addCardTurnUsage: (cardId, input, output, cacheRead = 0, cacheCreation = 0) =>
     set((s) => {
-      if (!input && !output) return s;
+      if (!input && !output && !cacheRead && !cacheCreation) return s;
       const card = s.cards[cardId];
       if (!card) return s;
       const prev = card.turnUsage ?? { inputTokens: 0, outputTokens: 0 };
@@ -1477,6 +1505,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             turnUsage: {
               inputTokens: prev.inputTokens + input,
               outputTokens: prev.outputTokens + output,
+              cacheReadTokens: (prev.cacheReadTokens ?? 0) + cacheRead,
+              cacheCreationTokens:
+                (prev.cacheCreationTokens ?? 0) + cacheCreation,
             },
           },
         },

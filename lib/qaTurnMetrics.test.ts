@@ -10,7 +10,12 @@ describe("qaTurnMetrics", () => {
   it("turnMetricsOnSubmit resets timing and usage", () => {
     const before = Date.now();
     const metrics = turnMetricsOnSubmit();
-    expect(metrics.turnUsage).toEqual({ inputTokens: 0, outputTokens: 0 });
+    expect(metrics.turnUsage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    });
     expect(metrics.askStartedAt).toBeGreaterThanOrEqual(before);
   });
 

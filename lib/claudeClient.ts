@@ -245,10 +245,26 @@ export function askClaude(
                 cb.onSdkBuildStages?.(parsed.sdkBuildStages as SdkBuildStage[]);
               }
             } else if (parsed.usage) {
-              const { inputTokens, outputTokens } = parsed.usage;
+              const {
+                inputTokens,
+                outputTokens,
+                cacheReadTokens = 0,
+                cacheCreationTokens = 0,
+              } = parsed.usage;
               const store = useCanvasStore.getState();
-              store.addUsage(inputTokens, outputTokens);
-              store.addCardTurnUsage(cardId, inputTokens, outputTokens);
+              store.addUsage(
+                inputTokens,
+                outputTokens,
+                cacheReadTokens,
+                cacheCreationTokens,
+              );
+              store.addCardTurnUsage(
+                cardId,
+                inputTokens,
+                outputTokens,
+                cacheReadTokens,
+                cacheCreationTokens,
+              );
             } else if (parsed.error) {
               receivedContent = true;
               cb.onThinking?.("Request failed");
