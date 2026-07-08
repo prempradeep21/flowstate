@@ -57,7 +57,10 @@ export type AdminIconName =
   | "compass"
   | "sparkles"
   | "layers"
-  | "transcript";
+  | "transcript"
+  | "alert"
+  | "close"
+  | "expand";
 
 const ICONS: Record<AdminIconName, ReactNode> = {
   dashboard: (
@@ -246,6 +249,27 @@ const ICONS: Record<AdminIconName, ReactNode> = {
     <path d="M5 5h10" />
     <path d="M5 10h10" />
     <path d="M5 15h6" />
+  </>
+  ),
+  alert: (
+  <>
+    <path d="M10 3 2.5 16.5h15L10 3Z" />
+    <path d="M10 8v4" />
+    <path d="M10 14.5v.1" />
+  </>
+  ),
+  close: (
+  <>
+    <path d="M5 5l10 10" />
+    <path d="M15 5 5 15" />
+  </>
+  ),
+  expand: (
+  <>
+    <path d="M8 3H3v5" />
+    <path d="M12 17h5v-5" />
+    <path d="M3 3l6 6" />
+    <path d="M17 17l-6-6" />
   </>
   ),
 };

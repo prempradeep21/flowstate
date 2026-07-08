@@ -835,6 +835,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Repository explorer for GitHub URLs.",
     creationPaths: ["url-paste"],
     autoSpawnBehavior: "Instant spawn on GitHub repo URL paste.",
+    spawnTiming: "instant",
+    spawnTrigger: "Paste URL matching parseGithubRepoUrl",
     rules: [
       {
         id: "repo-github",
@@ -855,6 +857,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Rich embeds for supported social/content platforms.",
     creationPaths: ["url-paste"],
     autoSpawnBehavior: "Instant spawn when URL matches an embed provider.",
+    spawnTiming: "instant",
+    spawnTrigger: "Paste URL matching a supported embed provider",
     rules: [
       {
         id: "embed-providers",
@@ -876,6 +880,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Google Drive / Docs preview.",
     creationPaths: ["url-paste"],
     autoSpawnBehavior: "Instant spawn on Google Drive URL; may require Google connect.",
+    spawnTiming: "instant",
+    spawnTrigger: "Paste URL matching parseGoogleDriveUrl",
     rules: [
       {
         id: "google-drive",
@@ -896,6 +902,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Waveform input artifact from dropped audio files.",
     creationPaths: ["file-drop"],
     autoSpawnBehavior: "Instant spawn on canvas audio drop — no chat turn.",
+    spawnTiming: "instant",
+    spawnTrigger: "Drop an audio file onto the canvas",
     rules: [
       {
         id: "audio-formats",
@@ -928,6 +936,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Colored sticky note — manual placement only.",
     creationPaths: ["manual"],
     autoSpawnBehavior: "Instant spawn from placement menu.",
+    spawnTiming: "instant",
+    spawnTrigger: "Pick Sticky note from the canvas placement menu",
     rules: [
       {
         id: "stickynote-manual",
