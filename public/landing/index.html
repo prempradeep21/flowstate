@@ -22,6 +22,9 @@
   <div class="cursor-ring"></div>
 </div>
 
+<!-- cobalt wipe shown while switching scroll modes -->
+<div class="mode-wipe" aria-hidden="true"></div>
+
 <!-- nav -->
 <header class="nav">
   <a class="nav-logo" href="#top" data-nav>
@@ -29,9 +32,15 @@
   </a>
   <nav class="nav-links" aria-label="Primary">
     <a class="nav-link" href="#top" data-nav>Home</a>
+    <a class="nav-link" href="/landing/how-it-works">How it works</a>
     <a class="nav-link" href="/landing/blog.html">Blog</a>
   </nav>
   <div class="nav-right">
+    <div class="mode-toggle" id="modeToggle" role="group" aria-label="Scroll mode">
+      <span class="mode-thumb" aria-hidden="true"></span>
+      <button class="mode-btn" type="button" data-mode="normal" aria-pressed="true">normal</button>
+      <button class="mode-btn" type="button" data-mode="crazy" aria-pressed="false">crazy</button>
+    </div>
     <a class="btn btn-ink nav-cta" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
   </div>
 </header>

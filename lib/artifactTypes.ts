@@ -190,6 +190,12 @@ export interface WebsiteArtifactData {
   domainLabel: string;
   faviconUrl?: string;
   previewImageUrl?: string;
+  /**
+   * Whether the site allows being embedded in a cross-origin iframe. Undefined
+   * until the link-preview check resolves; true → render a live interactive
+   * iframe; false → render the static preview card.
+   */
+  embeddable?: boolean;
 }
 
 export type EmbedArtifactStatus = "loading" | "ready" | "failed";

@@ -21,7 +21,16 @@ export function normalizeWebsiteArtifactData(data: unknown): WebsiteArtifactData
     typeof obj.previewImageUrl === "string" && obj.previewImageUrl.trim()
       ? obj.previewImageUrl.trim()
       : undefined;
-  return { url, title, domainLabel: domainLabel || title, faviconUrl, previewImageUrl };
+  const embeddable =
+    typeof obj.embeddable === "boolean" ? obj.embeddable : undefined;
+  return {
+    url,
+    title,
+    domainLabel: domainLabel || title,
+    faviconUrl,
+    previewImageUrl,
+    embeddable,
+  };
 }
 
 export function normalizeWebsitePayload(
@@ -38,7 +47,7 @@ export function normalizeWebsitePayload(
 export function createWebsitePayload(
   url: string,
   domainLabel: string,
-  extras?: { faviconUrl?: string; previewImageUrl?: string },
+  extras?: { faviconUrl?: string; previewImageUrl?: string; embeddable?: boolean },
 ): Extract<ArtifactPayload, { type: "website" }> {
   return {
     type: "website",
@@ -49,6 +58,7 @@ export function createWebsitePayload(
       domainLabel,
       faviconUrl: extras?.faviconUrl,
       previewImageUrl: extras?.previewImageUrl,
+      embeddable: extras?.embeddable,
     },
   };
 }

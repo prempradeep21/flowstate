@@ -254,7 +254,7 @@ export function ArtifactShell({
       <div
         className={
           isCanvasLayout
-            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-b-canvas ${
+            ? `flex min-h-0 flex-1 flex-col overflow-visible rounded-canvas ${
                 isRepoCanvas
                   ? "bg-transparent"
                   : artifactKindUsesCanvasSurfaceFill(sessionArtifact.kind)

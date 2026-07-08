@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How Flowstate works — from one question to a whole canvas</title>
+<meta name="description" content="A step-by-step tour of Flowstate: ask on the canvas, branch your thinking, add documents, build living artifacts, and share it all with one link." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23cfcec9'/%3E%3Ccircle cx='50' cy='50' r='26' fill='%230f4fc7'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/landing/css/style.css" />
+<link rel="stylesheet" href="/landing/css/how-it-works.css" />
+</head>
+<body>
+
+<!-- grain overlay -->
+<div class="grain" aria-hidden="true"></div>
+
+<!-- custom cursor -->
+<div class="cursor" aria-hidden="true">
+  <div class="cursor-dot"></div>
+  <div class="cursor-ring"></div>
+</div>
+
+<!-- nav -->
+<header class="nav">
+  <a class="nav-logo" href="/landing">
+    <span class="nav-logo-dot"></span>Flowstate
+  </a>
+  <nav class="nav-links" aria-label="Primary">
+    <a class="nav-link" href="/landing">Home</a>
+    <a class="nav-link" href="/landing/how-it-works" aria-current="page">How it works</a>
+    <a class="nav-link" href="/landing/blog.html">Blog</a>
+  </nav>
+  <div class="nav-right">
+    <a class="btn btn-ink nav-cta" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+  </div>
+</header>
+
+<!-- progress rail (desktop) -->
+<nav class="hiw-rail" aria-label="Steps">
+  <a class="hiw-rail-item" href="#step-1" data-rail="step-1"><span class="hiw-rail-dot"></span><span class="mono">01</span></a>
+  <a class="hiw-rail-item" href="#step-2" data-rail="step-2"><span class="hiw-rail-dot"></span><span class="mono">02</span></a>
+  <a class="hiw-rail-item" href="#step-3" data-rail="step-3"><span class="hiw-rail-dot"></span><span class="mono">03</span></a>
+  <a class="hiw-rail-item" href="#step-4" data-rail="step-4"><span class="hiw-rail-dot"></span><span class="mono">04</span></a>
+  <a class="hiw-rail-item" href="#step-5" data-rail="step-5"><span class="hiw-rail-dot"></span><span class="mono">05</span></a>
+  <a class="hiw-rail-item" href="#step-6" data-rail="step-6"><span class="hiw-rail-dot"></span><span class="mono">06</span></a>
+  <a class="hiw-rail-item" href="#step-7" data-rail="step-7"><span class="hiw-rail-dot"></span><span class="mono">07</span></a>
+  <a class="hiw-rail-item" href="#step-8" data-rail="step-8"><span class="hiw-rail-dot"></span><span class="mono">08</span></a>
+  <a class="hiw-rail-item" href="#finale" data-rail="finale"><span class="hiw-rail-dot"></span><span class="mono">✦</span></a>
+</nav>
+
+<!-- progress hairline (small screens) -->
+<div class="hiw-progress" aria-hidden="true"><span class="hiw-progress-bar"></span></div>
+
+<main class="hiw-page" id="top">
+
+  <!-- ============ HERO ============ -->
+  <header class="hiw-hero">
+    <div class="dotgrid hiw-hero-grid" aria-hidden="true"></div>
+    <div class="hiw-hero-inner">
+      <p class="eyebrow mono">how flowstate works</p>
+      <h1>From one question<br/>to a whole <em>canvas.</em></h1>
+      <p class="hiw-hero-sub">Nine small stories about how work happens on Flowstate — asking, branching, building, and sharing. Follow one trip to Japan from a single question all the way to a canvas your whole crew can use.</p>
+      <p class="hiw-hero-hint mono">scroll — story 01 is waiting ↓</p>
+    </div>
+  </header>
+
+  <!-- ============ STEP 01 — ASK ON THE CANVAS ============ -->
+  <section class="hiw-step" id="step-1" data-step="01">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 01 · ask</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.6 3.6V16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7.4v4.2M9.9 9.5h4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <h2>Drop a question. <em>Anywhere.</em></h2>
+        <p>No thread to find, no chat to scroll back through. Click an empty spot on the canvas, ask, and the answer lands right next to your question — as a real card you can pick up and move.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s1Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <svg class="hiw-wires" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true">
+            <path class="s1-wire-path" d="M175 128 C 205 185, 240 205, 292 215"/>
+          </svg>
+          <div class="hiw-item collab-q s1-q" style="--x:8%; --y:10%; --r:-2deg">
+            <span class="mono q-tag">question · you</span>
+            <p><span class="s1-type">Plan a two-week trip to Japan</span><span class="hiw-caret" aria-hidden="true"></span></p>
+          </div>
+          <article class="art-card s1-answer" style="--x:47%; --y:46%; --r:1.5deg">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 21V4.5A1.5 1.5 0 0 1 6.5 3z M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Japan in two weeks<span class="art-kind">answer</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line doc-h"></span>
+              <span class="doc-line" style="--w:94%"></span>
+              <span class="doc-line" style="--w:86%"></span>
+              <span class="doc-line" style="--w:90%"></span>
+              <span class="doc-line" style="--w:58%"></span>
+            </div>
+          </article>
+          <div class="collab-cursor s1-cursor" style="--c:#0f4fc7" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">you</span></div>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · autosaved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 02 — FOLLOW-UPS ============ -->
+  <section class="hiw-step hiw-step--flip" id="step-2" data-step="02">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 02 · follow up</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 5.8A2.3 2.3 0 0 1 5.8 3.5h7.4a2.3 2.3 0 0 1 2.3 2.3v4.4a2.3 2.3 0 0 1-2.3 2.3H8.5l-3.4 2.7v-2.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 9.5h.2a2.3 2.3 0 0 1 2.3 2.3v4.4a2.3 2.3 0 0 1-2.3 2.3h-.4v2.7l-3.4-2.7h-3.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h2>Keep asking. <em>It stays wired.</em></h2>
+        <p>Follow-ups connect to the answer they came from, so the whole line of thought sits together on the canvas — visible at a glance, not buried three screens up a chat.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s2Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <svg class="hiw-wires" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true">
+            <path class="s2-wire1" d="M90 102 C 90 120, 96 128, 102 140"/>
+            <path class="s2-wire2" d="M268 200 C 306 194, 300 122, 322 96"/>
+            <path class="s2-wire3" d="M440 140 C 446 166, 434 182, 426 200"/>
+          </svg>
+          <div class="hiw-item collab-q hiw-q-sm s2-q1" style="--x:5%; --y:6%; --r:-1.5deg">
+            <span class="mono q-tag">question · you</span>
+            <p>Plan a two-week trip to Japan</p>
+          </div>
+          <article class="art-card s2-a1" style="--x:8%; --y:34%; --r:1deg; width:220px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 21V4.5A1.5 1.5 0 0 1 6.5 3z M15 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>Japan in two weeks<span class="art-kind">answer</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line doc-h"></span>
+              <span class="doc-line" style="--w:92%"></span>
+              <span class="doc-line" style="--w:70%"></span>
+            </div>
+          </article>
+          <div class="hiw-item collab-q s2-q2" style="--x:54%; --y:9%; --r:2deg">
+            <span class="mono q-tag">follow-up · you</span>
+            <p>What’s the best week in April?</p>
+          </div>
+          <article class="art-card s2-a2" style="--x:57%; --y:47%; --r:-1.5deg; width:230px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Best week: Apr 6–13<span class="art-kind">answer</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line doc-h"></span>
+              <span class="doc-line" style="--w:88%"></span>
+              <span class="doc-line" style="--w:52%"></span>
+            </div>
+          </article>
+          <p class="hiw-float-label mono s2-label" style="--x:8%; --y:84%">the whole thread, still on the canvas</p>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · autosaved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 03 — BRANCHES ============ -->
+  <section class="hiw-step" id="step-3" data-step="03">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 03 · branch</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="5.5" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="6" cy="18.5" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="12" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6 7.8v8.4M8 6.5l5.4 1.8a4 4 0 0 1 2.5 2M8 17.5l5.4-1.8a4 4 0 0 0 2.5-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+        <h2>One thought becomes <em>three branches.</em></h2>
+        <p>When an answer opens new directions, pull them out. Each branch is its own small thread with its own context — sitting side by side, not stacked in one endless scroll.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s3Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <svg class="hiw-wires" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true">
+            <path class="s3-w1" d="M268 188 C 310 168, 314 92, 334 66"/>
+            <path class="s3-w2" d="M268 196 C 306 196, 332 196, 368 196"/>
+            <path class="s3-w3" d="M268 204 C 310 226, 314 302, 334 330"/>
+          </svg>
+          <div class="hiw-item collab-q s3-parent" style="--x:6%; --y:36%; --r:-1.5deg">
+            <span class="mono q-tag">main thread</span>
+            <p>Plan a two-week trip to Japan</p>
+          </div>
+          <div class="hiw-item collab-q hiw-q-sm s3-c1" style="--x:56%; --y:6%; --r:2deg">
+            <span class="mono q-tag">branch · budget</span>
+            <p>What should the daily budget be?</p>
+          </div>
+          <div class="hiw-item collab-q hiw-q-sm s3-c2" style="--x:62%; --y:38%; --r:-1deg">
+            <span class="mono q-tag">branch · itinerary</span>
+            <p>Tokyo, Kyoto — where else?</p>
+          </div>
+          <div class="hiw-item collab-q hiw-q-sm s3-c3 hide-sm" style="--x:56%; --y:70%; --r:1.5deg">
+            <span class="mono q-tag">branch · packing</span>
+            <p>What do I pack in April?</p>
+          </div>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · zoomed out</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 04 — ADD DOCUMENTS ============ -->
+  <section class="hiw-step hiw-step--flip" id="step-4" data-step="04">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 04 · add sources</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v12.5A1.5 1.5 0 0 1 17.5 22h-11A1.5 1.5 0 0 1 5 20.5V4.5A1.5 1.5 0 0 1 6.5 3z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 11.5v5M9.5 14h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+        <h2>Bring your <em>documents in.</em></h2>
+        <p>Drag PDFs, docs, and sheets straight onto the canvas. They land as cards — sources the AI can actually read, sitting right next to the questions you’ll point at them.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s4Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <div class="hiw-dropzone s4-drop" style="left:10%; top:12%; width:80%; height:70%" aria-hidden="true"><span class="mono">drop files anywhere</span></div>
+          <article class="art-card s4-doc1" style="--x:14%; --y:20%; --r:-2deg; width:220px">
+            <header class="art-head"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#E2231A"/><path d="M14 2l5 5h-5z" fill="#f4a19b"/><text x="11.6" y="17.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.4" font-weight="700" fill="#fff">PDF</text></svg></span>kyoto-guide.pdf<span class="art-kind">pdf · source</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line doc-h"></span>
+              <span class="doc-line" style="--w:94%"></span>
+              <span class="doc-line" style="--w:82%"></span>
+              <span class="doc-line" style="--w:60%"></span>
+            </div>
+          </article>
+          <article class="art-card s4-doc2" style="--x:52%; --y:42%; --r:2deg; width:230px">
+            <header class="art-head"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#0F9D58"/><path d="M14 2l5 5h-5z" fill="#87ceac"/><rect x="8" y="11" width="8" height="7.5" fill="none" stroke="#fff" stroke-width="1.1"/><path d="M8 14.5h8M11.5 11v7.5" stroke="#fff" stroke-width="1.1"/></svg></span>budget.xlsx<span class="art-kind">sheet · source</span></header>
+            <div class="mini-sheet" aria-hidden="true">
+              <div class="sheet-row sheet-head"><span>A</span><span>B</span><span>C</span><span>D</span></div>
+              <div class="sheet-row"><span class="sheet-v">Flights</span><span>1240</span><span>2</span><span class="sheet-hot">620</span></div>
+              <div class="sheet-row"><span class="sheet-v">Hotels</span><span>1180</span><span>13</span><span>91</span></div>
+            </div>
+          </article>
+          <span class="chip chip-blue s4-chip" style="position:absolute; left:38%; top:84%; z-index:4">2 sources added ✓</span>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · autosaved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 05 — ASK THE DOCUMENTS ============ -->
+  <section class="hiw-step" id="step-5" data-step="05">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 05 · ask your sources</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v12.5A1.5 1.5 0 0 1 17.5 22h-11A1.5 1.5 0 0 1 5 20.5V4.5A1.5 1.5 0 0 1 6.5 3z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9.9 11.3a2.1 2.1 0 1 1 2.8 2c-.6.22-.9.6-.9 1.2v.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M11.9 17.4h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+        <h2>Then ask <em>the documents.</em></h2>
+        <p>Point a question at your files and get an answer with receipts — every claim wired back to the exact cell or page it came from. No “trust me,” just citations.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s5Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <svg class="hiw-wires" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true">
+            <path class="s5-w1" d="M216 88 C 238 102, 246 118, 262 136"/>
+            <path class="s5-w2" d="M216 268 C 242 250, 246 192, 262 168"/>
+          </svg>
+          <article class="art-card s5-doc1" style="--x:4%; --y:8%; --r:-1.5deg; width:195px">
+            <header class="art-head"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#E2231A"/><path d="M14 2l5 5h-5z" fill="#f4a19b"/><text x="11.6" y="17.2" text-anchor="middle" font-family="Arial, sans-serif" font-size="5.4" font-weight="700" fill="#fff">PDF</text></svg></span>kyoto-guide.pdf<span class="art-kind">source</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line" style="--w:92%"></span>
+              <span class="doc-line" style="--w:78%"></span>
+              <span class="doc-line" style="--w:86%"></span>
+            </div>
+            <div class="s5-scan" aria-hidden="true"></div>
+          </article>
+          <article class="art-card s5-doc2" style="--x:4%; --y:54%; --r:1.5deg; width:195px">
+            <header class="art-head"><span class="art-icon brand"><svg viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 20V3.4A1.4 1.4 0 0 1 6 2z" fill="#0F9D58"/><path d="M14 2l5 5h-5z" fill="#87ceac"/><rect x="8" y="11" width="8" height="7.5" fill="none" stroke="#fff" stroke-width="1.1"/><path d="M8 14.5h8M11.5 11v7.5" stroke="#fff" stroke-width="1.1"/></svg></span>budget.xlsx<span class="art-kind">source</span></header>
+            <div class="mini-doc" aria-hidden="true">
+              <span class="doc-line" style="--w:84%"></span>
+              <span class="doc-line" style="--w:64%"></span>
+            </div>
+            <div class="s5-scan" aria-hidden="true"></div>
+          </article>
+          <div class="hiw-item collab-q s5-q" style="--x:44%; --y:24%; --r:1.5deg">
+            <span class="mono q-tag">question → 2 sources</span>
+            <p>Cheapest week to fly in April?</p>
+          </div>
+          <article class="art-card s5-a" style="--x:47%; --y:58%; --r:-1deg; width:250px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 6.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Apr 8 — cheapest<span class="art-kind">answer · cited</span></header>
+            <div class="s5-a-body">
+              <p>Fly out Tue <em>Apr 8</em> — ¥62,400 return, and Kyoto hotels drop 22% that week.</p>
+              <div class="s5-cites">
+                <span class="chip chip-blue">budget.xlsx · B14</span>
+                <span class="chip chip-blue">kyoto-guide.pdf · p.3</span>
+              </div>
+            </div>
+          </article>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · autosaved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 06 — CREATE ARTIFACTS ============ -->
+  <section class="hiw-step hiw-step--flip" id="step-6" data-step="06">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 06 · make artifacts</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>
+        <h2>Turn answers into <em>artifacts.</em></h2>
+        <p>A table, a timeline, a calendar — any answer can become a real object on the canvas. Not a paragraph pretending to be a plan, but the actual thing, live and editable.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s6Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <span class="s6-prompt mono" aria-hidden="true">→ turn it into a table</span>
+          <article class="art-card s6-af s6-af-table" style="--x:28%; --y:26%; --r:-1deg; width:250px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Japan — trip plan<span class="art-kind">table</span></header>
+            <table class="mini-table">
+              <tr><th>City</th><th>Nights</th><th>¥</th></tr>
+              <tr><td>Tokyo</td><td>5</td><td>90k</td></tr>
+              <tr><td>Kyoto</td><td>4</td><td>70k</td></tr>
+              <tr><td>Osaka</td><td>3</td><td>52k</td></tr>
+            </table>
+          </article>
+          <article class="art-card s6-af s6-af-timeline" style="--x:28%; --y:26%; --r:1deg; width:250px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="6" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="12" r="2.2" fill="currentColor"/></svg></span>Japan — two weeks<span class="art-kind">timeline</span></header>
+            <div class="mini-timeline" aria-hidden="true">
+              <div class="tl-line"></div>
+              <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">tokyo</span></div>
+              <div class="tl-node tl-active"><span class="tl-dot"></span><span class="tl-lbl">kyoto</span></div>
+              <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">osaka</span></div>
+              <div class="tl-node"><span class="tl-dot"></span><span class="tl-lbl">home</span></div>
+            </div>
+          </article>
+          <article class="art-card s6-af s6-af-cal" style="--x:28%; --y:26%; --r:-0.5deg; width:250px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>April<span class="art-kind">calendar</span></header>
+            <div class="mini-calendar" aria-hidden="true">
+              <div class="cal-dow"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+              <div class="cal-grid">
+                <span class="cal-dim">31</span><span>1</span><span>2</span><span>3</span><span>4</span><span class="cal-dim">5</span><span class="cal-dim">6</span>
+                <span>7</span><span class="cal-hot">8</span><span class="cal-on">9</span><span class="cal-on">10</span><span class="cal-on">11</span><span class="cal-on">12</span><span class="cal-on">13</span>
+                <span class="cal-on">14</span><span class="cal-on">15</span><span class="cal-on">16</span><span class="cal-on">17</span><span class="cal-on">18</span><span class="cal-on">19</span><span class="cal-on">20</span>
+                <span class="cal-on">21</span><span>22</span><span>23</span><span>24</span><span>25</span><span class="cal-dim">26</span><span class="cal-dim">27</span>
+              </div>
+            </div>
+          </article>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · autosaved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 07 — UPDATE ARTIFACTS ============ -->
+  <section class="hiw-step" id="step-7" data-step="07">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 07 · update in place</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 3.5V8h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h2>Change your mind. <em>They update.</em></h2>
+        <p>Ask for one change and the artifact updates in place — same card, same spot, new numbers. Nothing gets regenerated from scratch, and nothing you built goes stale.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s7Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <svg class="hiw-wires" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true">
+            <path class="s7-wire" d="M262 108 C 282 118, 280 132, 292 144"/>
+          </svg>
+          <div class="hiw-item collab-q s7-q" style="--x:5%; --y:12%; --r:-1.5deg">
+            <span class="mono q-tag">question · you</span>
+            <p>Add three more days in Osaka.</p>
+          </div>
+          <article class="art-card s7-table" style="--x:48%; --y:18%; --r:1deg; width:260px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Japan — trip plan<span class="art-kind">table · live</span></header>
+            <table class="mini-table">
+              <tr><th>City</th><th>Nights</th><th>¥</th></tr>
+              <tr><td>Tokyo</td><td>5</td><td>90k</td></tr>
+              <tr><td>Kyoto</td><td>4</td><td>70k</td></tr>
+              <tr class="s7-row"><td>Osaka</td><td class="s7-n">6</td><td class="s7-e">104k</td></tr>
+              <tr class="s7-totrow"><td><b>Total</b></td><td></td><td class="s7-total"><b>264k</b></td></tr>
+            </table>
+          </article>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · live</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEP 08 — SHARE ============ -->
+  <section class="hiw-step hiw-step--flip" id="step-8" data-step="08">
+    <div class="hiw-step-inner">
+      <div class="hiw-step-copy">
+        <p class="hiw-step-num mono">step 08 · share it</p>
+        <span class="hiw-step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="17.5" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="17.5" cy="18.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.2 10.7 15.3 6.8M8.2 13.3l7.1 3.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+        <h2>Share it. <em>All of it.</em></h2>
+        <p>One link and the whole canvas is theirs too — live cursors, movable cards, every question still wired to its answer. Not a screenshot. Not an export. The real thing.</p>
+      </div>
+      <div class="hiw-step-stage">
+        <div class="hiw-canvas" id="s8Canvas">
+          <div class="dotgrid" aria-hidden="true"></div>
+          <span class="hiw-share s8-share" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="6" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="5.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="18.5" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 10.7 15.3 6.8M8.2 13.3l7.1 3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Share</span>
+          <span class="chip chip-blue hiw-link-chip s8-chip" aria-hidden="true">flowstate.new/c/japan-trip · copied ✓</span>
+          <article class="art-card s8-table" style="--x:8%; --y:10%; --r:-1.5deg; width:225px">
+            <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5zM3 9.5h18M3 14.5h18M9 3.5v17M15 3.5v17" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></span>Japan — trip plan<span class="art-kind">table</span></header>
+            <table class="mini-table">
+              <tr><td>Tokyo</td><td>5</td><td>90k</td></tr>
+              <tr><td>Kyoto</td><td>4</td><td>70k</td></tr>
+              <tr><td>Osaka</td><td>6</td><td>104k</td></tr>
+            </table>
+          </article>
+          <article class="art-card card-sticky hiw-item s8-sticky" style="--x:12%; --y:62%; --r:4deg">
+            <p>adding flights rn ✈️</p>
+          </article>
+          <div class="hiw-item collab-q hiw-q-sm s8-q hide-sm" style="--x:52%; --y:56%; --r:-2deg">
+            <span class="mono q-tag">question · ivy</span>
+            <p>@ai — can we do it under ¥300k?</p>
+          </div>
+          <div class="collab-cursor s8-you" style="--c:#0f4fc7" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">you</span></div>
+          <div class="collab-cursor s8-kai" style="--c:#8a4fd8" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">kai</span></div>
+          <div class="collab-cursor s8-ivy hide-sm" style="--c:#d9930d" aria-hidden="true"><svg viewBox="0 0 22 22"><path d="M3.5 2 18.6 9.9l-6.7 1.6-3.6 6.1L3.5 2z"/></svg><span class="collab-name">ivy</span></div>
+          <span class="hiw-canvas-label mono" aria-hidden="true">canvas · 3 people here</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINALE — CUSTOM UI SHOWCASE ============ -->
+  <section class="hiw-finale" id="finale" data-step="09">
+    <div class="hiw-finale-inner">
+      <div class="playground-head">
+        <p class="mono eyebrow">step 09 · the showcase</p>
+        <h2>Ask for an interface.<br/><em>Get an interface.</em></h2>
+        <p class="mono playground-hint">describe the tool you wish existed — flowstate builds it as a working component, right on the canvas</p>
+      </div>
+
+      <div class="hiw-gallery">
+
+        <!-- 1 · tip splitter (actually interactive) -->
+        <article class="art-card hiw-demo" data-demo="tip" aria-label="Interactive demo: a working tip splitter built on the canvas">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 8h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="12.5" y="15" width="4" height="3" rx="1" fill="currentColor"/></svg></span>Tip splitter<span class="art-kind">custom tool</span></header>
+          <div class="hiw-demo-body">
+            <p class="hiw-demo-ask mono">→ “make us a bill splitter” <span class="hiw-demo-live">try me — it works</span></p>
+            <div class="tool-row"><span class="tool-lbl">Bill</span><span class="tool-val">$84.00</span></div>
+            <div class="ts-segs" role="group" aria-label="Tip percentage">
+              <button class="ts-seg" type="button" data-tip="10">10%</button>
+              <button class="ts-seg is-on" type="button" data-tip="15">15%</button>
+              <button class="ts-seg" type="button" data-tip="20">20%</button>
+            </div>
+            <div class="tool-row"><span class="tool-lbl">People</span>
+              <span class="ts-people">
+                <button class="ts-step" type="button" data-d="-1" aria-label="Fewer people">−</button>
+                <b class="ts-count">4</b>
+                <button class="ts-step" type="button" data-d="1" aria-label="More people">+</button>
+              </span>
+            </div>
+            <div class="tool-row"><span class="tool-lbl">Each pays</span><span class="tool-val tool-hot ts-total">$24.15</span></div>
+          </div>
+        </article>
+
+        <!-- 2 · poll -->
+        <article class="art-card hiw-demo" data-demo="poll" aria-label="Demo: a live team poll with animating vote bars">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 20V9M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Where’s the offsite?<span class="art-kind">poll · live</span></header>
+          <div class="hiw-demo-body">
+            <p class="hiw-demo-ask mono">→ “let the team vote on this”</p>
+            <div class="poll-opt" data-opt="0"><span class="poll-lbl">Kyoto</span><span class="poll-bar"><span class="poll-fill" style="width:52%"></span></span><span class="poll-pct mono">52%</span></div>
+            <div class="poll-opt" data-opt="1"><span class="poll-lbl">Lisbon</span><span class="poll-bar"><span class="poll-fill" style="width:31%"></span></span><span class="poll-pct mono">31%</span></div>
+            <div class="poll-opt" data-opt="2"><span class="poll-lbl">Mex. City</span><span class="poll-bar"><span class="poll-fill" style="width:17%"></span></span><span class="poll-pct mono">17%</span></div>
+            <p class="poll-count mono"><b class="poll-votes">23</b> votes · updating live</p>
+          </div>
+        </article>
+
+        <!-- 3 · habit tracker -->
+        <article class="art-card hiw-demo" data-demo="habit" aria-label="Demo: a habit tracker grid filling in day by day">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><path d="M4 6.5 6 8.5 9.5 5M4 13.5l2 2L9.5 12M4 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5H20M12.5 13.5H20M12.5 19.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Morning runs<span class="art-kind">tracker</span></header>
+          <div class="hiw-demo-body">
+            <p class="hiw-demo-ask mono">→ “track my runs this month”</p>
+            <div class="hb-grid" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p class="hb-streak mono"><span>this month</span><span>streak · <b class="hb-n">12</b> days 🔥</span></p>
+          </div>
+        </article>
+
+        <!-- 4 · trip countdown -->
+        <article class="art-card hiw-demo" data-demo="count" aria-label="Demo: a countdown widget ticking down to the trip">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 9.5V13l2.5 2M9.5 2.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Tokyo countdown<span class="art-kind">widget</span></header>
+          <div class="hiw-demo-body">
+            <p class="hiw-demo-ask mono">→ “count down to the flight”</p>
+            <div class="cd-wrap" aria-hidden="true">
+              <svg class="cd-ring" viewBox="0 0 120 120">
+                <circle class="cd-track" cx="60" cy="60" r="52"/>
+                <circle class="cd-arc" cx="60" cy="60" r="52"/>
+              </svg>
+              <div class="cd-num"><b class="cd-days">12</b><span class="mono">days to go</span></div>
+            </div>
+            <div class="cd-chips" aria-hidden="true">
+              <span class="chip is-done">flights ✓</span>
+              <span class="chip is-done">hotels ✓</span>
+              <span class="chip cd-next">rail pass</span>
+              <span class="chip">packing</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VIBE CODERS — GITHUB VIEWER + SKILL VIEWER ============ -->
+  <section class="hiw-vibe" id="vibe">
+    <div class="playground-head">
+      <p class="mono eyebrow">for the vibe coders</p>
+      <h2>Vibe code faster<br/>with <em>Flowstate.</em></h2>
+      <p class="mono playground-hint">drop in a repo or a skill — flowstate reads it and tells you what you’re actually working with</p>
+    </div>
+
+    <div class="hiw-vibe-gallery">
+
+      <!-- 1 · GitHub viewer -->
+      <div class="hiw-vibe-card">
+        <article class="art-card vibe-screen vibe-gh" aria-label="Demo: pasting a GitHub repo and getting it explained">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.09.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 2.5-.34c.85 0 1.71.12 2.5.34 1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.02 10.02 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" fill="currentColor"/></svg></span>Repo explorer<span class="art-kind">github · explained</span></header>
+          <div class="vibe-body">
+            <div class="vibe-urlbar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M8 12l-2 2a3.2 3.2 0 0 0 4.5 4.5l2-2M16 12l2-2A3.2 3.2 0 0 0 13.5 5.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="vibe-url"><span class="gh-type">github.com/vercel/next.js</span><span class="hiw-caret" aria-hidden="true"></span></span>
+            </div>
+            <div class="vibe-overview gh-reveal">
+              <p class="vibe-lbl mono">overview</p>
+              <div class="mini-doc" aria-hidden="true">
+                <span class="doc-line doc-h"></span>
+                <span class="doc-line" style="--w:96%"></span>
+                <span class="doc-line" style="--w:88%"></span>
+                <span class="doc-line" style="--w:66%"></span>
+              </div>
+              <div class="vibe-tags">
+                <span class="mono">category</span>
+                <span class="chip chip-blue">Framework</span>
+                <span class="chip chip-blue">react</span>
+                <span class="chip chip-blue">ssr</span>
+              </div>
+              <div class="vibe-stats" aria-hidden="true">
+                <div class="vibe-stat"><b>128k</b><span class="mono">stars</span></div>
+                <div class="vibe-stat"><b>27k</b><span class="mono">forks</span></div>
+                <div class="vibe-stat"><b>TS</b><span class="mono">language</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <p class="hiw-vibe-cap">Paste any GitHub repo and Flowstate reads it for you — <b>what it is, how it’s built, and where to start.</b></p>
+      </div>
+
+      <!-- 2 · Skill viewer -->
+      <div class="hiw-vibe-card">
+        <article class="art-card vibe-screen vibe-skill" aria-label="Demo: a Claude skill being explained">
+          <header class="art-head"><span class="art-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.9L18.8 9l-4.9 1.9L12 15.8 10.1 10.9 5.2 9l4.9-1.1L12 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M18.4 15.4l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z" fill="currentColor"/></svg></span>Skill viewer<span class="art-kind">skill · explained</span></header>
+          <div class="vibe-body">
+            <div class="vibe-skill-top">
+              <div>
+                <p class="vibe-skill-name">Swiss Design</p>
+                <p class="mono vibe-skill-by">by zeke</p>
+              </div>
+              <span class="vibe-avatar" aria-hidden="true">z</span>
+            </div>
+            <div class="skill-reveal">
+              <div class="mini-doc" aria-hidden="true">
+                <span class="doc-line" style="--w:94%"></span>
+                <span class="doc-line" style="--w:86%"></span>
+                <span class="doc-line" style="--w:62%"></span>
+              </div>
+              <div class="vibe-tags">
+                <span class="chip chip-blue">systems</span>
+                <span class="chip chip-blue">visual</span>
+                <span class="chip chip-blue">craft</span>
+              </div>
+              <div class="vibe-meta">
+                <span class="vibe-meta-item"><span class="mono">tokens</span><b>high</b></span>
+                <span class="vibe-meta-item"><span class="mono">license</span><b>MIT</b></span>
+                <span class="vibe-meta-item"><span class="mono">safe</span><b>✓</b></span>
+              </div>
+            </div>
+          </div>
+        </article>
+        <p class="hiw-vibe-cap">See what any skill actually does — <b>what it changes, what it needs, and whether to trust it</b> — before you run it.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ CTA + FOOTER ============ -->
+  <section class="hiw-cta">
+    <div class="dotgrid hiw-cta-grid" aria-hidden="true"></div>
+    <div class="hiw-cta-center">
+      <p class="mono eyebrow">that’s the loop</p>
+      <h2>Now make it <em>yours.</em></h2>
+      <a class="btn btn-blue btn-big" href="https://flowstatetool.com" target="_blank" rel="noopener">Start creating</a>
+    </div>
+
+    <footer class="footer">
+      <span class="footer-left mono">© 2026 Flowstate</span>
+      <nav class="footer-center" aria-label="Legal">
+        <a class="footer-link" href="/terms">Terms &amp; Conditions</a>
+        <a class="footer-link" href="/privacy">Privacy Policy</a>
+      </nav>
+      <a class="footer-right" href="https://flowstatetool.com" target="_blank" rel="noopener">flowstatetool.com</a>
+    </footer>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script src="/landing/js/how-it-works.js"></script>
+</body>
+</html>

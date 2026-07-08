@@ -4,8 +4,10 @@ import { useState } from "react";
 import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
 import {
   CREATION_PATH_LABELS,
+  SPAWN_TIMING_META,
   type ArtifactCreationPath,
   type ArtifactIntentEntry,
+  type SpawnTiming,
 } from "@/lib/artifactIntentCatalog";
 
 const PATH_BADGE_CLASS: Record<ArtifactCreationPath, string> = {
@@ -43,6 +45,58 @@ function PathBadge({ path }: { path: ArtifactCreationPath }) {
     >
       {CREATION_PATH_LABELS[path]}
     </span>
+  );
+}
+
+function TimingBadge({ timing }: { timing: SpawnTiming }) {
+  const meta = SPAWN_TIMING_META[timing];
+  return (
+    <span
+      className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-canvas-micro font-semibold uppercase tracking-wide ${meta.badgeClass}`}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
+function SpawnVerdictBanner({ entry }: { entry: ArtifactIntentEntry }) {
+  const meta = SPAWN_TIMING_META[entry.spawnTiming];
+  return (
+    <div className="rounded-canvas border border-canvas-border bg-canvas-bg/50 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <TimingBadge timing={entry.spawnTiming} />
+        <p className="text-canvas-body-sm font-medium text-canvas-ink">
+          {meta.headline}
+        </p>
+      </div>
+
+      <p className="mt-2.5 text-canvas-body-sm leading-relaxed">
+        <span className="font-medium text-canvas-ink">{entry.spawnTrigger}</span>
+        <span className="mx-1.5 text-canvas-muted" aria-hidden>
+          &rarr;
+        </span>
+        <span className="text-canvas-muted">{entry.autoSpawnBehavior}</span>
+      </p>
+
+      <p className="mt-2 text-canvas-micro leading-relaxed text-canvas-muted">
+        {meta.description}
+      </p>
+
+      {entry.permissionCopy ? (
+        <p className="mt-2.5 rounded border border-amber-200/60 bg-amber-50/80 px-2.5 py-2 text-canvas-micro italic leading-relaxed text-amber-950">
+          Permission node: &ldquo;{entry.permissionCopy}&rdquo;
+        </p>
+      ) : null}
+
+      {entry.spawnPriority !== undefined ? (
+        <div className="mt-3">
+          <p className="mb-1 text-canvas-micro font-medium text-canvas-muted">
+            Spawn priority (lower wins)
+          </p>
+          <PriorityMeter priority={entry.spawnPriority} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -126,17 +180,16 @@ export function ArtifactIntentCard({ entry }: { entry: ArtifactIntentEntry }) {
             <PathBadge key={path} path={path} />
           ))}
         </div>
-        {entry.spawnPriority !== undefined ? (
-          <div className="mt-3">
-            <p className="mb-1 text-canvas-micro font-medium text-canvas-muted">
-              Spawn priority
-            </p>
-            <PriorityMeter priority={entry.spawnPriority} />
-          </div>
-        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
+        <section>
+          <h4 className="mb-2 text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+            When it lands on the canvas
+          </h4>
+          <SpawnVerdictBanner entry={entry} />
+        </section>
+
         <section>
           <h4 className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
             When to spin up
@@ -174,20 +227,6 @@ export function ArtifactIntentCard({ entry }: { entry: ArtifactIntentEntry }) {
             ) : null}
           </section>
         )}
-
-        <section>
-          <h4 className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
-            Spawn
-          </h4>
-          <p className="mt-1.5 text-canvas-body-sm text-canvas-muted">
-            {entry.autoSpawnBehavior}
-          </p>
-          {entry.permissionCopy ? (
-            <p className="mt-1.5 text-canvas-micro italic text-canvas-muted">
-              Permission copy: &ldquo;{entry.permissionCopy}&rdquo;
-            </p>
-          ) : null}
-        </section>
 
         {entry.validation && entry.validation.length > 0 ? (
           <section>

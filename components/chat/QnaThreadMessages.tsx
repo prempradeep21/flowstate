@@ -91,7 +91,7 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
           />
           <QuestionAttachments card={card} />
 
-          <p className="text-canvas-body-lg font-medium leading-snug text-canvas-accent">
+          <p className="text-canvas-body-lg font-medium leading-snug text-canvas-ink">
             {card.question}
           </p>
         </QaQuestionSection>

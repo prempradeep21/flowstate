@@ -38,11 +38,118 @@ import {
 } from "./specimens";
 
 const CATEGORY_LABELS: Record<string, string> = {
-  canvas: "Canvas",
+  canvas: "Canvas interactions",
   branch: "Branch & plugs",
   artifact: "Artifacts",
-  agent: "Agent",
-  history: "History",
+  agent: "Agent feedback",
+  history: "History (undo/redo)",
+};
+
+// ============================================================================
+// COLOR HARMONY SYSTEM - APPLIED COLOR THEORY
+// ============================================================================
+// Creates visual coherence and vibrancy using four harmony types:
+// - Analogous: Adjacent colors on the color wheel
+// - Complementary: Opposite colors for contrast
+// - Triadic: Three colors equally spaced
+// - Split-complementary: Base color plus two adjacent to its complement
+// ============================================================================
+
+type CategoryColorScheme = {
+  bg: string;
+  bgGradient: string;
+  text: string;
+  border: string;
+  pill: string;
+  accent: string;
+  accentText: string;
+  hover: string;
+  headerGlow: string;
+};
+
+const CATEGORY_COLORS: Record<string, CategoryColorScheme> = {
+  // CANVAS: Analogous harmony (Blue 240° → Cyan 180° → Teal 170°)
+  // Complementary accent: Amber (60°) for vibrancy contrast
+  // Cool analogous progression maintains visual cohesion while energizing
+  canvas: {
+    bg: "bg-blue-950/40",
+    bgGradient: "from-blue-600/20 via-cyan-500/14 to-teal-400/18",
+    text: "text-blue-700 dark:text-cyan-300",
+    border: "border-cyan-400/45",
+    pill: "bg-blue-50/80 text-blue-800 dark:bg-blue-950/60 dark:text-cyan-200",
+    accent: "from-amber-500/18 to-yellow-400/12",
+    accentText: "text-amber-700 dark:text-amber-400",
+    hover: "hover:from-blue-500/25 hover:via-cyan-400/15 hover:to-teal-300/20",
+    headerGlow: "shadow-[0_0_20px_rgba(34,211,238,0.25)]",
+  },
+
+  // BRANCH: Split-complementary (Purple 270° ± adjacent to Yellow-Gold 90°/60°)
+  // Primary purple/indigo with harmonic yellow-gold accents
+  // Sophisticated balance: purple identity with warm harmonic complementaries
+  branch: {
+    bg: "bg-purple-950/40",
+    bgGradient: "from-purple-600/20 via-indigo-500/14 to-violet-400/18",
+    text: "text-purple-700 dark:text-indigo-300",
+    border: "border-purple-400/45",
+    pill: "bg-purple-50/80 text-purple-800 dark:bg-purple-950/60 dark:text-indigo-200",
+    accent: "from-yellow-500/16 to-amber-400/10",
+    accentText: "text-yellow-700 dark:text-yellow-400",
+    hover: "hover:from-purple-500/25 hover:via-indigo-400/15 hover:to-violet-300/20",
+    headerGlow: "shadow-[0_0_20px_rgba(168,85,247,0.25)]",
+  },
+
+  // ARTIFACT: Triadic warmth (Amber 45° → Orange 30° → Gold 50°)
+  // Complementary teal (180°) for accent contrast and signal importance
+  // Warm triadic core creates energetic presentation with cool accents
+  artifact: {
+    bg: "bg-amber-950/40",
+    bgGradient: "from-amber-600/20 via-orange-500/14 to-yellow-400/18",
+    text: "text-amber-700 dark:text-yellow-300",
+    border: "border-orange-400/45",
+    pill: "bg-amber-50/80 text-amber-800 dark:bg-amber-950/60 dark:text-yellow-200",
+    accent: "from-teal-500/16 to-cyan-400/10",
+    accentText: "text-teal-700 dark:text-teal-400",
+    hover: "hover:from-amber-500/25 hover:via-orange-400/15 hover:to-yellow-300/20",
+    headerGlow: "shadow-[0_0_20px_rgba(251,146,60,0.25)]",
+  },
+
+  // AGENT: Analogous cool harmony (Emerald 120° → Teal 170° → Cyan 180°)
+  // Complementary rose (0°) for vital signal and emotional presence
+  // Cool analogous progression supports intelligent agent perception
+  agent: {
+    bg: "bg-emerald-950/40",
+    bgGradient: "from-emerald-600/20 via-teal-500/14 to-cyan-400/18",
+    text: "text-emerald-700 dark:text-teal-300",
+    border: "border-teal-400/45",
+    pill: "bg-emerald-50/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-teal-200",
+    accent: "from-rose-500/16 to-pink-400/10",
+    accentText: "text-rose-700 dark:text-rose-400",
+    hover: "hover:from-emerald-500/25 hover:via-teal-400/15 hover:to-cyan-300/20",
+    headerGlow: "shadow-[0_0_20px_rgba(16,185,129,0.25)]",
+  },
+
+  // HISTORY: Split-complementary rose base with yellow-green harmony
+  // Primary rose (0°) with split complements yellow (60°) and green (120°)
+  // Creates temporal/motion perception with harmonic warm-cool balance
+  history: {
+    bg: "bg-rose-950/40",
+    bgGradient: "from-rose-600/20 via-red-500/14 to-pink-400/18",
+    text: "text-rose-700 dark:text-pink-300",
+    border: "border-rose-400/45",
+    pill: "bg-rose-50/80 text-rose-800 dark:bg-rose-950/60 dark:text-pink-200",
+    accent: "from-lime-500/16 to-green-400/10",
+    accentText: "text-lime-700 dark:text-lime-400",
+    hover: "hover:from-rose-500/25 hover:via-red-400/15 hover:to-pink-300/20",
+    headerGlow: "shadow-[0_0_20px_rgba(244,63,94,0.25)]",
+  },
+};
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  canvas: "🎨",
+  branch: "🌳",
+  artifact: "📦",
+  agent: "🤖",
+  history: "⏱️",
 };
 
 function SpecimenDemo({
@@ -357,46 +464,53 @@ export function SoundMappingApp({ embedded = false }: { embedded?: boolean }) {
           )}
         </section>
 
-        {[...groupedEvents.entries()].map(([category, events]) => (
-          <section key={category} className="mb-10">
-            <h2 className="mb-4 text-canvas-body font-semibold text-canvas-ink">
-              {CATEGORY_LABELS[category] ?? category}
-            </h2>
-            <div className="grid gap-4">
-              {events.map((event) => (
-                <article
-                  key={event.id}
-                  className="grid gap-4 rounded-canvas border border-canvas-border bg-canvas-card p-4 lg:grid-cols-[1fr_240px_1fr]"
-                >
-                  <div>
-                    <h3 className="text-canvas-body-sm font-semibold text-canvas-ink">
-                      {event.label}
-                    </h3>
-                    <p className="mt-1 text-canvas-compact text-canvas-muted">
-                      {event.description}
-                    </p>
-                    <p className="mt-2 font-mono text-canvas-micro text-canvas-muted">
-                      {event.id}
-                    </p>
-                  </div>
-                  <div className="flex flex-col justify-center gap-2">
-                    <span className="text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted">
-                      Sound
-                    </span>
-                    <SoundPresetPicker
-                      value={draftMap[event.id].preset}
-                      previewGain={draftMap[event.id].volume}
-                      onChange={(preset) => handlePresetChange(event.id, preset)}
-                    />
-                    <SoundEventVolumeSlider
-                      value={draftMap[event.id].volume}
-                      onChange={(vol) => handleVolumeChange(event.id, vol)}
-                      disabled={isSilent(event.id)}
-                    />
-                    <PlayMappedButton
-                      eventId={event.id}
-                      disabled={isSilent(event.id)}
-                    />
+        {[...groupedEvents.entries()].map(([category, events]) => {
+          const colors = CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS] || CATEGORY_COLORS.canvas;
+          return (
+            <section key={category} className={`mb-10`}>
+              {/* Harmonic category header with gradient glow */}
+              <div className={`mb-4 rounded-lg bg-gradient-to-r ${colors.bgGradient} border ${colors.border} px-4 py-3 ${colors.headerGlow}`}>
+                <h2 className={`flex items-center gap-3 text-canvas-body font-bold ${colors.text}`}>
+                  <span className="text-2xl">{CATEGORY_EMOJI[category] || "■"}</span>
+                  {CATEGORY_LABELS[category] ?? category}
+                </h2>
+              </div>
+              {/* Event items with color-harmonious styling */}
+              <div className="grid gap-4">
+                {events.map((event) => (
+                  <article
+                    key={event.id}
+                    className={`grid gap-4 rounded-canvas border ${colors.border} bg-gradient-to-br ${colors.bgGradient} ${colors.bg} p-4 transition-all hover:shadow-md lg:grid-cols-[1fr_240px_1fr]`}
+                  >
+                    <div>
+                      <h3 className={`text-canvas-body-sm font-semibold ${colors.text}`}>
+                        {event.label}
+                      </h3>
+                      <p className="mt-1 text-canvas-compact text-canvas-muted">
+                        {event.description}
+                      </p>
+                      <p className="mt-2 font-mono text-canvas-micro text-canvas-muted">
+                        {event.id}
+                      </p>
+                    </div>
+                    <div className="flex flex-col justify-center gap-2">
+                      <span className={`text-canvas-micro font-medium uppercase tracking-wide ${colors.text}`}>
+                        Sound
+                      </span>
+                      <SoundPresetPicker
+                        value={draftMap[event.id].preset}
+                        previewGain={draftMap[event.id].volume}
+                        onChange={(preset) => handlePresetChange(event.id, preset)}
+                      />
+                      <SoundEventVolumeSlider
+                        value={draftMap[event.id].volume}
+                        onChange={(vol) => handleVolumeChange(event.id, vol)}
+                        disabled={isSilent(event.id)}
+                      />
+                      <PlayMappedButton
+                        eventId={event.id}
+                        disabled={isSilent(event.id)}
+                      />
                   </div>
                   <div>
                     <button
@@ -419,8 +533,9 @@ export function SoundMappingApp({ embedded = false }: { embedded?: boolean }) {
                 </article>
               ))}
             </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
 
       {finalizeOpen && (

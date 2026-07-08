@@ -39,6 +39,7 @@ export interface LinkPreviewClientResult {
   domainLabel: string;
   faviconUrl?: string;
   previewImageUrl?: string;
+  embeddable?: boolean;
 }
 
 export async function fetchLinkPreviewClient(
@@ -74,6 +75,7 @@ function enrichWebsiteTitle(artifactId: string, url: string): void {
       title: preview.title,
       faviconUrl: preview.faviconUrl,
       previewImageUrl: preview.previewImageUrl,
+      embeddable: preview.embeddable ?? false,
     });
     return true;
   };

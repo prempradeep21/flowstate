@@ -6,6 +6,7 @@ import type {
   ResponseType,
 } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
+import type { SkillCardData } from "@/lib/skillMetadata";
 import { getPermissionCopy } from "@/lib/artifactSpawnPriority";
 import { SPAWN_ANIMATION_MS } from "@/lib/motion/variants";
 import type {
@@ -285,6 +286,10 @@ export interface CanvasSkill {
   storagePath: string;
   publicUrl: string;
   createdAt: number;
+  /** Derived from the file's own frontmatter/body at upload time (instant fallback); upgraded by the LLM analysis pass. */
+  metadata?: SkillCardData;
+  /** LLM analysis lifecycle — keyed per skill, not per canvas node, so it only ever runs once. */
+  metadataStatus?: "pending" | "analyzing" | "ready" | "unavailable";
 }
 
 export interface CanvasSkillNode {
@@ -611,11 +616,17 @@ interface CanvasState {
   duplicateCanvas3DNode: (nodeId: string) => string | null;
   addCanvasSkill: (skill: CanvasSkill) => void;
   removeCanvasSkill: (skillId: string) => void;
+  setCanvasSkillMetadataStatus: (
+    skillId: string,
+    status: CanvasSkill["metadataStatus"],
+  ) => void;
+  setCanvasSkillAiMetadata: (skillId: string, metadata: SkillCardData) => void;
   spawnCanvasSkill: (
     skillId: string,
     opts?: { position?: { x: number; y: number }; focus?: boolean },
   ) => string | null;
   moveCanvasSkill: (nodeId: string, dx: number, dy: number) => void;
+  setCanvasSkillNodeSize: (nodeId: string, size: CardSize) => void;
   selectCanvasSkill: (nodeId: string | null) => void;
   removeCanvasSkillNode: (nodeId: string) => void;
 
@@ -964,7 +975,12 @@ interface CanvasState {
   ) => void;
   patchWebsiteArtifactTitle: (
     artifactId: string,
-    patch: { title: string; faviconUrl?: string; previewImageUrl?: string },
+    patch: {
+      title: string;
+      faviconUrl?: string;
+      previewImageUrl?: string;
+      embeddable?: boolean;
+    },
   ) => void;
   patchYoutubeArtifactTitle: (
     artifactId: string,
@@ -1833,6 +1849,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkills: { ...state.canvasSkills, [skill.id]: skill },
       collaborationHasEdits: true,
     })),
+  setCanvasSkillMetadataStatus: (skillId, status) =>
+    set((state) => {
+      const skill = state.canvasSkills[skillId];
+      if (!skill) return state;
+      return {
+        canvasSkills: {
+          ...state.canvasSkills,
+          [skillId]: { ...skill, metadataStatus: status },
+        },
+      };
+    }),
+  setCanvasSkillAiMetadata: (skillId, metadata) =>
+    set((state) => {
+      const skill = state.canvasSkills[skillId];
+      if (!skill) return state;
+      return {
+        canvasSkills: {
+          ...state.canvasSkills,
+          [skillId]: { ...skill, metadata, metadataStatus: "ready" },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
   removeCanvasSkill: (skillId) =>
     set((state) => {
       if (!state.canvasSkills[skillId]) return state;
@@ -1903,6 +1942,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
               y: node.position.y + dy,
             },
           },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+  setCanvasSkillNodeSize: (nodeId, size) =>
+    set((state) => {
+      const node = state.canvasSkillNodes[nodeId];
+      if (!node) return state;
+      const prev = node.size;
+      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      return {
+        canvasSkillNodes: {
+          ...state.canvasSkillNodes,
+          [nodeId]: { ...node, size },
         },
         collaborationHasEdits: true,
       };
@@ -3819,6 +3872,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           faviconUrl: patch.faviconUrl ?? latest.payload.data.faviconUrl,
           previewImageUrl:
             patch.previewImageUrl ?? latest.payload.data.previewImageUrl,
+          embeddable: patch.embeddable ?? latest.payload.data.embeddable,
         },
       };
       const versions = art.versions.map((v) =>

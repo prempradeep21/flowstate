@@ -15,6 +15,10 @@ const nextConfig = {
         source: "/landing",
         destination: "/landing/index.html",
       },
+      {
+        source: "/landing/how-it-works",
+        destination: "/landing/how-it-works.html",
+      },
     ];
   },
   ...(isDesignSystemExport

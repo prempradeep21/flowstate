@@ -252,6 +252,8 @@ export function ArtifactContent({
             payload={payload}
             fill={fill}
             sidebar={isSidebar}
+            layout={contentLayout}
+            forceInteractive={canvasInteractive}
             artifactId={artifactId}
           />
         );

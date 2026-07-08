@@ -7,6 +7,7 @@ import {
   type AssetUploadContext,
   type AssetUploadError,
 } from "@/lib/attachments";
+import { deriveSkillCardData } from "@/lib/skillMetadata";
 import { createClient } from "@/lib/supabase/client";
 import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
 
@@ -148,6 +149,14 @@ export async function uploadSkillFiles(
       continue;
     }
 
+    let metadata: CanvasSkill["metadata"];
+    try {
+      metadata = deriveSkillCardData(await file.text());
+    } catch {
+      // Malformed/unreadable content — fall back to the plain icon+title look.
+      metadata = undefined;
+    }
+
     result.skills.push({
       id: `skill_${Date.now().toString(36)}_${Math.random()
         .toString(36)
@@ -161,6 +170,8 @@ export async function uploadSkillFiles(
       storagePath,
       publicUrl: signed.signedUrl,
       createdAt: Date.now(),
+      metadata,
+      metadataStatus: "pending",
     });
   }
 

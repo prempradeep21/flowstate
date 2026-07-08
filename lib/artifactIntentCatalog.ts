@@ -27,6 +27,81 @@ export interface ArtifactIntentRule {
   mandatoryNote?: string;
 }
 
+export type SpawnTiming =
+  | "ai-auto"            // AI intent match auto-spawns as the first materialized spawn (priority-gated)
+  | "permission-preview" // typically shows a permission node instead of auto-spawning
+  | "instant"            // spawns immediately with no chat turn (URL paste, file drop, manual placement)
+  | "llm-emit"           // only via LLM emit_artifact inside a chat turn; no standalone intent auto-spawn
+  | "none";              // no artifact is materialized (prose text)
+
+export interface SpawnTimingMeta {
+  id: SpawnTiming;
+  label: string;      // short chip label, e.g. "Auto-spawn"
+  headline: string;   // one line: the promise, e.g. "Lands on the canvas on the first turn"
+  description: string; // 1-2 sentences explaining the timing bucket
+  /** Tailwind classes for a small badge: bg + text + border. Match existing palette (see below). */
+  badgeClass: string;
+  /** Tailwind text color class for accents/dots. */
+  accentText: string;
+}
+
+export const SPAWN_TIMING_META: Record<SpawnTiming, SpawnTimingMeta> = {
+  "ai-auto": {
+    id: "ai-auto",
+    label: "Auto-spawn",
+    headline: "Lands on the canvas automatically when intent matches",
+    description:
+      "The AI detects a matching intent and this becomes the first materialized spawn, appearing without a permission prompt. Only the highest-priority (or explicitly requested) payload auto-spawns.",
+    badgeClass: "bg-violet-500/10 text-violet-800 border-violet-200",
+    accentText: "text-violet-700",
+  },
+  "permission-preview": {
+    id: "permission-preview",
+    label: "Permission node",
+    headline: "Usually appears as a permission node you confirm",
+    description:
+      "Typically emitted alongside another spawn in the same turn, so it shows a permission preview node on the canvas that you confirm rather than auto-spawning.",
+    badgeClass: "bg-amber-500/10 text-amber-900 border-amber-200",
+    accentText: "text-amber-700",
+  },
+  instant: {
+    id: "instant",
+    label: "Instant",
+    headline: "Appears immediately — no chat turn needed",
+    description:
+      "Materializes right away from a direct action such as pasting a URL, dropping a file, or picking it from the placement menu. No AI turn is involved.",
+    badgeClass: "bg-emerald-500/10 text-emerald-900 border-emerald-200",
+    accentText: "text-emerald-700",
+  },
+  "llm-emit": {
+    id: "llm-emit",
+    label: "LLM emit",
+    headline: "Only when the model emits it mid-answer",
+    description:
+      "Never spawns from a standalone intent match. It only appears when the model calls emit_artifact inside a chat turn.",
+    badgeClass: "bg-sky-500/10 text-sky-900 border-sky-200",
+    accentText: "text-sky-700",
+  },
+  none: {
+    id: "none",
+    label: "No artifact",
+    headline: "No artifact — the reply stays as a text card",
+    description:
+      "Nothing is materialized on the canvas. The model's markdown reply becomes a text card instead.",
+    badgeClass: "bg-canvas-bg text-canvas-muted border-canvas-border",
+    accentText: "text-canvas-muted",
+  },
+};
+
+/** Order the buckets should be presented in the UI (most eager -> least). */
+export const SPAWN_TIMING_ORDER: SpawnTiming[] = [
+  "ai-auto",
+  "permission-preview",
+  "instant",
+  "llm-emit",
+  "none",
+];
+
 export interface ArtifactIntentEntry {
   kind: ArtifactCatalogKind;
   label: string;
@@ -34,6 +109,8 @@ export interface ArtifactIntentEntry {
   creationPaths: ArtifactCreationPath[];
   spawnPriority?: number;
   autoSpawnBehavior: string;
+  spawnTiming: SpawnTiming;
+  spawnTrigger: string; // short phrase: what fires this spawn, e.g. "Paste a GitHub repo URL"
   permissionCopy?: string;
   rules: ArtifactIntentRule[];
   promptGuidance?: string;
@@ -151,6 +228,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Default prose reply — no artifact is materialized on the canvas.",
     creationPaths: ["llm-prompt"],
     autoSpawnBehavior: "No artifact spawn; markdown text becomes the card response.",
+    spawnTiming: "none",
+    spawnTrigger: "Default — no structured intent",
     rules: [
       {
         id: "text-default",
@@ -173,6 +252,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior:
       "Auto-spawns on first turn when intent matches or user requested todo; highest spawn priority (10).",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Checklist / task-list intent detected",
     permissionCopy: getPermissionCopy("todo"),
     rules: [
       {
@@ -221,6 +302,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Month grid with highlighted dates and all-day events.",
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior: "Auto-spawns when calendar intent detected; priority 15.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Scheduling or date intent detected",
     permissionCopy: getPermissionCopy("calendar"),
     rules: [
       {
@@ -266,6 +349,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Horizontal chronological axis with dated text events.",
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior: "Auto-spawns when timeline intent detected; priority 18.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Chronology or roadmap intent detected",
     permissionCopy: getPermissionCopy("timeline"),
     rules: [
       {
@@ -314,6 +399,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Data visualizations — bar, line, area, pie, gauge.",
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior: "Auto-spawns when chart intent detected; priority 18 tier.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Data-viz, trend, or comparison intent",
     permissionCopy: getPermissionCopy("chart"),
     rules: [
       {
@@ -385,6 +472,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior:
       "Auto-spawns when table intent detected; beats map/travel keywords; priority 20.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Tabular or top-N intent detected",
     permissionCopy: getPermissionCopy("table"),
     rules: [
       {
@@ -434,6 +523,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Interactive HTML/CSS/JS widgets — timers, forms, dashboards.",
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior: "Auto-spawns when custom UI intent detected; priority 50.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Interactive UI or widget intent detected",
     permissionCopy: getPermissionCopy("custom"),
     rules: [
       {
@@ -493,6 +584,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Geographic preview of a place with optional saved pins.",
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior: "Auto-spawns when travel/geography intent detected; priority 30.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Travel or geography intent detected",
     permissionCopy: getPermissionCopy("map"),
     rules: [
       {
@@ -544,6 +637,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     creationPaths: ["ai-intent", "manual", "llm-prompt"],
     autoSpawnBehavior:
       "May spawn alongside map in same turn; priority 40. Often permission preview if map already spawned.",
+    spawnTiming: "permission-preview",
+    spawnTrigger: "Named venue in travel context",
     permissionCopy: getPermissionCopy("streetview"),
     rules: [
       {
@@ -599,6 +694,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "One or more source files with paths and language tags.",
     creationPaths: ["llm-prompt"],
     autoSpawnBehavior: "Spawns via LLM emit_artifact; priority 60.",
+    spawnTiming: "llm-emit",
+    spawnTrigger: "Model emits code in its answer",
     permissionCopy: getPermissionCopy("code"),
     rules: [
       {
@@ -621,6 +718,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Photo galleries — Wikimedia search or YouTube embed grid.",
     creationPaths: ["search-images", "url-paste", "manual", "llm-prompt"],
     autoSpawnBehavior: "Priority 70. YouTube URL paste creates images payload directly.",
+    spawnTiming: "ai-auto",
+    spawnTrigger: "Photo request or image search intent",
     permissionCopy: getPermissionCopy("images"),
     rules: [
       {
@@ -664,6 +763,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "LLM emission type for YouTube grids — stored as images payload.",
     creationPaths: ["llm-prompt"],
     autoSpawnBehavior: "Normalized to images artifact on the canvas.",
+    spawnTiming: "llm-emit",
+    spawnTrigger: "Model emits a YouTube video grid",
     rules: [
       {
         id: "video-emit",
@@ -683,6 +784,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "glb/gltf 3D model preview.",
     creationPaths: ["llm-prompt", "manual"],
     autoSpawnBehavior: "Priority 80.",
+    spawnTiming: "llm-emit",
+    spawnTrigger: "Model emits a glb/gltf model URL",
     permissionCopy: getPermissionCopy("3d"),
     rules: [
       {
@@ -711,6 +814,8 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     summary: "Generic website preview for HTTP(S) URLs.",
     creationPaths: ["url-paste"],
     autoSpawnBehavior: "Instant spawn on URL paste — no chat turn required.",
+    spawnTiming: "instant",
+    spawnTrigger: "Paste any non-special HTTP(S) URL",
     rules: [
       {
         id: "website-fallback",

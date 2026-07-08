@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { InteractiveWebFrame } from "@/components/artifacts/InteractiveWebFrame";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { isWebsiteTitlePending } from "@/lib/websiteArtifact";
 
@@ -68,15 +69,52 @@ export function WebsiteArtifactContent({
   payload,
   fill = false,
   sidebar = false,
+  layout = "panel",
+  forceInteractive = false,
   artifactId,
 }: {
   payload: Extract<ArtifactPayload, { type: "website" }>;
   fill?: boolean;
   sidebar?: boolean;
+  layout?: "canvas" | "panel" | "sidebar";
+  forceInteractive?: boolean;
   artifactId?: string;
 }) {
-  const { url, title, faviconUrl, previewImageUrl } = payload.data;
+  const { url, title, faviconUrl, previewImageUrl, embeddable } = payload.data;
   const pending = isWebsiteTitlePending(payload);
+
+  // The live frame is preferred when the site allows embedding; the watchdog
+  // inside InteractiveWebFrame can flip us back to the static card if it never
+  // renders. Reset the fallback whenever the target URL changes.
+  const [frameFailed, setFrameFailed] = useState(false);
+  useEffect(() => {
+    setFrameFailed(false);
+  }, [url]);
+  const showLiveFrame = embeddable === true && !frameFailed && !sidebar;
+
+  if (showLiveFrame) {
+    const frame = (
+      <InteractiveWebFrame
+        src={url}
+        title={title}
+        layout={layout}
+        forceInteractive={forceInteractive}
+        onFailed={() => setFrameFailed(true)}
+      />
+    );
+    if (fill) {
+      return (
+        <ArtifactContentStage
+          fill
+          artifactId={artifactId}
+          className="h-full min-h-0 !bg-transparent"
+        >
+          {frame}
+        </ArtifactContentStage>
+      );
+    }
+    return frame;
+  }
 
   if (sidebar) {
     return (
