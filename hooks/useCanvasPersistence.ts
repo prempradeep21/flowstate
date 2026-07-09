@@ -4,8 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   classifyCanvasPersistChange,
+  classifyCanvasPersistChangeFast,
   pickCanvasPersistSlice,
 } from "@/lib/canvasPersistDirty";
+import { diffSlices, opsByteSize } from "@/lib/canvasOps";
+import {
+  canvasOpsEnabled,
+  sendCanvasOpsBroadcast,
+} from "@/lib/collabOpsChannel";
 import {
   buildCanvasSnapshot,
   buildEmptyCanvasSnapshot,
@@ -56,6 +62,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
 import { isLandingCanvasSessionActive } from "@/lib/landingCanvasSession";
 import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
+import { isPerfFixtureSessionActive } from "@/lib/perf/perfFixtureSession";
 import { isTranscriptImportPlaygroundSessionActive } from "@/lib/transcriptImportPlaygroundSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
@@ -96,8 +103,21 @@ export function useCanvasPersistence({
   const isSwitchingRef = useRef(false);
   /** Blocks cloud auto-save until the first successful hydrate for this user session. */
   const initialHydrationCompleteRef = useRef(false);
+  /**
+   * Baseline for op-log diffs (NEXT_PUBLIC_CANVAS_OPS=1): the last slice
+   * whose changes were broadcast as ops, tagged with its canvas id so a
+   * canvas switch re-baselines instead of diffing across canvases. Null
+   * until the first save — that save's changes ride the snapshot, so remote
+   * peers never receive a "create everything" op storm.
+   */
+  const lastOpsSliceRef = useRef<{
+    canvasId: string;
+    slice: ReturnType<typeof pickCanvasPersistSlice>;
+  } | null>(null);
   const isDirtyRef = useRef(false);
   const contentEditDirtyRef = useRef(false);
+  /** Guards against stacking multiple idle local-backup writes. */
+  const idleBackupPendingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewportSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -341,6 +361,49 @@ export function useCanvasPersistence({
 
     const touchContentEditedAt = contentEditDirtyRef.current;
     const snapshotSource = getSnapshotSource();
+
+    // Flag-gated op-log path: diff against the last broadcast slice and ship
+    // the delta (1–5KB) to collaborators + the canvas_ops table. The full
+    // snapshot save below stays authoritative during rollout — ops give
+    // low-latency collab sync; postgres_changes remains the safety net.
+    if (canvasOpsEnabled()) {
+      try {
+        const nextSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+        const prev = lastOpsSliceRef.current;
+        if (prev && prev.canvasId === targetCanvasId) {
+          const ops = diffSlices(prev.slice, nextSlice);
+          if (ops.length > 0 && opsByteSize(ops) <= 256_000) {
+            const batch = {
+              batchId: crypto.randomUUID(),
+              actorId: user.id,
+              baseRev: 0,
+              ops,
+            };
+            sendCanvasOpsBroadcast(batch);
+            const supabase = createClient();
+            // Table is newer than the generated database types — regenerate
+            // types after applying the canvas_ops migration to drop the cast.
+            void (
+              supabase.from("canvas_ops") as unknown as {
+                insert: (row: Record<string, unknown>) => PromiseLike<unknown>;
+              }
+            ).insert({
+              canvas_id: targetCanvasId,
+              actor_id: user.id,
+              base_rev: batch.baseRev,
+              ops: batch.ops,
+              batch_id: batch.batchId,
+            });
+          }
+        }
+        lastOpsSliceRef.current = {
+          canvasId: targetCanvasId,
+          slice: nextSlice,
+        };
+      } catch {
+        // Op-log is additive during rollout — snapshot save still runs.
+      }
+    }
 
     const savePromise = executeSave(
       targetCanvasId,
@@ -970,6 +1033,7 @@ export function useCanvasPersistence({
         isArtifactCatalogSessionActive() ||
         isLandingCanvasSessionActive() ||
         isMobileSdlcSandboxSessionActive() ||
+        isPerfFixtureSessionActive() ||
         isTranscriptImportPlaygroundSessionActive()
       )
         return;
@@ -985,10 +1049,31 @@ export function useCanvasPersistence({
 
       const nextState = useCanvasStore.getState();
       const nextSlice = pickCanvasPersistSlice(nextState);
-      const { persist, contentEdit } = classifyCanvasPersistChange(
+      // Reference-only classification — this subscriber fires on EVERY store
+      // write (drag pointermoves, pan/zoom frames), so it must never
+      // serialize. The old classifyCanvasPersistChange cost up to six ~1MB
+      // JSON.stringify calls per write on large canvases.
+      const { persist, contentEdit } = classifyCanvasPersistChangeFast(
         prevSlice,
         nextSlice,
       );
+
+      if (process.env.NODE_ENV !== "production" && Math.random() < 0.02) {
+        // Sampled dev assertion (one release): the fast path may only differ
+        // from the deep compare by SAFE false-positives (extra debounced
+        // saves). A missed save (fast=false, slow=true) is a real bug.
+        const slow = classifyCanvasPersistChange(prevSlice, nextSlice);
+        if (
+          (slow.persist && !persist) ||
+          (slow.contentEdit && !contentEdit)
+        ) {
+          console.warn("[canvas-persist] fast classifier missed a change", {
+            fast: { persist, contentEdit },
+            slow,
+          });
+        }
+      }
+
       prevSlice = nextSlice;
 
       if (!persist) return;
@@ -998,13 +1083,32 @@ export function useCanvasPersistence({
         contentEditDirtyRef.current = true;
       }
 
-      const activeId = canvasIdRef.current;
-      if (activeId && user) {
-        persistLocalBackup(
-          activeId,
-          buildCanvasSnapshot(useCanvasStore.getState().getCanvasSnapshotSource()),
-        );
-      }
+      // Local backup writes moved OFF the per-change path — a ~1MB
+      // synchronous localStorage write per pointermove was the single
+      // largest source of gesture jank. Backups now ride the same debounce
+      // as cloud saves, serialized during idle time (flushOnExit still
+      // writes synchronously on pagehide).
+      const scheduleIdleBackup = () => {
+        if (!user || !canvasIdRef.current) return;
+        if (idleBackupPendingRef.current) return;
+        idleBackupPendingRef.current = true;
+        const write = () => {
+          idleBackupPendingRef.current = false;
+          const activeId = canvasIdRef.current;
+          if (!activeId) return;
+          persistLocalBackup(
+            activeId,
+            buildCanvasSnapshot(
+              useCanvasStore.getState().getCanvasSnapshotSource(),
+            ),
+          );
+        };
+        if (typeof requestIdleCallback === "function") {
+          requestIdleCallback(write, { timeout: 2000 });
+        } else {
+          setTimeout(write, 250);
+        }
+      };
 
       if (contentEdit) {
         if (viewportSaveTimerRef.current) {
@@ -1013,6 +1117,7 @@ export function useCanvasPersistence({
         }
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
+          scheduleIdleBackup();
           void performSave();
         }, SAVE_DEBOUNCE_MS);
         return;
@@ -1026,6 +1131,7 @@ export function useCanvasPersistence({
         clearTimeout(viewportSaveTimerRef.current);
       }
       viewportSaveTimerRef.current = setTimeout(() => {
+        scheduleIdleBackup();
         void performSave();
       }, VIEWPORT_SAVE_DEBOUNCE_MS);
     };

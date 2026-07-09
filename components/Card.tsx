@@ -38,6 +38,10 @@ import {
   qaInsetStyle,
 } from "@/lib/design/canvasInsets";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import {
+  subtreeGestureRefs,
+  useCanvasNodeDrag,
+} from "@/hooks/useCanvasNodeDrag";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -52,6 +56,7 @@ import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
 import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
 import {
   getLandingCardId,
+  pickCanvasLandingInput,
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
 import { isOriginCardPinned } from "@/lib/canvasOrigin";
@@ -65,6 +70,8 @@ import {
   DEFAULT_CANVAS_TUNING,
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
+import { getCardBounds } from "@/lib/canvasNodeBounds";
+import { MIN_VIEWPORT_SCALE } from "@/lib/zoomDisplay";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
@@ -252,14 +259,21 @@ function CardInner({ card }: CardProps) {
       });
     };
 
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    moveSelection: boolean;
-  } | null>(null);
-  const DRAG_THRESHOLD_PX = 0;
+  // Imperative drag: pointermoves transform the subtree's DOM once per frame
+  // via the gesture layer; moveSubtree commits ONE store write on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "card",
+    nodeId: card.id,
+    commitMove: (targetId, dx, dy) => moveSubtree(targetId, dx, dy),
+    resolveRefs: subtreeGestureRefs,
+    onDragStart: (targetId) => {
+      clearSpawnMetaIfDragging(targetId);
+      void playSoundThrottled("card-drag-start");
+    },
+    onDrop: (didMove) => {
+      if (didMove) void playSound("card-drag-drop");
+    },
+  });
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const answerTextRef = useRef<HTMLDivElement | null>(null);
@@ -695,43 +709,23 @@ function CardInner({ card }: CardProps) {
 
     if (!isDraggable) return;
 
+    // moveSubtree would refuse a pinned origin card — don't start a visual
+    // drag that could never commit.
+    if (isOriginCardPinned(pickCanvasLandingInput(st), card.id, st.globalOrigin)) {
+      return;
+    }
+
     e.preventDefault();
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
+    nodeDrag.start(e, {
       // Drag the whole multi-selection when this card's family is part of it.
       moveSelection:
         st.selectedFamilyRootIds.includes(familyRootId) &&
         st.selectedFamilyRootIds.length + st.canvasSelection.length > 1,
-    };
+    });
   };
 
   const handleDragPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-
-    if (!ds.didMove) {
-      clearSpawnMetaIfDragging(card.id);
-      void playSoundThrottled("card-drag-start");
-    }
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveSubtree(card.id, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const openExplain = openExplainId
@@ -753,18 +747,50 @@ function CardInner({ card }: CardProps) {
   const contentInteractive = isSelected || isEmptyComposer;
 
   const handleDragPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    if (ds.didMove) {
-      void playSound("card-drag-drop");
-    }
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
+
+  // Placeholder LOD: below MIN_VIEWPORT_SCALE card text is sub-legible, but
+  // every card still paid full markdown/DOM cost — the dominant mount cost
+  // when zooming out on large canvases. Render a cheap fixed-size stand-in
+  // instead (driven by SETTLED scale so the swap never happens mid-pinch).
+  // Selected cards and open composers keep full DOM (interaction targets).
+  if (
+    scale < MIN_VIEWPORT_SCALE &&
+    !isSelected &&
+    !isEmptyComposer &&
+    !hideForLanding
+  ) {
+    const bounds = getCardBounds(card, RESOLVED_CANVAS_TUNING);
+    return (
+      <div
+        ref={cardRef}
+        data-canvas-card={card.id}
+        data-card-lod="placeholder"
+        onPointerDown={handleCardPointerDown}
+        onPointerMove={handleDragPointerMove}
+        onPointerUp={handleDragPointerUp}
+        onPointerCancel={handleDragPointerUp}
+        className={`absolute overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card ${
+          isDraggable ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
+        style={{
+          left: card.position.x,
+          top: card.position.y,
+          width: cardWidth,
+          height: bounds.h,
+        }}
+      >
+        <div
+          className="h-2 w-full"
+          style={{ background: accent ?? CANVAS_ACCENT }}
+        />
+        <div className="truncate px-6 pt-4 text-[28px] font-medium text-canvas-ink/80">
+          {card.question}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

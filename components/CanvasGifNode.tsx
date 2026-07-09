@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { memo,
   PointerEvent as ReactPointerEvent,
   useRef,
 } from "react";
@@ -16,6 +16,7 @@ import {
   resizeGifMaintainingAspect,
 } from "@/lib/canvasGifBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -29,7 +30,7 @@ import {
 const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle]";
 
-export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
+function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasGifId === node.id ||
@@ -44,19 +45,15 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
 
   const { w: width, h: height } = getCanvasGifBounds(node);
   const nodeRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Node actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "gif",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasGif(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasGifNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
   const resizeStateRef = useRef<{
     pointerId: number;
     corner: NodeResizeCorner;
@@ -86,17 +83,10 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
     }
     if (!inMultiSelection) selectCanvasGif(node.id);
     if (canvasReadOnly) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: node.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -131,41 +121,20 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore.getState().duplicateCanvasGifNode(node.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasGif(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
+    if (resizeStateRef.current?.pointerId === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      resizeStateRef.current = null;
+      return;
     }
-    resizeStateRef.current = null;
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const handleResizePointerDown = (
@@ -264,3 +233,12 @@ export function CanvasGifNode({ node }: { node: CanvasGifNodeType }) {
     </MotionCanvasNode>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasGifNode = memo(
+  CanvasGifNodeInner,
+  (prev, next) => prev.node === next.node,
+);

@@ -909,6 +909,30 @@ html[data-theme="dark"] .timeline-band {
   animation-delay: 80ms;
 }
 
+/*
+ * Gesture-time compositing hygiene: while a node drag is active
+ * (data-gesturing set by lib/gesture/gestureLayer.ts), suppress paint-heavy
+ * effects on canvas nodes — shadows/filters force large repaint areas per
+ * frame and hover transitions fight the imperative transforms. Everything is
+ * restored the moment the gesture ends; this mirrors how Figma dims chrome
+ * during drags.
+ */
+[data-canvas-container][data-gesturing="true"] [data-canvas-card],
+[data-canvas-container][data-gesturing="true"] [data-canvas-artifact],
+[data-canvas-container][data-gesturing="true"] [data-canvas-asset],
+[data-canvas-container][data-gesturing="true"] [data-canvas-gif],
+[data-canvas-container][data-gesturing="true"] [data-canvas-3d],
+[data-canvas-container][data-gesturing="true"] [data-canvas-skill],
+[data-canvas-container][data-gesturing="true"] [data-canvas-text-label] {
+  transition: none !important;
+}
+
+[data-canvas-container][data-gesturing="true"] [data-canvas-card] *,
+[data-canvas-container][data-gesturing="true"] [data-canvas-artifact] *,
+[data-canvas-container][data-gesturing="true"] [data-canvas-skill] * {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-canvas-viewport].viewport-focusing {
     transition: none;

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCanvasSpatialIndex,
+  CanvasSpatialIndexManager,
   getVisibleWorldRect,
   queryVisibleNodes,
   shouldEnableViewportCulling,
+  visibleNodesEqual,
+  type CanvasSpatialInput,
+  type VisibleNodes,
 } from "@/lib/canvasSpatialIndex";
 import type { Card } from "@/lib/store";
 
@@ -15,6 +19,46 @@ function makeCard(id: string, x: number, y: number): Card {
     answer: "A",
     status: "done",
     position: { x, y },
+    parentCardId: null,
+    parentConversationId: null,
+  };
+}
+
+function spatialInput(
+  overrides: Partial<CanvasSpatialInput> = {},
+): CanvasSpatialInput {
+  return {
+    viewport: { x: 0, y: 0, scale: 1 },
+    cards: {},
+    cardOrder: [],
+    canvasArtifactNodes: {},
+    canvasArtifactOrder: [],
+    canvasAssets: {},
+    canvasAssetNodes: {},
+    canvasAssetOrder: [],
+    canvasGifNodes: {},
+    canvasGifOrder: [],
+    canvas3DNodes: {},
+    canvas3DOrder: [],
+    canvasSkills: {},
+    canvasSkillNodes: {},
+    canvasSkillOrder: [],
+    canvasTextLabels: {},
+    canvasTextLabelOrder: [],
+    sessionArtifacts: {},
+    ...overrides,
+  };
+}
+
+function visibleWith(cards: string[]): VisibleNodes {
+  return {
+    cards: new Set(cards),
+    artifacts: new Set(),
+    assets: new Set(),
+    gifs: new Set(),
+    threeD: new Set(),
+    skills: new Set(),
+    labels: new Set(),
   };
 }
 
@@ -38,30 +82,14 @@ describe("canvasSpatialIndex", () => {
   });
 
   it("returns only nodes intersecting the viewport", () => {
-    const cards: Record<string, Card> = {
-      near: makeCard("near", 0, 0),
-      far: makeCard("far", 5000, 5000),
-    };
-
     const visible = queryVisibleNodes(
-      {
-        viewport: { x: 0, y: 0, scale: 1 },
-        cards,
+      spatialInput({
+        cards: {
+          near: makeCard("near", 0, 0),
+          far: makeCard("far", 5000, 5000),
+        },
         cardOrder: ["near", "far"],
-        canvasArtifactNodes: {},
-        canvasArtifactOrder: [],
-        canvasAssets: {},
-        canvasAssetNodes: {},
-        canvasAssetOrder: [],
-        canvasGifNodes: {},
-        canvasGifOrder: [],
-        canvasSkills: {},
-        canvasSkillNodes: {},
-        canvasSkillOrder: [],
-        canvasTextLabels: {},
-        canvasTextLabelOrder: [],
-        sessionArtifacts: {},
-      },
+      }),
       { width: 800, height: 600 },
     );
 
@@ -70,29 +98,11 @@ describe("canvasSpatialIndex", () => {
   });
 
   it("always includes pinned card ids", () => {
-    const cards: Record<string, Card> = {
-      far: makeCard("far", 9000, 9000),
-    };
-
     const visible = queryVisibleNodes(
-      {
-        viewport: { x: 0, y: 0, scale: 1 },
-        cards,
+      spatialInput({
+        cards: { far: makeCard("far", 9000, 9000) },
         cardOrder: ["far"],
-        canvasArtifactNodes: {},
-        canvasArtifactOrder: [],
-        canvasAssets: {},
-        canvasAssetNodes: {},
-        canvasAssetOrder: [],
-        canvasGifNodes: {},
-        canvasGifOrder: [],
-        canvasSkills: {},
-        canvasSkillNodes: {},
-        canvasSkillOrder: [],
-        canvasTextLabels: {},
-        canvasTextLabelOrder: [],
-        sessionArtifacts: {},
-      },
+      }),
       { width: 800, height: 600 },
       { cards: ["far"] },
     );
@@ -110,28 +120,50 @@ describe("canvasSpatialIndex", () => {
     }
 
     const start = performance.now();
-    const tree = buildCanvasSpatialIndex({
-      viewport: { x: 0, y: 0, scale: 1 },
-      cards,
-      cardOrder,
-      canvasArtifactNodes: {},
-      canvasArtifactOrder: [],
-      canvasAssets: {},
-      canvasAssetNodes: {},
-      canvasAssetOrder: [],
-      canvasGifNodes: {},
-      canvasGifOrder: [],
-      canvasSkills: {},
-      canvasSkillNodes: {},
-      canvasSkillOrder: [],
-      canvasTextLabels: {},
-      canvasTextLabelOrder: [],
-      sessionArtifacts: {},
-    });
+    const tree = buildCanvasSpatialIndex(spatialInput({ cards, cardOrder }));
     const hits = tree.search({ minX: 0, minY: 0, maxX: 600, maxY: 400 });
     const elapsed = performance.now() - start;
 
     expect(hits.length).toBeGreaterThan(0);
     expect(elapsed).toBeLessThan(50);
+  });
+});
+
+describe("CanvasSpatialIndexManager", () => {
+  it("reuses the tree across viewport-only queries and rebuilds after markDirty", () => {
+    const manager = new CanvasSpatialIndexManager();
+    const base = spatialInput({
+      cards: { a: makeCard("a", 0, 0) },
+      cardOrder: ["a"],
+    });
+
+    const first = manager.query(base, { width: 800, height: 600 });
+    expect(first.cards.has("a")).toBe(true);
+
+    // Stale-tree proof: geometry changed but not marked dirty — the manager
+    // intentionally still answers from the old tree.
+    const moved = spatialInput({
+      cards: { a: makeCard("a", 9000, 9000) },
+      cardOrder: ["a"],
+    });
+    const stale = manager.query(moved, { width: 800, height: 600 });
+    expect(stale.cards.has("a")).toBe(true);
+
+    manager.markDirty();
+    const fresh = manager.query(moved, { width: 800, height: 600 });
+    expect(fresh.cards.has("a")).toBe(false);
+  });
+});
+
+describe("visibleNodesEqual", () => {
+  it("matches identical sets and rejects different ones", () => {
+    expect(visibleNodesEqual(visibleWith(["a", "b"]), visibleWith(["b", "a"]))).toBe(
+      true,
+    );
+    expect(visibleNodesEqual(visibleWith(["a"]), visibleWith(["a", "b"]))).toBe(
+      false,
+    );
+    expect(visibleNodesEqual(null, visibleWith([]))).toBe(false);
+    expect(visibleNodesEqual(null, null)).toBe(true);
   });
 });

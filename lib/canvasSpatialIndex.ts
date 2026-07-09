@@ -194,25 +194,28 @@ export function buildCanvasSpatialIndex(
   return tree;
 }
 
-export function queryVisibleNodes(
-  input: CanvasSpatialInput,
+export interface AlwaysVisibleSets {
+  cards?: Iterable<string>;
+  artifacts?: Iterable<string>;
+  assets?: Iterable<string>;
+  gifs?: Iterable<string>;
+  threeD?: Iterable<string>;
+  skills?: Iterable<string>;
+  labels?: Iterable<string>;
+}
+
+/** Search a PREBUILT tree — no rebuild. O(log n + hits). */
+export function searchVisibleNodes(
+  tree: SpatialIndex,
+  viewport: Viewport,
   containerSize: { width: number; height: number },
-  alwaysVisible: {
-    cards?: Iterable<string>;
-    artifacts?: Iterable<string>;
-    assets?: Iterable<string>;
-    gifs?: Iterable<string>;
-    threeD?: Iterable<string>;
-    skills?: Iterable<string>;
-    labels?: Iterable<string>;
-  } = {},
+  alwaysVisible: AlwaysVisibleSets = {},
 ): VisibleNodes {
   const rect = getVisibleWorldRect(
-    input.viewport,
+    viewport,
     containerSize.width,
     containerSize.height,
   );
-  const tree = buildCanvasSpatialIndex(input);
   const hits = tree.search(rect);
 
   const cards = new Set<string>(alwaysVisible.cards ?? []);
@@ -234,6 +237,78 @@ export function queryVisibleNodes(
   }
 
   return { cards, artifacts, assets, gifs, threeD, skills, labels };
+}
+
+export function queryVisibleNodes(
+  input: CanvasSpatialInput,
+  containerSize: { width: number; height: number },
+  alwaysVisible: AlwaysVisibleSets = {},
+): VisibleNodes {
+  return searchVisibleNodes(
+    buildCanvasSpatialIndex(input),
+    input.viewport,
+    containerSize,
+    alwaysVisible,
+  );
+}
+
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+/**
+ * True when both results contain the same node ids. Lets the culling hook
+ * skip its React state update on the (very common) pan/zoom frames where
+ * nothing entered or left the padded viewport.
+ */
+export function visibleNodesEqual(
+  a: VisibleNodes | null,
+  b: VisibleNodes | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    setsEqual(a.cards, b.cards) &&
+    setsEqual(a.artifacts, b.artifacts) &&
+    setsEqual(a.assets, b.assets) &&
+    setsEqual(a.gifs, b.gifs) &&
+    setsEqual(a.threeD, b.threeD) &&
+    setsEqual(a.skills, b.skills) &&
+    setsEqual(a.labels, b.labels)
+  );
+}
+
+/**
+ * Persistent spatial index: geometry changes mark the tree dirty (rebuilt
+ * lazily on next query); viewport-only changes reuse the tree — the old
+ * queryVisibleNodes path rebuilt the whole RBush O(n log n) EVERY frame
+ * during pan/zoom, which was the dominant per-frame cost after render work.
+ */
+export class CanvasSpatialIndexManager {
+  private tree: SpatialIndex | null = null;
+
+  markDirty(): void {
+    this.tree = null;
+  }
+
+  /** Rebuild if dirty, then search. */
+  query(
+    input: CanvasSpatialInput,
+    containerSize: { width: number; height: number },
+    alwaysVisible: AlwaysVisibleSets = {},
+  ): VisibleNodes {
+    if (!this.tree) {
+      this.tree = buildCanvasSpatialIndex(input);
+    }
+    return searchVisibleNodes(
+      this.tree,
+      input.viewport,
+      containerSize,
+      alwaysVisible,
+    );
+  }
 }
 
 export function shouldEnableViewportCulling(nodeCount: number): boolean {

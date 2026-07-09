@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   PointerEvent as ReactPointerEvent,
   useCallback,
   useRef,
@@ -55,6 +56,7 @@ import {
   findRemoteArtifactUpdatingCardId,
 } from "@/lib/artifactRemoteUpdate";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
@@ -68,7 +70,7 @@ interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
 }
 
-export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
+function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
@@ -101,19 +103,22 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Node actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag: DOM transform per frame via the gesture layer, single
+  // moveCanvasArtifact commit on drop. Alt-drag duplicates on first move and
+  // drags the copy, exactly as before.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "artifact",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasArtifact(targetId, dx, dy),
+    makeCopy: (id) =>
+      useCanvasStore.getState().duplicateCanvasArtifactNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    onDrop: (didMove) => {
+      if (didMove) void playSound("artifact-drag-drop");
+      setPointerSessionActive(false);
+    },
+    recordUndo,
+  });
 
   const resizeStateRef = useRef<{
     pointerId: number;
@@ -275,18 +280,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     if (!inMultiSelection) selectCanvasArtifact(node.id);
     if (canvasReadOnly) return;
     e.preventDefault();
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
     setPointerSessionActive(true);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: node.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -343,35 +341,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore
-        .getState()
-        .duplicateCanvasArtifactNode(node.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasArtifact(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -387,18 +357,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    if (ds.didMove) {
-      void playSound("artifact-drag-drop");
-    }
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
-    setPointerSessionActive(false);
+    nodeDrag.end(e);
   };
 
   const handleResizePointerDown = (
@@ -575,3 +534,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     </div>
   );
 }
+
+/**
+ * Memoized: re-renders only when its node object is replaced (position/size
+ * commit). Everything else it needs comes from narrow store selectors inside,
+ * matching Card's memo contract — without this, every store write re-rendered
+ * every artifact node on the canvas.
+ */
+export const CanvasArtifactNode = memo(
+  CanvasArtifactNodeInner,
+  (prev, next) => prev.node === next.node,
+);

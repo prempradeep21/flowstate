@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { memo,
   PointerEvent as ReactPointerEvent,
   useEffect,
   useLayoutEffect,
@@ -17,6 +17,7 @@ import {
   MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -104,7 +105,7 @@ function WidthResizeHandle({
   );
 }
 
-export function CanvasTextLabelNode({
+function CanvasTextLabelNodeInner({
   label,
   startEditing = false,
 }: CanvasTextLabelNodeProps) {
@@ -132,19 +133,15 @@ export function CanvasTextLabelNode({
   const [draft, setDraft] = useState(label.text);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Label actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this label is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "label",
+    nodeId: label.id,
+    commitMove: (targetId, dx, dy) => moveCanvasTextLabel(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasTextLabel(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
   const resizeStateRef = useRef<{
     pointerId: number;
     mode: "corner" | "width";
@@ -291,17 +288,10 @@ export function CanvasTextLabelNode({
     }
     if (!inMultiSelection) selectCanvasTextLabel(label.id);
     if (st.canvasReadOnly) return;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: label.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -340,35 +330,8 @@ export function CanvasTextLabelNode({
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId || editing) return;
-
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore
-        .getState()
-        .duplicateCanvasTextLabel(label.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasTextLabel(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    if (editing) return;
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -383,14 +346,7 @@ export function CanvasTextLabelNode({
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const contentInteractive = isSelected || editing;
@@ -511,3 +467,13 @@ export function CanvasTextLabelNode({
     </div>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasTextLabelNode = memo(
+  CanvasTextLabelNodeInner,
+  (prev, next) =>
+    prev.label === next.label && prev.startEditing === next.startEditing,
+);

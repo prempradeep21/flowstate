@@ -166,6 +166,9 @@ function createMainWindow(url) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      // Keep rAF/timers steady when the window is occluded — the canvas
+      // gesture pipeline and collab presence rely on consistent frame timing.
+      backgroundThrottling: false,
     },
   });
 

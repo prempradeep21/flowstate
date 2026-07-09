@@ -56,3 +56,6 @@ next-env.d.ts
 
 # Local agent settings
 /.claude/
+
+# Local perf benchmark artifacts (scripts/perf/run-benchmark.mjs output)
+/scratch/

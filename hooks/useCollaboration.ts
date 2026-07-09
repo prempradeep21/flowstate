@@ -44,12 +44,19 @@ import {
   parsePresenceState,
   setRemotePresence,
 } from "@/lib/remotePresenceStore";
-import { parseCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { buildCanvasSnapshot, parseCanvasSnapshot } from "@/lib/canvasSnapshot";
 import {
   areCanvasPersistSlicesEqual,
   pickCanvasPersistSlice,
   pickCanvasPersistSliceFromSnapshot,
 } from "@/lib/canvasPersistDirty";
+import { applyOps, type CanvasOpBatch } from "@/lib/canvasOps";
+import {
+  CANVAS_OPS_EVENT,
+  canvasOpsEnabled,
+  setCanvasOpsChannel,
+  wasBatchSentLocally,
+} from "@/lib/collabOpsChannel";
 import { hasActiveLocalEdits } from "@/lib/localEditGuard";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
@@ -395,6 +402,51 @@ export function useCollaboration({
 
       presenceChannelRef.current = presenceChannel;
 
+      // Flag-gated op-log sync: collaborators' saves arrive as 1–5KB delta
+      // batches on this channel and apply as idempotent LWW entity writes.
+      // The postgres_changes snapshot path below remains the safety net —
+      // ops give low latency, snapshots give eventual reconciliation.
+      if (canvasOpsEnabled()) {
+        setCanvasOpsChannel(presenceChannel);
+        presenceChannel.on(
+          "broadcast",
+          { event: CANVAS_OPS_EVENT },
+          ({ payload }: { payload: CanvasOpBatch }) => {
+            const batch = payload;
+            if (!batch?.batchId || !Array.isArray(batch.ops)) return;
+            if (wasBatchSentLocally(batch.batchId)) return;
+            if (batch.actorId === user.id) return;
+            if (isHydratingRef?.current) return;
+            // Mid-edit / mid-gesture: skip — the snapshot reconciliation
+            // path already queues and applies once local edits settle.
+            if (isDirtyRef?.current || hasActiveLocalEdits()) return;
+            const state = useCanvasStore.getState();
+            if (state.activeCanvasStrokeId) return;
+
+            const applied = applyOps(pickCanvasPersistSlice(state), batch.ops);
+            const baseSource = state.getCanvasSnapshotSource();
+            // Slice fields are name-compatible with the snapshot source; the
+            // slice types are intentionally loose (unknown records), so the
+            // merge needs a cast. Skills aren't in the slice and keep their
+            // local values — they sync via the snapshot safety net.
+            const source = {
+              ...baseSource,
+              ...(applied as unknown as Partial<typeof baseSource>),
+              // Viewport is per-user; ops never carry it.
+              viewport: state.viewport,
+            } as typeof baseSource;
+            isRemoteUpdateRef.current = true;
+            hydrateFromSnapshot(buildCanvasSnapshot(source), {
+              applyViewport: false,
+              preserveEphemeral: true,
+            });
+            requestAnimationFrame(() => {
+              isRemoteUpdateRef.current = false;
+            });
+          },
+        );
+      }
+
       realtimeChannel = supabase
         .channel(`canvas:${activeCanvasId}:state`, { config: { private: true } })
         .on(
@@ -428,6 +480,7 @@ export function useCollaboration({
 
     return () => {
       cancelled = true;
+      setCanvasOpsChannel(null);
       void presenceChannel?.unsubscribe();
       void realtimeChannel?.unsubscribe();
       presenceChannelRef.current = null;

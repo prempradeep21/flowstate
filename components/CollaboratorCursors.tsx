@@ -6,6 +6,7 @@ import { collaboratorColor } from "@/lib/collaboratorColors";
 import { worldToScreen } from "@/lib/canvasCoordinates";
 import {
   createPresenceBroadcaster,
+  CURSOR_BROADCAST_EVENT,
   PRESENCE_OFF_SCREEN,
 } from "@/lib/collaboratorPresenceBroadcast";
 import type { CollaboratorPresence } from "@/lib/collaborationTypes";
@@ -243,6 +244,42 @@ export function CollaboratorCursors({
 
     container.addEventListener("pointermove", onMove);
     container.addEventListener("pointerleave", onLeave);
+
+    // Remote cursor samples arrive as channel broadcasts (20/s per user) and
+    // feed the rAF-interpolation buffers DIRECTLY — no React state, so cursor
+    // traffic never re-renders anything. Presence sync remains the identity/
+    // join/leave source (and a fallback for peers on the old track() path).
+    channel.on(
+      "broadcast",
+      { event: CURSOR_BROADCAST_EVENT },
+      ({ payload }: { payload: CollaboratorPresence }) => {
+        if (!payload?.userId || payload.userId === currentUserId) return;
+        const now = performance.now();
+        const sample = {
+          worldX: payload.worldX,
+          worldY: payload.worldY,
+          t: now,
+        };
+        const existing = buffersRef.current.get(payload.userId);
+        if (!existing) {
+          buffersRef.current.set(payload.userId, {
+            prev: null,
+            next: sample,
+          });
+          return;
+        }
+        if (
+          existing.next.worldX === sample.worldX &&
+          existing.next.worldY === sample.worldY
+        ) {
+          return;
+        }
+        buffersRef.current.set(payload.userId, {
+          prev: existing.next,
+          next: sample,
+        });
+      },
+    );
 
     return () => {
       container.removeEventListener("pointermove", onMove);

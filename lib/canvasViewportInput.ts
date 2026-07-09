@@ -78,17 +78,29 @@ export function gestureZoomFactor(prevScale: number, currentScale: number): numb
   return currentScale / prevScale;
 }
 
-/** Apply zoom around a screen-space pivot on the canvas container. */
+/**
+ * Apply zoom around a screen-space pivot on the canvas container.
+ *
+ * `apply` receives (factor, pivotX, pivotY); pass the rAF-coalescing queue
+ * from useCanvasZoom so rapid pinch/wheel ticks collapse to one store write
+ * per frame. The direct-store default remains for programmatic callers.
+ */
 export function applyCanvasZoomAtScreen(
   container: HTMLElement,
   clientX: number,
   clientY: number,
   factor: number,
+  apply?: (factor: number, pivotX: number, pivotY: number) => void,
 ): void {
   if (factor === 1) return;
   const rect = container.getBoundingClientRect();
   const pivotX = clientX - rect.left;
   const pivotY = clientY - rect.top;
+  if (apply) {
+    // Queue handles interaction marking + tween cancel itself.
+    apply(factor, pivotX, pivotY);
+    return;
+  }
   markUserViewportInteraction();
   cancelViewportTween();
   useCanvasStore.getState().zoomAt(factor, pivotX, pivotY);

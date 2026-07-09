@@ -125,24 +125,36 @@ export function CanvasMinimap({
   );
 
   useEffect(() => {
+    // ~10fps while the viewport is in motion (a per-frame React commit here
+    // was one of the last remaining pan/zoom re-render sources), with a
+    // trailing flush so the minimap always lands on the exact final rect.
+    const THROTTLE_MS = 100;
     let rafId = 0;
+    let trailing: ReturnType<typeof setTimeout> | null = null;
+    let lastFlush = 0;
     let pending = useCanvasStore.getState().viewport;
 
     const flush = () => {
       rafId = 0;
+      lastFlush = performance.now();
       setDisplayViewport(pending);
     };
 
-    const unsubscribe = useCanvasStore.subscribe((state) => {
+    const unsubscribe = useCanvasStore.subscribe((state, prev) => {
+      if (state.viewport === prev.viewport) return;
       pending = state.viewport;
-      if (!rafId) {
-        rafId = requestAnimationFrame(flush);
+      if (trailing) clearTimeout(trailing);
+      if (performance.now() - lastFlush >= THROTTLE_MS) {
+        if (!rafId) rafId = requestAnimationFrame(flush);
+      } else {
+        trailing = setTimeout(flush, THROTTLE_MS);
       }
     });
 
     return () => {
       unsubscribe();
       if (rafId) cancelAnimationFrame(rafId);
+      if (trailing) clearTimeout(trailing);
     };
   }, []);
 

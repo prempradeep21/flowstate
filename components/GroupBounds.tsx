@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useGroupBounds } from "@/lib/useGroupBounds";
 import type { BranchGroup } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
@@ -17,7 +18,7 @@ const SCREEN_DASH = 18;
 const SCREEN_GAP = 14;
 const CORNER_RADIUS = 12;
 
-export function GroupBounds({ group }: GroupBoundsProps) {
+function GroupBoundsInner({ group }: GroupBoundsProps) {
   const bounds = useGroupBounds(group);
   const scale = useCanvasStore((s) => s.viewportSettledScale);
 
@@ -64,3 +65,9 @@ export function GroupBounds({ group }: GroupBoundsProps) {
     </div>
   );
 }
+
+/** Memoized like the node components — bounds derive from store selectors. */
+export const GroupBounds = memo(
+  GroupBoundsInner,
+  (prev, next) => prev.group === next.group,
+);
