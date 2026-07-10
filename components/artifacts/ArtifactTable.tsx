@@ -81,7 +81,8 @@ export function ArtifactTable({
   const textSize = compact ? "text-canvas-caption" : "text-canvas-body-sm";
   const cellPad = compact ? "px-2 py-1.5" : "px-3 py-2.5";
   const headPad = compact ? "px-2 py-1.5" : "px-3 py-2";
-  const vpScale = useCanvasStore((s) => s.viewport.scale);
+  // Viewport scale is read imperatively in the resize handler — a reactive
+  // subscription re-rendered every table artifact on every zoom frame.
   const animatedVersionRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const userAdjustedRef = useRef(false);
@@ -253,6 +254,7 @@ export function ArtifactTable({
     (e: ReactPointerEvent<HTMLButtonElement>) => {
       const pxRs = pxResizeRef.current;
       if (pxRs && pxRs.pointerId === e.pointerId && canvasSurface) {
+        const vpScale = useCanvasStore.getState().viewport.scale;
         const scale = vpScale > 0 ? vpScale : 1;
         const deltaPx = (e.clientX - pxRs.startX) / scale;
         const newColWidth = Math.max(
@@ -306,7 +308,6 @@ export function ArtifactTable({
       defaultColumnWidthsPx,
       intrinsicSize.heightPx,
       reportCanvasSize,
-      vpScale,
     ],
   );
 

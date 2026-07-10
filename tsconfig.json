@@ -35,13 +35,14 @@
     ".next-build-check/types/**/*.ts",
     ".next-design-system/types/**/*.ts",
     ".next-mobile-sdlc-sandbox/types/**/*.ts",
+    ".next-preview/types/**/*.ts",
     ".next-repo-explorer/types/**/*.ts",
     ".next-showcase/types/**/*.ts",
     ".next-vercel-check/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
     "types/**/*.d.ts",
-    ".next-preview/types/**/*.ts"
+    ".next-electron-3300/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

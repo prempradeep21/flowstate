@@ -50,6 +50,9 @@ export function PerfFixtureApp() {
   useEffect(() => {
     if (!persistenceReady) return;
     installPerfBridge();
+    // Probe access: lets scripts/perf/* diff store writes key-by-key.
+    (window as unknown as Record<string, unknown>).__canvasStore =
+      useCanvasStore;
 
     const size = parseSize(
       new URLSearchParams(window.location.search).get("nodes"),

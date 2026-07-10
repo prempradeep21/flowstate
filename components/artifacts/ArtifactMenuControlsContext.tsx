@@ -93,9 +93,17 @@ export function useArtifactMenuDisplayExtras(
   deps: DependencyList,
 ) {
   const ctx = useArtifactMenuControls();
+  // Depend on the stable pieces only, NOT the whole `ctx` object: `ctx.value`
+  // is re-memoized whenever displayExtras/hasDisplayExtras change, which
+  // registerDisplayExtras itself sets — depending on `ctx` here re-triggers
+  // this same effect on every register/cleanup, looping forever ("Maximum
+  // update depth exceeded"). `registerDisplayExtras` is useCallback([])-stable
+  // and `menuControlsEnabled` is a primitive, so neither churns from this.
+  const menuControlsEnabled = ctx?.menuControlsEnabled;
+  const registerDisplayExtras = ctx?.registerDisplayExtras;
   useEffect(() => {
-    if (!ctx?.menuControlsEnabled || !enabled) return;
-    return ctx.registerDisplayExtras(factory());
+    if (!menuControlsEnabled || !enabled || !registerDisplayExtras) return;
+    return registerDisplayExtras(factory());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- factory captures render deps
-  }, [ctx, enabled, ...deps]);
+  }, [menuControlsEnabled, registerDisplayExtras, enabled, ...deps]);
 }

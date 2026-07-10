@@ -6,11 +6,13 @@ import { useCanvasZoom } from "@/hooks/useCanvasZoom";
 import {
   applyCanvasZoomAtScreen,
   gestureZoomFactor,
+  isContinuousZoomInput,
   isZoomWheel,
   resolveCanvasWheelAction,
   supportsCanvasGestureZoom,
   wheelZoomFactor,
 } from "@/lib/canvasViewportInput";
+import { applyViewportZoomSmooth } from "@/lib/viewportGesture";
 import {
   shouldCanvasWheelViewport,
   wheelTrackpadPanDelta,
@@ -29,8 +31,10 @@ type SafariGestureEvent = Event & {
  * - Wheel: pan (macOS trackpad scroll) or zoom (pinch, modifiers, mouse wheel)
  * - GestureEvent: Safari/WebKit trackpad pinch (with wheel dedup on Safari 15+)
  *
- * Both pan and zoom are rAF-coalesced: at most one store write per frame
- * regardless of input event rate (trackpad pinches emit several per frame).
+ * Continuous input (trackpad pan/pinch) paints the viewport transform
+ * SYNCHRONOUSLY in the event, 1:1 with the fingers. Notched mouse-wheel zoom
+ * routes through a short smoothing tween so each notch glides instead of
+ * jumping. Store commits stay rAF-coalesced inside lib/viewportGesture.
  */
 export function useCanvasViewportInput(
   containerRef: RefObject<HTMLElement | null>,
@@ -62,7 +66,7 @@ export function useCanvasViewportInput(
         e.clientX,
         e.clientY,
         wheelZoomFactor(e),
-        queueZoom,
+        isContinuousZoomInput(e) ? queueZoom : applyViewportZoomSmooth,
       );
     };
 

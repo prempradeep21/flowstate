@@ -132,7 +132,9 @@ function CardInner({ card }: CardProps) {
     (s) => s.createBranchFromSelection,
   );
   const spawnCanvasTextLabel = useCanvasStore((s) => s.spawnCanvasTextLabel);
-  const viewport = useCanvasStore((s) => s.viewport);
+  // Deliberately NO `s.viewport` subscription here: it changes every pan/zoom
+  // frame and would re-render every visible card per frame (memo does not
+  // guard internal subscriptions). Read it imperatively where needed.
   const collapsedBranchThreadIds = useCanvasStore(
     (s) => s.collapsedBranchThreadIds,
   );
@@ -462,7 +464,11 @@ function CardInner({ card }: CardProps) {
     const position = computeSelectionTextLabelPosition(
       cardEl.getBoundingClientRect(),
       selection.rect,
-      viewport,
+      // Read at call time — a reactive `s.viewport` subscription here
+      // re-rendered EVERY visible card on EVERY pan/zoom frame (the
+      // viewport object is replaced per frame), defeating the imperative
+      // CanvasViewport transform design.
+      useCanvasStore.getState().viewport,
     );
     if (!position) return;
     if (!createUrlArtifactFromText(selection.selectedText, position)) {
@@ -474,7 +480,6 @@ function CardInner({ card }: CardProps) {
     selection,
     canEdit,
     canvasReadOnly,
-    viewport,
     recordUndo,
     spawnCanvasTextLabel,
     clearSelection,

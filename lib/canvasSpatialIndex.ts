@@ -26,6 +26,15 @@ export const CULLING_MIN_NODES = 30;
 /** Extra world-space padding so nodes near the edge don't pop in/out. */
 export const CULLING_VIEWPORT_PADDING = 240;
 
+/**
+ * The query rect snaps outward to this world-space grid. Without it, every
+ * pan frame produces a slightly different rect, some node edge is almost
+ * always straddling it, and the visible set flaps — re-rendering the whole
+ * canvas subtree per frame. Quantized, the set only changes when the
+ * viewport crosses a band edge (~once per 240 world units of travel).
+ */
+export const CULLING_QUANTIZE = 240;
+
 export interface VisibleNodes {
   cards: Set<string>;
   artifacts: Set<string>;
@@ -211,11 +220,18 @@ export function searchVisibleNodes(
   containerSize: { width: number; height: number },
   alwaysVisible: AlwaysVisibleSets = {},
 ): VisibleNodes {
-  const rect = getVisibleWorldRect(
+  const raw = getVisibleWorldRect(
     viewport,
     containerSize.width,
     containerSize.height,
   );
+  const q = CULLING_QUANTIZE;
+  const rect = {
+    minX: Math.floor(raw.minX / q) * q,
+    minY: Math.floor(raw.minY / q) * q,
+    maxX: Math.ceil(raw.maxX / q) * q,
+    maxY: Math.ceil(raw.maxY / q) * q,
+  };
   const hits = tree.search(rect);
 
   const cards = new Set<string>(alwaysVisible.cards ?? []);

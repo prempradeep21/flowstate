@@ -7,8 +7,17 @@ import { useCanvasStore } from "@/lib/store";
 /** WheelEvent.deltaMode — pixel mode (trackpad scroll / pinch on most browsers). */
 const DOM_DELTA_PIXEL = 0;
 
-/** Max wheel delta (px) per tick before zoom exponent — tames mouse-wheel jumps. */
-const WHEEL_ZOOM_DELTA_CLAMP = 10;
+/**
+ * Max wheel delta per tick before the zoom exponent.
+ *
+ * Pixel-mode input (macOS trackpad pinch) gets a HIGH ceiling: fast pinches
+ * emit deltas of 30–80px per event, and the old ±10 clamp threw the surplus
+ * away — a velocity ceiling that made vigorous zooms finish long after the
+ * fingers stopped ("lags behind my fingers"). Non-pixel (notched wheel)
+ * input keeps a tight clamp; its steps are smoothed separately.
+ */
+const WHEEL_ZOOM_DELTA_CLAMP_PIXEL = 60;
+const WHEEL_ZOOM_DELTA_CLAMP_NOTCHED = 10;
 
 /** Pinch / modifier+scroll zoom sensitivity. */
 const WHEEL_ZOOM_INTENSITY_PINCH = 0.0125;
@@ -51,8 +60,8 @@ export function resolveCanvasWheelAction(
   return "zoom";
 }
 
-function clampWheelZoomDelta(delta: number): number {
-  return Math.sign(delta) * Math.min(WHEEL_ZOOM_DELTA_CLAMP, Math.abs(delta));
+function clampWheelZoomDelta(delta: number, max: number): number {
+  return Math.sign(delta) * Math.min(max, Math.abs(delta));
 }
 
 /** Effective vertical zoom delta after axis swap and clamp. */
@@ -62,8 +71,31 @@ export function wheelZoomDelta(e: WheelZoomInput): number {
     [dx, dy] = [dy, dx];
   }
   const delta = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
-  if (isZoomWheel(e)) return clampWheelZoomDelta(delta);
+  if (isZoomWheel(e)) {
+    return clampWheelZoomDelta(
+      delta,
+      isContinuousZoomInput(e)
+        ? WHEEL_ZOOM_DELTA_CLAMP_PIXEL
+        : WHEEL_ZOOM_DELTA_CLAMP_NOTCHED,
+    );
+  }
   return delta;
+}
+
+/**
+ * True for continuous (trackpad-pinch style) zoom input — applied directly,
+ * 1:1 with the fingers. Notched/discrete wheel zoom (integer deltas ≥ 40,
+ * or line/page delta modes) is routed through smoothing instead.
+ *
+ * macOS pinch and ctrl+mouse-wheel both arrive as ctrlKey + pixel-mode; the
+ * integer-magnitude heuristic (used by other canvas tools) separates them:
+ * pinch deltas are small and usually fractional, notched wheels emit large
+ * integer steps.
+ */
+export function isContinuousZoomInput(e: WheelZoomInput): boolean {
+  if (e.deltaMode !== DOM_DELTA_PIXEL) return false;
+  const { dy } = wheelDeltaXY(e);
+  return !Number.isInteger(dy) || Math.abs(dy) < 40;
 }
 
 /** Exponential zoom factor for a wheel event. */

@@ -35,6 +35,8 @@ export interface PerfSessionStats {
   inputLatencyP95: number;
   inputEventCount: number;
   reactCommits: number;
+  /** Total React render time inside those commits (Profiler actualDuration). */
+  reactCommitMs: number;
   durationMs: number;
   capturedAt: string;
 }
@@ -47,6 +49,7 @@ interface ActiveSession {
   longTaskTotalMs: number;
   inputDurations: number[];
   reactCommits: number;
+  reactCommitMs: number;
   rafId: number;
   lastFrameAt: number;
   longTaskObserver: PerformanceObserver | null;
@@ -61,8 +64,16 @@ export function isPerfSessionActive(): boolean {
 }
 
 /** Incremented by the React commit counter (see useReactCommitCounter). */
-export function notePerfReactCommit(): void {
-  if (active) active.reactCommits += 1;
+export function notePerfReactCommit(
+  _id?: string,
+  _phase?: string,
+  actualDuration?: number,
+): void {
+  if (!active) return;
+  active.reactCommits += 1;
+  if (typeof actualDuration === "number") {
+    active.reactCommitMs += actualDuration;
+  }
 }
 
 export function startPerfSession(label = "canvas"): void {
@@ -77,6 +88,7 @@ export function startPerfSession(label = "canvas"): void {
     longTaskTotalMs: 0,
     inputDurations: [],
     reactCommits: 0,
+    reactCommitMs: 0,
     rafId: 0,
     lastFrameAt: performance.now(),
     longTaskObserver: null,
@@ -190,6 +202,7 @@ export function stopPerfSession(): PerfSessionStats | null {
     inputLatencyP95: Number(percentile(inputs, 0.95).toFixed(1)),
     inputEventCount: inputs.length,
     reactCommits: session.reactCommits,
+    reactCommitMs: Number(session.reactCommitMs.toFixed(1)),
     durationMs: Number((performance.now() - session.startedAt).toFixed(0)),
     capturedAt: new Date().toISOString(),
   };
