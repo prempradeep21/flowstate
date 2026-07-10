@@ -343,17 +343,20 @@ export function ArtifactTable({
     resizable &&
     (canvasSurface ? true : colIndex < columns.length - 1);
 
+  // On canvas the table fills its (fixed, user-resizable) node and scrolls
+  // internally on both axes — the node no longer auto-grows to the full table.
+  // `data-canvas-scroll` tells the wheel gate to hand scrolling to the browser
+  // (both axes) once the node is selected, instead of panning the canvas.
   const overflowClass = canvasSurface
-    ? "overflow-visible"
+    ? "overflow-auto w-full min-h-0 flex-1"
     : "overflow-y-auto overflow-x-hidden";
 
-  const resolvedMinWidthPx = canvasSurface ? tableWidthPx : minWidthPx;
-  const resolvedMinHeightPx = canvasSurface
-    ? intrinsicSize.heightPx
-    : minHeightPx;
+  const resolvedMinWidthPx = canvasSurface ? undefined : minWidthPx;
+  const resolvedMinHeightPx = canvasSurface ? undefined : minHeightPx;
 
   return (
     <div
+      {...(canvasSurface ? { "data-canvas-scroll": "" } : {})}
       className={`${overflowClass} ${surfaceBg} ${maxHeightClassName}`}
       style={{
         ...tableAccentStyles(accentSeed),

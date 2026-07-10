@@ -512,9 +512,14 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
             onArtifactContentAreaSizeChange={
+              // table/todo hold a fixed default box (user-resizable via the
+              // corner grips) and scroll their content internally instead of
+              // auto-growing the node to fit every row/item.
               art.kind !== "repo" &&
               art.kind !== "audio" &&
-              art.kind !== "stickynote"
+              art.kind !== "stickynote" &&
+              art.kind !== "table" &&
+              art.kind !== "todo"
                 ? handleArtifactContentAreaSize
                 : undefined
             }

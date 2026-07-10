@@ -331,10 +331,16 @@ export function CollaboratorCursors({
               style={{ backgroundColor: cursor.color }}
             >
               {cursor.avatarUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={cursor.avatarUrl}
                   alt=""
                   className="h-4 w-4 rounded-full object-cover"
+                  onError={(e) => {
+                    // Broken avatar URL (expired Google URL, offline, CSP):
+                    // hide the img so the browser's broken-image glyph never shows.
+                    e.currentTarget.style.display = "none";
+                  }}
                 />
               )}
               <span className="max-w-[100px] truncate">{cursor.displayName}</span>

@@ -1,8 +1,50 @@
 "use client";
 
+import { useState } from "react";
 import type { CanvasMember } from "@/lib/collaborationTypes";
 import { collaboratorStatusDotClass } from "@/lib/collaboratorActivity";
 import { useCollaboratorActivityMap } from "@/hooks/useCollaboratorActivity";
+
+/**
+ * Avatar image with an initials fallback. A broken avatar URL (expired Google
+ * URL, offline, CSP in the desktop shell) otherwise renders the browser's
+ * broken-image glyph; on error we swap to the initials chip instead.
+ */
+function MemberAvatar({
+  avatarUrl,
+  label,
+  title,
+  avatarClass,
+  textClass,
+}: {
+  avatarUrl: string | null | undefined;
+  label: string;
+  title: string;
+  avatarClass: string;
+  textClass: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (avatarUrl && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={label}
+        title={title}
+        className={`${avatarClass} rounded-full object-cover border-canvas-card`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <span
+      title={title}
+      className={`flex ${avatarClass} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-white ${textClass}`}
+    >
+      {label.charAt(0).toUpperCase()}
+    </span>
+  );
+}
 
 type AvatarStackSize = "sm" | "md";
 
@@ -57,21 +99,13 @@ export function CollaboratorAvatarStack({
         const title = activity ? `${label} — ${activity.label}` : label;
         return (
           <div key={member.userId} className="relative">
-            {member.profile.avatarUrl ? (
-              <img
-                src={member.profile.avatarUrl}
-                alt={label}
-                title={title}
-                className={`${sizes.avatar} rounded-full object-cover border-canvas-card`}
-              />
-            ) : (
-              <span
-                title={title}
-                className={`flex ${sizes.avatar} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-white ${sizes.text}`}
-              >
-                {label.charAt(0).toUpperCase()}
-              </span>
-            )}
+            <MemberAvatar
+              avatarUrl={member.profile.avatarUrl}
+              label={label}
+              title={title}
+              avatarClass={sizes.avatar}
+              textClass={sizes.text}
+            />
             {activity && (
               <span
                 className={`absolute -bottom-0.5 -right-0.5 rounded-full border-canvas-card ${sizes.dot} ${collaboratorStatusDotClass(activity.status)}`}
