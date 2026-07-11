@@ -50,5 +50,5 @@ export function normalizeTableCell(
 export function tableTagClassName(tone: TableTagTone | undefined, compact: boolean): string {
   const size = compact ? "text-canvas-micro px-1.5 py-0" : "text-canvas-caption px-2 py-0.5";
   const palette = TABLE_TAG_TONE_CLASSES[tone ?? "neutral"];
-  return `inline-flex shrink-0 items-center rounded-full font-medium ${size} ${palette}`;
+  return `inline-flex max-w-full items-center whitespace-normal break-words rounded-full font-medium ${size} ${palette}`;
 }

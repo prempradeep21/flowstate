@@ -1,3 +1,4 @@
+import { isFrameableFromHeaders } from "@/lib/frameability";
 import { domainDisplayLabel } from "@/lib/urlDetection";
 
 const FETCH_TIMEOUT_MS = 5000;
@@ -132,6 +133,13 @@ export interface LinkPreviewResult {
   domainLabel: string;
   faviconUrl?: string;
   previewImageUrl?: string;
+  /**
+   * Whether the page can be embedded in a cross-origin iframe (derived from
+   * X-Frame-Options / CSP frame-ancestors). Undefined when it could not be
+   * determined (non-OK / non-HTML / fetch failure) — callers treat that as
+   * "not embeddable" and fall back to a static preview card.
+   */
+  embeddable?: boolean;
 }
 
 export async function fetchLinkPreview(url: string): Promise<LinkPreviewResult> {
@@ -163,6 +171,8 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreviewResult> 
       return { title: domainLabel, domainLabel };
     }
 
+    const embeddable = isFrameableFromHeaders(res.headers);
+
     const reader = res.body?.getReader();
     if (!reader) {
       return { title: domainLabel, domainLabel };
@@ -185,7 +195,7 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreviewResult> 
     const faviconUrl = faviconFromHtml(html, parsed) ?? undefined;
     const previewImageUrl = previewImageFromHtml(html, parsed) ?? undefined;
 
-    return { title, domainLabel, faviconUrl, previewImageUrl };
+    return { title, domainLabel, faviconUrl, previewImageUrl, embeddable };
   } catch {
     return { title: domainLabel, domainLabel };
   } finally {

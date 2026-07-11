@@ -62,7 +62,7 @@ export function shouldAutoCollapseThread(
 /** Thread ids whose inactivity window has expired and pass collapse guards. */
 export function collectExpiredThreadsToCollapse(
   state: ThreadInactivityState,
-  activityMap: Map<string, number>,
+  activityMap: ReadonlyMap<string, number>,
   now: number,
 ): string[] {
   const toCollapse: string[] = [];

@@ -2,6 +2,7 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 
 export interface HistoryMessage {
   question: string;
@@ -79,6 +80,8 @@ function artifactContextNote(payload: ArtifactPayload): string {
       return `[Card showed ${payload.data.provider} embed: "${payload.title}" (${payload.data.url})]`;
     case "audio":
       return `[Card showed audio: "${payload.title}"]`;
+    case "stickynote":
+      return `[Card showed sticky note: "${payload.title}"]`;
   }
 }
 
@@ -103,9 +106,47 @@ function artifactPayloadContext(payload: ArtifactPayload): string {
 }
 
 /** Text sent to the model, including notes for images and structured artifacts. */
+export function formatQuestionForContext(
+  card: Card,
+): string {
+  const question = card.question.trim();
+  if (!question) return question;
+
+  const notes: string[] = [];
+  const attachedImages = getQuestionAttachedImages(card);
+  if (attachedImages.length > 0) {
+    const alts = attachedImages.map((img) => img.alt).filter(Boolean);
+    notes.push(
+      alts.length > 0
+        ? `[User attached ${attachedImages.length} image(s): ${alts.join("; ")}]`
+        : `[User attached ${attachedImages.length} image(s) to this question]`,
+    );
+  }
+  if (card.attachedArtifacts?.length) {
+    notes.push(
+      `[User attached ${card.attachedArtifacts.length} artifact reference(s)]`,
+    );
+  }
+  if (card.attachedAssets?.length) {
+    notes.push(
+      `[User attached ${card.attachedAssets.length} file asset(s)]`,
+    );
+  }
+  if (card.attachedSkills?.length) {
+    notes.push(`[User attached ${card.attachedSkills.length} skill(s)]`);
+  }
+  if (card.pendingFiles?.length) {
+    notes.push(`[User attached ${card.pendingFiles.length} uploaded file(s)]`);
+  }
+
+  return notes.length > 0 ? `${question}\n\n${notes.join("\n")}` : question;
+}
+
+/** Text sent to the model, including notes for images and structured artifacts. */
 export function formatAnswerForContext(
   card: Card,
   sessionArtifacts: Record<string, SessionArtifact> = {},
+  opts?: { omitBulkyPayload?: boolean },
 ): string {
   const parts: string[] = [];
 
@@ -116,7 +157,10 @@ export function formatAnswerForContext(
   const payload = payloadForCard(card, sessionArtifacts);
   if (payload) {
     parts.push(artifactContextNote(payload));
-    parts.push(artifactPayloadContext(payload));
+    const bulky = payload.type === "custom" || payload.type === "code";
+    if (!(opts?.omitBulkyPayload && bulky)) {
+      parts.push(artifactPayloadContext(payload));
+    }
   } else if (card.responseType === "image" && card.images?.length) {
     const alts = card.images.map((i) => i.alt).filter(Boolean);
     const imgNote =
@@ -124,13 +168,6 @@ export function formatAnswerForContext(
         ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
         : `[Shown ${card.images.length} image(s) for this answer]`;
     parts.push(imgNote);
-  } else if (card.images?.length) {
-    const alts = card.images.map((i) => i.alt).filter(Boolean);
-    parts.push(
-      alts.length > 0
-        ? `[Shown ${card.images.length} image(s): ${alts.join("; ")}]`
-        : `[Shown ${card.images.length} image(s)]`,
-    );
   }
 
   return parts.join("\n\n");
@@ -146,6 +183,42 @@ function lateralSourceId(
       (c.fromSide === "left" || c.fromSide === "right"),
   );
   return conn?.from ?? null;
+}
+
+/**
+ * Root-to-leaf ancestor card ids for a card (excluding the card itself).
+ */
+export function collectAncestorCardIds(
+  graph: HistoryGraph,
+  cardId: string,
+): string[] {
+  const ids: string[] = [];
+  const visited = new Set<string>();
+
+  let parentId: string | null =
+    graph.cards[cardId]?.parentConversationId ??
+    graph.cards[cardId]?.parentCardId ??
+    null;
+
+  if (!parentId) {
+    parentId = lateralSourceId(graph, cardId);
+  }
+
+  const chain: string[] = [];
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    chain.push(parentId);
+    const parent = graph.cards[parentId];
+    if (!parent) break;
+
+    const nextViaCard =
+      parent.parentConversationId ?? parent.parentCardId ?? null;
+    parentId = nextViaCard ?? lateralSourceId(graph, parentId);
+  }
+
+  chain.reverse();
+  ids.push(...chain);
+  return ids;
 }
 
 /**
@@ -174,15 +247,21 @@ export function buildAncestorHistory(
     const parent = graph.cards[parentId];
     if (!parent) break;
 
-    const answer = formatAnswerForContext(parent, sessionArtifacts);
+    const answer = formatAnswerForContext(parent, sessionArtifacts, {
+      omitBulkyPayload: true,
+    });
     const hasContent =
       answer ||
+      getQuestionAttachedImages(parent).length > 0 ||
       (parent.images && parent.images.length > 0) ||
       parent.artifactPayload ||
       parent.outputArtifactId;
 
     if (parent.question.trim() && hasContent) {
-      history.unshift({ question: parent.question.trim(), answer });
+      history.unshift({
+        question: formatQuestionForContext(parent),
+        answer,
+      });
     }
 
     const nextViaCard =

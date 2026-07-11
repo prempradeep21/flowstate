@@ -1,28 +1,38 @@
 "use client";
 
-import { PointerEvent as ReactPointerEvent, useRef } from "react";
+import { memo, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
-import { SkillBrainIcon } from "@/components/skills/SkillBrainIcon";
+import { SkillNodeCard } from "@/components/skills/SkillNodeCard";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
   CANVAS_NODE_INTERACTIVE_ATTR,
 } from "@/lib/canvasNodeInteraction";
-import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
+import {
+  CANVAS_SKILL_CARD_MIN_HEIGHT,
+  CANVAS_SKILL_CARD_WIDTH,
+  CANVAS_SKILL_SIZE,
+  getCanvasSkillBounds,
+} from "@/lib/canvasSkillBounds";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import {
   useCanvasStore,
   type CanvasSkillNode as CanvasSkillNodeType,
 } from "@/lib/store";
+import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
-const DRAG_THRESHOLD_PX = 4;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
 
-export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
+/** Guards against firing the analysis request twice if two node instances of the same skill mount in the same tick. */
+const inFlightAnalysis = new Set<string>();
+
+function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const skills = useCanvasStore((s) => s.canvasSkills);
   const scale = useCanvasStore((s) => s.viewportSettledScale);
   const isSelected = useCanvasStore(
@@ -31,6 +41,9 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
       isCanvasItemSelected(s.canvasSelection, "skill", node.id),
   );
   const moveCanvasSkill = useCanvasStore((s) => s.moveCanvasSkill);
+  const setCanvasSkillNodeSize = useCanvasStore((s) => s.setCanvasSkillNodeSize);
+  const setCanvasSkillMetadataStatus = useCanvasStore((s) => s.setCanvasSkillMetadataStatus);
+  const setCanvasSkillAiMetadata = useCanvasStore((s) => s.setCanvasSkillAiMetadata);
   const selectCanvasSkill = useCanvasStore((s) => s.selectCanvasSkill);
   const removeCanvasSkillNode = useCanvasStore((s) => s.removeCanvasSkillNode);
   const recordUndo = useCanvasStore((s) => s.recordUndo);
@@ -38,18 +51,70 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const skill = skills[node.skillId];
-  const { w: width, h: height } = getCanvasSkillBounds(node, skill);
+  const [collapsed, setCollapsed] = useState(false);
+  const expandedBounds = getCanvasSkillBounds(node, skill);
+  const { w: width, h: height } = collapsed
+    ? { w: CANVAS_SKILL_SIZE, h: CANVAS_SKILL_SIZE }
+    : expandedBounds;
   const godView = isGodViewMode(scale);
   const nodeRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // First time this skill appears on any canvas node, read the full file with an LLM.
+  useEffect(() => {
+    const skillId = node.skillId;
+    const current = skills[skillId];
+    if (!current) return;
+    if (current.metadataStatus && current.metadataStatus !== "pending") return;
+    if (inFlightAnalysis.has(skillId)) return;
+    inFlightAnalysis.add(skillId);
+    setCanvasSkillMetadataStatus(skillId, "analyzing");
+
+    const params = new URLSearchParams({
+      url: current.publicUrl,
+      fileName: current.fileName,
+    });
+    fetch(`/api/skills/analyze?${params.toString()}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("analyze failed"))))
+      .then((data: { metadata: NonNullable<typeof current.metadata> }) => {
+        setCanvasSkillAiMetadata(skillId, data.metadata);
+      })
+      .catch(() => {
+        setCanvasSkillMetadataStatus(skillId, "unavailable");
+      })
+      .finally(() => {
+        inFlightAnalysis.delete(skillId);
+      });
+    // Only ever run once per skill — deliberately not re-running on metadata/status changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.skillId]);
+
+  // Rich cards grow to fit content (fixed width, auto height); plain icon tiles stay fixed-size.
+  useEffect(() => {
+    if (!skill?.metadata || collapsed) return;
+    const el = contentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const measuredHeight = Math.ceil(entry.contentRect.height);
+      const nextHeight = Math.max(measuredHeight, CANVAS_SKILL_CARD_MIN_HEIGHT);
+      const current = useCanvasStore.getState().canvasSkillNodes[node.id];
+      if (current?.size && Math.abs(current.size.h - nextHeight) <= 1) return;
+      setCanvasSkillNodeSize(node.id, { w: CANVAS_SKILL_CARD_WIDTH, h: nextHeight });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [skill?.metadata, collapsed, node.id, setCanvasSkillNodeSize]);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "skill",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasSkill(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasSkillNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
 
   if (!skill) return null;
 
@@ -96,47 +161,18 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     }
     if (!inMultiSelection) selectCanvasSkill(node.id);
     if (canvasReadOnly) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      moveSelection: inMultiSelection,
-    };
+    nodeDrag.start(e, {
+      moveSelection: inMultiSelection && !e.altKey,
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasSkill(node.id, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   return (
@@ -150,14 +186,15 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
         data-canvas-skill
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className={`group/skill absolute rounded-[20px] border bg-canvas-card shadow-card transition-shadow ${
+        className={`group/skill absolute rounded-[20px] border bg-canvas-card shadow-artifact transition-shadow ${
           isSelected
-            ? "border-canvas-ink shadow-cardHover"
-            : "border-canvas-border hover:shadow-cardHover"
+            ? "border-canvas-ink shadow-artifactHover"
+            : "border-canvas-border hover:shadow-artifactHover"
         }`}
         style={{
           left: node.position.x,
@@ -166,35 +203,55 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
           height,
         }}
       >
-        <Plug
-          side="left"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from left"
-          onPointerDown={handleSkillPlugPointerDown("left")}
-        />
-        <Plug
-          side="right"
-          accentColour="#111111"
-          visible={!godView}
-          ariaLabel="Attach skill to question from right"
-          onPointerDown={handleSkillPlugPointerDown("right")}
-        />
+        {!godView && (
+          <>
+            <div className={canvasSidePlugWrapperClass("left", "skill")}>
+              <Plug
+                side="left"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from left"
+                onPointerDown={handleSkillPlugPointerDown("left")}
+              />
+            </div>
+            <div className={canvasSidePlugWrapperClass("right", "skill")}>
+              <Plug
+                side="right"
+                accentColour="#111111"
+                visible
+                ariaLabel="Attach skill to question from right"
+                onPointerDown={handleSkillPlugPointerDown("right")}
+              />
+            </div>
+          </>
+        )}
 
         <CanvasSharpContent
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          <div className="relative flex h-full w-full flex-col items-center justify-center px-3 pb-3 pt-5">
-            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-canvas-ink px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-canvas-card">
-              Skill
-            </span>
-            <SkillBrainIcon className="h-11 w-11 shrink-0 text-canvas-ink" />
-            <span className="mt-2 line-clamp-2 text-center text-[13px] font-medium leading-tight text-canvas-ink">
-              {skill.title}
-            </span>
+          <div
+            ref={contentRef}
+            className={!collapsed && skill.metadata ? "w-full" : "h-full w-full"}
+          >
+            <SkillNodeCard skill={skill} collapsed={collapsed} />
           </div>
         </CanvasSharpContent>
+
+        {skill.metadata && (
+          <button
+            type="button"
+            data-no-drag
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand skill card" : "Collapse skill card"}
+            onClick={() => setCollapsed((prev) => !prev)}
+            className={`absolute left-2 top-2 z-40 rounded-full border border-canvas-border/40 bg-canvas-card/95 px-2 py-0.5 text-canvas-micro font-medium text-canvas-muted transition-opacity hover:text-canvas-ink ${
+              collapsed ? "opacity-100" : "opacity-0 group-hover/skill:opacity-100"
+            }`}
+          >
+            {collapsed ? "Expand" : "Collapse"}
+          </button>
+        )}
 
         {!canvasReadOnly && (
           <button
@@ -205,7 +262,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
               recordUndo();
               removeCanvasSkillNode(node.id);
             }}
-            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-[12px] text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
+            className={`absolute right-2 top-2 z-40 rounded-full bg-canvas-card/90 px-1.5 py-0.5 text-canvas-compact text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink ${
               isSelected
                 ? "opacity-100"
                 : "opacity-0 group-hover/skill:opacity-100"
@@ -218,3 +275,12 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     </MotionCanvasNode>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasSkillNode = memo(
+  CanvasSkillNodeInner,
+  (prev, next) => prev.node === next.node,
+);

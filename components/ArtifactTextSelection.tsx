@@ -32,7 +32,8 @@ export function ArtifactTextSelection({
   const containerRef = useRef<HTMLDivElement>(null);
   const canEdit = useCanEditCanvas();
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
-  const viewport = useCanvasStore((s) => s.viewport);
+  // No `s.viewport` subscription — it changes every pan/zoom frame and would
+  // re-render this wrapper (and its artifact subtree) per frame.
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const createBranchFromSelection = useCanvasStore(
     (s) => s.createBranchFromSelection,
@@ -131,7 +132,7 @@ export function ArtifactTextSelection({
     if (!selection || !canEdit || canvasReadOnly) return;
     const position = computeArtifactSelectionTextLabelPosition(
       selection.rect,
-      viewport,
+      useCanvasStore.getState().viewport,
     );
     if (!position) return;
     if (!createUrlArtifactFromText(selection.selectedText, position)) {
@@ -143,7 +144,6 @@ export function ArtifactTextSelection({
     selection,
     canEdit,
     canvasReadOnly,
-    viewport,
     recordUndo,
     spawnCanvasTextLabel,
     clearSelection,

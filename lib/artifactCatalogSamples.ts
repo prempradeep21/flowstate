@@ -1,8 +1,7 @@
 import type { ArtifactPayload } from "@/lib/artifactTypes";
-import { createRepoPayload } from "@/lib/repoArtifact";
 import { createWebsitePayload } from "@/lib/websiteArtifact";
-import { createEmbedPayload } from "@/lib/embedArtifact";
 import { createCatalogAudioPayload } from "@/lib/audioArtifact";
+import { EMBED_LOADING_HEIGHT, EMBED_LOADING_WIDTH } from "@/lib/embedArtifact";
 
 /** Cubbon Park, Bengaluru — canonical map / street-view focus for catalog previews. */
 export const CATALOG_CUBBON_PARK = {
@@ -20,13 +19,34 @@ export interface ArtifactCatalogEntry {
   title: string;
   description: string;
   chips: string[];
+  /** Paste-this example shown on the landing inputs section. */
+  example?: string;
   payload?: ArtifactPayload;
   /** Text-card preview for free-form prompts (no artifact payload). */
   previewKind?: "text-card";
   textCard?: { question: string; answer: string };
 }
 
-const repoPayload = createRepoPayload("https://github.com/vercel/next.js");
+const CATALOG_FIGMA_EMBED_URL =
+  "https://www.figma.com/design/1559843949918091398/Digital-Banking-Mobile-App";
+
+function createCatalogFigmaEmbedPayload(): Extract<ArtifactPayload, { type: "embed" }> {
+  const iframeSrc = `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(CATALOG_FIGMA_EMBED_URL)}`;
+  return {
+    type: "embed",
+    title: "Digital Banking Mobile App",
+    data: {
+      url: CATALOG_FIGMA_EMBED_URL,
+      provider: "figma",
+      title: "Digital Banking Mobile App",
+      domainLabel: "Figma",
+      embedWidth: EMBED_LOADING_WIDTH,
+      embedHeight: EMBED_LOADING_HEIGHT,
+      iframeSrc,
+      status: "ready",
+    },
+  };
+}
 
 export const ARTIFACT_CATALOG_ENTRIES: ArtifactCatalogEntry[] = [
   {
@@ -177,38 +197,6 @@ export const ARTIFACT_CATALOG_ENTRIES: ArtifactCatalogEntry[] = [
         gaugeMax: 6000,
         gaugeLabel: "Emergency fund",
         unit: "€",
-      },
-    },
-  },
-  {
-    id: "code",
-    category: "flowstate",
-    name: "Code",
-    title: "Multi-file source snippets",
-    description:
-      "Explore implementations across one or more files with syntax highlighting. Supports HTML, CSS, Python, TypeScript, and any text format.",
-    chips: ["API design", "debugging", "implementation walkthroughs", "prototyping"],
-    payload: {
-      type: "code",
-      title: "Rate limiter",
-      data: {
-        files: [
-          {
-            path: "limiter.ts",
-            language: "typescript",
-            content: `const windowMs = 60_000;
-const maxRequests = 100;
-
-export function checkLimit(count: number): boolean {
-  return count <= maxRequests;
-}`,
-          },
-          {
-            path: "README.md",
-            language: "markdown",
-            content: "# Rate limiter\n\nToken-bucket helper for API routes.",
-          },
-        ],
       },
     },
   },
@@ -371,6 +359,7 @@ export function checkLimit(count: number): boolean {
     description:
       "Paste a generic URL to spawn a preview card with title, domain, favicon, and optional preview image.",
     chips: ["research", "documentation", "reference links", "bookmarks"],
+    example: "https://nextjs.org",
     payload: createWebsitePayload("https://nextjs.org", "nextjs.org"),
   },
   {
@@ -381,6 +370,7 @@ export function checkLimit(count: number): boolean {
     description:
       "Paste image URLs or search Wikimedia for real photographs of places, people, and things.",
     chips: ["mood boards", "reference photos", "visual research", "travel inspiration"],
+    example: "Paste an image URL or drop a .png / .jpg onto the canvas",
     payload: {
       type: "images",
       title: "Visual references",
@@ -408,6 +398,7 @@ export function checkLimit(count: number): boolean {
     description:
       "Paste a YouTube or video URL to create a grid of playable clips with thumbnails and titles.",
     chips: ["tutorials", "talks", "travel vlogs", "demos"],
+    example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     payload: {
       type: "video",
       title: "Talks to watch",
@@ -423,39 +414,16 @@ export function checkLimit(count: number): boolean {
     },
   },
   {
-    id: "audio-short",
+    id: "audio",
     category: "input",
-    name: "Audio — short clip",
-    title: "Voice memo (1 min)",
+    name: "Audio",
+    title: "Voice memos and recordings",
     description:
       "Drop MP3, WAV, M4A, AAC, OGG, or WebM audio onto the canvas. Waveform width scales with duration.",
-    chips: ["voice memos", "interviews", "podcast clips", "field recordings"],
-    payload: createCatalogAudioPayload("Voice memo", 60_000, 1),
+    chips: ["voice memos", "interviews", "podcast clips", "meetings"],
+    example: "interview-clip.wav — or drag any supported audio file",
+    payload: createCatalogAudioPayload("Interview clip", 5_000, 2),
   },
-  {
-    id: "audio-long",
-    category: "input",
-    name: "Audio — long clip",
-    title: "Meeting recording (5 min)",
-    description:
-      "Longer clips spawn wider nodes — a 5-minute file is five times the waveform width of a 1-minute file.",
-    chips: ["meetings", "lectures", "ambient", "music sketches"],
-    payload: createCatalogAudioPayload("Meeting recording", 300_000, 2),
-  },
-  ...(repoPayload
-    ? [
-        {
-          id: "repo",
-          category: "input" as const,
-          name: "Repositories",
-          title: "GitHub repo dashboard",
-          description:
-            "Paste a GitHub URL to explore a repository with overview, file structure, media, preview, tech stack, and built-by widgets.",
-          chips: ["code exploration", "OSS evaluation", "onboarding", "due diligence"],
-          payload: repoPayload,
-        },
-      ]
-    : []),
   {
     id: "embed",
     category: "input",
@@ -464,25 +432,8 @@ export function checkLimit(count: number): boolean {
     description:
       "Paste URLs from Reddit, Twitter, Instagram, Facebook, Medium, Substack, or Figma for embedded previews.",
     chips: ["social proof", "design refs", "threads", "articles"],
-    payload: createEmbedPayload(
-      "https://www.reddit.com/r/nextjs/comments/example/",
-      "reddit",
-    ),
-  },
-  {
-    id: "prompt",
-    category: "input",
-    name: "Free-form prompts",
-    title: "Any text the user types",
-    description:
-      "Open-ended questions and brainstorming spawn text cards and can trigger any artifact type the AI deems fit.",
-    chips: ["brainstorming", "Q&A", "open-ended inquiry", "exploration"],
-    previewKind: "text-card",
-    textCard: {
-      question: "What are good day-trip options from Lisbon?",
-      answer:
-        "Sintra and Cascais are the easiest wins — both are under an hour by train and pair well with a long weekend in the city.",
-    },
+    example: CATALOG_FIGMA_EMBED_URL,
+    payload: createCatalogFigmaEmbedPayload(),
   },
   {
     id: "timezone",
@@ -571,7 +522,7 @@ export const CATALOG_SECTIONS: {
   {
     id: "input",
     title: "Input artifacts",
-    description: "Created from pasted URLs, media, and free-form user input",
+    description: "Created from pasted URLs, dropped files, and media links",
   },
   {
     id: "custom-example",

@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
- * Pan/zoom frame-budget benchmark helper.
+ * Pan/zoom frame-budget benchmark helper (manual console capture).
+ *
+ * NOTE: the automated suite lives at scripts/perf/run-benchmark.mjs
+ * (`npm run perf` / `npm run perf:electron`) — it drives the /dev/perf
+ * fixture page through pan/zoom/drag/marquee scenarios with budget gates.
+ * This snippet remains for quick ad-hoc checks on arbitrary canvases.
  *
  * Usage:
  *   1. Start the app: npm run dev
@@ -8,8 +13,6 @@
  *   3. Open DevTools → Console and paste the snippet printed below
  *   4. Space+drag or scroll to pan/zoom for ~5 seconds
  *   5. Copy the JSON result for baseline comparison across commits
- *
- * For automated runs, install Playwright and extend this script.
  */
 
 const SNIPPET = `

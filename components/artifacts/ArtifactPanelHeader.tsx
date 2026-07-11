@@ -7,16 +7,21 @@ import {
   useCanvasFloatingMenuPosition,
 } from "@/components/CanvasFloatingMenu";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { EditableArtifactTitle } from "@/components/artifacts/EditableArtifactTitle";
 import type { CollaboratorProfile } from "@/lib/collaborationTypes";
-import { ArtifactCopyCodeButton, ArtifactCodeCopyButton } from "@/components/artifacts/ArtifactCopyCodeButton";
-import { ArtifactExportMenu } from "@/components/artifacts/ArtifactExportMenu";
+import {
+  ArtifactHeaderNestedMenu,
+  artifactHeaderMenuHasActions,
+} from "@/components/artifacts/ArtifactHeaderNestedMenu";
+import { useArtifactMenuControls } from "@/components/artifacts/ArtifactMenuControlsContext";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
+import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
-export interface TodoEditControls {
+export interface ArtifactEditControls {
   canEdit: boolean;
   isEditing: boolean;
   isDirty: boolean;
@@ -24,7 +29,12 @@ export interface TodoEditControls {
   onSave: () => void;
   onDiscard: () => void;
   onCancelEdit: () => void;
+  /** When true, dirty edit mode shows Save only (no Discard). */
+  saveOnly?: boolean;
 }
+
+/** @deprecated Use ArtifactEditControls */
+export type TodoEditControls = ArtifactEditControls;
 
 function ExternalLinkIcon({ className }: { className?: string }) {
   return (
@@ -48,37 +58,41 @@ function ExternalLinkIcon({ className }: { className?: string }) {
 export function ArtifactPanelHeader({
   kind,
   title,
+  renameTitle,
+  canRenameTitle = false,
+  onRenameTitle,
   artifactId,
   versions,
   activeVersionId,
   onVersionChange,
   menuVariant = "panel",
-  onExpand,
   onRemoveFromCanvas,
   contributorProfiles,
   todoEditControls,
+  stickyEditControls,
   isVideo = false,
   websiteUrl,
   googleFileKind,
   exportPayload,
-  onExportToast,
 }: {
   kind: ArtifactKind;
   title: string;
+  renameTitle?: string;
+  canRenameTitle?: boolean;
+  onRenameTitle?: (title: string) => void;
   artifactId?: string;
   versions: ArtifactVersion[];
   activeVersionId: string;
   onVersionChange: (versionId: string) => void;
   menuVariant?: "canvas" | "panel";
-  onExpand?: () => void;
   onRemoveFromCanvas?: () => void;
   contributorProfiles?: CollaboratorProfile[];
-  todoEditControls?: TodoEditControls;
+  todoEditControls?: ArtifactEditControls;
+  stickyEditControls?: ArtifactEditControls;
   isVideo?: boolean;
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
   exportPayload?: ArtifactPayload;
-  onExportToast?: (message: string, isError?: boolean) => void;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -124,17 +138,21 @@ export function ArtifactPanelHeader({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen, actionMenuPortal.portalRef]);
 
-  const hasMenuActions =
-    menuVariant === "canvas"
-      ? Boolean(onExpand || onRemoveFromCanvas)
-      : false;
+  const menuControls = useArtifactMenuControls();
+  const hasMenuActions = artifactHeaderMenuHasActions({
+    exportPayload,
+    onRemoveFromCanvas,
+    hasDisplayMenu: menuControls?.hasDisplayMenu,
+  });
 
-  const showTodoEdit =
-    todoEditControls?.canEdit && !todoEditControls.isEditing;
-  const showTodoSaveDiscard =
-    todoEditControls?.isEditing && todoEditControls.isDirty;
-  const showTodoCancel =
-    todoEditControls?.isEditing && !todoEditControls.isDirty;
+  const editControls = todoEditControls ?? stickyEditControls;
+
+  const showArtifactEdit =
+    editControls?.canEdit && !editControls.isEditing;
+  const showArtifactSaveDiscard =
+    editControls?.isEditing && editControls.isDirty;
+  const showArtifactCancel =
+    editControls?.isEditing && !editControls.isDirty;
 
   const ctaClass =
     "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
@@ -142,23 +160,27 @@ export function ArtifactPanelHeader({
     ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
     : "";
   const menuDropdownClassName =
-    "min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+    "min-w-[220px] max-h-[min(420px,70vh)] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
+  const closeMenu = () => setMenuOpen(false);
   const versionDropdownClassName =
     "min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
 
+  const showVersion =
+    !isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl);
+
+  const showContributors =
+    contributorProfiles != null && contributorProfiles.length > 0;
+
   return (
-    <div className="flex h-14 items-center gap-[11px]">
-      {contributorProfiles && contributorProfiles.length > 0 && (
-        <ContributorAvatarStack profiles={contributorProfiles} size={28} />
-      )}
+    <div
+      className={`flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+    >
       <span
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink ${
-          kind === "table" && artifactId ? "" : "bg-canvas-artifactIconBg"
-        }`}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)
-            : undefined
+            : artifactCategoryStyle(isVideo ? "video" : kind)
         }
       >
         <span
@@ -176,42 +198,47 @@ export function ArtifactPanelHeader({
           />
         </span>
       </span>
-      <h2 className="min-w-0 flex-1 truncate text-canvas-heading font-semibold leading-tight text-canvas-ink">
-        {title}
-      </h2>
+      <EditableArtifactTitle
+        displayTitle={title}
+        renameTitle={renameTitle ?? title}
+        canRename={canRenameTitle && Boolean(onRenameTitle)}
+        onRename={(next) => onRenameTitle?.(next)}
+      />
 
-      {showTodoEdit && (
+      {showArtifactEdit && (
         <button
           type="button"
-          onClick={todoEditControls.onEdit}
+          onClick={editControls.onEdit}
           className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
         >
           Edit
         </button>
       )}
 
-      {showTodoCancel && (
+      {showArtifactCancel && (
         <button
           type="button"
-          onClick={todoEditControls.onCancelEdit}
+          onClick={editControls.onCancelEdit}
           className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
         >
           Cancel
         </button>
       )}
 
-      {showTodoSaveDiscard && (
+      {showArtifactSaveDiscard && (
         <div className="flex shrink-0 items-center gap-2">
+          {!editControls.saveOnly && (
+            <button
+              type="button"
+              onClick={editControls.onDiscard}
+              className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+            >
+              Discard
+            </button>
+          )}
           <button
             type="button"
-            onClick={todoEditControls.onDiscard}
-            className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={todoEditControls.onSave}
+            onClick={editControls.onSave}
             className={`${ctaClass} bg-canvas-accent text-white hover:opacity-90`}
           >
             Save
@@ -225,7 +252,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
         >
           Visit website
           <ExternalLinkIcon />
@@ -236,39 +263,21 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
         >
           Open in Google
           <ExternalLinkIcon />
         </a>
       ) : null}
 
-      {exportPayload && onExportToast ? (
-        <>
-          {kind === "code" ? (
-            <ArtifactCodeCopyButton menuVariant={menuVariant} onToast={onExportToast} />
-          ) : (
-            <ArtifactCopyCodeButton
-              kind={kind}
-              payload={exportPayload}
-              title={title}
-              artifactId={artifactId}
-              menuVariant={menuVariant}
-              onToast={onExportToast}
-            />
-          )}
-          <ArtifactExportMenu
-            kind={kind}
-            payload={exportPayload}
-            title={title}
-            artifactId={artifactId}
-            menuVariant={menuVariant}
-            onToast={onExportToast}
-          />
-        </>
-      ) : null}
-
-      {!isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl) && (
+      {(showContributors || showVersion || hasMenuActions) && (
+        <div className="flex shrink-0 items-center gap-2">
+      {showContributors && (
+        <div className={`shrink-0 ${isCanvas ? chromeClass : ""}`}>
+          <ContributorAvatarStack profiles={contributorProfiles} size={28} />
+        </div>
+      )}
+      {!showVersion ? null : (
           <div
             className={`relative shrink-0 ${chromeClass} ${
               versionOpen ? "opacity-100" : ""
@@ -350,7 +359,9 @@ export function ArtifactPanelHeader({
             aria-label="More options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+            className={`flex shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+              isCanvas ? "h-11 w-9" : "h-10 w-10"
+            }`}
           >
             <svg viewBox="0 0 16 16" className="h-[22px] w-[22px]" fill="currentColor" aria-hidden>
               <circle cx="8" cy="3.5" r="1.25" />
@@ -366,61 +377,31 @@ export function ArtifactPanelHeader({
                 portalRef={actionMenuPortal.portalRef}
                 className={menuDropdownClassName}
               >
-                {onExpand && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onExpand();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
-                  >
-                    Expand
-                  </button>
-                )}
-                {onRemoveFromCanvas && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRemoveFromCanvas();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                  >
-                    Remove from canvas
-                  </button>
-                )}
+                <ArtifactHeaderNestedMenu
+                  kind={kind}
+                  title={title}
+                  artifactId={artifactId}
+                  exportPayload={exportPayload}
+                  onRemoveFromCanvas={onRemoveFromCanvas}
+                  onClose={closeMenu}
+                />
               </CanvasFloatingMenuPortal>
             ) : (
               <div
                 className={`absolute right-0 top-full z-50 mt-1 ${menuDropdownClassName}`}
               >
-                {onExpand && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onExpand();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-ink hover:bg-canvas-bg"
-                  >
-                    Expand
-                  </button>
-                )}
-                {onRemoveFromCanvas && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRemoveFromCanvas();
-                    }}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                  >
-                    Remove from canvas
-                  </button>
-                )}
+                <ArtifactHeaderNestedMenu
+                  kind={kind}
+                  title={title}
+                  artifactId={artifactId}
+                  exportPayload={exportPayload}
+                  onRemoveFromCanvas={onRemoveFromCanvas}
+                  onClose={closeMenu}
+                />
               </div>
             ))}
+        </div>
+      )}
         </div>
       )}
     </div>

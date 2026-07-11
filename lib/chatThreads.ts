@@ -261,10 +261,15 @@ export function getBranchSubtreeThreadIds(
 export interface CollapseVisibilityState extends ChatThreadState {
   collapsedBranchThreadIds: string[];
   collapsedCardIds: string[];
+  chatsGloballyHidden?: boolean;
 }
 
 /** Card ids hidden because their branch thread subtree is collapsed on the canvas. */
 export function getHiddenCardIds(state: CollapseVisibilityState): Set<string> {
+  if (state.chatsGloballyHidden) {
+    return new Set(state.cardOrder.filter((id) => Boolean(state.cards[id])));
+  }
+
   const hidden = new Set<string>();
 
   const hiddenThreadIds = new Set<string>();
@@ -294,6 +299,7 @@ export function isConnectionHidden(
   state: CollapseVisibilityState,
   conn: Connection,
 ): boolean {
+  if (state.chatsGloballyHidden) return true;
   const hidden = getHiddenCardIds(state);
   return hidden.has(conn.from) || hidden.has(conn.to);
 }

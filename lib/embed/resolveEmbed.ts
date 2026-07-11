@@ -1,6 +1,8 @@
 import { matchEmbedProvider } from "@/lib/embed/registry";
+import { parseTwitterScreenName } from "@/lib/embed/providers/twitter";
 import type { EmbedResolveResult } from "@/lib/embed/types";
 import { fetchLinkPreview } from "@/lib/linkPreview";
+import { fetchPageScreenshot } from "@/lib/pageScreenshot";
 import { domainDisplayLabel, normalizeHttpUrl } from "@/lib/urlDetection";
 
 async function linkPreviewFallback(
@@ -8,13 +10,21 @@ async function linkPreviewFallback(
 ): Promise<NonNullable<EmbedResolveResult["fallback"]>> {
   try {
     const preview = await fetchLinkPreview(url);
+    let previewImageUrl = preview.previewImageUrl;
+    if (!previewImageUrl) {
+      previewImageUrl = (await fetchPageScreenshot(url)) ?? undefined;
+    }
     return {
       domainLabel: preview.domainLabel,
       faviconUrl: preview.faviconUrl,
-      previewImageUrl: preview.previewImageUrl,
+      previewImageUrl,
     };
   } catch {
-    return { domainLabel: domainDisplayLabel(url) };
+    const screenshotUrl = await fetchPageScreenshot(url);
+    return {
+      domainLabel: domainDisplayLabel(url),
+      previewImageUrl: screenshotUrl ?? undefined,
+    };
   }
 }
 
@@ -45,10 +55,15 @@ export async function resolveEmbedUrl(rawUrl: string): Promise<EmbedResolveResul
       fallback,
     };
   } catch {
+    let title = fallback.domainLabel;
+    if (provider.id === "twitter") {
+      const screenName = parseTwitterScreenName(url);
+      if (screenName) title = `@${screenName} on X`;
+    }
     return {
       provider: provider.id,
       url: normalized,
-      title: fallback.domainLabel,
+      title,
       embedWidth: 520,
       embedHeight: 400,
       status: "failed",

@@ -8,8 +8,8 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
-import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
 import { useArtifactExportOptional } from "@/components/artifacts/ArtifactExportContext";
+import { useArtifactMenuControls } from "@/components/artifacts/ArtifactMenuControlsContext";
 import {
   useArtifactCanvasSizeReport,
   type ArtifactContentAreaSize,
@@ -22,24 +22,17 @@ export function ArtifactContentStage({
   className = "",
   minHeight,
   fill = false,
-  controls,
-  showControls = true,
-  showFontControls = true,
   artifactId,
 }: {
   children: ReactNode;
   className?: string;
   minHeight?: string;
   fill?: boolean;
-  /** Artifact-specific controls rendered in the reserved top strip (left side). */
-  controls?: ReactNode;
-  /** When false, hides the top control strip (e.g. sidebar thumbnails). */
-  showControls?: boolean;
-  /** When false, hides Aa font scale controls (e.g. audio speed toolbar only). */
-  showFontControls?: boolean;
   artifactId?: string;
 }) {
-  const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
+  const menuControls = useArtifactMenuControls();
+  const [localFontScale] = useArtifactFontScale(artifactId);
+  const fontScale = menuControls?.fontScale ?? localFontScale;
   const onCanvasSizeChange = useArtifactCanvasSizeReport();
   const exportCtx = useArtifactExportOptional();
   const stageRef = useRef<HTMLDivElement>(null);
@@ -64,7 +57,6 @@ export function ArtifactContentStage({
     stageRef,
     bodyRef,
     fontScale,
-    showControls,
     fill,
     onCanvasSizeChange,
     onAutoSize: onCanvasSizeChange ? undefined : handleAutoSize,
@@ -86,26 +78,17 @@ export function ArtifactContentStage({
   return (
     <div
       ref={stageRef}
-      className={`artifact-content-stage overflow-hidden rounded-canvas-sm bg-canvas-artifactStage ${
-        fill ? "flex min-h-0 w-full flex-1 flex-col" : ""
-      } ${className}`}
+      className={`artifact-content-stage overflow-hidden bg-canvas-card ${
+        fill ? "rounded-b-canvas" : "rounded-canvas-sm"
+      } ${fill ? "flex min-h-0 w-full flex-1 flex-col" : ""} ${className}`}
       style={stageStyle}
     >
-      {showControls ? (
-        <ArtifactControlsBar
-          fontScale={fontScale}
-          onFontScaleChange={setFontScale}
-          showFontControls={showFontControls}
-        >
-          {controls}
-        </ArtifactControlsBar>
-      ) : null}
       <div
         ref={setExportRootRef}
         data-artifact-export-root
         className={`artifact-content-body ${
           fill ? "flex min-h-0 flex-1 flex-col" : ""
-        } ${showControls ? "" : "h-full"}`}
+        } h-full`}
       >
         {children}
       </div>

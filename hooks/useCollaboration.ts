@@ -44,7 +44,20 @@ import {
   parsePresenceState,
   setRemotePresence,
 } from "@/lib/remotePresenceStore";
-import { parseCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { buildCanvasSnapshot, parseCanvasSnapshot } from "@/lib/canvasSnapshot";
+import {
+  areCanvasPersistSlicesEqual,
+  pickCanvasPersistSlice,
+  pickCanvasPersistSliceFromSnapshot,
+} from "@/lib/canvasPersistDirty";
+import { applyOps, type CanvasOpBatch } from "@/lib/canvasOps";
+import {
+  CANVAS_OPS_EVENT,
+  canvasOpsEnabled,
+  setCanvasOpsChannel,
+  wasBatchSentLocally,
+} from "@/lib/collabOpsChannel";
+import { hasActiveLocalEdits } from "@/lib/localEditGuard";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
 
@@ -58,6 +71,8 @@ interface UseCollaborationOptions {
   isRemoteUpdateRef: React.MutableRefObject<boolean>;
   isDirtyRef?: React.MutableRefObject<boolean>;
   isHydratingRef?: React.MutableRefObject<boolean>;
+  /** Last known row `updated_at` from load/save — skips self-echo realtime events. */
+  canvasUpdatedAtRef?: React.MutableRefObject<string | null>;
 }
 
 export function useCollaboration({
@@ -70,6 +85,7 @@ export function useCollaboration({
   isRemoteUpdateRef,
   isDirtyRef,
   isHydratingRef,
+  canvasUpdatedAtRef,
 }: UseCollaborationOptions) {
   const [sharedCanvases, setSharedCanvases] = useState<SharedCanvasMeta[]>([]);
   const [pendingInvites, setPendingInvites] = useState<CanvasInvite[]>([]);
@@ -86,9 +102,105 @@ export function useCollaboration({
 
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const pendingRemoteSnapshotRef = useRef<ReturnType<
+    typeof parseCanvasSnapshot
+  > | null>(null);
+  const pendingRemoteUpdatedAtRef = useRef<string | null>(null);
 
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
   const getSnapshotSource = useCanvasStore((s) => s.getCanvasSnapshotSource);
+
+  const applyPendingRemoteSnapshot = useCallback(() => {
+    const pending = pendingRemoteSnapshotRef.current;
+    if (!pending || isDirtyRef?.current || hasActiveLocalEdits()) return;
+    if (useCanvasStore.getState().activeCanvasStrokeId) return;
+
+    pendingRemoteSnapshotRef.current = null;
+    const updatedAt = pendingRemoteUpdatedAtRef.current;
+    pendingRemoteUpdatedAtRef.current = null;
+
+    const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+    const incomingSlice = pickCanvasPersistSliceFromSnapshot(pending);
+    if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
+      if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      return;
+    }
+
+    isRemoteUpdateRef.current = true;
+    hydrateFromSnapshot(pending, {
+      applyViewport: false,
+      preserveEphemeral: true,
+    });
+    if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+    requestAnimationFrame(() => {
+      isRemoteUpdateRef.current = false;
+    });
+  }, [
+    canvasUpdatedAtRef,
+    hydrateFromSnapshot,
+    isDirtyRef,
+    isRemoteUpdateRef,
+  ]);
+
+  const considerRemoteSnapshot = useCallback(
+    (parsed: NonNullable<ReturnType<typeof parseCanvasSnapshot>>, updatedAt?: string) => {
+      if (localReadOnly) return;
+
+      if (isHydratingRef?.current) return;
+
+      const reveal = useCanvasStore.getState().canvasLoadReveal;
+      if (reveal?.phase === "pending" || reveal?.phase === "running") {
+        return;
+      }
+
+      if (
+        updatedAt &&
+        canvasUpdatedAtRef?.current &&
+        updatedAt === canvasUpdatedAtRef.current
+      ) {
+        return;
+      }
+
+      const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+      const incomingSlice = pickCanvasPersistSliceFromSnapshot(parsed);
+      if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
+        if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+        return;
+      }
+
+      if (isDirtyRef?.current || hasActiveLocalEdits()) {
+        pendingRemoteSnapshotRef.current = parsed;
+        pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        return;
+      }
+
+      if (useCanvasStore.getState().activeCanvasStrokeId) {
+        pendingRemoteSnapshotRef.current = parsed;
+        pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        return;
+      }
+
+      pendingRemoteSnapshotRef.current = null;
+      pendingRemoteUpdatedAtRef.current = null;
+      isRemoteUpdateRef.current = true;
+      hydrateFromSnapshot(parsed, {
+        applyViewport: false,
+        preserveEphemeral: true,
+      });
+      if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      requestAnimationFrame(() => {
+        isRemoteUpdateRef.current = false;
+      });
+    },
+    [
+      canvasUpdatedAtRef,
+      hydrateFromSnapshot,
+      isDirtyRef,
+      isHydratingRef,
+      isRemoteUpdateRef,
+      localReadOnly,
+    ],
+  );
 
   const activeCanvasRole: CanvasRole | null = accessInfo?.role ?? null;
   const canEdit = canEditCanvas(activeCanvasRole);
@@ -187,6 +299,24 @@ export function useCollaboration({
   }, [refreshActiveCanvasCollaboration]);
 
   useEffect(() => {
+    const onCanvasSaved = () => {
+      applyPendingRemoteSnapshot();
+    };
+    window.addEventListener("flowstate:canvas-saved", onCanvasSaved);
+    return () =>
+      window.removeEventListener("flowstate:canvas-saved", onCanvasSaved);
+  }, [applyPendingRemoteSnapshot]);
+
+  useEffect(() => {
+    const onLocalEditsEnded = () => {
+      applyPendingRemoteSnapshot();
+    };
+    window.addEventListener("flowstate:local-edits-ended", onLocalEditsEnded);
+    return () =>
+      window.removeEventListener("flowstate:local-edits-ended", onLocalEditsEnded);
+  }, [applyPendingRemoteSnapshot]);
+
+  useEffect(() => {
     const tearDownChannels = () => {
       void presenceChannelRef.current?.unsubscribe();
       void realtimeChannelRef.current?.unsubscribe();
@@ -272,6 +402,51 @@ export function useCollaboration({
 
       presenceChannelRef.current = presenceChannel;
 
+      // Flag-gated op-log sync: collaborators' saves arrive as 1–5KB delta
+      // batches on this channel and apply as idempotent LWW entity writes.
+      // The postgres_changes snapshot path below remains the safety net —
+      // ops give low latency, snapshots give eventual reconciliation.
+      if (canvasOpsEnabled()) {
+        setCanvasOpsChannel(presenceChannel);
+        presenceChannel.on(
+          "broadcast",
+          { event: CANVAS_OPS_EVENT },
+          ({ payload }: { payload: CanvasOpBatch }) => {
+            const batch = payload;
+            if (!batch?.batchId || !Array.isArray(batch.ops)) return;
+            if (wasBatchSentLocally(batch.batchId)) return;
+            if (batch.actorId === user.id) return;
+            if (isHydratingRef?.current) return;
+            // Mid-edit / mid-gesture: skip — the snapshot reconciliation
+            // path already queues and applies once local edits settle.
+            if (isDirtyRef?.current || hasActiveLocalEdits()) return;
+            const state = useCanvasStore.getState();
+            if (state.activeCanvasStrokeId) return;
+
+            const applied = applyOps(pickCanvasPersistSlice(state), batch.ops);
+            const baseSource = state.getCanvasSnapshotSource();
+            // Slice fields are name-compatible with the snapshot source; the
+            // slice types are intentionally loose (unknown records), so the
+            // merge needs a cast. Skills aren't in the slice and keep their
+            // local values — they sync via the snapshot safety net.
+            const source = {
+              ...baseSource,
+              ...(applied as unknown as Partial<typeof baseSource>),
+              // Viewport is per-user; ops never carry it.
+              viewport: state.viewport,
+            } as typeof baseSource;
+            isRemoteUpdateRef.current = true;
+            hydrateFromSnapshot(buildCanvasSnapshot(source), {
+              applyViewport: false,
+              preserveEphemeral: true,
+            });
+            requestAnimationFrame(() => {
+              isRemoteUpdateRef.current = false;
+            });
+          },
+        );
+      }
+
       realtimeChannel = supabase
         .channel(`canvas:${activeCanvasId}:state`, { config: { private: true } })
         .on(
@@ -283,27 +458,14 @@ export function useCollaboration({
             filter: `id=eq.${activeCanvasId}`,
           },
           (payload) => {
-            if (localReadOnly) return;
-
-            const newState = (payload.new as { state?: unknown })?.state;
-            const parsed = parseCanvasSnapshot(newState);
+            const row = payload.new as {
+              state?: unknown;
+              updated_at?: string;
+            };
+            const parsed = parseCanvasSnapshot(row.state);
             if (!parsed) return;
 
-            if (isHydratingRef?.current || isDirtyRef?.current) return;
-
-            const reveal = useCanvasStore.getState().canvasLoadReveal;
-            if (
-              reveal?.phase === "pending" ||
-              reveal?.phase === "running"
-            ) {
-              return;
-            }
-
-            isRemoteUpdateRef.current = true;
-            hydrateFromSnapshot(parsed, { applyViewport: false });
-            requestAnimationFrame(() => {
-              isRemoteUpdateRef.current = false;
-            });
+            considerRemoteSnapshot(parsed, row.updated_at);
           },
         )
         .subscribe();
@@ -318,6 +480,7 @@ export function useCollaboration({
 
     return () => {
       cancelled = true;
+      setCanvasOpsChannel(null);
       void presenceChannel?.unsubscribe();
       void realtimeChannel?.unsubscribe();
       presenceChannelRef.current = null;
@@ -329,8 +492,7 @@ export function useCollaboration({
   }, [
     accessInfo,
     activeCanvasId,
-    hydrateFromSnapshot,
-    isDirtyRef,
+    considerRemoteSnapshot,
     isHydratingRef,
     isRemoteUpdateRef,
     localReadOnly,

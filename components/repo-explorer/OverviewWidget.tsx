@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import type { OverviewAi, OverviewData } from "@/lib/github/types";
-import { mergeAudienceCopy } from "@/lib/github/readmeSummary";
 import { WHAT_IT_IS_LIMITS } from "@/lib/github/overviewCopyLimits";
 import { StatPill, TagChip, WidgetCard, WidgetSkeleton } from "@/components/repo-explorer/WidgetCard";
 
@@ -66,7 +65,6 @@ export function OverviewWidget({
   if (!data) return null;
 
   const hasSummary = Boolean(ai?.whatItIs && ai.whatItIs.length >= WHAT_IT_IS_LIMITS.minChars);
-  const audience = ai?.whoItsFor;
 
   return (
     <WidgetCard title="Overview" subtitle={data.fullName}>
@@ -80,18 +78,6 @@ export function OverviewWidget({
             </div>
           )}
         </SummarySection>
-
-        {audience && mergeAudienceCopy(audience).length > 32 ? (
-          <SummarySection label="Who it's for">
-            <p className="mt-2 text-canvas-body-sm leading-relaxed text-canvas-ink">
-              {mergeAudienceCopy(audience)}
-            </p>
-          </SummarySection>
-        ) : (
-          <div className="rounded-canvas-sm border border-canvas-border bg-canvas-artifactStage px-4 py-3">
-            <WidgetSkeleton lines={2} />
-          </div>
-        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-canvas-caption uppercase tracking-wide text-canvas-muted">

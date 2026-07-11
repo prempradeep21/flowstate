@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  memo,
   PointerEvent as ReactPointerEvent,
   useCallback,
   useRef,
   useState,
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
+import { ArtifactRemoteUpdateStroke } from "@/components/artifacts/ArtifactRemoteUpdateStroke";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -21,11 +23,16 @@ import {
   CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
   clampArtifactSize,
   clampStreetViewArtifactSize,
+  clampTableArtifactSize,
   getArtifactBounds,
   getDefaultArtifactSize,
   MAX_TIMELINE_ARTIFACT_WIDTH,
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
+import { normalizeTableArtifactData } from "@/lib/tableArtifact";
+import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
+import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
+import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
@@ -42,12 +49,19 @@ import {
   ARTIFACT_CANVAS_CHROME_OPACITY,
   ARTIFACT_CANVAS_CONTAINER_FILL,
   ARTIFACT_CANVAS_PADDING_CHROME,
+  artifactKindUsesCanvasContainerFill,
+  artifactKindUsesCanvasPaddingChrome,
 } from "@/lib/artifactCanvasChrome";
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import {
+  findRemoteArtifactUpdatingCardId,
+} from "@/lib/artifactRemoteUpdate";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 
 const TEXT_SELECTABLE =
   'textarea, button, input, select, a, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], [role="menu"], [role="listbox"], [role="option"], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon';
@@ -56,7 +70,7 @@ interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
 }
 
-export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
+function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
@@ -71,7 +85,6 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const setCanvasArtifactVersion = useCanvasStore(
     (s) => s.setCanvasArtifactVersion,
   );
-  const openSessionArtifact = useCanvasStore((s) => s.openSessionArtifact);
   const removeCanvasArtifact = useCanvasStore((s) => s.removeCanvasArtifact);
   const approvePermissionPreview = useCanvasStore(
     (s) => s.approvePermissionPreview,
@@ -82,26 +95,30 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const setCanvasArtifactSize = useCanvasStore((s) => s.setCanvasArtifactSize);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
-  const [chromeHover, setChromeHover] = useState(false);
+  const [pointerSessionActive, setPointerSessionActive] = useState(false);
 
-  /** Chrome stays revealed for as long as the pointer is anywhere within the node's bounds. */
-  const syncChromeHover = useCallback(() => {
-    setChromeHover(true);
-  }, []);
   const chromeReveal = useArtifactSpawnChromeReveal(node.id);
 
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag: DOM transform per frame via the gesture layer, single
+  // moveCanvasArtifact commit on drop. Alt-drag duplicates on first move and
+  // drags the copy, exactly as before.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "artifact",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasArtifact(targetId, dx, dy),
+    makeCopy: (id) =>
+      useCanvasStore.getState().duplicateCanvasArtifactNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    onDrop: (didMove) => {
+      if (didMove) void playSound("artifact-drag-drop");
+      setPointerSessionActive(false);
+    },
+    recordUndo,
+  });
 
   const resizeStateRef = useRef<{
     pointerId: number;
@@ -118,6 +135,18 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const preview = node.permissionPreview;
   const generatingPreview = node.generatingPreview;
+  const remoteUpdatingCardId = useCanvasStore((s) => {
+    if (!node.artifactId || preview || generatingPreview) return null;
+    return findRemoteArtifactUpdatingCardId(node.artifactId, node.sourceCardId, {
+      cards: s.cards,
+      cardOrder: s.cardOrder,
+      sessionArtifacts: s.sessionArtifacts,
+      connections: s.connections,
+      canvasArtifactNodes: s.canvasArtifactNodes,
+      artifactPlugConnections: s.artifactPlugConnections,
+      plugComposerAttachments: s.plugComposerAttachments,
+    });
+  });
   const art = node.artifactId
     ? sessionArtifacts[node.artifactId]
     : undefined;
@@ -148,19 +177,38 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           : artForBounds?.kind === "audio"
             ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
             : undefined;
+
+      let areaW = contentArea.w;
+      let areaH = contentArea.h;
+      if (
+        artForBounds?.kind === "table" &&
+        latestPayload?.type === "table"
+      ) {
+        const { columns, rows } = normalizeTableArtifactData(latestPayload.data);
+        const intrinsic = computeTableIntrinsicSize(columns, rows);
+        const currentContentW =
+          bounds.w - CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX;
+        areaW = Math.max(areaW, intrinsic.widthPx, currentContentW);
+        areaH = Math.max(areaH, intrinsic.heightPx);
+      }
+
       // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
       const targetW = Math.max(
-        contentArea.w + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
+        areaW + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
         defaultSize?.w ?? 0,
       );
       const targetH = Math.max(
-        contentArea.h + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+        areaH + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
         defaultSize?.h ?? 0,
       );
       const next =
         artForBounds?.kind === "streetview"
           ? clampStreetViewArtifactSize(targetW)
-          : clampArtifactSize(targetW, targetH, clampOpts);
+          : artForBounds?.kind === "stickynote"
+            ? clampStickyNoteArtifactSize(targetW, targetH)
+            : artForBounds?.kind === "table"
+              ? clampTableArtifactSize(targetW, targetH)
+              : clampArtifactSize(targetW, targetH, clampOpts);
       if (
         Math.abs(next.w - bounds.w) > 1 ||
         Math.abs(next.h - bounds.h) > 1
@@ -171,8 +219,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     [node.id],
   );
   const sourceCard = cards[node.sourceCardId];
+  const remoteUpdatingCard =
+    remoteUpdatingCardId != null ? cards[remoteUpdatingCardId] : undefined;
   const plugAccent =
     (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
+  const remoteUpdateAccent =
+    (remoteUpdatingCard &&
+      threads[remoteUpdatingCard.threadId]?.accentColour) ??
+    plugAccent;
 
   const artifactPlugWorld = (side: "left" | "right") => {
     const anchor = plugAnchorAt(
@@ -224,21 +278,16 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       return;
     }
     if (!inMultiSelection) selectCanvasArtifact(node.id);
+    if (canvasReadOnly) return;
     e.preventDefault();
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      moveSelection: inMultiSelection,
-    };
+    setPointerSessionActive(true);
+    nodeDrag.start(e, {
+      moveSelection: inMultiSelection && !e.altKey,
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    syncChromeHover();
-
     const rs = resizeStateRef.current;
     if (rs && rs.pointerId === e.pointerId) {
       const screenDx = e.clientX - rs.startX;
@@ -259,7 +308,17 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
           ? clampStreetViewArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
             )
-          : clampArtifactSize(
+          : art?.kind === "stickynote"
+            ? clampStickyNoteArtifactSize(
+                rs.startW + (sx * screenDx) / vpScale,
+                rs.startH + (sy * screenDy) / vpScale,
+              )
+            : art?.kind === "table"
+              ? clampTableArtifactSize(
+                  rs.startW + (sx * screenDx) / vpScale,
+                  rs.startH + (sy * screenDy) / vpScale,
+                )
+              : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
               art?.kind === "timeline"
@@ -282,28 +341,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasArtifact(node.id, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -315,20 +353,11 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         // ignore
       }
       resizeStateRef.current = null;
+      setPointerSessionActive(false);
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    if (ds.didMove) {
-      void playSound("artifact-drag-drop");
-    }
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const handleResizePointerDown = (
@@ -341,6 +370,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     selectCanvasArtifact(node.id);
     const root = nodeRef.current;
     if (root) root.setPointerCapture(e.pointerId);
+    setPointerSessionActive(true);
     resizeStateRef.current = {
       pointerId: e.pointerId,
       corner,
@@ -359,9 +389,13 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
+  const usesContainerFill =
+    !!art && artifactKindUsesCanvasContainerFill(art.kind);
+  const usesPaddingChrome =
+    !!art && artifactKindUsesCanvasPaddingChrome(art.kind);
   const contentInteractive = isSelected || isPermissionPreview;
-  /** Hover or selection keeps chrome, fill, plugs, and resize grips visible. */
-  const chromeVisible = chromeHover || isSelected;
+  /** Selection or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
+  const chromeSelected = isSelected || isPermissionPreview;
 
   return (
     <div
@@ -369,14 +403,13 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       data-canvas-artifact
       data-canvas-node-id={node.id}
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
-      {...(chromeReveal ? { "data-chrome-reveal": "" } : {})}
-      {...(chromeVisible ? { "data-chrome-hover": "" } : {})}
+      {...(isPermissionPreview ? { "data-permission-preview": "" } : {})}
+      {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
+      {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
+      {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
+      {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerEnter={syncChromeHover}
-      onPointerLeave={() => {
-        if (!isSelected) setChromeHover(false);
-      }}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       className={`canvas-artifact-node-shell group/artifact absolute overflow-visible ${
@@ -403,7 +436,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {!godView && !isPermissionPreview && (
         <>
           <div
-            className={`pointer-events-none absolute inset-y-0 left-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+            className={`pointer-events-none absolute inset-y-0 left-0 z-30 ${ARTIFACT_CANVAS_CHROME_OPACITY} ${canvasSidePlugPointerClass("artifact")}`}
           >
             <Plug
               side="left"
@@ -414,7 +447,7 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             />
           </div>
           <div
-            className={`pointer-events-none absolute inset-y-0 right-0 z-30 [&_button]:pointer-events-auto ${ARTIFACT_CANVAS_CHROME_OPACITY}`}
+            className={`pointer-events-none absolute inset-y-0 right-0 z-30 ${ARTIFACT_CANVAS_CHROME_OPACITY} ${canvasSidePlugPointerClass("artifact")}`}
           >
             <Plug
               side="right"
@@ -431,12 +464,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
         worldWidth={width}
         className={
           isPermissionPreview
-            ? `flex h-full flex-col overflow-hidden rounded-canvas border p-5 ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
+            ? `relative flex h-full flex-col overflow-hidden rounded-canvas border ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} ${
                 isSelected
                   ? ARTIFACT_CANVAS_CASING_SELECTED
                   : ARTIFACT_CANVAS_CASING_DEFAULT
               }`
-            : `flex h-full flex-col rounded-canvas ${ARTIFACT_CANVAS_CONTAINER_FILL} ${ARTIFACT_CANVAS_PADDING_CHROME} transition-shadow ${
+            : `relative flex h-full flex-col rounded-canvas transition-shadow ${
+                usesContainerFill ? ARTIFACT_CANVAS_CONTAINER_FILL : ""
+              } ${usesPaddingChrome ? ARTIFACT_CANVAS_PADDING_CHROME : ""} ${
                   isRepoArtifact ? "overflow-visible" : "overflow-hidden"
                 } ${
                   todoEditing
@@ -447,6 +482,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
                 }`
         }
       >
+        {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
+          <ArtifactRemoteUpdateStroke accentColour={remoteUpdateAccent} />
+        ) : null}
         {isPermissionPreview && preview ? (
           <ArtifactPermissionPrompt
             kind={preview.kind}
@@ -471,13 +509,17 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
             contentInteractive={contentInteractive}
             onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
             menuVariant="canvas"
-            onExpand={() =>
-              openSessionArtifact(node.artifactId, node.versionId)
-            }
             onRemoveFromCanvas={() => removeCanvasArtifact(node.id)}
             onTodoEditingChange={setTodoEditing}
             onArtifactContentAreaSizeChange={
-              art.kind !== "repo" && art.kind !== "audio"
+              // table/todo hold a fixed default box (user-resizable via the
+              // corner grips) and scroll their content internally instead of
+              // auto-growing the node to fit every row/item.
+              art.kind !== "repo" &&
+              art.kind !== "audio" &&
+              art.kind !== "stickynote" &&
+              art.kind !== "table" &&
+              art.kind !== "todo"
                 ? handleArtifactContentAreaSize
                 : undefined
             }
@@ -497,3 +539,14 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
     </div>
   );
 }
+
+/**
+ * Memoized: re-renders only when its node object is replaced (position/size
+ * commit). Everything else it needs comes from narrow store selectors inside,
+ * matching Card's memo contract — without this, every store write re-rendered
+ * every artifact node on the canvas.
+ */
+export const CanvasArtifactNode = memo(
+  CanvasArtifactNodeInner,
+  (prev, next) => prev.node === next.node,
+);

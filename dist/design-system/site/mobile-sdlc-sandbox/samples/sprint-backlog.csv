@@ -1,0 +1,7 @@
+id,story,points,owner,status,platform
+ENG-101,Expense entry offline queue,5,Alex,Ready,Both
+ENG-102,Marathi UI strings,3,Priya,In Sprint,Android
+ENG-103,iOS TestFlight build,2,Sam,Ready,iOS
+ENG-104,Push notification reminders,3,Alex,Backlog,Both
+ENG-105,Goal pocket animations,2,Design,Ready,Both
+ENG-106,App Store screenshot capture,1,PM,Ready,Both

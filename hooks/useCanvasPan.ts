@@ -1,46 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { markUserViewportInteraction } from "@/lib/canvasViewportGuard";
-import { cancelViewportTween } from "@/lib/motion/animateViewport";
-import { useCanvasStore } from "@/lib/store";
+import { useCallback } from "react";
+import { applyViewportPan } from "@/lib/viewportGesture";
 
 /**
- * rAF-coalesced pan updates — mirrors useCanvasWheelZoom so space+drag
- * produces at most one store update per animation frame.
+ * Pan input hook — the DOM transform is painted SYNCHRONOUSLY in the input
+ * event via lib/viewportGesture (zero added latency; the previous version
+ * queued to the next frame's rAF, which made pan feel a frame behind the
+ * fingers). Store commits are coalesced per frame inside the module.
  */
 export function useCanvasPan(): (dx: number, dy: number) => void {
-  const panBy = useCanvasStore((s) => s.panBy);
-  const pendingRef = useRef({ dx: 0, dy: 0 });
-  const rafRef = useRef(0);
-
-  const flush = useCallback(() => {
-    rafRef.current = 0;
-    const { dx, dy } = pendingRef.current;
-    pendingRef.current = { dx: 0, dy: 0 };
-    if (dx === 0 && dy === 0) return;
-    panBy(dx, dy);
-  }, [panBy]);
-
-  const queuePan = useCallback(
-    (dx: number, dy: number) => {
-      pendingRef.current.dx += dx;
-      pendingRef.current.dy += dy;
-      markUserViewportInteraction();
-      cancelViewportTween();
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(flush);
-      }
-    },
-    [flush],
-  );
-
-  useEffect(
-    () => () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    },
-    [],
-  );
-
-  return queuePan;
+  return useCallback((dx: number, dy: number) => {
+    applyViewportPan(dx, dy);
+  }, []);
 }

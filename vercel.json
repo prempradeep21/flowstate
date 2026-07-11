@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/usage-analysis",
+      "schedule": "30 18 * * *"
+    }
+  ]
+}

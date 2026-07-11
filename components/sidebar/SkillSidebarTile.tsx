@@ -35,7 +35,7 @@ export function SkillSidebarTile({ skillId }: { skillId: string }) {
         type="button"
         aria-label={`Remove ${skill.title}`}
         onClick={() => useCanvasStore.getState().removeCanvasSkill(skillId)}
-        className="absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[11px] text-canvas-muted opacity-0 transition-opacity hover:text-canvas-ink group-hover/skill:opacity-100"
+        className="absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-canvas-caption text-canvas-muted opacity-0 transition-opacity hover:text-canvas-ink group-hover/skill:opacity-100"
       >
         x
       </button>

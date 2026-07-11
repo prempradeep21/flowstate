@@ -111,7 +111,7 @@ export function QaQuestionSection({
       {accentColour && (
         <span
           aria-hidden
-          className="pointer-events-none absolute top-0 z-10"
+          className="pointer-events-none absolute top-0 z-0"
           style={{
             background: accentColour,
             left: -bandWidth / 4,
@@ -119,6 +119,7 @@ export function QaQuestionSection({
             height: accentBandHeightPx,
             filter: "blur(20px)",
             opacity: 0.425,
+            transform: "translateZ(0)",
           }}
         />
       )}

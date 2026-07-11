@@ -2,6 +2,7 @@
 
 import { m, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import type { RepoExplorerData, WidgetStatus } from "@/lib/github/types";
 import {
@@ -9,17 +10,16 @@ import {
   WHAT_IT_IS_LIMITS,
   whatItIsLooksLikeRawReadme,
 } from "@/lib/github/overviewCopyLimits";
-import { mergeAudienceCopy } from "@/lib/github/readmeSummary";
 import { findCanvasNodeByArtifactId } from "@/lib/canvasArtifacts";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import {
   REPO_ARTIFACT_WIDTH,
-  REPO_COLLAPSED_HEIGHT,
-  REPO_COLLAPSED_WIDTH,
   REPO_DRAG_HANDLE_ATTR,
+  REPO_HUB,
   REPO_SPOKE_BODY_MAX_HEIGHT,
   REPO_SPOKE_MAX_HEIGHT,
   computeRepoArtifactHeight,
+  computeRepoCollapsedSize,
   getRepoSpokeDefinitions,
   positionRepoSpokes,
   REPO_HUB_HOLD_MS,
@@ -31,9 +31,9 @@ import {
   type RepoSpokeId,
   type RepoSpokeLayout,
 } from "@/lib/repoArtifactLayout";
-import { ArtifactControlsBar } from "@/components/artifacts/ArtifactControlsBar";
-import { useArtifactFontScale } from "@/hooks/useArtifactFontScale";
 import { dropVariants, sidebarTileEnterVariants } from "@/lib/motion/variants";
+import { EditableArtifactTitle } from "@/components/artifacts/EditableArtifactTitle";
+import { artifactRenameTitle } from "@/lib/sessionArtifacts";
 import { useCanvasStore } from "@/lib/store";
 
 type RepoPayload = Extract<ArtifactPayload, { type: "repo" }>;
@@ -156,8 +156,6 @@ function spokeIcon(id: RepoSpokeId): string {
   switch (id) {
     case "overview":
       return "◎";
-    case "audience":
-      return "◎";
     case "fileStructure":
       return "▤";
     case "media":
@@ -195,7 +193,6 @@ function resolveOverviewText(
 function spokeStatus(explorer: RepoExplorerData, spokeId: RepoSpokeId): WidgetStatus {
   switch (spokeId) {
     case "overview":
-    case "audience":
       return explorer.overview.status;
     case "fileStructure":
       return explorer.fileStructure.status;
@@ -227,7 +224,7 @@ function SpokeBody({
 
   if (
     loading ||
-    (status === "loading" && spokeId !== "overview" && spokeId !== "audience")
+    (status === "loading" && spokeId !== "overview")
   ) {
     return <SpokeSkeleton lines={spokeId === "overview" ? 5 : 4} />;
   }
@@ -276,14 +273,6 @@ function SpokeBody({
             </div>
           ) : null}
         </div>
-      );
-    }
-    case "audience": {
-      const audience = explorer.overview.ai?.whoItsFor;
-      const text = audience ? mergeAudienceCopy(audience) : "";
-      if (!text || text.length < 32) return <SpokeSkeleton lines={3} />;
-      return (
-        <p className="text-canvas-body-sm leading-relaxed text-canvas-ink">{text}</p>
       );
     }
     case "fileStructure": {
@@ -567,7 +556,7 @@ function RepoSpokeCard({
     <m.div
       ref={cardRef}
       data-no-drag
-      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{
         left: spoke.x,
         top: spoke.y,
@@ -604,7 +593,7 @@ function RepoSpokeCard({
         initial={{ opacity: 0 }}
         animate={{
           opacity:
-            visible && (dataReady || spoke.id === "overview" || spoke.id === "audience")
+            visible && (dataReady || spoke.id === "overview")
               ? 1
               : 0.35,
         }}
@@ -614,7 +603,7 @@ function RepoSpokeCard({
           spokeId={spoke.id}
           explorer={explorer}
           streamingOverview={streamingOverview}
-          loading={!dataReady && spoke.id !== "overview" && spoke.id !== "audience"}
+          loading={!dataReady && spoke.id !== "overview"}
         />
       </m.div>
     </m.div>
@@ -640,6 +629,11 @@ function useRepoEnrichment(
   explorer: RepoExplorerData,
 ) {
   const patchRepoArtifactExplorer = useCanvasStore((s) => s.patchRepoArtifactExplorer);
+  const selectedArtifactId = useCanvasStore((s) => s.selectedCanvasArtifactId);
+  const sandboxDefer =
+    isMobileSdlcSandboxSessionActive() &&
+    Boolean(artifactId) &&
+    selectedArtifactId !== artifactId;
   const [streamingOverview, setStreamingOverview] = useState(
     () => explorer.overview.ai?.whatItIs ?? "",
   );
@@ -650,6 +644,7 @@ function useRepoEnrichment(
 
   useEffect(() => {
     if (!artifactId || startedRef.current) return;
+    if (sandboxDefer) return;
     if (explorer.enrichmentStatus === "complete") {
       setDataReady(true);
       return;
@@ -703,15 +698,11 @@ function useRepoEnrichment(
           setStreamingOverview(polishWhatItIsCopy(data.overview.ai.whatItIs));
         }
 
-        const audienceMerged = data.overview.ai?.whoItsFor
-          ? mergeAudienceCopy(data.overview.ai.whoItsFor)
-          : "";
-        const audienceThin = audienceMerged.length < 48;
         const summaryThin =
           !data.overview.ai?.whatItIs ||
           data.overview.ai.whatItIs.length < WHAT_IT_IS_LIMITS.minChars;
 
-        if (audienceThin || summaryThin) {
+        if (summaryThin) {
           try {
             const sumRes = await fetch(summaryUrl, { cache: "no-store" });
             if (sumRes.ok) {
@@ -749,7 +740,13 @@ function useRepoEnrichment(
         });
       }
     })();
-  }, [artifactId, explorer.enrichmentStatus, patchRepoArtifactExplorer, repoUrl]);
+  }, [
+    artifactId,
+    explorer.enrichmentStatus,
+    patchRepoArtifactExplorer,
+    repoUrl,
+    sandboxDefer,
+  ]);
 
   return { streamingOverview, dataReady };
 }
@@ -765,16 +762,29 @@ export function RepoArtifactContent({
   artifactId?: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const { repoUrl, displayTitle, explorer } = payload.data;
-  const title =
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
+  const sessionArtifact = useCanvasStore((s) =>
+    artifactId ? s.sessionArtifacts[artifactId] : undefined,
+  );
+  const renameSessionArtifactTitle = useCanvasStore(
+    (s) => s.renameSessionArtifactTitle,
+  );
+  const { repoUrl, displayTitle, explorer, owner, repo } = payload.data;
+  const defaultSlug = `${owner}/${repo}`;
+  const autoTitle =
     explorer.overview.data?.name ??
     explorer.overview.data?.fullName ??
     displayTitle;
+  const storedTitle = payload.title?.trim();
+  const title =
+    storedTitle && storedTitle !== defaultSlug ? storedTitle : autoTitle;
 
   const [phase, setPhase] = useState<RepoRevealPhase>("hub");
   const [collapsed, setCollapsed] = useState(false);
   const [hiddenSpokes, setHiddenSpokes] = useState<Set<RepoSpokeId>>(() => new Set());
   const [spokeHeights, setSpokeHeights] = useState<Partial<Record<RepoSpokeId, number>>>({});
+  const hubRef = useRef<HTMLDivElement>(null);
+  const [hubSize, setHubSize] = useState<{ w: number; h: number } | null>(null);
   const { streamingOverview, dataReady } = useRepoEnrichment(
     artifactId,
     repoUrl,
@@ -796,6 +806,20 @@ export function RepoArtifactContent({
       window.clearTimeout(t2);
     };
   }, [reduceMotion]);
+
+  useEffect(() => {
+    const el = hubRef.current;
+    if (!el) return;
+    const sync = () => {
+      const w = Math.round(el.offsetWidth);
+      const h = Math.round(el.offsetHeight);
+      setHubSize((prev) => (prev?.w === w && prev?.h === h ? prev : { w, h }));
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const hasDisplayableMedia =
     (explorer.media.data?.displayableItems?.length ?? 0) > 0;
@@ -826,7 +850,13 @@ export function RepoArtifactContent({
     setCollapsed((prev) => !prev);
   }, []);
 
-  const layoutW = collapsed ? REPO_COLLAPSED_WIDTH : REPO_ARTIFACT_WIDTH;
+  const hubDimensions = hubSize ?? { w: REPO_HUB.w, h: REPO_HUB.h };
+  const collapsedSize = useMemo(
+    () => computeRepoCollapsedSize(hubDimensions.w, hubDimensions.h),
+    [hubDimensions.h, hubDimensions.w],
+  );
+
+  const layoutW = collapsed ? collapsedSize.w : REPO_ARTIFACT_WIDTH;
   const activeDefinitions = useMemo(
     () => spokeDefinitions.filter((s) => !hiddenSpokes.has(s.id)),
     [hiddenSpokes, spokeDefinitions],
@@ -836,10 +866,13 @@ export function RepoArtifactContent({
     () => computeRepoArtifactHeight(activeDefinitions, spokeHeights),
     [activeDefinitions, spokeHeights],
   );
-  const layoutH = collapsed ? REPO_COLLAPSED_HEIGHT : expandedH;
+  const layoutH = collapsed ? collapsedSize.h : expandedH;
   const hub = useMemo(
-    () => repoHubForBounds(layoutW, layoutH, collapsed),
-    [collapsed, layoutH, layoutW],
+    () => {
+      const base = repoHubForBounds(layoutW, layoutH, collapsed);
+      return { ...base, w: hubDimensions.w, h: hubDimensions.h };
+    },
+    [collapsed, hubDimensions.h, hubDimensions.w, layoutH, layoutW],
   );
 
   useEffect(() => {
@@ -855,6 +888,8 @@ export function RepoArtifactContent({
       bounds.w,
       bounds.h,
       expandedH,
+      collapsedSize.w,
+      collapsedSize.h,
     );
     if (dx !== 0 || dy !== 0) {
       st.moveCanvasArtifact(node.id, dx, dy);
@@ -862,10 +897,10 @@ export function RepoArtifactContent({
     st.setCanvasArtifactSize(
       node.id,
       collapsed
-        ? { w: REPO_COLLAPSED_WIDTH, h: REPO_COLLAPSED_HEIGHT }
+        ? { w: collapsedSize.w, h: collapsedSize.h }
         : { w: REPO_ARTIFACT_WIDTH, h: expandedH },
     );
-  }, [artifactId, collapsed, expandedH, fill]);
+  }, [artifactId, collapsed, collapsedSize.h, collapsedSize.w, expandedH, fill]);
 
   const connectors = useMemo(
     () =>
@@ -880,7 +915,6 @@ export function RepoArtifactContent({
   const spokesRevealed = phase === "widgets" || Boolean(reduceMotion);
   const showConnectors = (phase !== "hub" || Boolean(reduceMotion)) && !collapsed;
   const showWidgets = spokesRevealed && !collapsed;
-  const [fontScale, setFontScale] = useArtifactFontScale(artifactId);
 
   return (
     <div
@@ -890,15 +924,8 @@ export function RepoArtifactContent({
         height: layoutH,
         minWidth: layoutW,
         minHeight: layoutH,
-        ["--artifact-font-scale" as string]: String(fontScale),
       }}
     >
-      <div className="absolute inset-x-0 top-0 z-50">
-        <ArtifactControlsBar
-          fontScale={fontScale}
-          onFontScaleChange={setFontScale}
-        />
-      </div>
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
         aria-hidden
@@ -940,8 +967,9 @@ export function RepoArtifactContent({
       </svg>
 
       <m.div
+        ref={hubRef}
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
-        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-card"
+        className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-artifact"
         style={{
           left: hub.cx - hub.w / 2,
           top: hub.cy - hub.h / 2,
@@ -963,18 +991,33 @@ export function RepoArtifactContent({
           <span className="text-canvas-micro font-medium text-canvas-muted/90">Drag</span>
         </div>
         <div className="artifact-content-body relative z-10 flex min-h-0 w-full flex-1 cursor-grab flex-col items-center justify-center px-3 pt-2 active:cursor-grabbing">
-          <a
-            href={repoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-no-drag
-            className="flex flex-col items-center rounded-canvas-sm px-2 py-1 transition-colors hover:bg-canvas-artifactStage/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
-          >
-            <GitHubLogo className="h-9 w-9 text-canvas-ink" />
-            <p className="mt-1.5 line-clamp-2 text-canvas-body-sm font-medium leading-snug text-canvas-accent hover:underline">
-              {title}
-            </p>
-          </a>
+          <div className="flex w-full min-w-0 flex-col items-center rounded-canvas-sm px-2 py-1">
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-no-drag
+              className="transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+              aria-label={`Open ${title} on GitHub`}
+            >
+              <GitHubLogo className="h-9 w-9 text-canvas-ink" />
+            </a>
+            <EditableArtifactTitle
+              as="p"
+              wrap
+              displayTitle={title}
+              renameTitle={
+                sessionArtifact
+                  ? artifactRenameTitle(sessionArtifact)
+                  : payload.title || displayTitle
+              }
+              canRename={Boolean(artifactId && !canvasReadOnly)}
+              onRename={(next) => {
+                if (artifactId) renameSessionArtifactTitle(artifactId, next);
+              }}
+              className="mt-1.5 line-clamp-3 w-full text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
+            />
+          </div>
           {explorer.overview.data ? (
             <p className="mt-1 text-canvas-compact tabular-nums text-canvas-muted">
               ★ {explorer.overview.data.stars.toLocaleString()} ·{" "}

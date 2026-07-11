@@ -1,5 +1,8 @@
 import type { CanvasAsset, CanvasAssetNode } from "@/lib/store";
-import { isPreviewableOfficeKind } from "@/lib/officeAssetKinds";
+import {
+  isPreviewableAssetKind,
+  resolvePreviewKind,
+} from "@/lib/documentPreview";
 
 import {
   CANVAS_ASSET_ICON_SIZE_PX,
@@ -23,6 +26,8 @@ const ASSET_ICON_NODE_DEFAULT_HEIGHT =
 export const DEFAULT_ASSET_IMAGE_WIDTH = 360;
 export const DEFAULT_ASSET_PREVIEW_WIDTH = 480;
 export const DEFAULT_ASSET_PREVIEW_ASPECT = 4 / 3;
+/** Taller card so ~2–3 PDF pages are visible before scrolling. */
+export const DEFAULT_ASSET_PDF_PREVIEW_ASPECT = 3 / 4;
 export const DEFAULT_ASSET_ICON_WIDTH = ASSET_ICON_NODE_DEFAULT_WIDTH;
 export const DEFAULT_ASSET_ICON_HEIGHT = ASSET_ICON_NODE_DEFAULT_HEIGHT;
 export const MIN_ASSET_IMAGE_WIDTH = 96;
@@ -31,6 +36,24 @@ export const MIN_ASSET_PREVIEW_WIDTH = 240;
 export const MAX_ASSET_PREVIEW_WIDTH = 960;
 export const MIN_ASSET_ICON_WIDTH = 200;
 export const MAX_ASSET_ICON_WIDTH = 400;
+
+/** Estimate pill width from filename so icon nodes don't reserve empty space. */
+export function estimateAssetIconNodeWidth(name: string): number {
+  const textWidth = Math.min(
+    CANVAS_ASSET_TITLE_MAX_WIDTH_PX,
+    Math.max(72, name.length * 7),
+  );
+  return Math.min(
+    MAX_ASSET_ICON_WIDTH,
+    Math.max(
+      MIN_ASSET_ICON_WIDTH,
+      textWidth +
+        canvasSpacing.compact +
+        CANVAS_ASSET_ICON_SIZE_PX +
+        canvasSpacing.section * 2,
+    ),
+  );
+}
 
 export function clampAssetImageWidth(width: number): number {
   return Math.min(MAX_ASSET_IMAGE_WIDTH, Math.max(MIN_ASSET_IMAGE_WIDTH, width));
@@ -48,7 +71,10 @@ function previewAspectForAsset(asset?: CanvasAsset | null): number | null {
   if (asset.kind === "image") {
     return asset.aspectRatio && asset.aspectRatio > 0 ? asset.aspectRatio : 1;
   }
-  if (isPreviewableOfficeKind(asset.kind)) {
+  if (isPreviewableAssetKind(asset.kind)) {
+    if (resolvePreviewKind(asset) === "pdf") {
+      return DEFAULT_ASSET_PDF_PREVIEW_ASPECT;
+    }
     return DEFAULT_ASSET_PREVIEW_ASPECT;
   }
   return null;

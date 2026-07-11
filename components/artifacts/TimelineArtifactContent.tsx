@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
+import { ArtifactMenuTimelineControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import { TimelinePendingMarker } from "@/components/timeline/TimelinePendingMarker";
 import { TimelineAddPopover } from "@/components/timeline/TimelineAddPopover";
 import { TimelineAxis } from "@/components/timeline/TimelineAxis";
-import { TimelineControls } from "@/components/timeline/TimelineControls";
 import { TimelineEventNode } from "@/components/timeline/TimelineEventNode";
 import type { ArtifactPayload, TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
 import { TIMELINE_ARTIFACT_BODY_MIN_HEIGHT, TIMELINE_ARTIFACT_STAGE_WIDTH } from "@/lib/canvasNodeBounds";
@@ -16,8 +17,14 @@ import {
   timelineDefaultCenterMs,
 } from "@/lib/timelineArtifact";
 import {
+  LABEL_MAX_WIDTH,
   TRACK_HEIGHT,
   axisY,
+  buildTimelineSegments,
+  computeVisibleLabels,
+  estimateLabelWidth,
+  eventColor,
+  eventSide,
   generateVisibleTicks,
   screenXToTime,
   snapToNearestTick,
@@ -134,6 +141,46 @@ export function TimelineArtifactContent({
     [centerMs, scale, viewportWidth, zoom],
   );
 
+  const eventPoints = useMemo(
+    () =>
+      displayEvents.map((event, index) => ({
+        index,
+        x: eventScreenX(event.at),
+        color: eventColor(index),
+        side: eventSide(index, event.side),
+        highlight: event.highlight,
+        width: estimateLabelWidth(event.label),
+      })),
+    [displayEvents, eventScreenX],
+  );
+
+  // Colour-segmented axis, computed from every event (even off-screen ones) so
+  // the coloured line runs continuously across the viewport.
+  const axisSegments = useMemo(
+    () =>
+      buildTimelineSegments(
+        eventPoints.map((p) => ({ x: p.x, color: p.color })),
+        viewportWidth,
+      ),
+    [eventPoints, viewportWidth],
+  );
+
+  // Level-of-detail: which labels are shown at the current zoom. Always ≥1 when
+  // an event is on screen; more reveal as zooming in spreads events apart.
+  const visibleLabels = useMemo(() => {
+    const candidates = eventPoints
+      .filter((p) => p.x >= -LABEL_MAX_WIDTH && p.x <= viewportWidth + LABEL_MAX_WIDTH)
+      .map((p) => ({
+        index: p.index,
+        x: p.x,
+        side: p.side,
+        width: p.width,
+        highlight: p.highlight,
+        centerBias: Math.abs(p.x - viewportWidth / 2),
+      }));
+    return computeVisibleLabels(candidates);
+  }, [eventPoints, viewportWidth]);
+
   const pendingX =
     popover?.mode === "add"
       ? eventScreenX(popover.at)
@@ -208,27 +255,35 @@ export function TimelineArtifactContent({
     setPopover(null);
   }, [data.events, persist, popover]);
 
+  useArtifactMenuDisplayExtras(
+    !sidebar,
+    () => (
+      <ArtifactMenuTimelineControls
+        scale={scale}
+        onScaleChange={handleScaleChange}
+        zoomPercent={zoomPercent}
+        onZoomIn={() => zoomByButton(1.15)}
+        onZoomOut={() => zoomByButton(1 / 1.15)}
+        disabled={!interactive}
+        zoomDisabled={!viewportEnabled}
+      />
+    ),
+    [
+      handleScaleChange,
+      interactive,
+      scale,
+      sidebar,
+      viewportEnabled,
+      zoomByButton,
+      zoomPercent,
+    ],
+  );
+
   return (
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-col" : "aspect-[21/9] min-h-[280px]"}
-      controls={
-        !sidebar ? (
-          <div data-timeline-no-pan className="h-full min-w-0 flex-1">
-            <TimelineControls
-              scale={scale}
-              onScaleChange={handleScaleChange}
-              zoomPercent={zoomPercent}
-              onZoomIn={() => zoomByButton(1.15)}
-              onZoomOut={() => zoomByButton(1 / 1.15)}
-              disabled={!interactive}
-              zoomDisabled={!viewportEnabled}
-            />
-          </div>
-        ) : undefined
-      }
     >
       <div
         ref={trackAreaRef}
@@ -272,6 +327,7 @@ export function TimelineArtifactContent({
           >
             <TimelineAxis
               ticks={ticks}
+              segments={axisSegments}
               trackWidth={viewportWidth}
               trackHeight={trackHeight}
               axisY={centerY}
@@ -287,8 +343,12 @@ export function TimelineArtifactContent({
             )}
 
             {displayEvents.map((event, index) => {
-              const x = eventScreenX(event.at);
-              if (x < -80 || x > viewportWidth + 80) return null;
+              const x = eventPoints[index]?.x ?? eventScreenX(event.at);
+              if (
+                x < -LABEL_MAX_WIDTH ||
+                x > viewportWidth + LABEL_MAX_WIDTH
+              )
+                return null;
               return (
                 <TimelineEventNode
                   key={event.id}
@@ -298,10 +358,10 @@ export function TimelineArtifactContent({
                   scale={scale}
                   axisY={centerY}
                   trackHeight={trackHeight}
-                  zoom={zoom}
                   viewportWidth={viewportWidth}
                   animating={animating}
                   interactive={interactive}
+                  showLabel={visibleLabels.has(index)}
                   onDoubleClick={(ev) => {
                     setPopover({
                       mode: "edit",
@@ -315,7 +375,7 @@ export function TimelineArtifactContent({
             })}
 
             {interactive && data.events.length === 0 && !popover && (
-              <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs text-canvas-muted">
+              <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-canvas-compact text-canvas-muted">
                 Click the timeline to add an event
               </p>
             )}

@@ -11,6 +11,8 @@ import {
   TrashIcon,
 } from "@/components/MenuIcons";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
+import { cancelCardAsk } from "@/lib/cardAskRegistry";
+import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import { useCanvasStore } from "@/lib/store";
 
 interface CardQaMenuProps {
@@ -68,6 +70,7 @@ export function CardQaMenu({
   const card = useCanvasStore((s) => s.cards[cardId]);
   const createBranch = useCanvasStore((s) => s.createBranch);
   const deleteFromCard = useCanvasStore((s) => s.deleteFromCard);
+  const updateCard = useCanvasStore((s) => s.updateCard);
   const toggleCardCollapsed = useCanvasStore((s) => s.toggleCardCollapsed);
   const isChatCollapsed = useCanvasStore((s) =>
     s.collapsedCardIds.includes(cardId),
@@ -106,6 +109,7 @@ export function CardQaMenu({
   const isEmpty = card.status === "empty";
   if (isEmpty && hideDelete) return null;
   const canBranch = card.status === "done";
+  const turnInProgress = isQaTurnInProgress(card);
   const showCollapseToggle = isCanvas && !isEmpty;
 
   const rootClassName =
@@ -145,6 +149,22 @@ export function CardQaMenu({
         )
       ) : (
         <>
+          {turnInProgress && (
+            <ContextMenuItem
+              icon={<TrashIcon />}
+              label="Stop generation"
+              onClick={() => {
+                cancelCardAsk(cardId);
+                const hasPartialAnswer = card.answer.trim().length > 0;
+                updateCard(cardId, {
+                  status: "done",
+                  answer: hasPartialAnswer ? card.answer : "",
+                  thinkingLabel: undefined,
+                });
+                setOpen(false);
+              }}
+            />
+          )}
           <ContextMenuItem
             icon={<BranchForkIcon />}
             label="Pull branch"

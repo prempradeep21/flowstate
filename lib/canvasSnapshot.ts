@@ -1,6 +1,11 @@
+import type { CanvasStroke } from "@/lib/canvasStroke";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { isKnownModel } from "@/lib/models";
+import {
+  DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+  normalizeCanvasBackgroundImageId,
+} from "@/lib/canvasBackgroundImages";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
   AnswerExplain,
@@ -10,6 +15,7 @@ import type {
   CanvasAsset,
   CanvasAssetNode,
   CanvasGifNode,
+  Canvas3DNode,
   CanvasSkill,
   CanvasSkillNode,
   CanvasBackgroundStyle,
@@ -38,6 +44,7 @@ export interface CanvasSnapshot {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
@@ -52,8 +59,12 @@ export interface CanvasSnapshot {
   canvasSkillOrder?: string[];
   canvasTextLabels?: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder?: string[];
+  canvasStrokes?: Record<string, CanvasStroke>;
+  canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+  canvas3DOrder?: string[];
   uploadedAttachments?: UploadedAttachment[];
   collaborationHasEdits?: boolean;
 }
@@ -68,6 +79,7 @@ export interface CanvasSnapshotSource {
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
@@ -82,8 +94,12 @@ export interface CanvasSnapshotSource {
   canvasSkillOrder?: string[];
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
+  canvasStrokes?: Record<string, CanvasStroke>;
+  canvasStrokeOrder?: string[];
   canvasGifNodes?: Record<string, CanvasGifNode>;
   canvasGifOrder?: string[];
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+  canvas3DOrder?: string[];
   uploadedAttachments: UploadedAttachment[];
   collaborationHasEdits: boolean;
 }
@@ -166,6 +182,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
     canvasBackgroundStyle: source.canvasBackgroundStyle,
+    canvasBackgroundImageId: source.canvasBackgroundImageId,
     canvasTheme: source.canvasTheme,
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
@@ -192,14 +209,160 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
       JSON.stringify(source.canvasTextLabels),
     ) as Record<string, CanvasTextLabel>,
     canvasTextLabelOrder: [...source.canvasTextLabelOrder],
+    canvasStrokes: JSON.parse(
+      JSON.stringify(source.canvasStrokes ?? {}),
+    ) as Record<string, CanvasStroke>,
+    canvasStrokeOrder: [...(source.canvasStrokeOrder ?? [])],
     canvasGifNodes: JSON.parse(
       JSON.stringify(source.canvasGifNodes ?? {}),
     ) as Record<string, CanvasGifNode>,
     canvasGifOrder: [...(source.canvasGifOrder ?? [])],
+    canvas3DNodes: JSON.parse(
+      JSON.stringify(source.canvas3DNodes ?? {}),
+    ) as Record<string, Canvas3DNode>,
+    canvas3DOrder: [...(source.canvas3DOrder ?? [])],
     uploadedAttachments: JSON.parse(
       JSON.stringify(source.uploadedAttachments),
     ) as UploadedAttachment[],
     collaborationHasEdits: source.collaborationHasEdits,
+  };
+}
+
+function mergeRecordPreferLocal<T extends Record<string, unknown>>(
+  remote: T,
+  local: T,
+): T {
+  return { ...remote, ...local };
+}
+
+function mergeOrder(remote: string[], local: string[]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const id of remote) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push(id);
+    }
+  }
+  for (const id of local) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push(id);
+    }
+  }
+  return merged;
+}
+
+/** Union merge for collaborative saves — local edits win on id collisions. */
+export function mergeCanvasSnapshots(
+  remote: CanvasSnapshot,
+  local: CanvasSnapshot,
+): CanvasSnapshot {
+  const cards = mergeRecordPreferLocal(remote.cards, local.cards);
+  const cardOrder = mergeOrder(remote.cardOrder, local.cardOrder).filter(
+    (id) => id in cards,
+  );
+
+  const connectionIds = new Set(remote.connections.map((c) => c.id));
+  const connections = [
+    ...remote.connections,
+    ...local.connections.filter((c) => !connectionIds.has(c.id)),
+  ];
+
+  return {
+    ...remote,
+    viewport: local.viewport,
+    cards,
+    cardOrder,
+    connections,
+    threads: mergeRecordPreferLocal(remote.threads, local.threads),
+    threadOrder: mergeOrder(remote.threadOrder, local.threadOrder),
+    groups: mergeRecordPreferLocal(remote.groups, local.groups),
+    sessionArtifacts: mergeRecordPreferLocal(
+      remote.sessionArtifacts,
+      local.sessionArtifacts,
+    ),
+    canvasAssets: mergeRecordPreferLocal(
+      remote.canvasAssets ?? {},
+      local.canvasAssets ?? {},
+    ),
+    canvasArtifactNodes: mergeRecordPreferLocal(
+      remote.canvasArtifactNodes ?? {},
+      local.canvasArtifactNodes ?? {},
+    ),
+    canvasArtifactOrder: mergeOrder(
+      remote.canvasArtifactOrder ?? [],
+      local.canvasArtifactOrder ?? [],
+    ),
+    canvasAssetNodes: mergeRecordPreferLocal(
+      remote.canvasAssetNodes ?? {},
+      local.canvasAssetNodes ?? {},
+    ),
+    canvasAssetOrder: mergeOrder(
+      remote.canvasAssetOrder ?? [],
+      local.canvasAssetOrder ?? [],
+    ),
+    canvasSkills: mergeRecordPreferLocal(
+      remote.canvasSkills ?? {},
+      local.canvasSkills ?? {},
+    ),
+    canvasSkillNodes: mergeRecordPreferLocal(
+      remote.canvasSkillNodes ?? {},
+      local.canvasSkillNodes ?? {},
+    ),
+    canvasSkillOrder: mergeOrder(
+      remote.canvasSkillOrder ?? [],
+      local.canvasSkillOrder ?? [],
+    ),
+    canvasTextLabels: mergeRecordPreferLocal(
+      remote.canvasTextLabels ?? {},
+      local.canvasTextLabels ?? {},
+    ),
+    canvasTextLabelOrder: mergeOrder(
+      remote.canvasTextLabelOrder ?? [],
+      local.canvasTextLabelOrder ?? [],
+    ),
+    canvasStrokes: mergeRecordPreferLocal(
+      remote.canvasStrokes ?? {},
+      local.canvasStrokes ?? {},
+    ),
+    canvasStrokeOrder: mergeOrder(
+      remote.canvasStrokeOrder ?? [],
+      local.canvasStrokeOrder ?? [],
+    ),
+    canvasGifNodes: mergeRecordPreferLocal(
+      remote.canvasGifNodes ?? {},
+      local.canvasGifNodes ?? {},
+    ),
+    canvasGifOrder: mergeOrder(
+      remote.canvasGifOrder ?? [],
+      local.canvasGifOrder ?? [],
+    ),
+    canvas3DNodes: mergeRecordPreferLocal(
+      remote.canvas3DNodes ?? {},
+      local.canvas3DNodes ?? {},
+    ),
+    canvas3DOrder: mergeOrder(
+      remote.canvas3DOrder ?? [],
+      local.canvas3DOrder ?? [],
+    ),
+    uploadedAttachments: [
+      ...(remote.uploadedAttachments ?? []),
+      ...(local.uploadedAttachments ?? []).filter(
+        (item) =>
+          !(remote.uploadedAttachments ?? []).some(
+            (remoteItem) => remoteItem.id === item.id,
+          ),
+      ),
+    ],
+    collaborationHasEdits:
+      remote.collaborationHasEdits || local.collaborationHasEdits,
+    connectorStyle: local.connectorStyle,
+    canvasBackgroundStyle: local.canvasBackgroundStyle,
+    canvasBackgroundImageId: local.canvasBackgroundImageId,
+    canvasTheme: local.canvasTheme,
+    selectedModel: local.selectedModel,
+    viewMode: local.viewMode,
   };
 }
 
@@ -217,6 +380,7 @@ export function buildEmptyCanvasSnapshot(
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
+    canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: "dark",
     selectedModel,
     viewMode: "canvas",
@@ -231,8 +395,12 @@ export function buildEmptyCanvasSnapshot(
     canvasSkillOrder: [],
     canvasTextLabels: {},
     canvasTextLabelOrder: [],
+    canvasStrokes: {},
+    canvasStrokeOrder: [],
     canvasGifNodes: {},
     canvasGifOrder: [],
+    canvas3DNodes: {},
+    canvas3DOrder: [],
     uploadedAttachments: [],
     collaborationHasEdits: false,
   };
@@ -241,11 +409,7 @@ export function buildEmptyCanvasSnapshot(
 const VALID_BACKGROUND_STYLES = new Set<CanvasBackgroundStyle>([
   "grid",
   "ambient-gradient",
-  "sky",
-  "network",
-  "rising-sun",
-  "gradient-grid",
-  "neat-gradient",
+  "static-image",
 ]);
 
 function normalizeCanvasBackgroundStyle(
@@ -357,7 +521,8 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
     groups: normalizeRecord<BranchGroup>(snapshot.groups),
     connectorStyle:
       snapshot.connectorStyle === "curvy" ||
-      snapshot.connectorStyle === "orthogonal"
+      snapshot.connectorStyle === "orthogonal" ||
+      snapshot.connectorStyle === "straight"
         ? snapshot.connectorStyle
         : base.connectorStyle,
     canvasBackgroundStyle: resolveBackgroundForTheme(
@@ -367,12 +532,19 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       ),
       normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     ),
+    canvasBackgroundImageId: normalizeCanvasBackgroundImageId(
+      snapshot.canvasBackgroundImageId,
+      base.canvasBackgroundImageId,
+    ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     selectedModel:
       snapshot.selectedModel && isKnownModel(snapshot.selectedModel)
         ? snapshot.selectedModel
         : base.selectedModel,
-    viewMode: snapshot.viewMode === "chat" ? "chat" : "canvas",
+    viewMode:
+      snapshot.viewMode === "chat" || snapshot.viewMode === "focus"
+        ? snapshot.viewMode
+        : "canvas",
     sessionArtifacts: normalizeSessionArtifacts(snapshot.sessionArtifacts),
     canvasAssets: normalizeRecord<CanvasAsset>(snapshot.canvasAssets),
     canvasArtifactNodes: normalizeRecord<CanvasArtifactNode>(
@@ -390,8 +562,12 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.canvasTextLabels,
     ),
     canvasTextLabelOrder: normalizeStringArray(snapshot.canvasTextLabelOrder),
+    canvasStrokes: normalizeRecord<CanvasStroke>(snapshot.canvasStrokes),
+    canvasStrokeOrder: normalizeStringArray(snapshot.canvasStrokeOrder),
     canvasGifNodes: normalizeRecord<CanvasGifNode>(snapshot.canvasGifNodes),
     canvasGifOrder: normalizeStringArray(snapshot.canvasGifOrder),
+    canvas3DNodes: normalizeRecord<Canvas3DNode>(snapshot.canvas3DNodes),
+    canvas3DOrder: normalizeStringArray(snapshot.canvas3DOrder),
     uploadedAttachments: Array.isArray(snapshot.uploadedAttachments)
       ? (JSON.parse(
           JSON.stringify(snapshot.uploadedAttachments),

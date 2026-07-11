@@ -1,0 +1,493 @@
+/* ============================================================
+   FLOWSTATE — how it works
+   loaded after style.css; inherits nav / footer / grain / dotgrid
+   and the mini-artifact components. everything new is hiw-.
+   ============================================================ */
+
+/* ---------- page + hero ---------- */
+.hiw-page { position: relative; overflow-x: clip; }
+
+.hiw-hero {
+  position: relative; min-height: 86svh;
+  display: grid; place-items: center;
+  text-align: center; padding: 8.5rem 1.4rem 4rem;
+  overflow: hidden;
+}
+.hiw-hero-grid { opacity: 0.55; }
+.hiw-hero-inner { position: relative; z-index: 2; width: min(860px, 94vw); }
+.hiw-hero h1 {
+  font-size: clamp(2.5rem, 6.4vw, 5rem);
+  font-weight: 650; letter-spacing: -0.035em; line-height: 1.0;
+  font-variation-settings: "opsz" 96;
+}
+.hiw-hero-sub {
+  max-width: 600px; margin: 1.4rem auto 0;
+  color: rgba(16,16,16,0.75);
+  font-size: clamp(1rem, 1.7vw, 1.18rem); line-height: 1.55;
+}
+.hiw-hero-hint { margin-top: 2.8rem; color: rgba(16,16,16,0.5); }
+
+/* ---------- progress rail (desktop) ---------- */
+.hiw-rail {
+  position: fixed; left: 1.3rem; top: 50%;
+  transform: translateY(-50%); z-index: 900;
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.hiw-rail-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  color: rgba(16,16,16,0.42);
+  transition: color 0.25s var(--ease-out);
+}
+.hiw-rail-item .mono { font-size: 0.62rem; }
+.hiw-rail-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 1.6px solid currentColor; background: transparent;
+  transition: background 0.25s var(--ease-out), transform 0.25s var(--ease-out);
+}
+.hiw-rail-item:hover { color: var(--blue); }
+.hiw-rail-item.is-active { color: var(--blue); }
+.hiw-rail-item.is-active .hiw-rail-dot { background: var(--blue); transform: scale(1.2); }
+@media (max-width: 1100px) { .hiw-rail { display: none; } }
+
+/* ---------- progress hairline (small screens) ---------- */
+.hiw-progress {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 3px;
+  z-index: 900; background: rgba(16,16,16,0.1);
+  display: none;
+}
+.hiw-progress-bar {
+  display: block; height: 100%; width: 100%;
+  background: var(--blue);
+  transform: scaleX(0); transform-origin: left center;
+}
+@media (max-width: 1100px) { .hiw-progress { display: block; } }
+
+/* ---------- step layout ---------- */
+.hiw-step {
+  position: relative;
+  padding: clamp(4rem, 10vh, 7.5rem) 1.4rem;
+  max-width: 1180px; margin: 0 auto;
+}
+.hiw-step-inner {
+  display: grid; grid-template-columns: 0.9fr 1.1fr;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+.hiw-step--flip .hiw-step-copy { order: 2; }
+
+.hiw-step-num { color: var(--blue); margin-bottom: 0.9rem; }
+.hiw-step-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  border: 1.6px solid var(--wire); background: var(--card);
+  display: grid; place-items: center;
+  color: var(--blue);
+  box-shadow: 0 2px 0 rgba(16,16,16,0.5);
+  margin-bottom: 1.1rem;
+}
+.hiw-step-icon svg { width: 23px; height: 23px; }
+.hiw-step-copy h2 {
+  font-size: clamp(1.9rem, 3.6vw, 2.9rem);
+  font-weight: 630; letter-spacing: -0.028em; line-height: 1.04;
+  margin-bottom: 1rem;
+}
+.hiw-step-copy p {
+  font-size: clamp(0.95rem, 1.4vw, 1.06rem);
+  line-height: 1.6; color: rgba(16,16,16,0.75);
+  max-width: 46ch;
+}
+
+/* ---------- the mini canvas ---------- */
+.hiw-canvas {
+  position: relative;
+  height: clamp(340px, 44vw, 440px);
+  border: 1.6px solid var(--wire); border-radius: 18px;
+  background: color-mix(in srgb, var(--paper) 94%, white);
+  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(16,16,16,0.12);
+}
+.hiw-canvas .dotgrid { opacity: 0.8; }
+.hiw-canvas-label {
+  position: absolute; left: 0.85rem; bottom: 0.7rem; z-index: 6;
+  color: rgba(16,16,16,0.5);
+  background: rgba(244,243,238,0.8);
+  border: 1px solid rgba(16,16,16,0.25);
+  border-radius: 999px; padding: 0.24rem 0.6rem;
+  pointer-events: none;
+}
+
+/* wires */
+.hiw-wires {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 2; pointer-events: none; overflow: visible;
+}
+.hiw-wires path {
+  stroke: var(--blue); stroke-width: 2.4;
+  stroke-linecap: round; fill: none;
+}
+
+/* positioned mockup pieces (mirrors .collab-item) */
+.hiw-item {
+  position: absolute; left: var(--x); top: var(--y);
+  rotate: var(--r, 0deg); z-index: 3;
+  will-change: transform, opacity;
+}
+.hiw-canvas .art-card {
+  z-index: 3;
+  box-shadow: 0 8px 20px rgba(16,16,16,0.13), 0 2px 0 rgba(16,16,16,0.5);
+}
+.hiw-canvas .collab-q { width: 228px; }
+.hiw-canvas .collab-q.hiw-q-sm { width: 196px; }
+.hiw-canvas .collab-q.hiw-q-sm p { font-size: 0.8rem; }
+.hiw-canvas .collab-cursor { z-index: 8; }
+.hiw-canvas .card-sticky { width: 150px; font-size: 0.86rem; }
+
+.hiw-float-label {
+  position: absolute; left: var(--x); top: var(--y); z-index: 4;
+  color: var(--blue);
+}
+
+/* typing caret */
+.hiw-caret {
+  display: inline-block; width: 2px; height: 0.95em;
+  background: var(--blue); margin-left: 2px;
+  vertical-align: -0.12em;
+  animation: hiw-blink 1s steps(1) infinite;
+}
+@keyframes hiw-blink { 50% { opacity: 0; } }
+
+/* step 04 — drop zone */
+.hiw-dropzone {
+  position: absolute; z-index: 1;
+  border: 1.8px dashed var(--blue); border-radius: 16px;
+  background: rgba(15,79,199,0.05);
+  display: grid; place-items: center;
+  color: var(--blue);
+}
+
+/* step 05 — source scan bar + pulse */
+.s5-scan {
+  position: absolute; left: 8px; right: 8px; top: 42%; height: 22%;
+  background: rgba(15,79,199,0.12); border-radius: 6px;
+  z-index: 1; pointer-events: none; opacity: 0;
+}
+.hiw-canvas .art-card.is-pulse {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(15,79,199,0.16), 0 8px 20px rgba(16,16,16,0.13), 0 2px 0 rgba(15,79,199,0.55);
+}
+.hiw-canvas .art-card { transition: border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out); }
+.s5-a-body { padding: 0.7rem 0.8rem 0.85rem; }
+.s5-a-body p { font-size: 0.82rem; line-height: 1.45; }
+.s5-cites { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+
+/* step 06 — prompt chip (mirrors .cf-drop) */
+.s6-prompt {
+  position: absolute; left: 50%; top: 7%; transform: translateX(-50%);
+  z-index: 4; white-space: nowrap;
+  color: var(--blue);
+  border: 1.4px dashed var(--blue); border-radius: 10px;
+  background: rgba(15,79,199,0.06);
+  padding: 0.42rem 0.7rem;
+}
+
+/* step 07 — live row */
+.s7-totrow td { border-top: 1px solid rgba(16,16,16,0.25); }
+.s7-total b { color: var(--blue); }
+
+/* step 08 — share pill + link chip */
+.hiw-share {
+  position: absolute; right: 5%; top: 7%; z-index: 5;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.48rem 1rem; border-radius: 999px;
+  background: var(--blue); color: #f2f5ff;
+  border: 1.6px solid var(--blue-deep);
+  font-weight: 560; font-size: 0.85rem;
+  box-shadow: 0 3px 0 var(--blue-deep);
+}
+.hiw-link-chip { position: absolute; right: 5%; top: 24%; z-index: 5; }
+
+/* ---------- finale — the showcase ---------- */
+.hiw-finale {
+  position: relative;
+  padding: 7rem 1.4rem 6.5rem;
+  background: var(--paper-deep);
+  border-top: 1px dashed rgba(16,16,16,0.25);
+  border-bottom: 1px dashed rgba(16,16,16,0.25);
+}
+.hiw-finale-inner { max-width: 1180px; margin: 0 auto; }
+.hiw-finale .playground-head { margin-bottom: 0; }
+
+.hiw-gallery {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: clamp(1.2rem, 2.6vw, 2.2rem);
+  max-width: 880px; margin: 3.2rem auto 0;
+}
+.hiw-demo {
+  position: static; left: auto; top: auto; rotate: 0deg;
+  width: 100%;
+  display: flex; flex-direction: column;
+}
+.hiw-demo:nth-child(odd) { transform: rotate(-0.5deg); }
+.hiw-demo:nth-child(even) { transform: rotate(0.5deg) translateY(0.9rem); }
+
+/* per-card accent (same trick as .usecase-card) */
+.hiw-demo { --uc: var(--blue); }
+.hiw-demo:nth-child(1) { --uc: #0f4fc7; }
+.hiw-demo:nth-child(2) { --uc: #e0563f; }
+.hiw-demo:nth-child(3) { --uc: #14976b; }
+.hiw-demo:nth-child(4) { --uc: #8a4fd8; }
+.hiw-demo .art-head {
+  background: color-mix(in srgb, var(--uc) 14%, #fff 86%);
+  border-bottom-color: var(--uc);
+  font-size: 0.9rem; padding: 0.65rem 0.85rem;
+}
+.hiw-demo .art-icon, .hiw-demo .art-kind { color: var(--uc); }
+
+.hiw-demo-body {
+  padding: 0.9rem 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  flex: 1;
+}
+.hiw-demo-ask { color: rgba(16,16,16,0.5); display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.hiw-demo-live {
+  color: var(--blue);
+  border: 1.2px dashed var(--blue); border-radius: 999px;
+  padding: 0.14rem 0.5rem; font-size: 0.56rem;
+}
+
+/* tip splitter */
+.ts-segs { display: flex; gap: 0.45rem; }
+.ts-seg {
+  flex: 1;
+  font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.03em;
+  padding: 0.42rem 0; border-radius: 9px;
+  border: 1.4px solid rgba(16,16,16,0.45);
+  background: rgba(255,255,255,0.4);
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s var(--ease-out);
+}
+.ts-seg:hover { border-color: var(--blue); color: var(--blue); }
+.ts-seg.is-on {
+  background: var(--blue); border-color: var(--blue-deep); color: #fff;
+  box-shadow: inset 0 -2px 0 var(--blue-deep);
+}
+.ts-seg.is-press { transform: translateY(1px) scale(0.96); }
+.ts-people { display: inline-flex; align-items: center; gap: 0.6rem; }
+.ts-step {
+  width: 27px; height: 27px; border-radius: 50%;
+  border: 1.5px solid var(--ink); background: var(--card);
+  display: grid; place-items: center;
+  font-weight: 600; font-size: 0.95rem; line-height: 1;
+  transition: transform 0.15s var(--ease-out), background 0.2s, color 0.2s;
+}
+.ts-step:hover { background: var(--blue); border-color: var(--blue-deep); color: #fff; }
+.ts-step:active, .ts-step.is-press { transform: scale(0.88); }
+.ts-count { font-family: var(--font-mono); min-width: 1.4ch; text-align: center; font-size: 0.9rem; }
+
+/* poll */
+.poll-opt {
+  display: grid; grid-template-columns: 72px 1fr 42px;
+  align-items: center; gap: 0.6rem;
+}
+.poll-lbl { font-size: 0.8rem; font-weight: 520; }
+.poll-bar {
+  position: relative; height: 12px; border-radius: 99px;
+  background: rgba(16,16,16,0.12); overflow: hidden;
+}
+.poll-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  border-radius: 99px; background: rgba(16,16,16,0.35);
+}
+.poll-opt.is-lead .poll-fill { background: var(--blue); }
+.poll-opt.is-lead .poll-pct { color: var(--blue); font-weight: 600; }
+.poll-pct { text-align: right; color: rgba(16,16,16,0.7); }
+.poll-count { color: rgba(16,16,16,0.5); margin-top: 0.15rem; }
+.poll-count b { color: var(--blue); font-weight: 600; }
+
+/* habit tracker */
+.hb-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.hb-grid span {
+  aspect-ratio: 1; border-radius: 6px;
+  background: rgba(16,16,16,0.08);
+  border: 1px solid rgba(16,16,16,0.14);
+}
+.hb-grid span.is-fill { background: var(--blue); border-color: var(--blue-deep); }
+.hb-streak { display: flex; justify-content: space-between; color: rgba(16,16,16,0.6); }
+.hb-streak b { color: var(--blue); }
+
+/* countdown */
+.cd-wrap { position: relative; display: grid; place-items: center; padding: 0.3rem 0; }
+.cd-ring { width: 130px; height: 130px; transform: rotate(-90deg); }
+.cd-track { fill: none; stroke: rgba(16,16,16,0.14); stroke-width: 9; }
+.cd-arc { fill: none; stroke: var(--blue); stroke-width: 9; stroke-linecap: round; }
+.cd-num {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  text-align: center;
+}
+.cd-num b { font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1; }
+.cd-num .mono { color: rgba(16,16,16,0.55); }
+.cd-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+.cd-chips .chip.is-done {
+  border-color: var(--blue); color: var(--blue);
+  background: rgba(15,79,199,0.07);
+}
+
+/* ============================================================
+   VIBE CODER SECTION — github viewer + skill viewer
+   ============================================================ */
+.hiw-vibe {
+  position: relative;
+  padding: 6.5rem 1.4rem 7rem;
+  max-width: 1180px; margin: 0 auto;
+}
+.hiw-vibe .playground-head { margin-bottom: 0; }
+
+.hiw-vibe-gallery {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: clamp(1.4rem, 3.2vw, 2.8rem);
+  max-width: 880px; margin: 3.2rem auto 0;
+}
+.hiw-vibe-card { display: flex; flex-direction: column; gap: 1.05rem; }
+.hiw-vibe-card:nth-child(1) { transform: rotate(-0.5deg); }
+.hiw-vibe-card:nth-child(2) { transform: rotate(0.5deg) translateY(0.9rem); }
+
+/* the mock screen reuses .art-card but sits in normal flow */
+.hiw-vibe-card .art-card {
+  position: static; left: auto; top: auto; rotate: 0deg;
+  width: 100%;
+}
+.hiw-vibe-card .art-head {
+  background: color-mix(in srgb, var(--blue) 12%, #fff 88%);
+  border-bottom-color: var(--blue);
+  padding: 0.65rem 0.85rem; font-size: 0.9rem;
+}
+.hiw-vibe-card .art-icon, .hiw-vibe-card .art-kind { color: var(--blue); }
+.hiw-vibe-card .art-icon { width: 17px; height: 17px; }
+
+.vibe-body {
+  padding: 0.95rem 1rem 1.15rem;
+  display: flex; flex-direction: column; gap: 0.85rem;
+}
+.hiw-vibe-cap {
+  font-size: clamp(0.92rem, 1.35vw, 1.02rem);
+  line-height: 1.5; color: rgba(16,16,16,0.72);
+  max-width: 42ch;
+}
+.hiw-vibe-cap b { color: var(--blue); font-weight: 600; }
+
+/* url bar (github viewer) */
+.vibe-urlbar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.65rem; border-radius: 10px;
+  border: 1.4px solid var(--wire);
+  background: color-mix(in srgb, var(--paper) 88%, white);
+  font-family: var(--font-mono); font-size: 0.74rem;
+}
+.vibe-urlbar svg { width: 15px; height: 15px; color: var(--blue); flex: none; }
+.vibe-url { color: rgba(16,16,16,0.82); white-space: nowrap; overflow: hidden; }
+
+.vibe-lbl { color: rgba(16,16,16,0.45); }
+.vibe-overview, .skill-reveal { display: flex; flex-direction: column; gap: 0.8rem; }
+.vibe-overview .mini-doc, .skill-reveal .mini-doc { padding: 0; }
+
+.vibe-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.42rem; }
+.vibe-tags .mono { color: rgba(16,16,16,0.45); }
+.vibe-tags .chip { font-size: 0.6rem; padding: 0.16rem 0.5rem; }
+
+.vibe-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.vibe-stat {
+  display: flex; flex-direction: column; gap: 0.08rem;
+  padding: 0.45rem 0.55rem; border-radius: 9px;
+  background: color-mix(in srgb, var(--paper) 90%, white);
+  border: 1px solid rgba(16,16,16,0.16);
+}
+.vibe-stat b { font-size: 0.95rem; font-weight: 620; letter-spacing: -0.01em; }
+.vibe-stat .mono { color: rgba(16,16,16,0.5); font-size: 0.56rem; }
+
+/* skill viewer */
+.vibe-skill-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+.vibe-skill-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.vibe-skill-by { color: rgba(16,16,16,0.5); margin-top: 0.16rem; }
+.vibe-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: var(--blue); color: #f2f5ff;
+  font-weight: 600; font-size: 0.85rem; text-transform: uppercase;
+  border: 1.5px solid var(--blue-deep);
+}
+.vibe-meta {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem;
+  padding-top: 0.7rem; border-top: 1px solid rgba(16,16,16,0.14);
+}
+.vibe-meta-item { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; }
+.vibe-meta-item .mono { color: rgba(16,16,16,0.5); }
+.vibe-meta-item b { color: var(--blue); font-weight: 600; }
+
+/* ---------- cta + footer ---------- */
+.hiw-cta {
+  position: relative; min-height: 76svh;
+  display: grid; place-items: center;
+  text-align: center; padding: 6rem 1.4rem 9rem;
+  overflow: hidden;
+}
+.hiw-cta-grid { opacity: 0.6; }
+.hiw-cta-center { position: relative; z-index: 2; }
+.hiw-cta h2 {
+  font-size: clamp(2.4rem, 6vw, 4.8rem);
+  font-weight: 650; letter-spacing: -0.038em; line-height: 1.0;
+  margin: 1rem 0 2.2rem;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 860px) {
+  .hiw-step-inner { grid-template-columns: 1fr; gap: 1.8rem; }
+  .hiw-step--flip .hiw-step-copy { order: 0; }
+  .hiw-step { padding: 3.2rem 1.4rem; }
+  .hiw-canvas { height: clamp(300px, 64vw, 400px); }
+  .hiw-gallery { grid-template-columns: 1fr; max-width: 460px; }
+  .hiw-demo:nth-child(even) { transform: rotate(0.5deg); }
+  .hiw-vibe-gallery { grid-template-columns: 1fr; max-width: 460px; }
+  .hiw-vibe-card:nth-child(2) { transform: rotate(0.5deg); }
+}
+
+@media (max-width: 640px) {
+  .hiw-hero { min-height: 68svh; padding-top: 7rem; }
+  .hiw-canvas .art-card { width: 190px; }
+  .hiw-canvas .collab-q { width: 182px; }
+  .hiw-canvas .collab-q p { font-size: 0.78rem; }
+  .hiw-canvas .collab-q.hiw-q-sm { width: 168px; }
+  .hiw-canvas .card-sticky { width: 126px; font-size: 0.78rem; padding: 0.7rem 0.75rem 0.85rem; }
+  .hiw-canvas-label { display: none; }
+  .s6-prompt { font-size: 0.6rem; }
+  .hiw-share { font-size: 0.74rem; padding: 0.4rem 0.8rem; }
+  .hiw-link-chip { max-width: 60%; text-align: right; }
+  /* keep the s6 artifact centered on narrow canvases */
+  .s6-af { --x: 12% !important; }
+}
+
+@media (max-width: 430px) {
+  .hiw-step { padding: 2.6rem 1rem; }
+  .hiw-hero-sub { font-size: 0.98rem; }
+  .hiw-step-copy h2 { font-size: 1.7rem; }
+  .hiw-canvas { height: 300px; }
+  .hiw-finale { padding: 4.5rem 1rem 4.5rem; }
+  .hiw-cta { padding-bottom: 8rem; }
+}
+
+/* ============================================================
+   REDUCED MOTION / STATIC FALLBACK
+   the HTML is authored in its finished state; JS hides pieces
+   before animating. with .hiw-static none of that runs, so we
+   only tidy the few purely-decorative bits.
+   ============================================================ */
+.hiw-static .hiw-caret { display: none; }
+.hiw-static .collab-cursor { display: none; }
+.hiw-static .hiw-dropzone { display: none; }
+.hiw-static .s5-scan { display: none; }
+/* the three stacked step-06 artifacts: show only the table */
+.hiw-static .s6-af-timeline, .hiw-static .s6-af-cal { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hiw-caret { animation: none; }
+}

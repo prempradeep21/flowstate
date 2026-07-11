@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { ConnectorStylePicker } from "@/components/ConnectorStylePicker";
 import { isConnectionHidden } from "@/lib/chatThreads";
 import { useHiddenCardIds } from "@/hooks/useHiddenCardIds";
 import {
@@ -26,186 +27,6 @@ const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
 
 const HIT_STROKE_SCREEN = 14;
-
-
-
-function CurvyIcon() {
-
-  return (
-
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none">
-
-      <path
-
-        d="M2.5 11.5C2.5 6.5 5 3.5 8 3.5s5.5 3 5.5 8"
-
-        stroke="currentColor"
-
-        strokeWidth="1.25"
-
-        strokeLinecap="round"
-
-      />
-
-    </svg>
-
-  );
-
-}
-
-
-
-function PipelineIcon() {
-
-  return (
-
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none">
-
-      <path
-
-        d="M3 4.5h4.5V8H12.5V11.5"
-
-        stroke="currentColor"
-
-        strokeWidth="1.25"
-
-        strokeLinecap="round"
-
-        strokeLinejoin="round"
-
-      />
-
-    </svg>
-
-  );
-
-}
-
-
-
-function ConnectorStylePicker({
-
-  x,
-
-  y,
-
-  scale,
-
-  activeStyle,
-
-  onSelect,
-
-  onHoverChange,
-
-}: {
-
-  x: number;
-
-  y: number;
-
-  scale: number;
-
-  activeStyle: ConnectorStyle;
-
-  onSelect: (style: ConnectorStyle) => void;
-
-  onHoverChange: (hovered: boolean) => void;
-
-}) {
-
-  const options: { style: ConnectorStyle; label: string; icon: ReactNode }[] =
-
-    [
-
-      { style: "curvy", label: "Curved connectors", icon: <CurvyIcon /> },
-
-      {
-
-        style: "orthogonal",
-
-        label: "Pipeline connectors",
-
-        icon: <PipelineIcon />,
-
-      },
-
-    ];
-
-
-
-  return (
-
-    <div
-
-      role="toolbar"
-
-      aria-label="Connector style"
-
-      className="pointer-events-auto absolute z-20 flex items-center gap-0.5 rounded-canvas border border-canvas-border bg-canvas-card p-0.5 shadow-card"
-
-      style={{
-
-        left: x,
-
-        top: y,
-
-        transform: `translate(-50%, calc(-100% - 10px)) scale(${1 / scale})`,
-
-        transformOrigin: "bottom center",
-
-      }}
-
-      onPointerEnter={() => onHoverChange(true)}
-
-      onPointerLeave={() => onHoverChange(false)}
-
-    >
-
-      {options.map(({ style, label, icon }) => {
-
-        const active = activeStyle === style;
-
-        return (
-
-          <button
-
-            key={style}
-
-            type="button"
-
-            aria-label={label}
-
-            aria-pressed={active}
-
-            title={label}
-
-            onClick={() => onSelect(style)}
-
-            className={`flex h-8 w-8 items-center justify-center rounded-canvas transition-colors ${
-
-              active
-
-                ? "bg-canvas-ink/10 text-canvas-ink"
-
-                : "text-canvas-muted hover:bg-canvas-ink/5 hover:text-canvas-ink"
-
-            }`}
-
-          >
-
-            {icon}
-
-          </button>
-
-        );
-
-      })}
-
-    </div>
-
-  );
-
-}
 
 
 
@@ -452,6 +273,9 @@ export function Connections() {
             return null;
           }
 
+          const isConversationLink =
+            from.cardKind === "conversation" && to.cardKind === "conversation";
+
           const {
             fromAnchor: a,
             toAnchor: b,
@@ -466,7 +290,9 @@ export function Connections() {
             fromSide,
             toSide,
             connectorStyle,
-            { trimTargetArrowInset: arrowSize * 1.35 },
+            isConversationLink
+              ? undefined
+              : { trimTargetArrowInset: arrowSize * 1.35 },
           );
 
 
@@ -495,6 +321,8 @@ export function Connections() {
                 viewportScale={viewportSettledScale}
                 opacity={isHovered ? 0.95 : 0.85}
                 hitWidth={hitWidth}
+                showSourcePlug={!isConversationLink}
+                showTargetArrow={!isConversationLink}
                 drawIn={conn.id === recentConnectionId}
                 onDrawComplete={
                   conn.id === recentConnectionId
@@ -502,6 +330,7 @@ export function Connections() {
                     : undefined
                 }
                 onPointerEnter={() =>
+                  !isConversationLink &&
                   showPicker(conn.id, midPointX, midPointY)
                 }
                 onPointerLeave={scheduleHide}

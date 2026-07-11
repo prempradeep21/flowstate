@@ -41,11 +41,15 @@ const config: Config = {
       },
       borderRadius: {
         canvas: canvasRadii.canvas,
+        "canvas-lg": canvasRadii.lg,
+        "canvas-md": canvasRadii.md,
         "canvas-sm": canvasRadii.sm,
         "canvas-xs": canvasRadii.xs,
+        "canvas-inner": canvasRadii.inner,
       },
       fontFamily: {
         sans: [
+          "var(--font-figtree)",
           "var(--font-parkinsans)",
           "var(--font-archivo)",
           "ui-sans-serif",
@@ -74,8 +78,12 @@ const config: Config = {
         ],
       },
       boxShadow: {
+        // Chrome (panels, toolbar, popovers) is flat — card resolves to none.
         card: "var(--canvas-card-shadow)",
         cardHover: "var(--canvas-card-shadow-hover)",
+        // Canvas-level elements (artifact windows, cards) keep elevation.
+        artifact: "var(--canvas-artifact-shadow)",
+        artifactHover: "var(--canvas-artifact-shadow-hover)",
       },
       transitionTimingFunction: {
         panel: "cubic-bezier(0.12, 0.84, 0.27, 1)",

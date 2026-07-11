@@ -7,25 +7,30 @@ import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { ChatComposer } from "@/components/ChatComposer";
 import { LandingTipCard } from "@/components/landing/LandingTipCard";
 import { RotatingLandingTitle } from "@/components/landing/RotatingLandingTitle";
-import { LandingQIcon, LandingZoomIcon } from "@/components/landing/LandingTipIcons";
-import { BranchForkIcon } from "@/components/MenuIcons";
+import {
+  LandingAssetsIcon,
+  LandingCollaboratorsIcon,
+} from "@/components/landing/LandingTipIcons";
+import { ArtefactIcon, BranchForkIcon } from "@/components/MenuIcons";
 import {
   hasLandingAnimated,
   markLandingAnimated,
 } from "@/lib/motion/performance";
 import { LANDING_STACK_WIDTH } from "@/lib/canvasLandingState";
 import { LANDING_ARTIFACT_SUGGESTIONS } from "@/lib/landingSuggestions";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 
-const PILL_DELAYS = [280, 320, 360, 400, 440] as const;
-const TIP_DELAYS = [640, 675, 710] as const;
+const PILL_DELAYS = [280, 320, 360, 400] as const;
+const TIP_DELAYS = [640, 675, 710, 745] as const;
 
 export function CanvasLanding({ cardId }: { cardId: string }) {
   const { user, authLoading } = useAuth();
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const updateCard = useCanvasStore((s) => s.updateCard);
+  const setComposerDraft = useCanvasStore((s) => s.setComposerDraft);
+  const clearComposerDraft = useCanvasStore((s) => s.clearComposerDraft);
   const card = useCanvasStore((s) => s.cards[cardId]);
-  const [draft, setDraft] = useState("");
   const [skipMotion, setSkipMotion] = useState(false);
   const showSignIn = !authLoading && !user;
 
@@ -51,13 +56,15 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       thinkingLabel: "Thinking",
       responseType: "text",
       artifactPayload: undefined,
-      images: options?.pendingImages,
+      attachedImages: options?.pendingImages,
+      images: undefined,
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
       pendingFiles: options?.pendingFiles,
+      ...turnMetricsOnSubmit(),
     });
-    setDraft("");
+    clearComposerDraft(cardId);
   };
 
   const focusComposer = () => {
@@ -113,7 +120,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
             key={suggestion.kind}
             type="button"
             onClick={() => {
-              setDraft(suggestion.prompt);
+              setComposerDraft(cardId, suggestion.prompt);
               focusComposer();
             }}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
@@ -131,6 +138,7 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       <div
         className={riseProps(500).className}
         style={{ width: "100%", ...riseProps(500).style }}
+        data-coach-target="ask-composer"
       >
         <ChatComposer
           variant="landing"
@@ -138,39 +146,41 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
           placeholder="Ask anything"
           autoFocus
           disabled={isPending}
-          draftValue={draft}
-          onDraftChange={setDraft}
           onSubmit={onSubmit}
         />
       </div>
 
-      <div className="flex w-full gap-2">
+      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 [html.onboarding-tour-active_&]:pointer-events-none [html.onboarding-tour-active_&]:opacity-0">
         <div
           className={riseProps(TIP_DELAYS[0]).className}
-          style={{ flex: 1, ...riseProps(TIP_DELAYS[0]).style }}
+          style={riseProps(TIP_DELAYS[0]).style}
         >
           <LandingTipCard icon={<BranchForkIcon />}>
-            Pull a new thread from the side plugs on an answer to explore a
-            separate line of thought.
+            Run multiple chats and connect them when needed.
           </LandingTipCard>
         </div>
         <div
           className={riseProps(TIP_DELAYS[1]).className}
-          style={{ flex: 1, ...riseProps(TIP_DELAYS[1]).style }}
+          style={riseProps(TIP_DELAYS[1]).style}
         >
-          <LandingTipCard icon={<LandingQIcon className="h-4 w-4" />}>
-            Press <span className="font-medium text-canvas-ink">Q</span>, then
-            click on the canvas to place a new question card.
+          <LandingTipCard icon={<LandingAssetsIcon className="h-4 w-4" />}>
+            Add any format of assets onto the canvas
           </LandingTipCard>
         </div>
         <div
           className={riseProps(TIP_DELAYS[2]).className}
-          style={{ flex: 1, ...riseProps(TIP_DELAYS[2]).style }}
+          style={riseProps(TIP_DELAYS[2]).style}
         >
-          <LandingTipCard icon={<LandingZoomIcon />}>
-            Scroll to zoom. Hold{" "}
-            <span className="font-medium text-canvas-ink">Space</span> and drag to
-            pan. Ctrl/Cmd + scroll zooms faster.
+          <LandingTipCard icon={<ArtefactIcon />}>
+            Build your own artifacts, reuse them, and share them.
+          </LandingTipCard>
+        </div>
+        <div
+          className={riseProps(TIP_DELAYS[3]).className}
+          style={riseProps(TIP_DELAYS[3]).style}
+        >
+          <LandingTipCard icon={<LandingCollaboratorsIcon className="h-4 w-4" />}>
+            Invite collaborators and work together
           </LandingTipCard>
         </div>
       </div>

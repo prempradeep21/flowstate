@@ -8,10 +8,15 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useArtifactCanvasSizeReport } from "@/components/artifacts/ArtifactCanvasSizeReportContext";
 import type { TableColumn, TableRow } from "@/lib/artifactTypes";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 import {
   computeTableColumnWidths,
+  computeTableColumnWidthsPx,
+  computeTableIntrinsicSize,
+  sumTableColumnWidthsPx,
+  TABLE_COLUMN_MIN_PX,
   TABLE_COLUMN_MIN_RESIZE_PERCENT,
 } from "@/lib/tableColumnWidths";
 import {
@@ -23,6 +28,7 @@ import {
   RICH_TEXT_CLASS,
 } from "@/lib/richTextDisplay";
 import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
+import { useCanvasStore } from "@/lib/store";
 
 const MAX_ENTRANCE_MS = 3000;
 
@@ -75,26 +81,89 @@ export function ArtifactTable({
   const textSize = compact ? "text-canvas-caption" : "text-canvas-body-sm";
   const cellPad = compact ? "px-2 py-1.5" : "px-3 py-2.5";
   const headPad = compact ? "px-2 py-1.5" : "px-3 py-2";
+  // Viewport scale is read imperatively in the resize handler — a reactive
+  // subscription re-rendered every table artifact on every zoom frame.
   const animatedVersionRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
-  const resizeRef = useRef<{
+  const userAdjustedRef = useRef(false);
+  const lastSchemaRef = useRef("");
+  const lastVersionRef = useRef<string | undefined>(undefined);
+  const percentResizeRef = useRef<{
     pointerId: number;
     colIndex: number;
     startX: number;
     startLeft: number;
     startRight: number;
   } | null>(null);
+  const pxResizeRef = useRef<{
+    pointerId: number;
+    colIndex: number;
+    startX: number;
+    startColWidth: number;
+    startTableWidth: number;
+  } | null>(null);
+  const reportCanvasSize = useArtifactCanvasSizeReport();
+
+  const columnSchemaKey = useMemo(
+    () => columns.map((c) => `${c.key}:${c.label}`).join("|"),
+    [columns],
+  );
 
   const defaultColumnWidths = useMemo(
     () => computeTableColumnWidths(columns, rows),
     [columns, rows],
   );
 
+  const defaultColumnWidthsPx = useMemo(
+    () => computeTableColumnWidthsPx(columns, rows),
+    [columns, rows],
+  );
+
+  const intrinsicSize = useMemo(
+    () => computeTableIntrinsicSize(columns, rows),
+    [columns, rows],
+  );
+
   const [columnPercents, setColumnPercents] = useState<number[]>([]);
+  const [columnWidthsPx, setColumnWidthsPx] = useState<number[]>([]);
+
+  const activeColumnWidthsPx = useMemo(
+    () =>
+      columnWidthsPx.length > 0
+        ? columnWidthsPx
+        : defaultColumnWidthsPx.map((c) => c.widthPx),
+    [columnWidthsPx, defaultColumnWidthsPx],
+  );
+
+  const tableWidthPx = useMemo(
+    () => sumTableColumnWidthsPx(activeColumnWidthsPx),
+    [activeColumnWidthsPx],
+  );
 
   useEffect(() => {
-    setColumnPercents(defaultColumnWidths.map((c) => c.percent));
-  }, [defaultColumnWidths, versionId]);
+    const schemaChanged = lastSchemaRef.current !== columnSchemaKey;
+    const versionChanged = lastVersionRef.current !== versionId;
+    if (schemaChanged || versionChanged) {
+      lastSchemaRef.current = columnSchemaKey;
+      lastVersionRef.current = versionId;
+      userAdjustedRef.current = false;
+      setColumnPercents(defaultColumnWidths.map((c) => c.percent));
+      setColumnWidthsPx(defaultColumnWidthsPx.map((c) => c.widthPx));
+      return;
+    }
+    if (!userAdjustedRef.current) {
+      setColumnPercents(defaultColumnWidths.map((c) => c.percent));
+      setColumnWidthsPx(defaultColumnWidthsPx.map((c) => c.widthPx));
+    }
+  }, [columnSchemaKey, versionId, defaultColumnWidths, defaultColumnWidthsPx]);
+
+  useEffect(() => {
+    if (!canvasSurface || !reportCanvasSize) return;
+    reportCanvasSize({
+      w: tableWidthPx,
+      h: intrinsicSize.heightPx,
+    });
+  }, [canvasSurface, reportCanvasSize, tableWidthPx, intrinsicSize.heightPx]);
 
   const widthByKey = useMemo(() => {
     const wrapDefaults = new Map(
@@ -108,11 +177,21 @@ export function ArtifactTable({
             columnPercents[index] ??
             defaultColumnWidths[index]?.percent ??
             100 / Math.max(columns.length, 1),
+          widthPx:
+            activeColumnWidthsPx[index] ??
+            defaultColumnWidthsPx[index]?.widthPx ??
+            TABLE_COLUMN_MIN_PX,
           wrap: wrapDefaults.get(col.key) ?? false,
         },
       ]),
     );
-  }, [columns, columnPercents, defaultColumnWidths]);
+  }, [
+    columns,
+    columnPercents,
+    defaultColumnWidths,
+    activeColumnWidthsPx,
+    defaultColumnWidthsPx,
+  ]);
 
   const { columnStagger, rowStagger } = useMemo(
     () => computeAnimationDelays(columns.length, rows.length),
@@ -134,13 +213,26 @@ export function ArtifactTable({
 
   const handleResizePointerDown = useCallback(
     (colIndex: number, e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (compact || colIndex >= columns.length - 1) return;
+      if (compact) return;
       e.preventDefault();
       e.stopPropagation();
       (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+
+      if (canvasSurface) {
+        pxResizeRef.current = {
+          pointerId: e.pointerId,
+          colIndex,
+          startX: e.clientX,
+          startColWidth: activeColumnWidthsPx[colIndex] ?? TABLE_COLUMN_MIN_PX,
+          startTableWidth: tableWidthPx,
+        };
+        return;
+      }
+
+      if (colIndex >= columns.length - 1) return;
       const left = columnPercents[colIndex] ?? 0;
       const right = columnPercents[colIndex + 1] ?? 0;
-      resizeRef.current = {
+      percentResizeRef.current = {
         pointerId: e.pointerId,
         colIndex,
         startX: e.clientX,
@@ -148,12 +240,51 @@ export function ArtifactTable({
         startRight: right,
       };
     },
-    [columnPercents, columns.length, compact],
+    [
+      activeColumnWidthsPx,
+      canvasSurface,
+      columnPercents,
+      columns.length,
+      compact,
+      tableWidthPx,
+    ],
   );
 
   const handleResizePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
-      const rs = resizeRef.current;
+      const pxRs = pxResizeRef.current;
+      if (pxRs && pxRs.pointerId === e.pointerId && canvasSurface) {
+        const vpScale = useCanvasStore.getState().viewport.scale;
+        const scale = vpScale > 0 ? vpScale : 1;
+        const deltaPx = (e.clientX - pxRs.startX) / scale;
+        const newColWidth = Math.max(
+          TABLE_COLUMN_MIN_PX,
+          Math.round(pxRs.startColWidth + deltaPx),
+        );
+        const appliedDelta = newColWidth - pxRs.startColWidth;
+        if (appliedDelta === 0) return;
+
+        userAdjustedRef.current = true;
+        setColumnWidthsPx((prev) => {
+          const base =
+            prev.length > 0
+              ? prev
+              : defaultColumnWidthsPx.map((c) => c.widthPx);
+          const next = [...base];
+          next[pxRs.colIndex] = newColWidth;
+          return next;
+        });
+
+        if (reportCanvasSize) {
+          reportCanvasSize({
+            w: pxRs.startTableWidth + appliedDelta,
+            h: intrinsicSize.heightPx,
+          });
+        }
+        return;
+      }
+
+      const rs = percentResizeRef.current;
       if (!rs || rs.pointerId !== e.pointerId || !tableRef.current) return;
       const tableWidth = tableRef.current.offsetWidth;
       if (tableWidth <= 0) return;
@@ -164,6 +295,7 @@ export function ArtifactTable({
       const newRight = rs.startRight - deltaPercent;
       if (newLeft < min || newRight < min) return;
 
+      userAdjustedRef.current = true;
       setColumnPercents((prev) => {
         const next = [...prev];
         next[rs.colIndex] = Math.round(newLeft * 10) / 10;
@@ -171,14 +303,32 @@ export function ArtifactTable({
         return next;
       });
     },
-    [],
+    [
+      canvasSurface,
+      defaultColumnWidthsPx,
+      intrinsicSize.heightPx,
+      reportCanvasSize,
+    ],
   );
 
   const handleResizePointerUp = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
-      const rs = resizeRef.current;
+      const pxRs = pxResizeRef.current;
+      if (pxRs && pxRs.pointerId === e.pointerId) {
+        pxResizeRef.current = null;
+        try {
+          (e.currentTarget as HTMLButtonElement).releasePointerCapture(
+            e.pointerId,
+          );
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
+      const rs = percentResizeRef.current;
       if (!rs || rs.pointerId !== e.pointerId) return;
-      resizeRef.current = null;
+      percentResizeRef.current = null;
       try {
         (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
       } catch {
@@ -188,21 +338,44 @@ export function ArtifactTable({
     [],
   );
 
-  const resizable = !compact && columns.length > 1;
+  const resizable = !compact && columns.length > 0;
+  const showResizeHandle = (colIndex: number) =>
+    resizable &&
+    (canvasSurface ? true : colIndex < columns.length - 1);
+
+  // On canvas the table fills its (fixed, user-resizable) node and scrolls
+  // internally on both axes — the node no longer auto-grows to the full table.
+  // `data-canvas-scroll` tells the wheel gate to hand scrolling to the browser
+  // (both axes) once the node is selected, instead of panning the canvas.
+  const overflowClass = canvasSurface
+    ? "overflow-auto w-full min-h-0 flex-1"
+    : "overflow-y-auto overflow-x-hidden";
+
+  const resolvedMinWidthPx = canvasSurface ? undefined : minWidthPx;
+  const resolvedMinHeightPx = canvasSurface ? undefined : minHeightPx;
 
   return (
     <div
-      data-canvas-scroll
-      className={`overflow-y-auto overflow-x-hidden ${surfaceBg} ${maxHeightClassName}`}
+      {...(canvasSurface ? { "data-canvas-scroll": "" } : {})}
+      className={`${overflowClass} ${surfaceBg} ${maxHeightClassName}`}
       style={{
         ...tableAccentStyles(accentSeed),
-        ...(minHeightPx != null ? { minHeight: minHeightPx } : {}),
-        ...(minWidthPx != null ? { minWidth: minWidthPx } : {}),
+        ...(resolvedMinHeightPx != null
+          ? { minHeight: resolvedMinHeightPx }
+          : {}),
+        ...(resolvedMinWidthPx != null ? { minWidth: resolvedMinWidthPx } : {}),
       }}
     >
       <table
         ref={tableRef}
-        className={`w-full table-fixed border-collapse text-left ${textSize} ${surfaceBg}`}
+        className={`table-fixed border-collapse text-left ${textSize} ${surfaceBg} ${
+          canvasSurface ? "" : "w-full"
+        }`}
+        style={
+          canvasSurface
+            ? { width: tableWidthPx, minWidth: tableWidthPx }
+            : undefined
+        }
       >
         <colgroup>
           {columns.map((col, colIndex) => {
@@ -210,13 +383,17 @@ export function ArtifactTable({
             return (
               <col
                 key={`${col.key}-${colIndex}`}
-                style={{
-                  width: `${
-                    spec?.percent ??
-                    columnPercents[colIndex] ??
-                    100 / Math.max(columns.length, 1)
-                  }%`,
-                }}
+                style={
+                  canvasSurface
+                    ? { width: `${spec?.widthPx ?? TABLE_COLUMN_MIN_PX}px` }
+                    : {
+                        width: `${
+                          spec?.percent ??
+                          columnPercents[colIndex] ??
+                          100 / Math.max(columns.length, 1)
+                        }%`,
+                      }
+                }
               />
             );
           })}
@@ -235,7 +412,7 @@ export function ArtifactTable({
                 <span className={`block truncate pr-1 ${RICH_TEXT_CLASS}`}>
                   {formatRichTextForDisplay(col.label)}
                 </span>
-                {resizable && colIndex < columns.length - 1 ? (
+                {showResizeHandle(colIndex) ? (
                   <button
                     type="button"
                     data-table-col-resize
@@ -265,7 +442,7 @@ export function ArtifactTable({
                 return (
                   <td
                     key={`${col.key}-${ci}`}
-                    className={`align-top text-canvas-ink ${RICH_TEXT_CLASS} ${cellPad} ${
+                    className={`overflow-hidden align-top text-canvas-ink ${RICH_TEXT_CLASS} ${cellPad} ${
                       spec?.wrap ? "break-words whitespace-normal" : "break-words"
                     } ${shouldAnimate ? "table-cell-animate" : ""}`}
                     style={
@@ -274,14 +451,20 @@ export function ArtifactTable({
                         : undefined
                     }
                   >
-                    <div className="flex flex-col gap-1">
+                    <div className="flex min-w-0 w-full flex-col gap-1">
                       {text ? (
                         <span className={tags.length > 0 ? "block" : undefined}>
                           {text}
                         </span>
                       ) : null}
                       {tags.length > 0 ? (
-                        <span className="inline-flex flex-wrap items-center gap-1">
+                        <span
+                          className={
+                            tags.length > 1
+                              ? "flex min-w-0 w-full flex-col items-start gap-1.5"
+                              : "flex min-w-0 w-full flex-wrap items-start gap-1"
+                          }
+                        >
                           {tags.map((tag, ti) => (
                             <span
                               key={`${tag.label}-${ti}`}

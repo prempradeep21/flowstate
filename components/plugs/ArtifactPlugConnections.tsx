@@ -27,12 +27,13 @@ export function ArtifactPlugConnections() {
   const recentArtifactPlugId = useCanvasStore((s) => s.recentArtifactPlugId);
   const clearRecentArtifactPlug = useCanvasStore((s) => s.clearRecentArtifactPlug);
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
+  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const hideForLoadReveal =
     canvasLoadReveal?.phase === "pending" ||
     canvasLoadReveal?.phase === "running";
   const tuning = RESOLVED_CANVAS_TUNING;
 
-  if (artifactPlugConnections.length === 0) return null;
+  if (artifactPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
   const strokeWidth = compensatedStrokeWidth(
     BASE_STROKE_SCREEN,

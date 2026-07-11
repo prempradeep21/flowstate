@@ -430,15 +430,25 @@ function CanvasListRow({
           className="min-w-0 flex-1 rounded border border-canvas-border bg-canvas-card px-2 py-0.5 text-canvas-body-sm text-canvas-ink outline-none focus:border-canvas-accent"
           aria-label="Canvas title"
         />
+      ) : active ? (
+        <span
+          onDoubleClick={() => {
+            if (canRename && !isSwitching) onStartRename();
+          }}
+          className={[
+            "min-w-0 flex-1 truncate text-left text-canvas-body-sm font-medium text-canvas-ink",
+            canRename && !isSwitching ? "cursor-text" : "cursor-default",
+          ].join(" ")}
+          title={canRename ? "Double-click to rename" : undefined}
+        >
+          {title}
+        </span>
       ) : (
         <button
           type="button"
-          disabled={isSwitching || active || menuOpen}
+          disabled={isSwitching || menuOpen}
           onClick={onSwitch}
-          className={[
-            "min-w-0 flex-1 truncate text-left text-canvas-body-sm disabled:cursor-default",
-            active ? "font-medium text-canvas-ink" : "text-canvas-ink",
-          ].join(" ")}
+          className="min-w-0 flex-1 truncate text-left text-canvas-body-sm text-canvas-ink disabled:cursor-default"
         >
           {title}
         </button>

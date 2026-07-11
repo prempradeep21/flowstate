@@ -5,17 +5,17 @@ import type { TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
 import {
   LABEL_EDGE_FADE_PX,
   LABEL_MAX_WIDTH,
-  LABEL_MIN_ZOOM,
   STEM_LENGTH,
   eventColor,
   eventSide,
+  eventTextColor,
   formatEventDate,
 } from "@/lib/timelineLayout";
 import { dropVariants } from "@/lib/motion/variants";
 import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
 function labelEdgeOpacity(screenX: number, viewportWidth: number): number {
-  if (viewportWidth <= 0) return 0;
+  if (viewportWidth <= 0) return 1;
   const fade = LABEL_EDGE_FADE_PX;
   if (screenX < fade) return Math.max(0, screenX / fade);
   if (screenX > viewportWidth - fade) {
@@ -24,36 +24,45 @@ function labelEdgeOpacity(screenX: number, viewportWidth: number): number {
   return 1;
 }
 
+/** Dashed connector from the axis dot up/down to the label cluster. */
+function EventConnector() {
+  return (
+    <div
+      aria-hidden
+      className="shrink-0 border-l border-dashed border-canvas-muted/45"
+      style={{ height: STEM_LENGTH }}
+    />
+  );
+}
+
 function EventLabelBlock({
   label,
   at,
   scale,
+  color,
+  textColor,
 }: {
   label: string;
   at: string;
   scale: TimelineScale;
+  color: string;
+  textColor: string;
 }) {
   return (
     <div
-      className="flex shrink-0 flex-col items-center text-center transition-opacity duration-200"
+      className="flex shrink-0 flex-col items-center text-center"
       style={{ maxWidth: LABEL_MAX_WIDTH }}
     >
-      <p className="rich-text line-clamp-2 text-xs font-semibold leading-snug text-canvas-ink">
-        {formatRichTextForDisplay(label)}
-      </p>
-      <p className="mt-0.5 whitespace-nowrap text-[10px] text-canvas-muted">
+      <p className="mb-1.5 whitespace-nowrap text-canvas-compact font-medium text-canvas-muted">
         {formatEventDate(at, scale)}
       </p>
+      <div
+        className="max-w-full truncate rounded-md px-2.5 py-1 text-canvas-body font-semibold leading-snug shadow-sm"
+        style={{ backgroundColor: color, color: textColor }}
+      >
+        <span className="rich-text">{formatRichTextForDisplay(label)}</span>
+      </div>
     </div>
-  );
-}
-
-function EventStem({ color }: { color: string }) {
-  return (
-    <div
-      className="shrink-0"
-      style={{ width: 1, height: STEM_LENGTH, backgroundColor: color }}
-    />
   );
 }
 
@@ -64,11 +73,11 @@ export function TimelineEventNode({
   scale,
   axisY,
   trackHeight,
-  zoom,
   viewportWidth,
   onDoubleClick,
   interactive,
   animating,
+  showLabel = true,
 }: {
   event: TimelineEvent;
   index: number;
@@ -76,22 +85,55 @@ export function TimelineEventNode({
   scale: TimelineScale;
   axisY: number;
   trackHeight: number;
-  zoom: number;
   viewportWidth: number;
   onDoubleClick?: (event: TimelineEvent) => void;
   interactive?: boolean;
   animating?: boolean;
+  showLabel?: boolean;
 }) {
   const reduced = useReducedMotion();
   const side = eventSide(index, event.side);
   const color = eventColor(index);
-  const dotSize = event.highlight ? 12 : 8;
+  const textColor = eventTextColor(index);
+  const dotSize = event.highlight ? 15 : 11;
   const dotRadius = dotSize / 2;
 
-  const showLabels = zoom >= LABEL_MIN_ZOOM;
-  const labelOpacity = showLabels
-    ? labelEdgeOpacity(x, viewportWidth)
-    : 0;
+  const labelOpacity = showLabel ? labelEdgeOpacity(x, viewportWidth) : 0;
+  const labelInteractive = labelOpacity > 0.05;
+
+  const labelCluster = (
+    <div
+      className="flex flex-col items-center transition-opacity duration-300 ease-out"
+      style={{
+        opacity: labelOpacity,
+        pointerEvents: labelInteractive ? "auto" : "none",
+      }}
+    >
+      {side === "above" ? (
+        <>
+          <EventLabelBlock
+            label={event.label}
+            at={event.at}
+            scale={scale}
+            color={color}
+            textColor={textColor}
+          />
+          <EventConnector />
+        </>
+      ) : (
+        <>
+          <EventConnector />
+          <EventLabelBlock
+            label={event.label}
+            at={event.at}
+            scale={scale}
+            color={color}
+            textColor={textColor}
+          />
+        </>
+      )}
+    </div>
+  );
 
   return (
     <m.div
@@ -132,16 +174,7 @@ export function TimelineEventNode({
               transform: "translateX(-50%)",
             }}
           >
-            <div
-              className="mb-2 transition-opacity duration-200"
-              style={{
-                opacity: labelOpacity,
-                pointerEvents: labelOpacity > 0.05 ? "auto" : "none",
-              }}
-            >
-              <EventLabelBlock label={event.label} at={event.at} scale={scale} />
-            </div>
-            <EventStem color={color} />
+            {labelCluster}
           </div>
         )}
 
@@ -165,16 +198,7 @@ export function TimelineEventNode({
               transform: "translateX(-50%)",
             }}
           >
-            <EventStem color={color} />
-            <div
-              className="mt-2 transition-opacity duration-200"
-              style={{
-                opacity: labelOpacity,
-                pointerEvents: labelOpacity > 0.05 ? "auto" : "none",
-              }}
-            >
-              <EventLabelBlock label={event.label} at={event.at} scale={scale} />
-            </div>
+            {labelCluster}
           </div>
         )}
       </div>

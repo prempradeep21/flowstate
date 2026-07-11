@@ -3,6 +3,7 @@ import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 
 import { getCanvasGifBounds } from "@/lib/canvasGifBounds";
+import { getCanvas3DBounds } from "@/lib/canvas3dBounds";
 
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 
@@ -17,6 +18,8 @@ import type {
   CanvasAssetNode,
 
   CanvasGifNode,
+
+  Canvas3DNode,
 
   CanvasSkill,
 
@@ -73,6 +76,10 @@ export interface CanvasContentBoundsInput {
   canvasGifNodes: Record<string, CanvasGifNode>;
 
   canvasGifOrder: string[];
+
+  canvas3DNodes: Record<string, Canvas3DNode>;
+
+  canvas3DOrder: string[];
 
   canvasSkills: Record<string, CanvasSkill>;
 
@@ -175,6 +182,20 @@ export function computeCanvasContentBounds(
     if (!node) continue;
 
     const { w, h } = getCanvasGifBounds(node);
+
+    include(node.position.x, node.position.y, w, h);
+
+  }
+
+
+
+  for (const id of state.canvas3DOrder) {
+
+    const node = state.canvas3DNodes[id];
+
+    if (!node) continue;
+
+    const { w, h } = getCanvas3DBounds(node);
 
     include(node.position.x, node.position.y, w, h);
 

@@ -5,15 +5,32 @@ import { getSelectionBounds } from "@/lib/canvasSelection";
 import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasStore } from "@/lib/store";
 
-const TOOLBAR_GAP_PX = 14;
+export const TOOLBAR_GAP_PX = 14;
 
-export interface ToolbarAnchor {
-  left: number;
-  top: number;
+export interface ToolbarWorldAnchor {
+  /** World-space center-x of the selection bounds. */
+  worldX: number;
+  /** World-space top-y of the selection bounds. */
+  worldY: number;
 }
 
-/** Screen-space anchor above a world-space bounds rect (relative to canvas container). */
-export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
+/** Screen-space position for a world anchor (relative to canvas container). */
+export function toolbarScreenPosition(
+  anchor: ToolbarWorldAnchor,
+  viewport: { x: number; y: number; scale: number },
+): { left: number; top: number } {
+  return {
+    left: viewport.x + anchor.worldX * viewport.scale,
+    top: viewport.y + anchor.worldY * viewport.scale - TOOLBAR_GAP_PX,
+  };
+}
+
+/**
+ * World-space anchor above the selection bounds. Deliberately does NOT
+ * subscribe to the live viewport (which changes every pan/zoom frame) —
+ * the toolbar applies the world→screen conversion imperatively.
+ */
+export function useSelectionToolbarAnchor(): ToolbarWorldAnchor | null {
   const selectedFamilyRootIds = useCanvasStore((s) => s.selectedFamilyRootIds);
   const canvasSelection = useCanvasStore((s) => s.canvasSelection);
   const activeGroupId = useCanvasStore((s) => s.activeGroupId);
@@ -31,12 +48,13 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
-  const viewport = useCanvasStore((s) => s.viewport);
 
   const nodesState = useMemo(
     () => ({
@@ -53,6 +71,8 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
       canvasAssetOrder,
       canvasGifNodes,
       canvasGifOrder,
+      canvas3DNodes,
+      canvas3DOrder,
       canvasSkills,
       canvasSkillNodes,
       canvasSkillOrder,
@@ -73,6 +93,8 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
       canvasAssetOrder,
       canvasGifNodes,
       canvasGifOrder,
+      canvas3DNodes,
+      canvas3DOrder,
       canvasSkills,
       canvasSkillNodes,
       canvasSkillOrder,
@@ -96,13 +118,11 @@ export function useSelectionToolbarAnchor(): ToolbarAnchor | null {
     return null;
   }, [nodesState, selectedFamilyRootIds, canvasSelection, activeGroup]);
 
-  if (!worldBounds) return null;
-
-  const centerX = worldBounds.x + worldBounds.w / 2;
-  const topY = worldBounds.y;
-
-  return {
-    left: viewport.x + centerX * viewport.scale,
-    top: viewport.y + topY * viewport.scale - TOOLBAR_GAP_PX,
-  };
+  return useMemo(() => {
+    if (!worldBounds) return null;
+    return {
+      worldX: worldBounds.x + worldBounds.w / 2,
+      worldY: worldBounds.y,
+    };
+  }, [worldBounds]);
 }

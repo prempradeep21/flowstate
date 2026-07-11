@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { twitterProvider } from "@/lib/embed/providers/twitter";
+import {
+  parseTwitterScreenName,
+  parseTweetId,
+  twitterProvider,
+} from "@/lib/embed/providers/twitter";
 
 describe("twitterProvider", () => {
-  it("always returns the official Twitter embed iframe", async () => {
+  it("always returns the official Twitter embed iframe for tweets", async () => {
     const url = new URL("https://x.com/sama/status/551911584828071936");
     const result = await twitterProvider.resolve(url);
 
@@ -11,5 +15,27 @@ describe("twitterProvider", () => {
     );
     expect(result.embedHtml).toBeUndefined();
     expect(result.embedWidth).toBe(550);
+  });
+
+  it("matches profile URLs", () => {
+    expect(
+      twitterProvider.match(new URL("https://x.com/elonmusk")),
+    ).toBe(true);
+    expect(parseTwitterScreenName(new URL("https://x.com/elonmusk"))).toBe(
+      "elonmusk",
+    );
+  });
+
+  it("throws for profile URLs so fallback card is used", async () => {
+    const url = new URL("https://x.com/elonmusk");
+    await expect(twitterProvider.resolve(url)).rejects.toThrow(
+      "X profile timeline embed unavailable",
+    );
+  });
+
+  it("does not treat tweet URLs as profiles", () => {
+    const url = new URL("https://x.com/sama/status/551911584828071936");
+    expect(parseTweetId(url)).toBe("551911584828071936");
+    expect(parseTwitterScreenName(url)).toBeNull();
   });
 });

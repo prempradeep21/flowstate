@@ -17,11 +17,6 @@ export const LANDING_ARTIFACT_SUGGESTIONS: {
     prompt: "Build a custom UI component for ",
   },
   {
-    kind: "3d",
-    label: "3D",
-    prompt: "Generate a 3D preview of ",
-  },
-  {
     kind: "images",
     label: "Images",
     prompt: "Create an image gallery showing ",

@@ -5,6 +5,7 @@ import { normalizeCustomArtifactData } from "@/lib/customArtifact";
 import type { RepoExplorerData } from "@/lib/github/types";
 import { normalizeMapArtifactData } from "@/lib/mapArtifact";
 import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
+import { normalizeThreeDArtifactData } from "@/lib/threeDArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
@@ -32,7 +33,8 @@ export type ResponseType =
   | "google-doc"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -51,7 +53,15 @@ export type ArtifactKind =
   | "google-doc"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
+
+export type StickyNoteColorId = "turbo" | "violet" | "haiti" | "chalk";
+
+export interface StickyNoteArtifactData {
+  text: string;
+  colorId: StickyNoteColorId;
+}
 
 export type TodoPriority = "low" | "medium" | "high";
 
@@ -180,6 +190,12 @@ export interface WebsiteArtifactData {
   domainLabel: string;
   faviconUrl?: string;
   previewImageUrl?: string;
+  /**
+   * Whether the site allows being embedded in a cross-origin iframe. Undefined
+   * until the link-preview check resolves; true → render a live interactive
+   * iframe; false → render the static preview card.
+   */
+  embeddable?: boolean;
 }
 
 export type EmbedArtifactStatus = "loading" | "ready" | "failed";
@@ -289,7 +305,13 @@ export type ArtifactPayload =
     }
   | { type: "timeline"; title: string; description?: string; data: TimelineArtifactData }
   | { type: "chart"; title: string; description?: string; data: ChartArtifactData }
-  | { type: "audio"; title: string; description?: string; data: AudioArtifactData };
+  | { type: "audio"; title: string; description?: string; data: AudioArtifactData }
+  | {
+      type: "stickynote";
+      title: string;
+      description?: string;
+      data: StickyNoteArtifactData;
+    };
 
 /** Payload emitted over SSE from emit_artifact tool. */
 export interface EmittedArtifact {
@@ -400,7 +422,9 @@ export function emittedToPayload(artifact: EmittedArtifact): ArtifactPayload {
       return {
         type: "3d",
         ...base,
-        data: artifact.data as unknown as ThreeDArtifactData,
+        data: normalizeThreeDArtifactData(
+          artifact.data as Record<string, unknown>,
+        ),
       };
     case "todo":
       return {

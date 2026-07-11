@@ -1,8 +1,10 @@
 "use client";
 
-import {
+import { memo,
   PointerEvent as ReactPointerEvent,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -10,23 +12,28 @@ import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import {
   clampTextLabelFontSize,
   clampTextLabelWidth,
+  estimateTextLabelBounds,
   getTextLabelWidth,
   MAX_TEXT_LABEL_WIDTH,
 } from "@/lib/canvasTextLabelBounds";
+import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
   CANVAS_NODE_INTERACTIVE_ATTR,
 } from "@/lib/canvasNodeInteraction";
-import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
-import { classifyPastedText } from "@/lib/urlDetection";
+import {
+  decrementLocalEditGuard,
+  incrementLocalEditGuard,
+} from "@/lib/localEditGuard";
 import {
   useCanvasStore,
   type CanvasTextLabel,
 } from "@/lib/store";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
 
-const DRAG_THRESHOLD_PX = 4;
+const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, textarea, input, select, a, [role='menu'], [data-no-drag], [data-resize-handle]";
 
@@ -98,7 +105,7 @@ function WidthResizeHandle({
   );
 }
 
-export function CanvasTextLabelNode({
+function CanvasTextLabelNodeInner({
   label,
   startEditing = false,
 }: CanvasTextLabelNodeProps) {
@@ -126,19 +133,15 @@ export function CanvasTextLabelNode({
   const [draft, setDraft] = useState(label.text);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Label actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this label is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "label",
+    nodeId: label.id,
+    commitMove: (targetId, dx, dy) => moveCanvasTextLabel(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasTextLabel(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
   const resizeStateRef = useRef<{
     pointerId: number;
     mode: "corner" | "width";
@@ -158,8 +161,15 @@ export function CanvasTextLabelNode({
   const containerWidth = hasFixedWidth ? label.width : undefined;
 
   useEffect(() => {
+    if (editing) return;
     setDraft(label.text);
-  }, [label.text]);
+  }, [label.text, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    incrementLocalEditGuard();
+    return () => decrementLocalEditGuard();
+  }, [editing]);
 
   useEffect(() => {
     if (!editing) return;
@@ -169,25 +179,31 @@ export function CanvasTextLabelNode({
     el.select();
   }, [editing]);
 
+  useLayoutEffect(() => {
+    if (!editing) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft, editing, label.fontSize, hasFixedWidth, containerWidth]);
+
   const commitEdit = () => {
     const trimmed = draft.trim();
     if (trimmed.length > 0) {
-      if (classifyPastedText(trimmed)) {
-        recordUndo();
-        createUrlArtifactFromText(trimmed, label.position, { recordUndo: false });
-        removeCanvasTextLabel(label.id);
-        setEditing(false);
-        return;
-      }
       if (trimmed !== label.text) {
         recordUndo();
         updateCanvasTextLabel(label.id, trimmed);
       }
-    } else if (trimmed.length === 0) {
+    } else {
       setDraft(label.text);
     }
     setEditing(false);
   };
+
+  const liveBounds = useMemo(
+    () => estimateTextLabelBounds({ ...label, text: draft }),
+    [label, draft],
+  );
 
   const measuredWidth = () => {
     const el = rootRef.current;
@@ -272,17 +288,10 @@ export function CanvasTextLabelNode({
     }
     if (!inMultiSelection) selectCanvasTextLabel(label.id);
     if (st.canvasReadOnly) return;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: label.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -321,34 +330,8 @@ export function CanvasTextLabelNode({
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId || editing) return;
-
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore
-        .getState()
-        .duplicateCanvasTextLabel(label.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasTextLabel(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    if (editing) return;
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -363,14 +346,7 @@ export function CanvasTextLabelNode({
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const contentInteractive = isSelected || editing;
@@ -391,11 +367,12 @@ export function CanvasTextLabelNode({
       }}
       className={`group/textlabel absolute cursor-grab active:cursor-grabbing ${
         isSelected ? "z-30" : "z-20"
-      } ${hasFixedWidth ? "" : "w-max"}`}
+      } ${hasFixedWidth || editing ? "" : "w-max"}`}
       style={{
         left: label.position.x,
         top: label.position.y,
-        width: containerWidth,
+        width: hasFixedWidth ? containerWidth : editing ? liveBounds.w : undefined,
+        minHeight: editing ? liveBounds.h : undefined,
         // The viewport wrapper has zero intrinsic size, so percentage-based
         // max-widths collapse to 0 — cap with the absolute label maximum.
         maxWidth: MAX_TEXT_LABEL_WIDTH,
@@ -432,7 +409,7 @@ export function CanvasTextLabelNode({
             }}
             onBlur={commitEdit}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 commitEdit();
               }
@@ -443,10 +420,11 @@ export function CanvasTextLabelNode({
               }
               e.stopPropagation();
             }}
-            className="block min-h-0 w-full resize-none border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25"
+            className={`block min-h-0 w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-medium leading-tight text-canvas-ink outline-none ring-2 ring-canvas-ink/25 ${
+              hasFixedWidth ? "whitespace-pre-wrap break-words" : "whitespace-pre"
+            }`}
             style={{
               fontSize: label.fontSize,
-              width: hasFixedWidth ? "100%" : `${Math.max(draft.length, 4)}ch`,
             }}
           />
         ) : (
@@ -489,3 +467,13 @@ export function CanvasTextLabelNode({
     </div>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasTextLabelNode = memo(
+  CanvasTextLabelNodeInner,
+  (prev, next) =>
+    prev.label === next.label && prev.startEditing === next.startEditing,
+);

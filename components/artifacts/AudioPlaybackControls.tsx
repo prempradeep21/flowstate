@@ -22,7 +22,7 @@ export function AudioPlaybackControls({
       className="flex h-full min-w-0 flex-1 items-center gap-1.5 overflow-hidden"
       data-no-drag
     >
-      <label className="flex items-center gap-1.5 text-[10px] font-medium text-canvas-muted">
+      <label className="flex items-center gap-1.5 text-canvas-caption font-medium text-canvas-muted">
         <span>Speed</span>
         <select
           value={rate}
@@ -30,7 +30,7 @@ export function AudioPlaybackControls({
           onChange={(e) =>
             onRateChange(Number(e.target.value) as AudioPlaybackRate)
           }
-          className="h-6 rounded-md border border-canvas-border bg-canvas-card px-2 text-[11px] tabular-nums text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30 disabled:opacity-40"
+          className="h-6 rounded-canvas-md border border-canvas-border bg-canvas-card px-2 text-canvas-caption tabular-nums text-canvas-ink outline-none transition-colors focus-visible:border-canvas-accent/50 focus-visible:ring-1 focus-visible:ring-canvas-accent/30 disabled:opacity-40"
           data-no-drag
         >
           {AUDIO_PLAYBACK_RATES.map((option) => (

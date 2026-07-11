@@ -19,7 +19,7 @@ export interface ArtifactRegistryGroup {
   items: ArtifactRegistryItem[];
 }
 
-const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
+export const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   table: "Tables",
   custom: "Custom UI",
   "3d": "3D preview",
@@ -34,7 +34,26 @@ const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   timeline: "Timelines",
   chart: "Charts",
   audio: "Audio",
+  stickynote: "Sticky notes",
 };
+
+export const SIDEBAR_CATEGORY_ORDER: SidebarArtifactCategory[] = [
+  "table",
+  "custom",
+  "3d",
+  "image",
+  "map",
+  "streetview",
+  "todo",
+  "calendar",
+  "website",
+  "repo",
+  "embed",
+  "timeline",
+  "chart",
+  "audio",
+  "stickynote",
+];
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
   "table",
@@ -51,6 +70,7 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "timeline",
   "chart",
   "audio",
+  "stickynote",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -83,6 +103,8 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "chart";
     case "audio":
       return "audio";
+    case "stickynote":
+      return "stickynote";
     default:
       return null;
   }
@@ -128,6 +150,34 @@ export function buildFlatArtifactList(
   return [...byArtifactId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+export interface GroupedArtifactListGroup {
+  category: SidebarArtifactCategory;
+  label: string;
+  items: FlatArtifactListItem[];
+}
+
+/** Sidebar groups with only populated categories, in display order. */
+export function buildGroupedArtifactList(
+  artifacts: SessionArtifact[],
+): GroupedArtifactListGroup[] {
+  const flat = buildFlatArtifactList(artifacts);
+  const byCategory = new Map<SidebarArtifactCategory, FlatArtifactListItem[]>();
+
+  for (const item of flat) {
+    const list = byCategory.get(item.category) ?? [];
+    list.push(item);
+    byCategory.set(item.category, list);
+  }
+
+  return SIDEBAR_CATEGORY_ORDER.filter(
+    (category) => (byCategory.get(category)?.length ?? 0) > 0,
+  ).map((category) => ({
+    category,
+    label: CATEGORY_LABELS[category],
+    items: byCategory.get(category)!,
+  }));
+}
+
 export function buildArtifactRegistry(
   artifacts: SessionArtifact[],
 ): ArtifactRegistryGroup[] {
@@ -146,6 +196,7 @@ export function buildArtifactRegistry(
     timeline: [],
     chart: [],
     audio: [],
+    stickynote: [],
   };
 
   for (const art of artifacts) {

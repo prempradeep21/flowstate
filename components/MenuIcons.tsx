@@ -1,69 +1,53 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  Camera,
+  Columns3,
+  Copy,
+  CopyPlus,
+  Download,
+  Eye,
+  EyeOff,
+  FileCode2,
+  FileText,
+  Image,
+  LayoutGrid,
+  Lightbulb,
+  MessageCircleQuestionMark,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Settings,
+  Share2,
+  Text,
+  Trash2,
+  Undo2,
+  User,
+  Volume2,
+  VolumeX,
+  Box,
+} from "lucide-react";
+import { Icon } from "@/components/ui/Icon";
+
+/**
+ * Shared menu/chrome iconography — lucide-react rendered through the Icon
+ * primitive. Export names are stable; a few brand-specific marks (branch
+ * fork, GIF) remain hand-drawn below with matching stroke weight.
+ */
+
+const DEFAULT_CLASS = "h-4 w-4";
 
 export function LayoutGridIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <rect
-        x="2.5"
-        y="2.5"
-        width="4.5"
-        height="4.5"
-        rx="0.75"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="9"
-        y="2.5"
-        width="4.5"
-        height="4.5"
-        rx="0.75"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="2.5"
-        y="9"
-        width="4.5"
-        height="4.5"
-        rx="0.75"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="9"
-        y="9"
-        width="4.5"
-        height="4.5"
-        rx="0.75"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-    </svg>
-  );
+  return <Icon icon={LayoutGrid} className={DEFAULT_CLASS} />;
+}
+
+export function PencilIcon() {
+  return <Icon icon={Pencil} className={DEFAULT_CLASS} />;
 }
 
 export function UndoIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M3.5 7.5H10a3.5 3.5 0 1 1 0 7H8.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 4.5 3.5 7.5 6 10.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Undo2} className={DEFAULT_CLASS} />;
 }
 
 export function BranchForkIcon() {
@@ -87,123 +71,47 @@ export function BranchForkIcon() {
 }
 
 export function QuestionIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M4 4.5h8v5H6.5L4 12V9.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={MessageCircleQuestionMark} className={DEFAULT_CLASS} />;
 }
 
 export function ArtefactIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <rect
-        x="2.5"
-        y="2.5"
-        width="5"
-        height="5"
-        rx="1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="8.5"
-        y="2.5"
-        width="5"
-        height="5"
-        rx="1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="2.5"
-        y="8.5"
-        width="5"
-        height="5"
-        rx="1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <rect
-        x="8.5"
-        y="8.5"
-        width="5"
-        height="5"
-        rx="1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-    </svg>
-  );
+  return <Icon icon={LayoutGrid} className={DEFAULT_CLASS} />;
 }
 
 export function ChatBubbleIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M3.5 4.5h9a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5H7l-2.5 2v-2H3.5A1.5 1.5 0 0 1 2 10V6a1.5 1.5 0 0 1 1.5-1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={MessageSquare} className={DEFAULT_CLASS} />;
+}
+
+export function FocusViewIcon() {
+  return <Icon icon={Columns3} className={DEFAULT_CLASS} />;
+}
+
+export function EyeIcon() {
+  return <Icon icon={Eye} className={DEFAULT_CLASS} />;
+}
+
+export function EyeOffIcon() {
+  return <Icon icon={EyeOff} className={DEFAULT_CLASS} />;
 }
 
 export function TypeIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M4 4.5h8M4 8h5.5M4 11.5h7"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Text} className={DEFAULT_CLASS} />;
 }
 
 export function PlusIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className={className} fill="none">
-      <path
-        d="M8 3.5v9M3.5 8h9"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Plus} className={className} />;
 }
 
 export function ImageIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <rect
-        x="2.5"
-        y="3.5"
-        width="11"
-        height="9"
-        rx="1.25"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <circle cx="5.75" cy="6.75" r="1.1" fill="currentColor" />
-      <path
-        d="M3.5 11.5 6.5 8.5l2 1.75L10.5 8l2 3.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Image} className={DEFAULT_CLASS} />;
+}
+
+export function Model3DIcon() {
+  return <Icon icon={Box} className={DEFAULT_CLASS} />;
+}
+
+export function ScreenshotIcon() {
+  return <Icon icon={Camera} className={DEFAULT_CLASS} />;
 }
 
 export function GifIcon() {
@@ -229,149 +137,56 @@ export function GifIcon() {
   );
 }
 
+export function DocumentIcon() {
+  return <Icon icon={FileText} className={DEFAULT_CLASS} />;
+}
+
+export function CodeFileIcon() {
+  return <Icon icon={FileCode2} className={DEFAULT_CLASS} />;
+}
+
 export function ShareIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <circle cx="12" cy="4" r="1.75" stroke="currentColor" strokeWidth="1.1" />
-      <circle cx="4" cy="8" r="1.75" stroke="currentColor" strokeWidth="1.1" />
-      <circle cx="12" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.1" />
-      <path
-        d="M5.6 7.1 10.4 4.9M5.6 8.9l4.8 2.2"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Share2} className={DEFAULT_CLASS} />;
 }
 
 export function SoundOnIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M2.75 5.75v4.5h2.25L8.25 13V3L5 5.75H2.75Z"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 5.25a3.25 3.25 0 010 5.5M11.75 3.75a5.5 5.5 0 010 8.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Volume2} className={DEFAULT_CLASS} />;
 }
 
 export function SoundMuteIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M2.75 5.75v4.5h2.25L8.25 13V3L5 5.75H2.75Z"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10.5 5.75 14.25 9.5M14.25 5.75 10.5 9.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={VolumeX} className={DEFAULT_CLASS} />;
+}
+
+export function GearIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
+  return <Icon icon={Settings} className={className} />;
 }
 
 export function SettingsIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.25" />
-      <path
-        d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Settings} className={DEFAULT_CLASS} />;
 }
 
 export function DuplicateIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <rect
-        x="5.5"
-        y="5.5"
-        width="8"
-        height="8"
-        rx="1.25"
-        stroke="currentColor"
-        strokeWidth="1.25"
-      />
-      <path
-        d="M3.5 10.5V4.5a1.25 1.25 0 0 1 1.25-1.25H10.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={CopyPlus} className={DEFAULT_CLASS} />;
+}
+
+export function DownloadIcon() {
+  return <Icon icon={Download} className={DEFAULT_CLASS} />;
+}
+
+export function CopyIcon() {
+  return <Icon icon={Copy} className={DEFAULT_CLASS} />;
 }
 
 export function PersonIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <circle cx="8" cy="5.25" r="2.25" stroke="currentColor" strokeWidth="1.25" />
-      <path
-        d="M3.5 13.25c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Icon icon={User} className={DEFAULT_CLASS} />;
 }
 
 export function LightbulbIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M6.25 11.5h3.5M7.25 13.5h1.5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 2.5a4 4 0 0 1 2.65 7.02c-.47.4-.65.78-.65 1.23V11"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Lightbulb} className={DEFAULT_CLASS} />;
 }
 
 export function TrashIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0" fill="none">
-      <path
-        d="M3.5 5h9M6 5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-      />
-      <path
-        d="M4.5 5l.6 7.2a1 1 0 0 0 1 .8h3.8a1 1 0 0 0 1-.8L11.5 5"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Icon icon={Trash2} className={DEFAULT_CLASS} />;
 }
 
 const menuItemClass =

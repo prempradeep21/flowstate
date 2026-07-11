@@ -236,7 +236,6 @@ export function CalendarArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? "flex min-h-0 flex-1 flex-col" : "min-h-[360px]"}
     >
       <div
@@ -272,7 +271,7 @@ export function CalendarArtifactContent({
           {WEEKDAYS.map((d) => (
             <div
               key={d}
-              className="py-2 text-center text-[10px] font-medium uppercase tracking-widest text-canvas-muted"
+              className="py-2 text-center text-canvas-caption font-medium uppercase tracking-widest text-canvas-muted"
             >
               {d}
             </div>
@@ -358,7 +357,7 @@ export function CalendarArtifactContent({
                                 <div
                                   key={ev.id}
                                   title={ev.title}
-                                  className="truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight"
+                                  className="truncate rounded px-1 py-0.5 text-canvas-caption font-medium leading-tight"
                                   style={chipStyle}
                                 >
                                   {truncateTitle(ev.title, 10)}
@@ -397,7 +396,7 @@ export function CalendarArtifactContent({
                               setEditTitle(seg.event.title);
                               clearSelection();
                             }}
-                            className="absolute mx-0.5 truncate rounded-sm px-1.5 text-left text-[10px] font-medium leading-[18px] transition-opacity hover:opacity-80 disabled:cursor-default"
+                            className="absolute mx-0.5 truncate rounded-canvas-xs px-1.5 text-left text-canvas-caption font-medium leading-[18px] transition-opacity hover:opacity-80 disabled:cursor-default"
                             style={{
                               left: `calc(${(seg.startCol / 7) * 100}% + 2px)`,
                               width: `calc(${(seg.span / 7) * 100}% - 4px)`,

@@ -6,6 +6,15 @@ import {
 } from "@/lib/manualArtifactDefaults";
 
 describe("createManualArtifactPayload", () => {
+  it("creates sticky note with empty text and default turbo", () => {
+    const payload = createManualArtifactPayload("stickynote");
+    expect(payload.type).toBe("stickynote");
+    if (payload.type !== "stickynote") return;
+    expect(payload.title).toBe("Sticky note");
+    expect(payload.data.text).toBe("");
+    expect(payload.data.colorId).toBe("turbo");
+  });
+
   it("creates todo with three placeholder tasks", () => {
     const payload = createManualArtifactPayload("todo");
     expect(payload.type).toBe("todo");
@@ -80,6 +89,15 @@ describe("createManualArtifactPayload", () => {
     if (payload.type !== "images") return;
     expect(payload.data.items).toEqual([]);
     expect(payload.title).toBe("Untitled gallery");
+  });
+
+  it("creates 3D model with sample GLB", () => {
+    const payload = createManualArtifactPayload("3d");
+    expect(payload.type).toBe("3d");
+    if (payload.type !== "3d") return;
+    expect(payload.title).toBe("3D model");
+    expect(payload.data.format).toBe("glb");
+    expect(payload.data.modelUrl).toContain(".glb");
   });
 });
 

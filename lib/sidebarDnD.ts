@@ -21,7 +21,8 @@ export type SidebarArtifactCategory =
   | "embed"
   | "timeline"
   | "chart"
-  | "audio";
+  | "audio"
+  | "stickynote";
 
 export type SidebarDragPayload =
   | {
@@ -40,6 +41,13 @@ export type SidebarDragPayload =
       title: string;
       category: CanvasGifCategory;
       aspectRatio: number;
+      sourceId: string;
+    }
+  | {
+      kind: "3d";
+      modelUrl: string;
+      format: "glb" | "gltf";
+      title: string;
       sourceId: string;
     };
 
@@ -79,6 +87,14 @@ export function parseSidebarDragPayload(
       parsed.url &&
       parsed.sourceId &&
       (parsed.category === "gif" || parsed.category === "sticker")
+    ) {
+      return parsed;
+    }
+    if (
+      parsed.kind === "3d" &&
+      parsed.modelUrl &&
+      parsed.sourceId &&
+      (parsed.format === "glb" || parsed.format === "gltf")
     ) {
       return parsed;
     }

@@ -57,8 +57,9 @@ interface AccumulatedToolCall {
 /** OpenRouter (OpenAI-compatible) path with streamed tool-call accumulation. */
 export const openrouterProvider: LLMProvider = {
   async run(args: RunArgs): Promise<RunResult> {
-    const { model, apiKey, system, tools, forceToolFirstTurn, emit, executeTool, signal } = args;
+    const { model, apiKey, system, variableSystem, tools, forceToolFirstTurn, emit, executeTool, signal } = args;
     const maxTurns = args.maxToolTurns ?? DEFAULT_MAX_TOOL_TURNS;
+    const maxTokens = args.maxTokens ?? DEFAULT_MAX_TOKENS;
 
     const client = new OpenAI({
       apiKey,
@@ -70,17 +71,26 @@ export const openrouterProvider: LLMProvider = {
     });
     const openaiTools = toOpenAITools(tools);
 
+    // OpenRouter has no prompt-cache breakpoints — fold the variable notes back
+    // into a single system message.
+    const systemContent = variableSystem ? `${system}\n\n${variableSystem}` : system;
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: "system", content: system },
+      { role: "system", content: systemContent },
       ...toOpenAIMessages(args.messages),
     ];
-    const usage = { inputTokens: 0, outputTokens: 0 };
+    const usage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    };
+    let toolTurns = 0;
 
     for (let turn = 0; turn < maxTurns; turn++) {
       const stream = await client.chat.completions.create(
         {
           model,
-          max_tokens: DEFAULT_MAX_TOKENS,
+          max_tokens: maxTokens,
           messages,
           tools: openaiTools,
           tool_choice:
@@ -96,11 +106,13 @@ export const openrouterProvider: LLMProvider = {
       let textAcc = "";
       const toolAcc = new Map<number, AccumulatedToolCall>();
       let finishReason: string | null = null;
+      let turnInputTokens = 0;
+      let turnOutputTokens = 0;
 
       for await (const chunk of stream) {
         if (chunk.usage) {
-          usage.inputTokens += chunk.usage.prompt_tokens ?? 0;
-          usage.outputTokens += chunk.usage.completion_tokens ?? 0;
+          turnInputTokens += chunk.usage.prompt_tokens ?? 0;
+          turnOutputTokens += chunk.usage.completion_tokens ?? 0;
         }
         const choice = chunk.choices[0];
         if (!choice) continue;
@@ -121,8 +133,22 @@ export const openrouterProvider: LLMProvider = {
         if (choice.finish_reason) finishReason = choice.finish_reason;
       }
 
+      usage.inputTokens += turnInputTokens;
+      usage.outputTokens += turnOutputTokens;
+      if (turnInputTokens || turnOutputTokens) {
+        emit({
+          usage: {
+            inputTokens: turnInputTokens,
+            outputTokens: turnOutputTokens,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+        });
+      }
+
       if (finishReason !== "tool_calls" || toolAcc.size === 0) break;
 
+      toolTurns += 1;
       const calls = [...toolAcc.values()];
       messages.push({
         role: "assistant",
@@ -146,6 +172,6 @@ export const openrouterProvider: LLMProvider = {
       }
     }
 
-    return { usage };
+    return { usage, toolTurns, pauseTurns: 0, webSearchBlocks: 0, errorMessage: null };
   },
 };

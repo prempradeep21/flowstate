@@ -354,11 +354,17 @@ function MapView({
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
 
+  // Stable identity key: `savedPlaces` is often a fresh `[]` each render
+  // (from `?? []` in the parent), so effects must key on this, not the ref.
+  const savedPlacesKey = savedPlaces.map((p) => p.id).join("|");
+
   const handleRemove = useCallback(
     (placeId: string) => {
-      onSavePlaces(savedPlaces.filter((p) => p.id !== placeId));
+      onSavePlacesRef.current(
+        savedPlacesRef.current.filter((p) => p.id !== placeId),
+      );
     },
-    [onSavePlaces, savedPlaces],
+    [],
   );
 
   onRemoveRef.current = handleRemove;
@@ -470,8 +476,10 @@ function MapView({
     const map = mapRef.current;
     const layer = savedLayerRef.current;
     if (!map || !layer) return;
-    syncSavedMarkers(map, layer, savedPlaces);
-  }, [savedPlaces, canEdit, syncSavedMarkers]);
+    syncSavedMarkers(map, layer, savedPlacesRef.current);
+    // `savedPlacesKey` stands in for `savedPlaces` (whose reference churns).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedPlacesKey, canEdit, syncSavedMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -496,10 +504,11 @@ function MapView({
   return (
     <div className="relative h-full w-full min-h-0 cursor-default">
       <div ref={containerRef} data-no-drag className="h-full w-full" />
+      <MapSearchBar onSelect={handleSearchSelect} />
       {canEdit && (
         <div
           data-no-drag
-          className="absolute left-2 top-2 z-[500]"
+          className="absolute right-80 top-2 z-[500]"
         >
           <AddPinButton
             active={addPinMode}
@@ -508,7 +517,6 @@ function MapView({
           />
         </div>
       )}
-      <MapSearchBar onSelect={handleSearchSelect} />
       {showLabel && (
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
           {viewingLabel && viewingLabel !== primaryLabel && (
@@ -574,7 +582,6 @@ export function MapArtifactContent({
       <ArtifactContentStage
         fill={fill}
         artifactId={artifactId}
-        showControls={!sidebar}
         className={fill ? undefined : "aspect-[4/3]"}
       >
         <div className="flex h-full min-h-[200px] items-center justify-center bg-canvas-bg p-4 text-center text-canvas-body-sm text-canvas-muted">
@@ -605,7 +612,6 @@ export function MapArtifactContent({
     <ArtifactContentStage
       fill={fill}
       artifactId={artifactId}
-      showControls={!sidebar}
       className={fill ? undefined : "aspect-[4/3]"}
     >
       <div

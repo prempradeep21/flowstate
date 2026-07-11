@@ -6,6 +6,7 @@ import type {
   ResponseType,
 } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
+import type { SkillCardData } from "@/lib/skillMetadata";
 import { getPermissionCopy } from "@/lib/artifactSpawnPriority";
 import { SPAWN_ANIMATION_MS } from "@/lib/motion/variants";
 import type {
@@ -13,9 +14,25 @@ import type {
   CanvasSnapshotSource,
 } from "@/lib/canvasSnapshot";
 import { normalizeCanvasSnapshot } from "@/lib/canvasSnapshot";
+import type { CanvasStroke } from "@/lib/canvasStroke";
+import {
+  PENCIL_COLORS,
+  PENCIL_STROKE_WIDTH,
+} from "@/lib/canvasStroke";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
+import {
+  cycleCanvasBackgroundImageId,
+  DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
+  normalizeCanvasBackgroundImageId,
+} from "@/lib/canvasBackgroundImages";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
+import {
+  isCardSourcedArtifactBuild,
+  pushArtifactReadyUpdate,
+} from "@/lib/artifactUpdateNotify";
 import { collectSubtreeIds } from "@/lib/canvasSubtree";
+import { cancelCardAsks } from "@/lib/cardAskRegistry";
+import { seedCustomUiTurnState } from "@/lib/customUiTurnSeed";
 import {
   resolveBranchDropPosition,
   getFollowUpChild,
@@ -33,6 +50,7 @@ import type { ModelId } from "@/lib/models";
 import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
 import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
+import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import {
   CANVAS_ARTIFACT_WIDTH,
   clampArtifactSize,
@@ -64,8 +82,15 @@ import { resetViewportBootstrap } from "@/lib/canvasViewportBootstrap";
 import {
   getFamilyCardIds,
   getThreadRootCard,
+  getThreadTailCardId,
   pickDefaultThreadId,
 } from "@/lib/chatThreads";
+import {
+  computeFocusRootCardPosition,
+  getLatestArtifactIdForThread,
+  getLatestThreadIdForArtifact,
+} from "@/lib/focusView";
+import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { runSilentAutoCollapse } from "@/lib/collapseSoundSuppress";
 import {
   registerThreadInactivityHandlers,
@@ -73,6 +98,17 @@ import {
   touchThreadActivity,
   type ThreadInactivityState,
 } from "@/lib/threadInactivity";
+import {
+  buildCanvasClipboardPayload,
+  canCopyCanvasSelection,
+  cloneSessionArtifactDeep,
+  computePastePosition,
+  writeCanvasClipboard,
+  CANVAS_PASTE_SOURCE_CARD_ID,
+  type CanvasClipboardPayload,
+} from "@/lib/canvasClipboard";
+import { showAppErrorToast, showAppToast } from "@/lib/appToastStore";
+import { copySuccessMessage } from "@/lib/copyToastMessage";
 import {
   getSelectionUnits,
   isCanvasItemSelected,
@@ -93,7 +129,9 @@ import {
   computeArtifactSpawnPosition,
   findCanvasNodeByArtifactId,
   findGeneratingPreviewNode,
+  findPermissionPreviewNode,
   pickAlternateSpawnSide,
+  scheduleCanvasArtifactFocus,
   type ArtifactSpawnSide,
 } from "@/lib/canvasArtifacts";
 import {
@@ -102,6 +140,7 @@ import {
   getLatestVersion,
   getVersionById,
   normalizePayloadForRegistry,
+  patchArtifactPayloadTitle,
   resolveArtifactTargetId,
   resolveEditingArtifactId,
   resolveInheritedArtifactIdForParent,
@@ -112,6 +151,7 @@ import {
 import { MANUAL_CALENDAR_SOURCE_CARD_ID } from "@/lib/calendarArtifact";
 import { MANUAL_MAP_SOURCE_CARD_ID } from "@/lib/mapArtifact";
 import { MANUAL_TIMELINE_SOURCE_CARD_ID } from "@/lib/timelineArtifact";
+import { MANUAL_STICKY_NOTE_SOURCE_CARD_ID } from "@/lib/stickyNoteArtifact";
 import {
   createManualArtifactPayload,
   manualArtifactSourceCardId,
@@ -155,9 +195,15 @@ import {
 import { extractWaveformPeaks } from "@/lib/audioWaveform";
 import {
   uploadAudioFile,
+  uploadThreeDModelFile,
   type AssetUploadContext,
   type AssetUploadError,
 } from "@/lib/attachments";
+import {
+  createThreeDPayload,
+  MANUAL_3D_SOURCE_CARD_ID,
+  threeDFormatFromFile,
+} from "@/lib/threeDArtifact";
 import {
   graphSnapshotFromState,
   GraphSnapshot,
@@ -240,6 +286,10 @@ export interface CanvasSkill {
   storagePath: string;
   publicUrl: string;
   createdAt: number;
+  /** Derived from the file's own frontmatter/body at upload time (instant fallback); upgraded by the LLM analysis pass. */
+  metadata?: SkillCardData;
+  /** LLM analysis lifecycle — keyed per skill, not per canvas node, so it only ever runs once. */
+  metadataStatus?: "pending" | "analyzing" | "ready" | "unavailable";
 }
 
 export interface CanvasSkillNode {
@@ -269,6 +319,8 @@ export interface BranchOptions {
 export interface Card {
   id: string;
   threadId: string;
+  /** Admin playground only — conversation import cards (not in design system yet). */
+  cardKind?: "qa" | "conversation";
   question: string;
   answer: string;
   status: CardStatus;
@@ -278,6 +330,9 @@ export interface Card {
   parentConversationId: string | null;
   size?: CardSize;
   artifactId?: string;
+  /** User-attached reference images sent with the question. */
+  attachedImages?: CardImage[];
+  /** Model output / search result images for the answer. */
   images?: CardImage[];
   responseType?: ResponseType;
   artifactPayload?: ArtifactPayload;
@@ -293,6 +348,17 @@ export interface Card {
   quotedSelection?: string;
   /** Artifacts emitted during the current chat turn (processed on done). */
   pendingEmittedArtifacts?: EmittedArtifact[];
+  /** Wall-clock start when the current question was submitted. */
+  askStartedAt?: number;
+  /** Token usage accumulated for the current question turn. */
+  turnUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
+  /** Cursor SDK custom UI pipeline stages (live build progress). */
+  sdkBuildStages?: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[];
 }
 
 export interface FollowUpOptions {
@@ -383,26 +449,15 @@ export interface Viewport {
   scale: number;
 }
 
-export type ConnectorStyle = "curvy" | "orthogonal";
-export type AppViewMode = "canvas" | "chat";
+export type ConnectorStyle = "curvy" | "orthogonal" | "straight";
+export type AppViewMode = "canvas" | "chat" | "focus";
 
-export type CanvasBackgroundStyle =
-  | "grid"
-  | "ambient-gradient"
-  | "sky"
-  | "network"
-  | "rising-sun"
-  | "gradient-grid"
-  | "neat-gradient";
+export type CanvasBackgroundStyle = "grid" | "ambient-gradient" | "static-image";
 
 export const CANVAS_BACKGROUND_STYLES: readonly CanvasBackgroundStyle[] = [
   "grid",
   "ambient-gradient",
-  "sky",
-  "network",
-  "rising-sun",
-  "gradient-grid",
-  "neat-gradient",
+  "static-image",
 ] as const;
 
 export type CanvasTheme = "light" | "dark";
@@ -468,6 +523,8 @@ export interface CanvasTextLabel {
   width?: number;
 }
 
+export type { CanvasStroke } from "@/lib/canvasStroke";
+
 export type CanvasGifCategory = "gif" | "sticker";
 
 export interface CanvasGifNode {
@@ -485,6 +542,21 @@ export interface CanvasGifNode {
 export type SpawnCanvasGifInput = Pick<
   CanvasGifNode,
   "url" | "previewUrl" | "title" | "category" | "aspectRatio" | "sourceId"
+>;
+
+export interface Canvas3DNode {
+  id: string;
+  modelUrl: string;
+  format: "glb" | "gltf";
+  title: string;
+  sourceId: string;
+  position: { x: number; y: number };
+  size?: CardSize;
+}
+
+export type SpawnCanvas3DInput = Pick<
+  Canvas3DNode,
+  "modelUrl" | "format" | "title" | "sourceId"
 >;
 
 /** Horizontal gap between a source card's right edge and a spawned artifact. */
@@ -506,6 +578,7 @@ interface CanvasState {
   addUploadedAttachment: (attachment: UploadedAttachment) => void;
   removeUploadedAttachment: (id: string) => void;
   addCanvasAsset: (asset: CanvasAsset) => void;
+  patchCanvasAssetPublicUrl: (assetId: string, publicUrl: string) => void;
   removeCanvasAsset: (assetId: string) => void;
   spawnCanvasAsset: (
     assetId: string,
@@ -532,13 +605,33 @@ interface CanvasState {
   setCanvasGifSize: (nodeId: string, size: CardSize) => void;
   selectCanvasGif: (nodeId: string | null) => void;
   removeCanvasGifNode: (nodeId: string) => void;
+  canvas3DNodes: Record<string, Canvas3DNode>;
+  canvas3DOrder: string[];
+  selectedCanvas3DId: string | null;
+  canvas3dPlacementRequest: SpawnCanvas3DInput | null;
+  requestCanvas3DPlacement: (input: SpawnCanvas3DInput) => void;
+  spawnCanvas3D: (
+    input: SpawnCanvas3DInput,
+    opts?: { position?: { x: number; y: number }; focus?: boolean },
+  ) => string | null;
+  moveCanvas3D: (nodeId: string, dx: number, dy: number) => void;
+  setCanvas3DSize: (nodeId: string, size: CardSize) => void;
+  selectCanvas3D: (nodeId: string | null) => void;
+  removeCanvas3DNode: (nodeId: string) => void;
+  duplicateCanvas3DNode: (nodeId: string) => string | null;
   addCanvasSkill: (skill: CanvasSkill) => void;
   removeCanvasSkill: (skillId: string) => void;
+  setCanvasSkillMetadataStatus: (
+    skillId: string,
+    status: CanvasSkill["metadataStatus"],
+  ) => void;
+  setCanvasSkillAiMetadata: (skillId: string, metadata: SkillCardData) => void;
   spawnCanvasSkill: (
     skillId: string,
     opts?: { position?: { x: number; y: number }; focus?: boolean },
   ) => string | null;
   moveCanvasSkill: (nodeId: string, dx: number, dy: number) => void;
+  setCanvasSkillNodeSize: (nodeId: string, size: CardSize) => void;
   selectCanvasSkill: (nodeId: string | null) => void;
   removeCanvasSkillNode: (nodeId: string) => void;
 
@@ -546,6 +639,26 @@ interface CanvasState {
   activeThreadId: string | null;
   setViewMode: (mode: AppViewMode) => void;
   setActiveThreadId: (threadId: string) => void;
+
+  /** Focus view — artifact shown in the middle panel (session-only). */
+  focusArtifactId: string | null;
+  /** Focus view — "New chat" pressed; thread is created on first submit (session-only). */
+  focusDraftChat: { artifactRef: AttachedArtifactRef | null } | null;
+  setFocusArtifactId: (artifactId: string | null) => void;
+  focusSelectChat: (threadId: string) => void;
+  focusSelectArtifact: (artifactId: string) => void;
+  focusStartNewChat: (artifactRef: AttachedArtifactRef | null) => void;
+  /** Submit a question into an existing (empty/root) card — shared by Card and focus view. */
+  submitCardQuestion: (
+    cardId: string,
+    question: string,
+    options?: FollowUpOptions,
+  ) => void;
+  /** Focus view composer submit — routes to draft root, empty tail, or follow-up. */
+  submitFocusMessage: (
+    question: string,
+    options?: FollowUpOptions,
+  ) => string | null;
 
   canvasPlacementRequest: CanvasPlacementTool | null;
   activeCanvasPlacement: CanvasPlacementTool | null;
@@ -557,8 +670,25 @@ interface CanvasState {
     opts?: { position?: { x: number; y: number } },
   ) => { artifactId: string; versionId: string };
 
-  sessionUsage: { inputTokens: number; outputTokens: number };
-  addUsage: (input: number, output: number) => void;
+  sessionUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
+  addUsage: (
+    input: number,
+    output: number,
+    cacheRead?: number,
+    cacheCreation?: number,
+  ) => void;
+  addCardTurnUsage: (
+    cardId: string,
+    input: number,
+    output: number,
+    cacheRead?: number,
+    cacheCreation?: number,
+  ) => void;
 
   viewport: Viewport;
   /** Scale used for stroke/chrome compensation; lags during active zoom gestures. */
@@ -587,8 +717,22 @@ interface CanvasState {
   canvasTextLabels: Record<string, CanvasTextLabel>;
   canvasTextLabelOrder: string[];
   selectedCanvasTextLabelId: string | null;
+  canvasStrokes: Record<string, CanvasStroke>;
+  canvasStrokeOrder: string[];
+  pencilToolActive: boolean;
+  pencilColor: string;
+  activeCanvasStrokeId: string | null;
+  setPencilToolActive: (active: boolean) => void;
+  setPencilColor: (color: string) => void;
+  beginCanvasStroke: (point: { x: number; y: number }) => string;
+  appendCanvasStrokePoint: (
+    strokeId: string,
+    point: { x: number; y: number },
+  ) => void;
+  finishCanvasStroke: (strokeId: string) => void;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
+  canvasBackgroundImageId: string;
   canvasTheme: CanvasTheme;
   /** UI sound effects enabled for this session. */
   soundEnabled: boolean;
@@ -622,6 +766,10 @@ interface CanvasState {
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
   plugComposerAssetAttachments: Record<string, AttachedAssetRef>;
   plugComposerSkillAttachments: Record<string, AttachedSkillRef>;
+  /** Unsubmitted composer text per card — session-only, not persisted. */
+  composerDraftsByCardId: Record<string, string>;
+  setComposerDraft: (cardId: string, draft: string) => void;
+  clearComposerDraft: (cardId: string) => void;
   artifactPlugConnections: ArtifactPlugConnection[];
   skillPlugConnections: SkillPlugConnection[];
 
@@ -632,6 +780,8 @@ interface CanvasState {
   collapsedBranchThreadIds: string[];
   /** Card ids with answer + descendant subtree collapsed on canvas (session UI only). */
   collapsedCardIds: string[];
+  /** Session-only: hide every chat card on the canvas. */
+  chatsGloballyHidden: boolean;
   groups: Record<string, BranchGroup>;
   activeGroupId: string | null;
 
@@ -649,8 +799,18 @@ interface CanvasState {
   duplicateCanvasTextLabel: (nodeId: string) => string | null;
   duplicateCanvasAssetNode: (nodeId: string) => string | null;
   duplicateCanvasGifNode: (nodeId: string) => string | null;
+  duplicateCanvasArtifactNode: (nodeId: string) => string | null;
+  duplicateCanvasSkillNode: (nodeId: string) => string | null;
+  canCopyCanvasSelection: () => boolean;
+  copySelectedCanvasItems: () => Promise<boolean>;
+  pasteCanvasClipboardAt: (
+    world: { x: number; y: number },
+    payload?: CanvasClipboardPayload,
+    options?: { canvasId?: string },
+  ) => boolean;
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   toggleCardCollapsed: (cardId: string) => void;
+  toggleChatsGloballyHidden: () => void;
   autoCollapseInactiveThreads: (threadIds: string[]) => void;
   clearSelection: () => void;
   /** Remove the current canvas selection from the canvas (sidebar data is kept). */
@@ -785,6 +945,18 @@ interface CanvasState {
     | { artifactId: string; versionId: string }
     | { error: AssetUploadError }
   >;
+  createThreeDArtifactFromFile: (
+    file: File,
+    opts?: {
+      uploadContext: AssetUploadContext | null;
+      position?: { x: number; y: number };
+      index?: number;
+      recordUndo?: boolean;
+    },
+  ) => Promise<
+    | { artifactId: string; versionId: string }
+    | { error: AssetUploadError }
+  >;
   createWebsiteArtifactFromUrl: (
     url: string,
     position?: { x: number; y: number },
@@ -824,13 +996,19 @@ interface CanvasState {
   ) => void;
   patchWebsiteArtifactTitle: (
     artifactId: string,
-    patch: { title: string; faviconUrl?: string; previewImageUrl?: string },
+    patch: {
+      title: string;
+      faviconUrl?: string;
+      previewImageUrl?: string;
+      embeddable?: boolean;
+    },
   ) => void;
   patchYoutubeArtifactTitle: (
     artifactId: string,
     versionId: string,
     patch: { title: string; thumb?: string },
   ) => void;
+  renameSessionArtifactTitle: (artifactId: string, title: string) => void;
   patchEmbedArtifact: (
     artifactId: string,
     versionId: string,
@@ -863,6 +1041,10 @@ interface CanvasState {
   saveTimelineArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "timeline" }>,
+  ) => { versionId: string };
+  saveStickyNoteArtifactVersion: (
+    artifactId: string,
+    payload: Extract<ArtifactPayload, { type: "stickynote" }>,
   ) => { versionId: string };
   openSessionArtifact: (artifactId: string, versionId?: string) => void;
   setArtifactPanelVersion: (versionId: string) => void;
@@ -915,6 +1097,8 @@ interface CanvasState {
   closeArtifact: () => void;
   setConnectorStyle: (style: ConnectorStyle) => void;
   setCanvasBackgroundStyle: (style: CanvasBackgroundStyle) => void;
+  setCanvasBackgroundImageId: (id: string) => void;
+  cycleCanvasBackgroundImage: (delta: -1 | 1) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSoundVolume: (volume: number) => void;
@@ -930,7 +1114,12 @@ interface CanvasState {
   getCanvasSnapshotSource: () => CanvasSnapshotSource;
   hydrateFromSnapshot: (
     snapshot: CanvasSnapshot,
-    options?: { applyViewport?: boolean; canvasReveal?: boolean },
+    options?: {
+      applyViewport?: boolean;
+      canvasReveal?: boolean;
+      /** Keep selection, open panels, and composer drafts during collab sync. */
+      preserveEphemeral?: boolean;
+    },
   ) => void;
   canvasReadOnly: boolean;
   setCanvasReadOnly: (readOnly: boolean) => void;
@@ -988,12 +1177,24 @@ function newCanvasSkillNodeId() {
   return newId("skillnode");
 }
 
+function newCanvasSkillId() {
+  return newId("skill");
+}
+
 function newCanvasTextLabelId() {
   return newId("ctxt");
 }
 
+function newCanvasStrokeId() {
+  return newId("stroke");
+}
+
 function newCanvasGifNodeId() {
   return newId("gifnode");
+}
+
+function newCanvas3DNodeId() {
+  return newId("3dnode");
 }
 
 export const newCardId = () => newId("card");
@@ -1168,6 +1369,7 @@ function unifiedSelectionPatch(selection: CanvasSelection) {
     selectedCanvasArtifactId: single?.kind === "artifact" ? single.id : null,
     selectedCanvasAssetId: single?.kind === "asset" ? single.id : null,
     selectedCanvasGifId: single?.kind === "gif" ? single.id : null,
+    selectedCanvas3DId: single?.kind === "3d" ? single.id : null,
     selectedCanvasSkillId: single?.kind === "skill" ? single.id : null,
     selectedCanvasTextLabelId: single?.kind === "label" ? single.id : null,
   };
@@ -1184,6 +1386,7 @@ interface SelectionMoveSlice {
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
   canvasAssetNodes: Record<string, CanvasAssetNode>;
   canvasGifNodes: Record<string, CanvasGifNode>;
+  canvas3DNodes: Record<string, Canvas3DNode>;
   canvasSkillNodes: Record<string, CanvasSkillNode>;
   canvasTextLabels: Record<string, CanvasTextLabel>;
 }
@@ -1214,6 +1417,7 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
   let artifacts = state.canvasArtifactNodes;
   let assets = state.canvasAssetNodes;
   let gifs = state.canvasGifNodes;
+  let threeD = state.canvas3DNodes;
   let skills = state.canvasSkillNodes;
   let labels = state.canvasTextLabels;
 
@@ -1247,6 +1451,9 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
       case "gif":
         gifs = moveNodeRecord(gifs, d.id, d.dx, d.dy);
         break;
+      case "3d":
+        threeD = moveNodeRecord(threeD, d.id, d.dx, d.dy);
+        break;
       case "skill":
         skills = moveNodeRecord(skills, d.id, d.dx, d.dy);
         break;
@@ -1261,6 +1468,7 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
     canvasArtifactNodes: artifacts,
     canvasAssetNodes: assets,
     canvasGifNodes: gifs,
+    canvas3DNodes: threeD,
     canvasSkillNodes: skills,
     canvasTextLabels: labels,
   };
@@ -1268,14 +1476,43 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedModel: "claude-sonnet-4-6",
-  sessionUsage: { inputTokens: 0, outputTokens: 0 },
-  addUsage: (input, output) =>
+  sessionUsage: {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  },
+  addUsage: (input, output, cacheRead = 0, cacheCreation = 0) =>
     set((s) => ({
       sessionUsage: {
         inputTokens: s.sessionUsage.inputTokens + input,
         outputTokens: s.sessionUsage.outputTokens + output,
+        cacheReadTokens: s.sessionUsage.cacheReadTokens + cacheRead,
+        cacheCreationTokens: s.sessionUsage.cacheCreationTokens + cacheCreation,
       },
     })),
+  addCardTurnUsage: (cardId, input, output, cacheRead = 0, cacheCreation = 0) =>
+    set((s) => {
+      if (!input && !output && !cacheRead && !cacheCreation) return s;
+      const card = s.cards[cardId];
+      if (!card) return s;
+      const prev = card.turnUsage ?? { inputTokens: 0, outputTokens: 0 };
+      return {
+        cards: {
+          ...s.cards,
+          [cardId]: {
+            ...card,
+            turnUsage: {
+              inputTokens: prev.inputTokens + input,
+              outputTokens: prev.outputTokens + output,
+              cacheReadTokens: (prev.cacheReadTokens ?? 0) + cacheRead,
+              cacheCreationTokens:
+                (prev.cacheCreationTokens ?? 0) + cacheCreation,
+            },
+          },
+        },
+      };
+    }),
   setModel: (model) => set({ selectedModel: model }),
 
   leftPanelCollapsed: true,
@@ -1306,6 +1543,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasAssets: { ...state.canvasAssets, [asset.id]: asset },
       collaborationHasEdits: true,
     })),
+  patchCanvasAssetPublicUrl: (assetId, publicUrl) =>
+    set((state) => {
+      const asset = state.canvasAssets[assetId];
+      if (!asset) return state;
+      return {
+        canvasAssets: {
+          ...state.canvasAssets,
+          [assetId]: { ...asset, publicUrl },
+        },
+      };
+    }),
   removeCanvasAsset: (assetId) =>
     set((state) => {
       if (!state.canvasAssets[assetId]) return state;
@@ -1339,26 +1587,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (!asset) return state;
       const id = newCanvasAssetNodeId();
       nodeId = id;
-      const previewAspect =
-        asset.kind === "image" && asset.aspectRatio
-          ? asset.aspectRatio
-          : asset.kind === "spreadsheet" ||
-              asset.kind === "word" ||
-              asset.kind === "presentation"
-            ? 4 / 3
-            : null;
-      const size = previewAspect
-        ? {
-            w: Math.min(480, Math.max(180, asset.width ?? 360)),
-            h:
-              Math.min(480, Math.max(180, asset.width ?? 360)) / previewAspect,
-          }
-        : undefined;
+      const bounds = getCanvasAssetBounds({}, asset);
+      const size = { w: bounds.w, h: bounds.h };
       const node: CanvasAssetNode = {
         id,
         assetId,
         position: opts?.position ?? { x: 0, y: 0 },
-        ...(size ? { size } : {}),
+        size,
       };
       return {
         canvasAssetNodes: { ...state.canvasAssetNodes, [id]: node },
@@ -1436,6 +1671,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasGifNodes: {},
   canvasGifOrder: [],
   selectedCanvasGifId: null,
+  canvas3DNodes: {},
+  canvas3DOrder: [],
+  selectedCanvas3DId: null,
+  canvas3dPlacementRequest: null,
   gifPickerOpen: false,
   setGifPickerOpen: (open) => set({ gifPickerOpen: open }),
   imagePlacementAssetId: null,
@@ -1540,6 +1779,98 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
+  requestCanvas3DPlacement: (input) =>
+    set({
+      canvas3dPlacementRequest: input,
+      gifPickerOpen: false,
+      viewMode: "canvas",
+    }),
+  spawnCanvas3D: (input, opts) => {
+    let nodeId: string | null = null;
+    set((state) => {
+      const id = newCanvas3DNodeId();
+      nodeId = id;
+      const w = 240;
+      const node: Canvas3DNode = {
+        id,
+        modelUrl: input.modelUrl,
+        format: input.format,
+        title: input.title,
+        sourceId: input.sourceId,
+        position: opts?.position ?? { x: 0, y: 0 },
+        size: { w, h: w },
+      };
+      return {
+        canvas3DNodes: { ...state.canvas3DNodes, [id]: node },
+        canvas3DOrder: [...state.canvas3DOrder, id],
+        ...(opts?.focus
+          ? unifiedSelectionPatch({
+              familyRootIds: [],
+              items: [{ kind: "3d", id }],
+            })
+          : {}),
+        collaborationHasEdits: true,
+      };
+    });
+    return nodeId;
+  },
+  moveCanvas3D: (nodeId, dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const node = state.canvas3DNodes[nodeId];
+      if (!node) return state;
+      return {
+        canvas3DNodes: {
+          ...state.canvas3DNodes,
+          [nodeId]: {
+            ...node,
+            position: {
+              x: node.position.x + dx,
+              y: node.position.y + dy,
+            },
+          },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+  setCanvas3DSize: (nodeId, size) =>
+    set((state) => {
+      const node = state.canvas3DNodes[nodeId];
+      if (!node) return state;
+      const prev = node.size;
+      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      return {
+        canvas3DNodes: {
+          ...state.canvas3DNodes,
+          [nodeId]: { ...node, size },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+  selectCanvas3D: (nodeId) =>
+    set(
+      unifiedSelectionPatch({
+        familyRootIds: [],
+        items: nodeId ? [{ kind: "3d", id: nodeId }] : [],
+      }),
+    ),
+  removeCanvas3DNode: (nodeId) =>
+    set((state) => {
+      if (!state.canvas3DNodes[nodeId]) return state;
+      const next = { ...state.canvas3DNodes };
+      delete next[nodeId];
+      return {
+        canvas3DNodes: next,
+        canvas3DOrder: state.canvas3DOrder.filter((id) => id !== nodeId),
+        selectedCanvas3DId:
+          state.selectedCanvas3DId === nodeId ? null : state.selectedCanvas3DId,
+        canvasSelection: state.canvasSelection.filter(
+          (i) => !(i.kind === "3d" && i.id === nodeId),
+        ),
+        collaborationHasEdits: true,
+      };
+    }),
+
   canvasSkills: {},
   canvasSkillNodes: {},
   canvasSkillOrder: [],
@@ -1549,6 +1880,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkills: { ...state.canvasSkills, [skill.id]: skill },
       collaborationHasEdits: true,
     })),
+  setCanvasSkillMetadataStatus: (skillId, status) =>
+    set((state) => {
+      const skill = state.canvasSkills[skillId];
+      if (!skill) return state;
+      return {
+        canvasSkills: {
+          ...state.canvasSkills,
+          [skillId]: { ...skill, metadataStatus: status },
+        },
+      };
+    }),
+  setCanvasSkillAiMetadata: (skillId, metadata) =>
+    set((state) => {
+      const skill = state.canvasSkills[skillId];
+      if (!skill) return state;
+      return {
+        canvasSkills: {
+          ...state.canvasSkills,
+          [skillId]: { ...skill, metadata, metadataStatus: "ready" },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
   removeCanvasSkill: (skillId) =>
     set((state) => {
       if (!state.canvasSkills[skillId]) return state;
@@ -1623,6 +1977,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         collaborationHasEdits: true,
       };
     }),
+  setCanvasSkillNodeSize: (nodeId, size) =>
+    set((state) => {
+      const node = state.canvasSkillNodes[nodeId];
+      if (!node) return state;
+      const prev = node.size;
+      if (prev && prev.w === size.w && prev.h === size.h) return state;
+      return {
+        canvasSkillNodes: {
+          ...state.canvasSkillNodes,
+          [nodeId]: { ...node, size },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
   selectCanvasSkill: (nodeId) =>
     set(
       unifiedSelectionPatch({
@@ -1663,12 +2031,150 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ artifactPlacementRequest: pick, viewMode: "canvas" }),
   setViewMode: (mode) =>
     set((state) => {
-      if (mode === "chat" && !state.activeThreadId && state.threadOrder[0]) {
-        return { viewMode: mode, activeThreadId: state.threadOrder[0] };
+      const next: Partial<CanvasState> = { viewMode: mode };
+      if (
+        (mode === "chat" || mode === "focus") &&
+        !state.activeThreadId &&
+        state.threadOrder[0]
+      ) {
+        next.activeThreadId = state.threadOrder[0];
       }
-      return { viewMode: mode };
+      if (mode === "focus" && state.focusArtifactId === null) {
+        const threadId = next.activeThreadId ?? state.activeThreadId;
+        if (threadId) {
+          next.focusArtifactId = getLatestArtifactIdForThread(state, threadId);
+        }
+      }
+      return next;
     }),
   setActiveThreadId: (threadId) => set({ activeThreadId: threadId }),
+
+  focusArtifactId: null,
+  focusDraftChat: null,
+  setFocusArtifactId: (artifactId) => set({ focusArtifactId: artifactId }),
+  focusSelectChat: (threadId) =>
+    set((state) => ({
+      activeThreadId: threadId,
+      focusDraftChat: null,
+      focusArtifactId: getLatestArtifactIdForThread(state, threadId),
+    })),
+  focusSelectArtifact: (artifactId) =>
+    set((state) => {
+      const threadId = getLatestThreadIdForArtifact(state, artifactId);
+      return threadId
+        ? {
+            focusArtifactId: artifactId,
+            activeThreadId: threadId,
+            focusDraftChat: null,
+          }
+        : { focusArtifactId: artifactId };
+    }),
+  focusStartNewChat: (artifactRef) =>
+    set({
+      focusDraftChat: { artifactRef },
+      ...(artifactRef ? {} : { focusArtifactId: null }),
+    }),
+
+  submitCardQuestion: (cardId, question, options) => {
+    const q = question.trim();
+    if (!q) return;
+    const st = get();
+    const card = st.cards[cardId];
+    if (!card) return;
+    st.recordUndo();
+    const attachedFromPlug = resolveCardAttachedArtifactRefs(cardId, {
+      cards: st.cards,
+      artifactPlugConnections: st.artifactPlugConnections,
+      canvasArtifactNodes: st.canvasArtifactNodes,
+      plugComposerAttachments: st.plugComposerAttachments,
+      sessionArtifacts: st.sessionArtifacts,
+    });
+    const attachedArtifacts = options?.attachedArtifacts?.length
+      ? options.attachedArtifacts
+      : card.attachedArtifacts?.length
+        ? card.attachedArtifacts
+        : attachedFromPlug.length
+          ? attachedFromPlug
+          : undefined;
+    st.updateCard(cardId, {
+      question: q,
+      answer: "",
+      status: "thinking",
+      thinkingLabel: "Thinking",
+      responseType: "text",
+      artifactPayload: undefined,
+      pendingEmittedArtifacts: undefined,
+      attachedImages: options?.pendingImages,
+      images: undefined,
+      outputArtifactId: undefined,
+      outputArtifactVersionId: undefined,
+      attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
+      pendingFiles: options?.pendingFiles,
+      quotedSelection: undefined,
+      answerExplains: undefined,
+      ...turnMetricsOnSubmit(),
+    });
+  },
+
+  submitFocusMessage: (question, options) => {
+    const q = question.trim();
+    if (!q) return null;
+    const state = get();
+    if (state.canvasReadOnly) return null;
+    const draft = state.focusDraftChat;
+    const activeThreadId = state.activeThreadId;
+
+    if (draft || !activeThreadId || !state.threads[activeThreadId]) {
+      const ref = draft?.artifactRef ?? null;
+      const position = computeFocusRootCardPosition(state);
+      const cardId = ref
+        ? state.createRootCardWithAttachment(position, ref)
+        : state.createRootCard(position);
+      if (!cardId) return null;
+      if (ref) {
+        const node = findCanvasNodeByArtifactId(
+          get().canvasArtifactNodes,
+          ref.artifactId,
+        );
+        if (node) {
+          get().addArtifactPlugConnection({
+            artifactNodeId: node.id,
+            cardId,
+            fromSide: "right",
+            toSide: "left",
+          });
+        }
+      }
+      get().submitCardQuestion(cardId, q, options);
+      const threadId = get().cards[cardId]?.threadId ?? null;
+      set({
+        focusDraftChat: null,
+        ...(threadId ? { activeThreadId: threadId } : {}),
+      });
+      return cardId;
+    }
+
+    const tailId = getThreadTailCardId(
+      {
+        cards: state.cards,
+        connections: state.connections,
+        cardOrder: state.cardOrder,
+        threads: {},
+        threadOrder: [],
+      },
+      activeThreadId,
+    );
+    if (!tailId) return null;
+    const tail = state.cards[tailId];
+    if (!tail) return null;
+    if (tail.status === "empty") {
+      get().submitCardQuestion(tailId, q, options);
+      return tailId;
+    }
+    if (tail.status !== "done") return null;
+    return get().createFollowUp(tailId, q, options);
+  },
 
   viewport: { x: 0, y: 0, scale: 1 },
   viewportSettledScale: 1,
@@ -1688,8 +2194,66 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasTextLabels: {},
   canvasTextLabelOrder: [],
   selectedCanvasTextLabelId: null,
+  canvasStrokes: {},
+  canvasStrokeOrder: [],
+  pencilToolActive: false,
+  pencilColor: "#F0F0F0",
+  activeCanvasStrokeId: null,
+  setPencilToolActive: (active) =>
+    set({
+      pencilToolActive: active,
+      activeCanvasStrokeId: null,
+    }),
+  setPencilColor: (color) => set({ pencilColor: color }),
+  beginCanvasStroke: (point) => {
+    get().recordUndo();
+    const id = newCanvasStrokeId();
+    const stroke: CanvasStroke = {
+      id,
+      points: [{ ...point }],
+      color: get().pencilColor,
+      width: PENCIL_STROKE_WIDTH,
+    };
+    set((state) => ({
+      canvasStrokes: { ...state.canvasStrokes, [id]: stroke },
+      canvasStrokeOrder: [...state.canvasStrokeOrder, id],
+      activeCanvasStrokeId: id,
+    }));
+    return id;
+  },
+  appendCanvasStrokePoint: (strokeId, point) =>
+    set((state) => {
+      const stroke = state.canvasStrokes[strokeId];
+      if (!stroke) return state;
+      const last = stroke.points[stroke.points.length - 1];
+      if (last && last.x === point.x && last.y === point.y) return state;
+      return {
+        canvasStrokes: {
+          ...state.canvasStrokes,
+          [strokeId]: {
+            ...stroke,
+            points: [...stroke.points, { ...point }],
+          },
+        },
+      };
+    }),
+  finishCanvasStroke: (strokeId) =>
+    set((state) => {
+      if (state.activeCanvasStrokeId !== strokeId) return state;
+      const stroke = state.canvasStrokes[strokeId];
+      if (!stroke || stroke.points.length < 2) {
+        const { [strokeId]: _removed, ...rest } = state.canvasStrokes;
+        return {
+          canvasStrokes: rest,
+          canvasStrokeOrder: state.canvasStrokeOrder.filter((id) => id !== strokeId),
+          activeCanvasStrokeId: null,
+        };
+      }
+      return { activeCanvasStrokeId: null };
+    }),
   connectorStyle: "orthogonal",
   canvasBackgroundStyle: "grid",
+  canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "dark",
   soundEnabled: true,
   soundVolume: 0.7,
@@ -1726,6 +2290,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   plugComposerAttachments: {},
   plugComposerAssetAttachments: {},
   plugComposerSkillAttachments: {},
+  composerDraftsByCardId: {},
+
+  setComposerDraft: (cardId, draft) =>
+    set((state) => ({
+      composerDraftsByCardId: {
+        ...state.composerDraftsByCardId,
+        [cardId]: draft,
+      },
+    })),
+
+  clearComposerDraft: (cardId) =>
+    set((state) => {
+      if (!(cardId in state.composerDraftsByCardId)) return state;
+      const next = { ...state.composerDraftsByCardId };
+      delete next[cardId];
+      return { composerDraftsByCardId: next };
+    }),
   artifactPlugConnections: [],
   skillPlugConnections: [],
 
@@ -1733,6 +2314,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasSelection: [],
   collapsedBranchThreadIds: [],
   collapsedCardIds: [],
+  chatsGloballyHidden: false,
   groups: {},
   activeGroupId: null,
 
@@ -1741,9 +2323,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   toggleBranchThreadCollapsed: (branchThreadId) =>
     set((state) => {
-      const collapsed = state.collapsedBranchThreadIds.includes(branchThreadId);
+      const wasCollapsed =
+        state.collapsedBranchThreadIds.includes(branchThreadId);
+      if (wasCollapsed) {
+        touchThreadInactivity(branchThreadId);
+      }
       return {
-        collapsedBranchThreadIds: collapsed
+        collapsedBranchThreadIds: wasCollapsed
           ? state.collapsedBranchThreadIds.filter((id) => id !== branchThreadId)
           : [...state.collapsedBranchThreadIds, branchThreadId],
       };
@@ -1751,12 +2337,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   toggleCardCollapsed: (cardId) =>
     set((state) => {
-      const collapsed = state.collapsedCardIds.includes(cardId);
+      const wasCollapsed = state.collapsedCardIds.includes(cardId);
+      const card = state.cards[cardId];
+      if (wasCollapsed && card?.threadId) {
+        touchThreadInactivity(card.threadId);
+      }
       return {
-        collapsedCardIds: collapsed
+        collapsedCardIds: wasCollapsed
           ? state.collapsedCardIds.filter((id) => id !== cardId)
           : [...state.collapsedCardIds, cardId],
       };
+    }),
+
+  toggleChatsGloballyHidden: () =>
+    set((state) => {
+      const next = !state.chatsGloballyHidden;
+      if (next) {
+        return {
+          chatsGloballyHidden: true,
+          selectedFamilyRootIds: [],
+          activeGroupId: null,
+        };
+      }
+      return { chatsGloballyHidden: false };
     }),
 
   autoCollapseInactiveThreads: (threadIds) =>
@@ -1796,6 +2399,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasAssetId: null,
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
+      selectedCanvas3DId: null,
       selectedCanvasSkillId: null,
     }),
 
@@ -1822,6 +2426,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const removedArtifactNodeIds = new Set<string>();
       const removedAssetNodeIds = new Set<string>();
       const removedGifNodeIds = new Set<string>();
+      const removed3DNodeIds = new Set<string>();
       const removedSkillNodeIds = new Set<string>();
       const removedLabelIds = new Set<string>();
 
@@ -1842,6 +2447,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
               removedGifNodeIds.add(item.id);
             }
             break;
+          case "3d":
+            if (state.canvas3DNodes[item.id]) {
+              removed3DNodeIds.add(item.id);
+            }
+            break;
           case "skill":
             if (state.canvasSkillNodes[item.id]) {
               removedSkillNodeIds.add(item.id);
@@ -1860,10 +2470,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         removedArtifactNodeIds.size > 0 ||
         removedAssetNodeIds.size > 0 ||
         removedGifNodeIds.size > 0 ||
+        removed3DNodeIds.size > 0 ||
         removedSkillNodeIds.size > 0 ||
         removedLabelIds.size > 0;
 
       if (!willDeleteCards && !willDeleteNodes) return state;
+
+      if (willDeleteCards) cancelCardAsks(cardIdsToDelete);
 
       const undoPast = pushUndoSnapshot(state);
 
@@ -1947,6 +2560,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         );
       }
 
+      let next3DNodes = state.canvas3DNodes;
+      let next3DOrder = state.canvas3DOrder;
+      if (removed3DNodeIds.size > 0) {
+        next3DNodes = { ...state.canvas3DNodes };
+        for (const id of removed3DNodeIds) {
+          delete next3DNodes[id];
+        }
+        next3DOrder = state.canvas3DOrder.filter(
+          (id) => !removed3DNodeIds.has(id),
+        );
+      }
+
       let nextSkillNodes = state.canvasSkillNodes;
       let nextSkillOrder = state.canvasSkillOrder;
       if (removedSkillNodeIds.size > 0) {
@@ -2011,6 +2636,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasAssetOrder: nextAssetOrder,
         canvasGifNodes: nextGifNodes,
         canvasGifOrder: nextGifOrder,
+        canvas3DNodes: next3DNodes,
+        canvas3DOrder: next3DOrder,
         canvasSkillNodes: nextSkillNodes,
         canvasSkillOrder: nextSkillOrder,
         canvasTextLabels: nextLabels,
@@ -2187,6 +2814,316 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return id;
   },
 
+  duplicateCanvas3DNode: (nodeId) => {
+    const node = get().canvas3DNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvas3DNodeId();
+    set((state) => ({
+      canvas3DNodes: {
+        ...state.canvas3DNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvas3DOrder: [...state.canvas3DOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "3d", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvasArtifactNode: (nodeId) => {
+    const state = get();
+    const node = state.canvasArtifactNodes[nodeId];
+    if (!node) return null;
+
+    const art = node.artifactId
+      ? state.sessionArtifacts[node.artifactId]
+      : undefined;
+    if (!art && !node.permissionPreview && !node.generatingPreview) {
+      return null;
+    }
+
+    let clonedArtifact = art;
+    let displayedVersionId = node.versionId;
+
+    if (art) {
+      const cloned = cloneSessionArtifactDeep(art);
+      clonedArtifact = cloned.artifact;
+      displayedVersionId =
+        cloned.versionIdMap.get(node.versionId) ??
+        cloned.artifact.latestVersionId;
+    } else if (node.permissionPreview) {
+      const id = newCanvasArtifactNodeId();
+      set((s) => ({
+        canvasArtifactNodes: {
+          ...s.canvasArtifactNodes,
+          [id]: {
+            id,
+            artifactId: "",
+            versionId: "",
+            sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+            position: { ...node.position },
+            ...(node.size ? { size: { ...node.size } } : {}),
+            ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+            permissionPreview: structuredClone(node.permissionPreview),
+          },
+        },
+        canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: [{ kind: "artifact", id }],
+        }),
+        collaborationHasEdits: true,
+      }));
+      return id;
+    } else if (node.generatingPreview) {
+      const id = newCanvasArtifactNodeId();
+      set((s) => ({
+        canvasArtifactNodes: {
+          ...s.canvasArtifactNodes,
+          [id]: {
+            id,
+            artifactId: "",
+            versionId: "",
+            sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+            position: { ...node.position },
+            ...(node.size ? { size: { ...node.size } } : {}),
+            ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+            generatingPreview: structuredClone(node.generatingPreview),
+          },
+        },
+        canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: [{ kind: "artifact", id }],
+        }),
+        collaborationHasEdits: true,
+      }));
+      return id;
+    }
+
+    if (!clonedArtifact) return null;
+
+    const id = newCanvasArtifactNodeId();
+
+    set((s) => ({
+      sessionArtifacts: {
+        ...s.sessionArtifacts,
+        [clonedArtifact!.id]: clonedArtifact!,
+      },
+      canvasArtifactNodes: {
+        ...s.canvasArtifactNodes,
+        [id]: {
+          id,
+          artifactId: clonedArtifact!.id,
+          versionId: displayedVersionId,
+          sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+          ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+        },
+      },
+      canvasArtifactOrder: [...s.canvasArtifactOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "artifact", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  duplicateCanvasSkillNode: (nodeId) => {
+    const node = get().canvasSkillNodes[nodeId];
+    if (!node) return null;
+    const id = newCanvasSkillNodeId();
+    set((state) => ({
+      canvasSkillNodes: {
+        ...state.canvasSkillNodes,
+        [id]: {
+          ...node,
+          id,
+          position: { ...node.position },
+          ...(node.size ? { size: { ...node.size } } : {}),
+        },
+      },
+      canvasSkillOrder: [...state.canvasSkillOrder, id],
+      ...unifiedSelectionPatch({
+        familyRootIds: [],
+        items: [{ kind: "skill", id }],
+      }),
+      collaborationHasEdits: true,
+    }));
+    return id;
+  },
+
+  canCopyCanvasSelection: () => canCopyCanvasSelection(get()),
+
+  copySelectedCanvasItems: async () => {
+    const payload = buildCanvasClipboardPayload(get());
+    if (!payload) return false;
+    const ok = await writeCanvasClipboard(payload);
+    if (ok) {
+      showAppToast(copySuccessMessage(payload));
+    } else {
+      showAppErrorToast("Copy failed");
+    }
+    return ok;
+  },
+
+  pasteCanvasClipboardAt: (world, payload, options) => {
+    if (!payload || payload.items.length === 0) return false;
+    if (get().canvasReadOnly) return false;
+
+    get().recordUndo();
+
+    const pastedItems: CanvasSelectionItem[] = [];
+
+    set((state) => {
+      let nextSessionArtifacts = { ...state.sessionArtifacts };
+      let nextCanvasArtifactNodes = { ...state.canvasArtifactNodes };
+      let nextCanvasArtifactOrder = [...state.canvasArtifactOrder];
+      let nextCanvasSkills = { ...state.canvasSkills };
+      let nextCanvasSkillNodes = { ...state.canvasSkillNodes };
+      let nextCanvasSkillOrder = [...state.canvasSkillOrder];
+
+      payload.items.forEach((item, index) => {
+        const position = computePastePosition(
+          payload.anchor,
+          item.container.position,
+          world,
+          index,
+        );
+
+        if (item.kind === "artifact") {
+          const hasPreviewOnly =
+            item.container.permissionPreview || item.container.generatingPreview;
+          const nodeId = newCanvasArtifactNodeId();
+
+          if (!hasPreviewOnly) {
+            const { artifact, versionIdMap } = cloneSessionArtifactDeep(
+              item.sessionArtifact,
+            );
+            const displayedVersionId =
+              versionIdMap.get(item.displayedVersionId) ??
+              artifact.latestVersionId;
+
+            nextSessionArtifacts = {
+              ...nextSessionArtifacts,
+              [artifact.id]: artifact,
+            };
+            nextCanvasArtifactNodes = {
+              ...nextCanvasArtifactNodes,
+              [nodeId]: {
+                id: nodeId,
+                artifactId: artifact.id,
+                versionId: displayedVersionId,
+                sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+                position,
+                ...(item.container.size
+                  ? { size: { ...item.container.size } }
+                  : {}),
+                ...(item.container.userSetSize
+                  ? { userSetSize: item.container.userSetSize }
+                  : {}),
+              },
+            };
+          } else {
+            nextCanvasArtifactNodes = {
+              ...nextCanvasArtifactNodes,
+              [nodeId]: {
+                id: nodeId,
+                artifactId: "",
+                versionId: "",
+                sourceCardId: CANVAS_PASTE_SOURCE_CARD_ID,
+                position,
+                ...(item.container.size
+                  ? { size: { ...item.container.size } }
+                  : {}),
+                ...(item.container.userSetSize
+                  ? { userSetSize: item.container.userSetSize }
+                  : {}),
+                ...(item.container.permissionPreview
+                  ? {
+                      permissionPreview: structuredClone(
+                        item.container.permissionPreview,
+                      ),
+                    }
+                  : {}),
+                ...(item.container.generatingPreview
+                  ? {
+                      generatingPreview: structuredClone(
+                        item.container.generatingPreview,
+                      ),
+                    }
+                  : {}),
+              },
+            };
+          }
+          nextCanvasArtifactOrder = [...nextCanvasArtifactOrder, nodeId];
+          pastedItems.push({ kind: "artifact", id: nodeId });
+          return;
+        }
+
+        if (item.kind === "skill") {
+          let skillId = item.skill.id;
+          if (!nextCanvasSkills[skillId]) {
+            skillId = newCanvasSkillId();
+            nextCanvasSkills = {
+              ...nextCanvasSkills,
+              [skillId]: {
+                ...item.skill,
+                id: skillId,
+                canvasId: options?.canvasId ?? item.skill.canvasId,
+                createdAt: Date.now(),
+              },
+            };
+          }
+
+          const nodeId = newCanvasSkillNodeId();
+          nextCanvasSkillNodes = {
+            ...nextCanvasSkillNodes,
+            [nodeId]: {
+              id: nodeId,
+              skillId,
+              position,
+              ...(item.container.size
+                ? { size: { ...item.container.size } }
+                : {}),
+            },
+          };
+          nextCanvasSkillOrder = [...nextCanvasSkillOrder, nodeId];
+          pastedItems.push({ kind: "skill", id: nodeId });
+        }
+      });
+
+      if (pastedItems.length === 0) return state;
+
+      return {
+        sessionArtifacts: nextSessionArtifacts,
+        canvasArtifactNodes: nextCanvasArtifactNodes,
+        canvasArtifactOrder: nextCanvasArtifactOrder,
+        canvasSkills: nextCanvasSkills,
+        canvasSkillNodes: nextCanvasSkillNodes,
+        canvasSkillOrder: nextCanvasSkillOrder,
+        ...unifiedSelectionPatch({
+          familyRootIds: [],
+          items: pastedItems,
+        }),
+        collaborationHasEdits: true,
+      };
+    });
+
+    return pastedItems.length > 0;
+  },
+
   createGroupFromSelection: (label) => {
     const safeLabel =
       typeof label === "string" && label.trim().length > 0
@@ -2298,7 +3235,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setConnectorStyle: (style) => set({ connectorStyle: style }),
 
   setCanvasBackgroundStyle: (style) =>
-    set({ canvasBackgroundStyle: style, collaborationHasEdits: true }),
+    set((state) => ({
+      canvasBackgroundStyle: style,
+      canvasBackgroundImageId:
+        style === "static-image"
+          ? normalizeCanvasBackgroundImageId(state.canvasBackgroundImageId)
+          : state.canvasBackgroundImageId,
+      collaborationHasEdits: true,
+    })),
+
+  setCanvasBackgroundImageId: (id) =>
+    set({
+      canvasBackgroundImageId: normalizeCanvasBackgroundImageId(id),
+      collaborationHasEdits: true,
+    }),
+
+  cycleCanvasBackgroundImage: (delta) =>
+    set((state) => ({
+      canvasBackgroundStyle: "static-image",
+      canvasBackgroundImageId: cycleCanvasBackgroundImageId(
+        state.canvasBackgroundImageId,
+        delta,
+      ),
+      collaborationHasEdits: true,
+    })),
 
   setCanvasTheme: (theme) =>
     set((state) => ({
@@ -2617,7 +3577,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       MANUAL_TODO_SOURCE_CARD_ID,
     );
-    get().openSessionArtifact(artifactId, versionId);
     get().spawnCanvasArtifact(artifactId, versionId, {
       focus: true,
       payload,
@@ -2643,7 +3602,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       size,
     });
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2739,7 +3697,61 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       payload,
       size,
     });
-    get().openSessionArtifact(artifactId, versionId);
+    return { artifactId, versionId };
+  },
+
+  createThreeDArtifactFromFile: async (file, opts) => {
+    const format = threeDFormatFromFile(file);
+    if (!format) {
+      return {
+        error: {
+          fileName: file.name,
+          code: "unsupported-type",
+          message: `${file.name} is not a supported 3D model (GLB or GLTF).`,
+        },
+      };
+    }
+
+    const uploadResult = await uploadThreeDModelFile(
+      file,
+      opts?.uploadContext ?? null,
+    );
+    if ("error" in uploadResult) {
+      return { error: uploadResult.error };
+    }
+
+    const payload = createThreeDPayload({
+      fileName: uploadResult.upload.fileName,
+      modelUrl: uploadResult.upload.publicUrl,
+      format,
+    });
+
+    if (opts?.recordUndo !== false) {
+      get().recordUndo();
+    }
+
+    const { artifactId, versionId } = get().createArtifactVersion(
+      null,
+      payload,
+      MANUAL_3D_SOURCE_CARD_ID,
+    );
+
+    const size = getDefaultArtifactSize("3d", payload);
+    const index = opts?.index ?? 0;
+    const offset = index * 28;
+    const spawnPosition = opts?.position
+      ? {
+          x: opts.position.x - size.w / 2 + offset,
+          y: opts.position.y - size.h / 2 + offset,
+        }
+      : undefined;
+
+    get().spawnCanvasArtifact(artifactId, versionId, {
+      position: spawnPosition,
+      focus: index === 0,
+      payload,
+      size,
+    });
     return { artifactId, versionId };
   },
 
@@ -2762,7 +3774,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2787,7 +3798,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2811,7 +3821,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       },
     };
     get().spawnCanvasArtifact(artifactId, versionId, spawnOpts);
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2837,7 +3846,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } else {
       get().spawnCanvasArtifact(artifactId, versionId, { focus: true });
     }
-    get().openSessionArtifact(artifactId, versionId);
     return { artifactId, versionId };
   },
 
@@ -2895,6 +3903,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           faviconUrl: patch.faviconUrl ?? latest.payload.data.faviconUrl,
           previewImageUrl:
             patch.previewImageUrl ?? latest.payload.data.previewImageUrl,
+          embeddable: patch.embeddable ?? latest.payload.data.embeddable,
         },
       };
       const versions = art.versions.map((v) =>
@@ -2991,6 +4000,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     });
   },
 
+  renameSessionArtifactTitle: (artifactId, title) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art) return state;
+      const versions = art.versions.map((v) => ({
+        ...v,
+        payload: patchArtifactPayloadTitle(v.payload, trimmed),
+      }));
+      return {
+        collaborationHasEdits: true,
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            title: trimmed,
+            versions,
+          },
+        },
+      };
+    });
+  },
+
   patchEmbedArtifact: (artifactId, versionId, patch) => {
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -3076,7 +4109,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (art?.kind === "table") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().spawnCanvasArtifact(targetId, latest.id);
           get().removeGeneratingArtifactPreview(cardId);
           return { artifactId: targetId, versionId: latest.id };
         }
@@ -3118,7 +4151,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (art?.kind === "custom") {
         const latest = getLatestVersion(art);
         if (latest) {
-          get().spawnCanvasArtifact(targetId, latest.id, { focus: true });
+          get().spawnCanvasArtifact(targetId, latest.id);
           get().removeGeneratingArtifactPreview(cardId);
           return { artifactId: targetId, versionId: latest.id };
         }
@@ -3253,6 +4286,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return { versionId };
   },
 
+  saveStickyNoteArtifactVersion: (artifactId, payload) => {
+    const { versionId } = get().createArtifactVersion(
+      artifactId,
+      payload,
+      MANUAL_STICKY_NOTE_SOURCE_CARD_ID,
+    );
+    get().setArtifactPanelVersion(versionId);
+    const node = findCanvasNodeByArtifactId(
+      get().canvasArtifactNodes,
+      artifactId,
+    );
+    if (node) {
+      get().setCanvasArtifactVersion(node.id, versionId);
+    }
+    return { versionId };
+  },
+
   openSessionArtifact: (artifactId, versionId) =>
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -3273,6 +4323,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let nodeId: string | null = null;
     let isNewNode = false;
     let sourceCardId = "";
+    let notifyReady = false;
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
       if (!art) return state;
@@ -3313,6 +4364,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (generatingNode) {
         nodeId = generatingNode.id;
         isNewNode = false;
+        notifyReady = isCardSourcedArtifactBuild(
+          ver.sourceCardId,
+          state.cards,
+        );
         const nextNode: CanvasArtifactNode = {
           ...generatingNode,
           artifactId,
@@ -3334,6 +4389,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const id = newCanvasArtifactNodeId();
       nodeId = id;
       isNewNode = true;
+      notifyReady = isCardSourcedArtifactBuild(ver.sourceCardId, state.cards);
       const position =
         opts?.position ??
         computeArtifactSpawnPosition(
@@ -3373,6 +4429,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
     if (sourceCardId) {
       get().removeGeneratingArtifactPreview(sourceCardId);
+    }
+    if (notifyReady && nodeId) {
+      pushArtifactReadyUpdate(artifactId, nodeId);
+    }
+    if (nodeId && opts?.focus) {
+      scheduleCanvasArtifactFocus(nodeId);
     }
     return nodeId;
   },
@@ -3595,13 +4657,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.connections,
           state.cardOrder,
         );
+      const customUiSeed = seedCustomUiTurnState(
+        question,
+        inheritedArtifactId,
+        attachedArtifacts,
+        state.sessionArtifacts,
+      );
       const child: Card = {
         id,
         threadId: parent.threadId,
         question,
         answer: "",
         status: "thinking",
-        thinkingLabel: "Thinking",
+        thinkingLabel: customUiSeed?.thinkingLabel ?? "Thinking",
+        sdkBuildStages: customUiSeed?.sdkBuildStages,
+        askStartedAt: Date.now(),
+        turnUsage: { inputTokens: 0, outputTokens: 0 },
         position: pos,
         size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,
@@ -3610,7 +4681,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         attachedAssets: options?.attachedAssets,
         attachedSkills: options?.attachedSkills,
         inheritedArtifactId,
-        images: options?.pendingImages,
+        attachedImages: options?.pendingImages,
         pendingFiles: options?.pendingFiles,
       };
       const connId = `conn_${parentId}_${id}`;
@@ -3727,6 +4798,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   spawnPermissionPreview: (cardId, payload, opts) => {
     const card = get().cards[cardId];
     if (!card) return null;
+
+    const existing = findPermissionPreviewNode(
+      get().canvasArtifactNodes,
+      cardId,
+      payload,
+    );
+    if (existing) {
+      set({ selectedCanvasArtifactId: existing.id });
+      return existing.id;
+    }
 
     const kind = payloadToArtifactKind(payload);
     const placeName =
@@ -4183,9 +5264,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   deleteFromCard: (cardId) =>
     set((state) => {
       if (!state.cards[cardId]) return state;
-      const undoPast = pushUndoSnapshot(state);
 
       const toDelete = collectSubtreeIds(state.connections, cardId);
+      cancelCardAsks(toDelete);
+
+      const undoPast = pushUndoSnapshot(state);
       const nextCards = { ...state.cards };
       for (const id of toDelete) {
         delete nextCards[id];
@@ -4319,6 +5402,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       groups: state.groups,
       connectorStyle: state.connectorStyle,
       canvasBackgroundStyle: state.canvasBackgroundStyle,
+      canvasBackgroundImageId: state.canvasBackgroundImageId,
       canvasTheme: state.canvasTheme,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
@@ -4333,8 +5417,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkillOrder: state.canvasSkillOrder,
       canvasTextLabels: state.canvasTextLabels,
       canvasTextLabelOrder: state.canvasTextLabelOrder,
+      canvasStrokes: state.canvasStrokes,
+      canvasStrokeOrder: state.canvasStrokeOrder,
       canvasGifNodes: state.canvasGifNodes,
       canvasGifOrder: state.canvasGifOrder,
+      canvas3DNodes: state.canvas3DNodes,
+      canvas3DOrder: state.canvas3DOrder,
       uploadedAttachments: state.uploadedAttachments,
       collaborationHasEdits: state.collaborationHasEdits,
     };
@@ -4362,8 +5450,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasSkillOrder: [],
       canvasTextLabels: {},
       canvasTextLabelOrder: [],
+      canvasStrokes: {},
+      canvasStrokeOrder: [],
+      pencilToolActive: false,
+      pencilColor: "#F0F0F0",
+      activeCanvasStrokeId: null,
       canvasGifNodes: {},
       canvasGifOrder: [],
+      canvas3DNodes: {},
+      canvas3DOrder: [],
       uploadedAttachments: [],
       globalOrigin: null,
       activeThreadId: null,
@@ -4376,6 +5471,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasSkillId: null,
       selectedCanvasTextLabelId: null,
       selectedCanvasGifId: null,
+      selectedCanvas3DId: null,
       selectedFamilyRootIds: [],
       canvasSelection: [],
       activeGroupId: null,
@@ -4390,6 +5486,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       activeCanvasPlacement: null,
       artifactPlacementRequest: null,
       viewMode: "canvas",
+      focusArtifactId: null,
+      focusDraftChat: null,
       collaborationHasEdits: false,
       canvasReadOnly: false,
       canvasLoadReveal: null,
@@ -4475,6 +5573,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
       }
 
+      const preserveEphemeral = options?.preserveEphemeral === true;
+
       return {
         viewport,
         viewportSettledScale: viewport.scale,
@@ -4486,6 +5586,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
+        canvasBackgroundImageId: snapshotNorm.canvasBackgroundImageId,
         canvasTheme: snapshotNorm.canvasTheme,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
@@ -4498,36 +5599,85 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSkills: { ...snapshotNorm.canvasSkills },
         canvasSkillNodes: { ...snapshotNorm.canvasSkillNodes },
         canvasSkillOrder: [...(snapshotNorm.canvasSkillOrder ?? [])],
-        canvasLoadReveal,
-        activeThreadId: threadOrder[0] ?? null,
-        openArtifactCardId: null,
-        openGroupArtifactId: null,
-        openSessionArtifactId: null,
-        openSessionArtifactVersionId: null,
-        selectedCanvasArtifactId: null,
-        selectedCanvasAssetId: null,
+        canvasLoadReveal: preserveEphemeral ? state.canvasLoadReveal : canvasLoadReveal,
+        activeThreadId: preserveEphemeral ? state.activeThreadId : (threadOrder[0] ?? null),
+        focusArtifactId: preserveEphemeral ? state.focusArtifactId : null,
+        focusDraftChat: preserveEphemeral ? state.focusDraftChat : null,
+        openArtifactCardId: preserveEphemeral ? state.openArtifactCardId : null,
+        openGroupArtifactId: preserveEphemeral ? state.openGroupArtifactId : null,
+        openSessionArtifactId: preserveEphemeral ? state.openSessionArtifactId : null,
+        openSessionArtifactVersionId: preserveEphemeral
+          ? state.openSessionArtifactVersionId
+          : null,
+        selectedCanvasArtifactId: preserveEphemeral
+          ? state.selectedCanvasArtifactId
+          : null,
+        selectedCanvasAssetId: preserveEphemeral ? state.selectedCanvasAssetId : null,
         canvasTextLabels: { ...snapshotNorm.canvasTextLabels },
         canvasTextLabelOrder: [...(snapshotNorm.canvasTextLabelOrder ?? [])],
+        canvasStrokes: preserveEphemeral
+          ? {
+              ...(snapshotNorm.canvasStrokes ?? {}),
+              ...state.canvasStrokes,
+            }
+          : { ...(snapshotNorm.canvasStrokes ?? {}) },
+        canvasStrokeOrder: preserveEphemeral
+          ? Array.from(
+              new Set([
+                ...(snapshotNorm.canvasStrokeOrder ?? []),
+                ...state.canvasStrokeOrder,
+              ]),
+            )
+          : [...(snapshotNorm.canvasStrokeOrder ?? [])],
+        pencilToolActive: preserveEphemeral ? state.pencilToolActive : false,
+        activeCanvasStrokeId: preserveEphemeral ? state.activeCanvasStrokeId : null,
         canvasGifNodes: { ...snapshotNorm.canvasGifNodes },
         canvasGifOrder: [...(snapshotNorm.canvasGifOrder ?? [])],
-        selectedCanvasTextLabelId: null,
-        selectedFamilyRootIds: [],
-        canvasSelection: [],
-        activeGroupId: null,
-        undoPast: [],
+        canvas3DNodes: { ...snapshotNorm.canvas3DNodes },
+        canvas3DOrder: [...(snapshotNorm.canvas3DOrder ?? [])],
+        selectedCanvasGifId: preserveEphemeral ? state.selectedCanvasGifId : null,
+        selectedCanvas3DId: preserveEphemeral ? state.selectedCanvas3DId : null,
+        selectedCanvasSkillId: preserveEphemeral ? state.selectedCanvasSkillId : null,
+        selectedCanvasTextLabelId: preserveEphemeral
+          ? state.selectedCanvasTextLabelId
+          : null,
+        selectedFamilyRootIds: preserveEphemeral ? state.selectedFamilyRootIds : [],
+        canvasSelection: preserveEphemeral ? state.canvasSelection : [],
+        collapsedBranchThreadIds: preserveEphemeral
+          ? state.collapsedBranchThreadIds
+          : state.collapsedBranchThreadIds,
+        collapsedCardIds: preserveEphemeral ? state.collapsedCardIds : state.collapsedCardIds,
+        chatsGloballyHidden: false,
+        activeGroupId: preserveEphemeral ? state.activeGroupId : null,
+        undoPast: preserveEphemeral ? state.undoPast : [],
         globalOrigin,
         uploadedAttachments: JSON.parse(
           JSON.stringify(snapshotNorm.uploadedAttachments),
         ) as UploadedAttachment[],
-        plugDrag: null,
-        plugComposerAttachments: {},
-        plugComposerAssetAttachments: {},
-        plugComposerSkillAttachments: {},
-        artifactPlugConnections: [],
-        skillPlugConnections: [],
-        canvasPlacementRequest: null,
-        activeCanvasPlacement: null,
-        artifactPlacementRequest: null,
+        plugDrag: preserveEphemeral ? state.plugDrag : null,
+        plugComposerAttachments: preserveEphemeral
+          ? state.plugComposerAttachments
+          : {},
+        plugComposerAssetAttachments: preserveEphemeral
+          ? state.plugComposerAssetAttachments
+          : {},
+        plugComposerSkillAttachments: preserveEphemeral
+          ? state.plugComposerSkillAttachments
+          : {},
+        composerDraftsByCardId: preserveEphemeral
+          ? state.composerDraftsByCardId
+          : {},
+        artifactPlugConnections: preserveEphemeral
+          ? state.artifactPlugConnections
+          : [],
+        skillPlugConnections: preserveEphemeral ? state.skillPlugConnections : [],
+        canvasPlacementRequest: preserveEphemeral
+          ? state.canvasPlacementRequest
+          : null,
+        activeCanvasPlacement: preserveEphemeral ? state.activeCanvasPlacement : null,
+        artifactPlacementRequest: preserveEphemeral
+          ? state.artifactPlacementRequest
+          : null,
         collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,
       };
     });

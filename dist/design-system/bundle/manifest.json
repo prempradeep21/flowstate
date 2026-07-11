@@ -1,0 +1,815 @@
+{
+  "name": "Flowstate Design System",
+  "version": "1.0.0",
+  "generatedAt": "2026-06-28T04:51:33.804Z",
+  "sections": [
+    {
+      "id": "tokens",
+      "title": "Tokens",
+      "description": "Colors, typography, radii, and spacing primitives."
+    },
+    {
+      "id": "artifacts",
+      "title": "Artifacts",
+      "description": "Input and output artifact renderers on the canvas."
+    },
+    {
+      "id": "cards",
+      "title": "Cards",
+      "description": "Inline Q&A bodies and artifact previews on cards."
+    },
+    {
+      "id": "connectors",
+      "title": "Connectors",
+      "description": "Thread curves, plugs, and connector styles."
+    },
+    {
+      "id": "docs",
+      "title": "Docs",
+      "description": "Design language and token reference markdown."
+    }
+  ],
+  "docs": [
+    {
+      "id": "readme",
+      "title": "Overview",
+      "description": "Design system index and usage rules.",
+      "path": "docs/design-system/README.md",
+      "tags": [
+        "index",
+        "rules"
+      ]
+    },
+    {
+      "id": "design-language",
+      "title": "Design language",
+      "description": "Principles, do/don't, and architecture.",
+      "path": "docs/design-system/design-language.md",
+      "tags": [
+        "principles",
+        "patterns"
+      ]
+    },
+    {
+      "id": "token-reference",
+      "title": "Token reference",
+      "description": "Every token with Tailwind class names.",
+      "path": "docs/design-system/token-reference.md",
+      "tags": [
+        "tokens",
+        "tailwind"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "table",
+      "category": "flowstate",
+      "name": "Tables",
+      "title": "Tabular data with columns and rows",
+      "description": "Organize metrics, comparisons, and structured lists in a sortable grid. Status and category labels appear as chips inside cells.",
+      "tags": [
+        "financial planning",
+        "product comparison",
+        "research summaries",
+        "metrics"
+      ],
+      "componentPath": "components/artifacts/TableArtifactContent.tsx",
+      "catalogEntryId": "table",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "chart-bar",
+      "category": "flowstate",
+      "name": "Charts — bar",
+      "title": "Monthly coffee spend",
+      "description": "Compare categories with bar charts. Switch type and style via the toolbar — ECharts or visx, plain background.",
+      "tags": [
+        "budgeting",
+        "spending",
+        "personal finance",
+        "comparison"
+      ],
+      "componentPath": "components/artifacts/ChartArtifactContent.tsx",
+      "catalogEntryId": "chart-bar",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "chart-area",
+      "category": "flowstate",
+      "name": "Charts — area",
+      "title": "Running distance this year",
+      "description": "Filled trends with visx AreaClosed curves by default. Try stream graph when you have multiple series.",
+      "tags": [
+        "fitness",
+        "running",
+        "trends",
+        "health"
+      ],
+      "componentPath": "components/artifacts/ChartArtifactContent.tsx",
+      "catalogEntryId": "chart-area",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "chart-line",
+      "category": "flowstate",
+      "name": "Charts — line",
+      "title": "Sleep hours — last 14 nights",
+      "description": "Time-series line graphs with smooth visx curves. Toggle ECharts straight or smooth styles.",
+      "tags": [
+        "sleep",
+        "wellness",
+        "habits",
+        "tracking"
+      ],
+      "componentPath": "components/artifacts/ChartArtifactContent.tsx",
+      "catalogEntryId": "chart-line",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "chart-pie",
+      "category": "flowstate",
+      "name": "Charts — pie",
+      "title": "How I spend my weekend",
+      "description": "Share-of-whole breakdowns for personal time, budget slices, or habit splits.",
+      "tags": [
+        "weekend",
+        "time management",
+        "lifestyle",
+        "balance"
+      ],
+      "componentPath": "components/artifacts/ChartArtifactContent.tsx",
+      "catalogEntryId": "chart-pie",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "chart-gauge",
+      "category": "flowstate",
+      "name": "Charts — gauge",
+      "title": "Emergency fund progress",
+      "description": "Track progress toward a personal goal with a plain gauge or progress bar.",
+      "tags": [
+        "savings",
+        "goals",
+        "finance",
+        "progress"
+      ],
+      "componentPath": "components/artifacts/ChartArtifactContent.tsx",
+      "catalogEntryId": "chart-gauge",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "code",
+      "category": "flowstate",
+      "name": "Code",
+      "title": "Multi-file source snippets",
+      "description": "Explore implementations across one or more files with syntax highlighting. Supports HTML, CSS, Python, TypeScript, and any text format.",
+      "tags": [
+        "API design",
+        "debugging",
+        "implementation walkthroughs",
+        "prototyping"
+      ],
+      "componentPath": "components/artifacts/CodeArtifactContent.tsx",
+      "catalogEntryId": "code",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "3d",
+      "category": "flowstate",
+      "name": "3D preview",
+      "title": "GLB / GLTF model viewer",
+      "description": "Preview 3D models directly on the canvas. Point to a model URL and rotate or inspect the asset in context.",
+      "tags": [
+        "product design",
+        "architecture",
+        "game assets",
+        "visualization"
+      ],
+      "componentPath": "components/artifacts/ThreeDArtifactContent.tsx",
+      "catalogEntryId": "3d",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "map",
+      "category": "flowstate",
+      "name": "Maps",
+      "title": "Geographic place preview",
+      "description": "Pin a geocodable place — city, state, or country — for travel and location context. Saved pins persist when editing.",
+      "tags": [
+        "travel",
+        "geography",
+        "trip planning",
+        "location research"
+      ],
+      "componentPath": "components/artifacts/MapArtifactContent.tsx",
+      "catalogEntryId": "map",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "streetview",
+      "category": "flowstate",
+      "name": "Street view",
+      "title": "Ground-level venue preview",
+      "description": "Open Google Street View at a specific named venue — station, hotel, landmark, or address — for a street-level look.",
+      "tags": [
+        "travel",
+        "real estate",
+        "venue scouting",
+        "navigation"
+      ],
+      "componentPath": "components/artifacts/StreetViewArtifactContent.tsx",
+      "catalogEntryId": "streetview",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "todo",
+      "category": "flowstate",
+      "name": "To-do lists",
+      "title": "Checklists with completion state",
+      "description": "Track actionable items with checkboxes, optional due dates, and priority levels. Use instead of prose lists for tasks.",
+      "tags": [
+        "project planning",
+        "packing lists",
+        "sprint tasks",
+        "errands"
+      ],
+      "componentPath": "components/artifacts/TodoArtifactContent.tsx",
+      "catalogEntryId": "todo",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "calendar",
+      "category": "flowstate",
+      "name": "Calendars",
+      "title": "Month grid with events",
+      "description": "View a month at a glance with highlighted dates and all-day events. Ideal for scheduling, not chronology over years.",
+      "tags": [
+        "scheduling",
+        "deadlines",
+        "trip dates",
+        "event planning"
+      ],
+      "componentPath": "components/artifacts/CalendarArtifactContent.tsx",
+      "catalogEntryId": "calendar",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "timeline",
+      "category": "flowstate",
+      "name": "Timelines",
+      "title": "Chronological event axis",
+      "description": "Map events across time on a horizontal axis. Use for history, roadmaps, and milestones — not month-grid scheduling.",
+      "tags": [
+        "history",
+        "roadmaps",
+        "product milestones",
+        "biographies"
+      ],
+      "componentPath": "components/artifacts/TimelineArtifactContent.tsx",
+      "catalogEntryId": "timeline",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "custom",
+      "category": "flowstate",
+      "name": "Custom UI",
+      "title": "Interactive HTML / CSS / JS widget",
+      "description": "Build self-contained interactive components — timers, forms, dashboards, calculators. The artifact is the deliverable.",
+      "tags": [
+        "dashboards",
+        "calculators",
+        "forms",
+        "widgets"
+      ],
+      "componentPath": "components/artifacts/CustomArtifactContent.tsx",
+      "catalogEntryId": "custom",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "website",
+      "category": "input",
+      "name": "Websites",
+      "title": "Link preview for any URL",
+      "description": "Paste a generic URL to spawn a preview card with title, domain, favicon, and optional preview image.",
+      "tags": [
+        "research",
+        "documentation",
+        "reference links",
+        "bookmarks"
+      ],
+      "componentPath": "components/artifacts/WebsiteArtifactContent.tsx",
+      "catalogEntryId": "website",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "images",
+      "category": "input",
+      "name": "Images",
+      "title": "Image gallery and references",
+      "description": "Paste image URLs or search Wikimedia for real photographs of places, people, and things.",
+      "tags": [
+        "mood boards",
+        "reference photos",
+        "visual research",
+        "travel inspiration"
+      ],
+      "componentPath": "components/artifacts/ImagesArtifactContent.tsx",
+      "catalogEntryId": "images",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "video",
+      "category": "input",
+      "name": "Videos",
+      "title": "YouTube and video embeds",
+      "description": "Paste a YouTube or video URL to create a grid of playable clips with thumbnails and titles.",
+      "tags": [
+        "tutorials",
+        "talks",
+        "travel vlogs",
+        "demos"
+      ],
+      "componentPath": "components/artifacts/ArtifactContent.tsx",
+      "catalogEntryId": "video",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "audio-short",
+      "category": "input",
+      "name": "Audio — short clip",
+      "title": "Voice memo (1 min)",
+      "description": "Drop MP3, WAV, M4A, AAC, OGG, or WebM audio onto the canvas. Waveform width scales with duration.",
+      "tags": [
+        "voice memos",
+        "interviews",
+        "podcast clips",
+        "field recordings"
+      ],
+      "componentPath": "components/artifacts/AudioArtifactContent.tsx",
+      "catalogEntryId": "audio-short",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "audio-long",
+      "category": "input",
+      "name": "Audio — long clip",
+      "title": "Meeting recording (5 min)",
+      "description": "Longer clips spawn wider nodes — a 5-minute file is five times the waveform width of a 1-minute file.",
+      "tags": [
+        "meetings",
+        "lectures",
+        "ambient",
+        "music sketches"
+      ],
+      "componentPath": "components/artifacts/AudioArtifactContent.tsx",
+      "catalogEntryId": "audio-long",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "repo",
+      "category": "input",
+      "name": "Repositories",
+      "title": "GitHub repo dashboard",
+      "description": "Paste a GitHub URL to explore a repository with overview, file structure, media, preview, tech stack, and built-by widgets.",
+      "tags": [
+        "code exploration",
+        "OSS evaluation",
+        "onboarding",
+        "due diligence"
+      ],
+      "componentPath": "components/artifacts/RepoArtifactContent.tsx",
+      "catalogEntryId": "repo",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "embed",
+      "category": "input",
+      "name": "Embeds",
+      "title": "Social and content iframes",
+      "description": "Paste URLs from Reddit, Twitter, Instagram, Facebook, Medium, Substack, or Figma for embedded previews.",
+      "tags": [
+        "social proof",
+        "design refs",
+        "threads",
+        "articles"
+      ],
+      "componentPath": "components/artifacts/EmbedArtifactContent.tsx",
+      "catalogEntryId": "embed",
+      "livePreviewOnly": true
+    },
+    {
+      "id": "prompt",
+      "category": "input",
+      "name": "Free-form prompts",
+      "title": "Any text the user types",
+      "description": "Open-ended questions and brainstorming spawn text cards and can trigger any artifact type the AI deems fit.",
+      "tags": [
+        "brainstorming",
+        "Q&A",
+        "open-ended inquiry",
+        "exploration"
+      ],
+      "componentPath": "components/cards/TextCardBody.tsx",
+      "catalogEntryId": "prompt",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "timezone",
+      "category": "custom-example",
+      "name": "Time zone converter",
+      "title": "Local ↔ foreign time",
+      "description": "Compare your local clock with any destination timezone. Handy when planning calls or arrivals abroad.",
+      "tags": [
+        "travel",
+        "remote work",
+        "scheduling"
+      ],
+      "componentPath": "components/artifacts/CustomArtifactContent.tsx",
+      "catalogEntryId": "timezone",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "currency",
+      "category": "custom-example",
+      "name": "Currency converter",
+      "title": "Live exchange rates",
+      "description": "Convert amounts between currencies for trips, invoices, or cross-border purchases.",
+      "tags": [
+        "travel",
+        "financial planning",
+        "shopping"
+      ],
+      "componentPath": "components/artifacts/CustomArtifactContent.tsx",
+      "catalogEntryId": "currency",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "units",
+      "category": "custom-example",
+      "name": "Unit converter",
+      "title": "Length, weight, temperature",
+      "description": "Convert between metric and imperial units for cooking, science experiments, or travel packing.",
+      "tags": [
+        "cooking",
+        "science",
+        "travel"
+      ],
+      "componentPath": "components/artifacts/CustomArtifactContent.tsx",
+      "catalogEntryId": "units",
+      "livePreviewOnly": false
+    },
+    {
+      "id": "budget",
+      "category": "custom-example",
+      "name": "Trip budget planner",
+      "title": "Expense breakdown by category",
+      "description": "Split a trip budget across flights, lodging, food, and activities with running totals.",
+      "tags": [
+        "travel",
+        "financial planning",
+        "group trips"
+      ],
+      "componentPath": "components/artifacts/CustomArtifactContent.tsx",
+      "catalogEntryId": "budget",
+      "livePreviewOnly": false
+    }
+  ],
+  "cards": [
+    {
+      "id": "text-answer",
+      "kind": "text",
+      "title": "Text answer",
+      "description": "Default inline Q&A body for prose responses on cards.",
+      "tags": [
+        "Q&A",
+        "markdown",
+        "inline"
+      ],
+      "componentPath": "components/cards/TextCardBody.tsx",
+      "card": {
+        "id": "ds-card-text",
+        "threadId": "design-system",
+        "question": "What are good day-trip options from Lisbon?",
+        "answer": "Sintra and Cascais are the easiest wins — both are under an hour by train and pair well with a long weekend in the city.",
+        "status": "done",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "text"
+      }
+    },
+    {
+      "id": "streaming-text",
+      "kind": "streaming",
+      "title": "Streaming text",
+      "description": "Text body with caret while the model is still writing.",
+      "tags": [
+        "streaming",
+        "Q&A"
+      ],
+      "componentPath": "components/cards/TextCardBody.tsx",
+      "card": {
+        "id": "ds-card-streaming",
+        "threadId": "design-system",
+        "question": "Summarize the product roadmap",
+        "answer": "Phase one focuses on canvas artifacts and ",
+        "status": "streaming",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "text"
+      }
+    },
+    {
+      "id": "code-inline",
+      "kind": "code",
+      "title": "Inline code artifact",
+      "description": "Code files embedded in the card answer chrome.",
+      "tags": [
+        "code",
+        "artifact",
+        "inline"
+      ],
+      "componentPath": "components/cards/CodeCardBody.tsx",
+      "card": {
+        "id": "ds-card-code",
+        "threadId": "design-system",
+        "question": "Add auth middleware for protected routes",
+        "answer": "Here's a minimal guard you can drop into middleware.ts:",
+        "status": "done",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "code",
+        "artifactPayload": {
+          "type": "code",
+          "title": "Auth middleware",
+          "description": "Next.js route guard",
+          "data": {
+            "files": [
+              {
+                "path": "middleware.ts",
+                "language": "typescript",
+                "content": "export function middleware(req: Request) {\n  return authGuard(req);\n}\n"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "table-inline",
+      "kind": "table",
+      "title": "Inline table artifact",
+      "description": "Tabular data rendered inside card answer chrome.",
+      "tags": [
+        "table",
+        "artifact",
+        "inline"
+      ],
+      "componentPath": "components/cards/TableCardBody.tsx",
+      "card": {
+        "id": "ds-card-table",
+        "threadId": "design-system",
+        "question": "Show sprint velocity for the last two sprints",
+        "answer": "Velocity picked up after the refactor landed:",
+        "status": "done",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "table",
+        "artifactPayload": {
+          "type": "table",
+          "title": "Sprint velocity",
+          "description": "Points completed per sprint",
+          "data": {
+            "columns": [
+              {
+                "key": "sprint",
+                "label": "Sprint"
+              },
+              {
+                "key": "points",
+                "label": "Points"
+              }
+            ],
+            "rows": [
+              {
+                "sprint": "Sprint 12",
+                "points": "34"
+              },
+              {
+                "sprint": "Sprint 13",
+                "points": "41"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pending",
+      "kind": "pending",
+      "title": "Pending answer",
+      "description": "Thinking dots, elapsed time, and token usage while waiting.",
+      "tags": [
+        "loading",
+        "pending",
+        "Q&A"
+      ],
+      "componentPath": "components/cards/PendingAnswerPlaceholder.tsx",
+      "card": {
+        "id": "ds-card-pending",
+        "threadId": "design-system",
+        "question": "Analyze the quarterly metrics",
+        "answer": "",
+        "status": "thinking",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "text",
+        "thinkingLabel": "Analyzing metrics…",
+        "askStartedAt": 1782622289566,
+        "turnUsage": {
+          "inputTokens": 1200,
+          "outputTokens": 0
+        }
+      }
+    },
+    {
+      "id": "retry",
+      "kind": "retry",
+      "title": "Retry placeholder",
+      "description": "Error state with optional try-again action.",
+      "tags": [
+        "error",
+        "retry",
+        "Q&A"
+      ],
+      "componentPath": "components/cards/QaRetryPlaceholder.tsx",
+      "card": {
+        "id": "ds-card-retry",
+        "threadId": "design-system",
+        "question": "Generate the chart",
+        "answer": "",
+        "status": "done",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "text"
+      }
+    },
+    {
+      "id": "artifact-preview-ready",
+      "kind": "artifact-preview",
+      "title": "Artifact preview pill — ready",
+      "description": "Compact link to a spawned canvas artifact from a card answer.",
+      "tags": [
+        "preview",
+        "artifact",
+        "pill"
+      ],
+      "componentPath": "components/artifacts/ArtifactPreviewPill.tsx",
+      "previewKind": "table",
+      "previewStatus": "ready",
+      "card": {
+        "id": "ds-card-preview-ready",
+        "threadId": "design-system",
+        "question": "Build a budget table",
+        "answer": "I've created a table on the canvas.",
+        "status": "done",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "table",
+        "outputArtifactId": "ds-artifact-1",
+        "artifactPayload": {
+          "type": "table",
+          "title": "Sprint velocity",
+          "description": "Points completed per sprint",
+          "data": {
+            "columns": [
+              {
+                "key": "sprint",
+                "label": "Sprint"
+              },
+              {
+                "key": "points",
+                "label": "Points"
+              }
+            ],
+            "rows": [
+              {
+                "sprint": "Sprint 12",
+                "points": "34"
+              },
+              {
+                "sprint": "Sprint 13",
+                "points": "41"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "artifact-preview-generating",
+      "kind": "artifact-preview",
+      "title": "Artifact preview pill — generating",
+      "description": "Preview pill while an artifact is still materializing.",
+      "tags": [
+        "preview",
+        "generating"
+      ],
+      "componentPath": "components/artifacts/ArtifactPreviewPill.tsx",
+      "previewKind": "chart",
+      "previewStatus": "generating",
+      "card": {
+        "id": "ds-card-preview-gen",
+        "threadId": "design-system",
+        "question": "Chart monthly spend",
+        "answer": "",
+        "status": "streaming",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parentCardId": null,
+        "parentConversationId": null,
+        "responseType": "chart"
+      }
+    }
+  ],
+  "connectors": [
+    {
+      "id": "curvy-branch",
+      "title": "Curvy branch connector",
+      "description": "Default thread curve from parent to a lateral branch child.",
+      "tags": [
+        "curvy",
+        "branch",
+        "thread"
+      ],
+      "fromId": "parent",
+      "toId": "branch-a",
+      "fromSide": "right",
+      "toSide": "left",
+      "style": "curvy",
+      "stroke": "#FF8FA3"
+    },
+    {
+      "id": "orthogonal-branch",
+      "title": "Orthogonal branch connector",
+      "description": "Pipeline-style orthogonal routing between cards.",
+      "tags": [
+        "orthogonal",
+        "pipeline",
+        "thread"
+      ],
+      "fromId": "parent",
+      "toId": "branch-b",
+      "fromSide": "right",
+      "toSide": "left",
+      "style": "orthogonal",
+      "stroke": "#6FCF97"
+    },
+    {
+      "id": "curvy-follow-up",
+      "title": "Vertical follow-up",
+      "description": "Bottom-to-top curve for a follow-up question in the same thread.",
+      "tags": [
+        "curvy",
+        "follow-up",
+        "vertical"
+      ],
+      "fromId": "parent",
+      "toId": "follow-up",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "style": "curvy",
+      "stroke": "#6B4EFF"
+    }
+  ]
+}

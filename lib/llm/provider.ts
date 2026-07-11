@@ -41,7 +41,14 @@ export type ToolExecutor = (call: ToolCall) => Promise<string>;
 export interface RunArgs {
   model: string;
   apiKey: string;
+  /** Stable, cacheable system prefix (Anthropic marks it with a cache breakpoint). */
   system: string;
+  /**
+   * Per-request, variable system notes (topic recap, intent notes, artifact-edit
+   * payload). Anthropic keeps this in a SEPARATE uncached block after the cached
+   * prefix; OpenRouter simply concatenates it onto the system message.
+   */
+  variableSystem?: string;
   messages: NeutralMessage[];
   tools: NeutralToolDef[];
   /** Force this tool on the first turn (used for strong artifact intents). */
@@ -50,10 +57,33 @@ export interface RunArgs {
   executeTool: ToolExecutor;
   signal?: AbortSignal;
   maxToolTurns?: number;
+  /** Override the per-turn output token budget (e.g. larger for custom UI). */
+  maxTokens?: number;
+  /** Anthropic-only: enable the hosted web_search tool + pause_turn handling. */
+  enableWebSearch?: boolean;
+  /** Cap on pause_turn continuations for hosted web search. */
+  maxPauseTurns?: number;
+}
+
+export interface RunUsage {
+  inputTokens: number;
+  outputTokens: number;
+  /** Anthropic prompt-cache reads (billed ~10%). 0 for providers without caching. */
+  cacheReadTokens: number;
+  /** Anthropic prompt-cache writes. 0 for providers without caching. */
+  cacheCreationTokens: number;
 }
 
 export interface RunResult {
-  usage: { inputTokens: number; outputTokens: number };
+  usage: RunUsage;
+  /** Number of tool-execution rounds performed. */
+  toolTurns: number;
+  /** Number of web-search pause_turn continuations (Anthropic). */
+  pauseTurns: number;
+  /** Number of hosted web_search invocations (Anthropic). */
+  webSearchBlocks: number;
+  /** Non-fatal error surfaced mid-run (already emitted); recorded for telemetry. */
+  errorMessage?: string | null;
 }
 
 export interface LLMProvider {

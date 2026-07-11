@@ -17,8 +17,9 @@ import {
   type CanvasArtifactNode,
   type Card,
 } from "@/lib/store";
+import { requestCanvasFocus } from "@/lib/canvasViewportGuard";
 import { animateViewportTo } from "@/lib/motion/animateViewport";
-import { viewportCenteredOnWorldPoint } from "@/lib/viewport";
+import { viewportFramedOnWorldRect } from "@/lib/viewport";
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 
@@ -55,6 +56,30 @@ export function findGeneratingPreviewNode(
       !n.artifactId &&
       (!kind || n.generatingPreview.kind === kind),
   );
+}
+
+/** Whether a pending permission preview already represents this payload. */
+export function permissionPreviewMatchesPayload(
+  preview: NonNullable<CanvasArtifactNode["permissionPreview"]>,
+  payload: ArtifactPayload,
+): boolean {
+  return (
+    preview.status === "pending" &&
+    preview.kind === payloadToArtifactKind(payload) &&
+    preview.title === payload.title
+  );
+}
+
+export function findPermissionPreviewNode(
+  nodes: Record<string, CanvasArtifactNode>,
+  cardId: string,
+  payload?: ArtifactPayload,
+): CanvasArtifactNode | undefined {
+  return Object.values(nodes).find((n) => {
+    if (n.sourceCardId !== cardId || !n.permissionPreview) return false;
+    if (!payload) return n.permissionPreview.status === "pending";
+    return permissionPreviewMatchesPayload(n.permissionPreview, payload);
+  });
 }
 
 function payloadSpawnSize(payload?: ArtifactPayload): { w: number; h: number } {
@@ -211,14 +236,11 @@ function panToWorldRect(
   const domRect = container?.getBoundingClientRect();
   if (!domRect) return true;
 
-  const cx = rect.x + rect.w / 2;
-  const cy = rect.y + rect.h / 2;
-  const vp = viewportCenteredOnWorldPoint(
-    cx,
-    cy,
+  const vp = viewportFramedOnWorldRect(
+    rect,
     domRect.width,
     domRect.height,
-    state.viewport.scale,
+    { minScale: 0.1, maxScale: 3 },
   );
   const reduced =
     typeof window !== "undefined" &&
@@ -232,6 +254,20 @@ function panToWorldRect(
   }
 
   return true;
+}
+
+/** Pan to a spawned artifact after the DOM has committed the new node. */
+export function scheduleCanvasArtifactFocus(nodeId: string): void {
+  if (typeof window === "undefined") return;
+  requestAnimationFrame(() => {
+    const state = useCanvasStore.getState();
+    if (state.viewMode !== "canvas") {
+      state.setViewMode("canvas");
+    }
+    requestCanvasFocus(() => {
+      focusCanvasArtifactNode(nodeId);
+    });
+  });
 }
 
 /** Pan viewport to a canvas artifact node (materialized or permission preview). */

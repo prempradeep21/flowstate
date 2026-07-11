@@ -51,7 +51,7 @@ export function resolveArtifactPreviewStatus(card: Card): ArtifactPreviewStatus 
 function payloadForCard(card: Card): ArtifactPayload | null {
   if (card.artifactPayload) return card.artifactPayload;
   if (
-    (card.responseType === "image" || card.images?.length) &&
+    (card.responseType === "image" || card.responseType === "images") &&
     card.images &&
     card.images.length > 0
   ) {

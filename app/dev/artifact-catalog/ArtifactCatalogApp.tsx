@@ -45,19 +45,57 @@ function CategoryTab({
   );
 }
 
-export function ArtifactCatalogApp() {
+function ArtifactCatalogLoadGate({ onLoad }: { onLoad: () => void }) {
+  return (
+    <main className="flex h-full w-full items-center justify-center bg-canvas-bg px-6">
+      <div className="max-w-md text-center">
+        <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+          Artifact Viewer
+        </p>
+        <h2 className="mt-2 font-display text-2xl font-medium text-canvas-ink">
+          Load artifact previews
+        </h2>
+        <p className="mt-3 text-canvas-body-sm leading-relaxed text-canvas-muted">
+          This page renders every artifact type on a live canvas and can use
+          significant CPU and memory. Load it only when you need to inspect demos.
+        </p>
+        <button
+          type="button"
+          onClick={onLoad}
+          className="mt-6 rounded-canvas border border-canvas-ink/20 bg-canvas-ink px-5 py-2.5 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90"
+        >
+          Load artifacts
+        </button>
+      </div>
+    </main>
+  );
+}
+
+export function ArtifactCatalogApp({
+  deferredLoad = false,
+  embedded = false,
+}: {
+  /** When true, show a load gate before mounting the canvas and artifact demos. */
+  deferredLoad?: boolean;
+  embedded?: boolean;
+}) {
+  const [isLoaded, setIsLoaded] = useState(!deferredLoad);
   const [activeCategory, setActiveCategory] = useState<ArtifactCatalogCategory>(
     CATALOG_SECTIONS[0]?.id ?? "flowstate",
   );
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useArtifactCatalogCanvas(activeCategory, canvasContainerRef);
+  useArtifactCatalogCanvas(activeCategory, canvasContainerRef, isLoaded);
 
   const sectionCounts = CATALOG_SECTIONS.map((section) => ({
     ...section,
     count: ARTIFACT_CATALOG_ENTRIES.filter((entry) => entry.category === section.id)
       .length,
   }));
+
+  if (deferredLoad && !isLoaded) {
+    return <ArtifactCatalogLoadGate onLoad={() => setIsLoaded(true)} />;
+  }
 
   return (
     <main className="relative h-full w-full overflow-hidden">
@@ -66,17 +104,19 @@ export function ArtifactCatalogApp() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-50 flex justify-center px-4 pt-3">
         <div className="pointer-events-auto w-full max-w-[min(1200px,calc(100vw-2rem))] rounded-canvas border border-canvas-border/80 bg-canvas-card/95 px-4 py-3 shadow-card backdrop-blur-md">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="m-0 text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
-                Flowstate
-              </p>
-              <h1 className="font-display text-xl font-medium sm:text-2xl">
-                Artifact Catalog
-              </h1>
-            </div>
+            {!embedded ? (
+              <div className="min-w-0">
+                <p className="m-0 text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                  Flowstate
+                </p>
+                <h1 className="font-display text-xl font-medium sm:text-2xl">
+                  Artifact Catalog
+                </h1>
+              </div>
+            ) : null}
             <nav
               aria-label="Artifact categories"
-              className="flex gap-2 overflow-x-auto pb-0.5"
+              className={`flex gap-2 overflow-x-auto pb-0.5 ${embedded ? "w-full" : ""}`}
             >
               {sectionCounts.map((section) => (
                 <CategoryTab

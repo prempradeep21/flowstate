@@ -31,6 +31,7 @@ export function CanvasArtifactMenu({
   disabled,
 }: Props) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
   const anchorStyle = useToolbarPopoverAnchor(
     anchorRef,
     containerRef,
@@ -40,6 +41,7 @@ export function CanvasArtifactMenu({
 
   const handlePointerDown = useCallback(
     (e: PointerEvent) => {
+      if (draggingRef.current) return;
       const target = e.target as Node;
       if (popoverRef.current?.contains(target)) return;
       if (anchorRef.current?.contains(target)) return;
@@ -69,7 +71,25 @@ export function CanvasArtifactMenu({
             role="menuitem"
             disabled={disabled}
             className={menuBtn}
+            onPointerDown={(e) => {
+              if (disabled) return;
+              if (entry.pick.kind === "question") return;
+              e.preventDefault();
+              draggingRef.current = true;
+              (e.currentTarget as HTMLButtonElement).setPointerCapture(
+                e.pointerId,
+              );
+              onPick(entry.pick);
+              onClose();
+            }}
+            onPointerUp={() => {
+              draggingRef.current = false;
+            }}
+            onPointerCancel={() => {
+              draggingRef.current = false;
+            }}
             onClick={() => {
+              if (disabled || entry.pick.kind !== "question") return;
               onPick(entry.pick);
               onClose();
             }}

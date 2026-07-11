@@ -13,6 +13,11 @@ export interface ManualArtifactMenuEntry {
 
 /** Flat menu order: spawn priority, Add question last. */
 export const MANUAL_ARTIFACT_MENU_ITEMS: ManualArtifactMenuEntry[] = [
+  {
+    pick: { kind: "artifact", artifactType: "stickynote" },
+    label: "Sticky note",
+    iconKind: "stickynote",
+  },
   { pick: { kind: "artifact", artifactType: "todo" }, label: "To-do list", iconKind: "todo" },
   { pick: { kind: "artifact", artifactType: "calendar" }, label: "Calendar", iconKind: "calendar" },
   { pick: { kind: "artifact", artifactType: "timeline" }, label: "Timeline", iconKind: "timeline" },
@@ -21,5 +26,6 @@ export const MANUAL_ARTIFACT_MENU_ITEMS: ManualArtifactMenuEntry[] = [
   { pick: { kind: "artifact", artifactType: "map" }, label: "Map", iconKind: "map" },
   { pick: { kind: "artifact", artifactType: "streetview" }, label: "Street view", iconKind: "streetview" },
   { pick: { kind: "artifact", artifactType: "images" }, label: "Images", iconKind: "images" },
+  { pick: { kind: "artifact", artifactType: "3d" }, label: "3D model", iconKind: "3d" },
   { pick: { kind: "question" }, label: "Add question", iconKind: "question" },
 ];

@@ -43,9 +43,9 @@ export const PIE_SECTORS: readonly PieSectorConfig[] = [
   },
   {
     id: "east",
-    label: "Coming soon",
-    shortcut: null,
-    enabled: false,
+    label: "Sticky note",
+    shortcut: "S",
+    enabled: true,
     dir: { x: 1, y: 0 },
     clockwiseIndex: 1,
   },
