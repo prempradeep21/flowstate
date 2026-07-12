@@ -20,7 +20,8 @@ import { isAnthropicWebSearchEnabled } from "@/lib/anthropicWebSearch";
 import { loadMcpConfig } from "@/lib/mcpConfig";
 import { getMcpTools } from "@/lib/mcpManager";
 import type { McpToolsResult } from "@/lib/mcpManager";
-import { getModelProvider, modelSupportsTools } from "@/lib/models";
+import { getModel, getModelProvider, modelSupportsTools } from "@/lib/models";
+import { findPublishedOpenRouterModel } from "@/lib/modelConfig/publishedModels.server";
 import type {
   NeutralContentPart,
   NeutralMessage,
@@ -161,8 +162,12 @@ export async function POST(req: Request) {
   const inlineSourceIntent = detectInlineSourceInQuestion(intentQuestion);
   const primaryKind = resolvePrimaryArtifactKind(question, editingPayload);
 
-  // Tool calling drives artifacts; gate it to models that support it.
-  const supportsTools = modelSupportsTools(model);
+  // Tool calling drives artifacts; gate it to models that support it. Static
+  // registry first, then the admin-published OpenRouter list (so an admin-added
+  // text-only model isn't offered tools), else assume supported.
+  const supportsTools = getModel(model)
+    ? modelSupportsTools(model)
+    : findPublishedOpenRouterModel(model)?.supportsTools ?? true;
   const allTools: NeutralToolDef[] = supportsTools
     ? [
         ...(useFetchChartData ? [FETCH_CHART_DATA_TOOL] : []),

@@ -1,15 +1,16 @@
 "use client";
 
-import { MODELS } from "@/lib/models";
+import { useSelectableModels } from "@/hooks/useSelectableModels";
 import { useCanvasStore } from "@/lib/store";
 
 /** Compact model selector grouped by provider (Anthropic / OpenRouter). */
 export function ModelPicker() {
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const setModel = useCanvasStore((s) => s.setModel);
+  const models = useSelectableModels();
 
-  const anthropic = MODELS.filter((m) => m.provider === "anthropic");
-  const openrouter = MODELS.filter((m) => m.provider === "openrouter");
+  const anthropic = models.filter((m) => m.provider === "anthropic");
+  const openrouter = models.filter((m) => m.provider === "openrouter");
 
   return (
     <label className="flex items-center gap-2 text-xs text-canvas-muted">

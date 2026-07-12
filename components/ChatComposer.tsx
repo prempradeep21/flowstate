@@ -552,7 +552,49 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="flex min-w-0 items-center gap-0 px-2 py-2">
+        {/* Question row: input spans end-to-end, send button beside it. */}
+        <div className="flex min-w-0 items-center gap-2 px-3 py-2">
+          <div
+            className={`flex min-w-0 flex-1 ${
+              lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-center"
+            }`}
+          >
+            {lockedPrefix && (
+              <span
+                className="rounded-canvas bg-canvas-accent/15 px-2.5 py-1.5 text-canvas-body-sm font-medium leading-snug text-canvas-accent break-words"
+              >
+                {lockedPrefix}
+              </span>
+            )}
+            <textarea
+              ref={textarea.ref}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                textarea.resize();
+              }}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+              className={`block min-w-0 w-full resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
+                isCanvas || isLanding ? "text-canvas-body" : "text-canvas-body-lg"
+              }`}
+            />
+          </div>
+
+          <SendIconButton
+            disabled={!canSend}
+            onClick={submit}
+            className={
+              isLanding ? "bg-canvas-accent hover:opacity-90" : undefined
+            }
+          />
+        </div>
+
+        {/* Controls row: attachments, card menu, and model selector. */}
+        <div className="flex items-center gap-1 border-t border-canvas-border px-2 py-1.5">
           <div className="relative shrink-0" ref={menuRef}>
             <button
               type="button"
@@ -637,50 +679,16 @@ export function ChatComposer({
               )}
           </div>
 
-          <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+          {trailingControls}
 
-          <ComposerModelPicker disabled={disabled} />
-
-          <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
-
-          <div
-            className={`flex min-w-0 flex-1 ${
-              lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-center"
-            }`}
-          >
-            {lockedPrefix && (
-              <span
-                className="rounded-canvas bg-canvas-accent/15 px-2.5 py-1.5 text-canvas-body-sm font-medium leading-snug text-canvas-accent break-words"
-              >
-                {lockedPrefix}
-              </span>
-            )}
-            <textarea
-              ref={textarea.ref}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                textarea.resize();
-              }}
-              onKeyDown={onKeyDown}
-              onPaste={onPaste}
-              placeholder={placeholder}
+          <div className="ml-auto">
+            <ComposerModelPicker
               disabled={disabled}
-              rows={1}
-              className={`block min-w-0 w-full resize-none overflow-hidden border-0 bg-transparent py-2 text-canvas-ink outline-none placeholder:text-canvas-muted/70 disabled:opacity-50 ${
-                isCanvas || isLanding ? "text-canvas-body" : "text-canvas-body-lg"
-              }`}
+              restrictToAnthropic={pendingFiles.some(
+                (f) => f.mimeType === "application/pdf",
+              )}
             />
           </div>
-
-          <SendIconButton
-            disabled={!canSend}
-            onClick={submit}
-            className={
-              isLanding ? "bg-canvas-accent hover:opacity-90" : undefined
-            }
-          />
-          {trailingControls}
         </div>
       </div>
 
@@ -694,7 +702,7 @@ export function ChatComposer({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,application/pdf,.txt,.json,.md"
+        multiple
         className="hidden"
         onChange={onFilePick}
       />

@@ -32,6 +32,7 @@ export type AdminIconName =
   | "artifact-viewer"
   | "sound"
   | "design-system"
+  | "models"
   | "ideas"
   | "shipping-log"
   | "philosophy"
@@ -93,6 +94,16 @@ const ICONS: Record<AdminIconName, ReactNode> = {
     <circle cx="7" cy="7" r="2.5" />
     <circle cx="13" cy="7" r="2.5" />
     <circle cx="10" cy="13" r="2.5" />
+  </>
+  ),
+  models: (
+  <>
+    <path d="M4 6h8" />
+    <circle cx="15" cy="6" r="1.8" />
+    <path d="M8 10h8" />
+    <circle cx="5" cy="10" r="1.8" />
+    <path d="M4 14h8" />
+    <circle cx="15" cy="14" r="1.8" />
   </>
   ),
   ideas: (
