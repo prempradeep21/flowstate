@@ -72,9 +72,9 @@ const CASING_VISIBLE =
 export const ARTIFACT_CANVAS_CASING_DEFAULT = `artifact-casing ${CASING_TRANSITION} border ${CASING_VISIBLE} border-transparent shadow-none`;
 
 const CASING_SELECTED_VISIBLE =
-  "group-hover/artifact:border-canvas-ink group-hover/artifact:ring-2 group-hover/artifact:ring-canvas-ink/25 group-hover/artifact:shadow-artifact " +
-  "group-data-[chrome-hover]/artifact:border-canvas-ink group-data-[chrome-hover]/artifact:ring-2 group-data-[chrome-hover]/artifact:ring-canvas-ink/25 group-data-[chrome-hover]/artifact:shadow-artifact " +
-  "group-data-[chrome-reveal]/artifact:border-canvas-ink group-data-[chrome-reveal]/artifact:ring-2 group-data-[chrome-reveal]/artifact:ring-canvas-ink/25 group-data-[chrome-reveal]/artifact:shadow-artifact";
+  "group-hover/artifact:border-canvas-accent group-hover/artifact:ring-2 group-hover/artifact:ring-canvas-accent/25 group-hover/artifact:shadow-artifact " +
+  "group-data-[chrome-hover]/artifact:border-canvas-accent group-data-[chrome-hover]/artifact:ring-2 group-data-[chrome-hover]/artifact:ring-canvas-accent/25 group-data-[chrome-hover]/artifact:shadow-artifact " +
+  "group-data-[chrome-reveal]/artifact:border-canvas-accent group-data-[chrome-reveal]/artifact:ring-2 group-data-[chrome-reveal]/artifact:ring-canvas-accent/25 group-data-[chrome-reveal]/artifact:shadow-artifact";
 
 export const ARTIFACT_CANVAS_CASING_SELECTED = `artifact-casing ${CASING_TRANSITION} border ${CASING_SELECTED_VISIBLE} border-transparent ring-2 ring-transparent shadow-none`;
 

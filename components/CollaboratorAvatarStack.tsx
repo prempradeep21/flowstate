@@ -67,7 +67,7 @@ export function CollaboratorAvatarStack({
             ) : (
               <span
                 title={title}
-                className={`flex ${sizes.avatar} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-white ${sizes.text}`}
+                className={`flex ${sizes.avatar} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-canvas-onAccent ${sizes.text}`}
               >
                 {label.charAt(0).toUpperCase()}
               </span>

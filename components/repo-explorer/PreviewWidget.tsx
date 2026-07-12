@@ -52,7 +52,7 @@ export function PreviewWidget({ data }: { data?: PreviewData }) {
               href={data.previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-canvas bg-canvas-accent px-3 py-2 text-canvas-body-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-canvas bg-canvas-accent px-3 py-2 text-canvas-body-sm font-medium text-canvas-onAccent transition-opacity hover:opacity-90"
             >
               Open preview
               <span aria-hidden>↗</span>

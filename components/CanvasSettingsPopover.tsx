@@ -122,7 +122,7 @@ export function CanvasSettingsPopover({
               onClick={() => setCanvasTheme(option.id)}
               className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
-                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >
@@ -184,7 +184,7 @@ export function CanvasSettingsPopover({
               onClick={() => setCanvasArtifactStyle(pack.id)}
               className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
-                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >
@@ -246,7 +246,7 @@ export function CanvasSettingsPopover({
               onClick={() => setCanvasBackgroundStyle(option.id)}
               className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
-                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >

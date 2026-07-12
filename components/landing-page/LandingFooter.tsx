@@ -3,21 +3,10 @@
 import Link from "next/link";
 import { LANDING_SECTIONS } from "@/components/landing-page/landingSections";
 import { playSound } from "@/lib/sounds/engine";
+import { FlowstateLogo } from "@/components/FlowstateLogo";
 
 function FlowstateMark() {
-  return (
-    <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden fill="none">
-      <rect width="32" height="32" rx="8" className="fill-canvas-ink" />
-      <path
-        d="M8 22c4-8 8-12 16-14M8 10c3 4 8 8 16 10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        className="text-canvas-card"
-      />
-      <circle cx="24" cy="8" r="2" className="fill-canvas-accent" />
-    </svg>
-  );
+  return <FlowstateLogo className="h-8 w-8 shrink-0" />;
 }
 
 export function LandingFooter() {

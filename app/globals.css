@@ -13,8 +13,10 @@
   --canvas-ink: 44 42 38;
   /* AA-compliant muted text (4.65:1 on bg, 5.30:1 on card). */
   --canvas-muted: 111 107 99;
-  --canvas-accent: 107 78 255;
-  --canvas-artifact-icon-bg: 237 233 254;
+  --canvas-accent: 23 84 198;
+  --canvas-accent-soft: 224 233 250;
+  --canvas-on-accent: 255 255 255;
+  --canvas-artifact-icon-bg: 224 233 250;
   --canvas-artifact-stage: 243 242 239;
   --canvas-connector: 184 181 174;
   --canvas-plug-fill: 247 246 243;
@@ -38,7 +40,7 @@
   --canvas-info-text: 3 105 161;
   --canvas-info-soft: 240 249 255;
   --canvas-info-ring: 186 230 253;
-  --canvas-map-primary: 107 78 255;
+  --canvas-map-primary: 23 84 198;
   --canvas-map-saved: 217 119 6;
   --canvas-tag-danger: 190 18 60;
   --canvas-tag-danger-soft: 255 241 242;
@@ -61,8 +63,8 @@
   /* Artifact category fills — header icon circles, themable per preset.
      Generated: deriveCategoryFill() over the default preset's category bases
      (lib/design/theme/presets.ts + color.ts). */
-  --artifact-cat-data-bg: 226 221 253;
-  --artifact-cat-data-fg: 45 19 174;
+  --artifact-cat-data-bg: 224 233 250;
+  --artifact-cat-data-fg: 36 78 158;
   --artifact-cat-viz-bg: 221 242 253;
   --artifact-cat-viz-fg: 21 121 173;
   --artifact-cat-geo-bg: 225 249 234;
@@ -115,8 +117,10 @@ html[data-theme="dark"],
   --canvas-border: 52 50 45;
   --canvas-ink: 236 234 227;
   --canvas-muted: 168 162 154;
-  --canvas-accent: 142 120 255;
-  --canvas-artifact-icon-bg: 44 37 65;
+  --canvas-accent: 85 136 231;
+  --canvas-accent-soft: 31 45 71;
+  --canvas-on-accent: 24 23 21;
+  --canvas-artifact-icon-bg: 31 45 71;
   --canvas-artifact-stage: 30 29 26;
   --canvas-connector: 78 75 69;
   --canvas-plug-fill: 30 29 26;
@@ -140,7 +144,7 @@ html[data-theme="dark"],
   --canvas-info-text: 125 211 252;
   --canvas-info-soft: 20 34 42;
   --canvas-info-ring: 31 74 92;
-  --canvas-map-primary: 142 120 255;
+  --canvas-map-primary: 85 136 231;
   --canvas-map-saved: 251 191 36;
   --canvas-tag-danger: 251 113 133;
   --canvas-tag-danger-soft: 42 22 32;
@@ -154,8 +158,8 @@ html[data-theme="dark"],
   --canvas-secondary: 142 166 224;
   --canvas-tertiary: 245 164 71;
   /* Artifact category fills — dark variants (deriveCategoryFill). */
-  --artifact-cat-data-bg: 34 26 77;
-  --artifact-cat-data-fg: 159 142 246;
+  --artifact-cat-data-bg: 31 45 71;
+  --artifact-cat-data-fg: 153 181 235;
   --artifact-cat-viz-bg: 26 59 76;
   --artifact-cat-viz-fg: 143 210 245;
   --artifact-cat-geo-bg: 32 70 46;
@@ -184,8 +188,10 @@ html[data-theme="dark"],
   --canvas-border: 230 228 223;
   --canvas-ink: 44 42 38;
   --canvas-muted: 111 107 99;
-  --canvas-accent: 107 78 255;
-  --canvas-artifact-icon-bg: 237 233 254;
+  --canvas-accent: 23 84 198;
+  --canvas-accent-soft: 224 233 250;
+  --canvas-on-accent: 255 255 255;
+  --canvas-artifact-icon-bg: 224 233 250;
   --canvas-artifact-stage: 243 242 239;
   --canvas-danger: 220 38 38;
   --canvas-success: 16 185 129;
@@ -353,8 +359,8 @@ body::-webkit-scrollbar-corner {
 }
 
 .canvas-selection-marquee {
-  border: 2px dashed rgb(var(--canvas-ink) / 0.35);
-  background: rgb(var(--canvas-ink) / 0.04);
+  border: 2px dashed rgb(var(--canvas-accent) / 0.5);
+  background: rgb(var(--canvas-accent) / 0.05);
 }
 
 .canvas-group-bounds {
@@ -948,7 +954,7 @@ html[data-theme="dark"] .timeline-band {
    above its pin and is tinted (via --pin-color) to match the pin colour.
 --------------------------------------------------------------------------- */
 .leaflet-tooltip.map-pin-tooltip {
-  --pin-color: #6b4eff;
+  --pin-color: #1754c6;
   display: flex;
   align-items: center;
   gap: 5px;

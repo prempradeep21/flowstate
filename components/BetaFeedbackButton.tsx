@@ -264,7 +264,7 @@ export function BetaFeedbackButton() {
             aria-haspopup="dialog"
             onClick={() => setOpen((v) => !v)}
             className={`flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80 ${
-              open ? "bg-canvas-bg/80" : ""
+              open ? "bg-canvas-accentSoft text-canvas-accent" : ""
             }`}
           >
             <PlusIcon className="h-5 w-5 shrink-0" />

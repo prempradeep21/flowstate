@@ -12,10 +12,12 @@ All values defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts). Tail
 | `ink` | `#2C2A26` | `text-canvas-ink` |
 | `muted` | `#6F6B63` | `text-canvas-muted` (AA on bg + card) |
 | `dot` | `#8B8A86` | `--canvas-dot` in CSS |
-| ccent | #6B4EFF | 	ext-canvas-accent, g-canvas-accent — themable primary |
-| secondary | #5B7FD6 | 	ext-canvas-secondary — themable secondary |
-| 	ertiary | #D97706 | 	ext-canvas-tertiary — themable accent |
-| `artifactIconBg` | `#EDE9FE` | `bg-canvas-artifactIconBg` |
+| `accent` | `#1754C6` | `text-canvas-accent`, `bg-canvas-accent` — themable primary (brand cobalt; dark `#5588E7`) |
+| `accentSoft` | `#E0E9FA` | `bg-canvas-accentSoft` — soft selected-state fill (dark `#1F2D47`) |
+| `onAccent` | `#FFFFFF` | `text-canvas-onAccent` — text/icons on solid accent fills (dark `#181715`) |
+| `secondary` | `#5B7FD6` | `text-canvas-secondary` — themable secondary |
+| `tertiary` | `#D97706` | `text-canvas-tertiary` — themable accent |
+| `artifactIconBg` | `#E0E9FA` | `bg-canvas-artifactIconBg` |
 | `artifactStage` | `#F3F2EF` | `bg-canvas-artifactStage` |
 | `connector` | `#B8B5AE` | stroke fallback (`CANVAS_CONNECTOR`) |
 | `plugFill` | `#F7F6F3` | plug SVG fill |

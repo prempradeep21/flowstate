@@ -56,7 +56,7 @@
   --canvas-border: 230 228 223;
   --canvas-ink: 44 42 38;
   --canvas-muted: 138 134 126;
-  --canvas-accent: 107 78 255;
+  --canvas-accent: 23 84 198;
   --canvas-card-shadow: 0 1px 2px rgba(20, 18, 14, 0.04),
     0 4px 16px rgba(20, 18, 14, 0.06);
   --card-bg-alpha: 0.88;
@@ -70,7 +70,7 @@ html[data-theme="dark"] {
   --canvas-border: 52 50 45;
   --canvas-ink: 236 234 227;
   --canvas-muted: 168 162 154;
-  --canvas-accent: 142 120 255;
+  --canvas-accent: 85 136 231;
   --canvas-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.5);
   --card-bg-alpha: 0.9;

@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
 import { useAuth } from "@/components/AuthProvider";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
-import { HomeButton } from "@/components/home/HomeButton";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
@@ -62,8 +61,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
             data-coach-target="left-sidebar-entry"
             className="flex min-w-0 items-center gap-2"
           >
-            {onGoHome && <HomeButton onClick={onGoHome} />}
-            <FlowstateBrand compact />
+            <FlowstateBrand compact onLogoClick={onGoHome} />
             <span
               className="min-w-0 max-w-[min(12rem,28vw)] truncate text-canvas-body-sm font-medium text-canvas-ink"
               title={activeCanvasTitle}
@@ -90,8 +88,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
               className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3"
             >
               <div className="flex min-w-0 items-center gap-1">
-                {onGoHome && <HomeButton onClick={onGoHome} />}
-                <FlowstateBrand />
+                <FlowstateBrand onLogoClick={onGoHome} />
               </div>
               <button
                 type="button"

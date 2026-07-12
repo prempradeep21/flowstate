@@ -69,7 +69,7 @@ export function CanvasPencilPopover({
           disabled={disabled}
           onClick={onToggle}
           className={`flex w-full items-center gap-2 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm font-medium transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40 ${
-            active ? "bg-canvas-bg text-canvas-ink" : "text-canvas-ink"
+            active ? "bg-canvas-accentSoft text-canvas-accent" : "text-canvas-ink"
           }`}
         >
           <PencilIcon />

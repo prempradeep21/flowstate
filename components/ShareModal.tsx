@@ -306,7 +306,7 @@ function ShareMemberRow({
             className="h-8 w-8 rounded-full object-cover"
           />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-body font-semibold text-white">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-body font-semibold text-canvas-onAccent">
             {label.charAt(0).toUpperCase()}
           </span>
         )}

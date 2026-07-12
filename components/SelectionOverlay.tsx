@@ -10,7 +10,7 @@ export function SelectionOverlay({ rect }: SelectionOverlayProps) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-30 border-2 border-dashed border-canvas-ink/40 bg-canvas-ink/5"
+      className="pointer-events-none fixed z-30 border-2 border-dashed border-canvas-accent/50 bg-canvas-accent/5"
       style={{
         left: rect.x,
         top: rect.y,

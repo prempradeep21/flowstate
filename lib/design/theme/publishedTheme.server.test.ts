@@ -181,7 +181,7 @@ describe("updatePublishedTheme", () => {
 
   it("never touches the built-in Flowstate preset", () => {
     const flowstate = getThemePreset("flowstate");
-    expect(flowstate.primary).toBe("#6B4EFF");
+    expect(flowstate.primary).toBe("#1754C6");
     expect(flowstate.name).toBe("Flowstate");
   });
 });

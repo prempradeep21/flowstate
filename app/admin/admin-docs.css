@@ -266,7 +266,7 @@
   bottom: 0.375rem;
   width: 2px;
   border-radius: 999px;
-  background: var(--canvas-accent, #6b4eff);
+  background: var(--canvas-accent, #1754c6);
   animation: admin-rail-in 0.2s ease both;
 }
 
@@ -312,9 +312,9 @@
 }
 
 .idea-status-prototype {
-  border: 1px solid color-mix(in srgb, var(--canvas-accent, #6b4eff) 30%, transparent);
-  background: color-mix(in srgb, var(--canvas-accent, #6b4eff) 10%, transparent);
-  color: var(--canvas-accent, #6b4eff);
+  border: 1px solid color-mix(in srgb, var(--canvas-accent, #1754c6) 30%, transparent);
+  background: color-mix(in srgb, var(--canvas-accent, #1754c6) 10%, transparent);
+  color: var(--canvas-accent, #1754c6);
 }
 
 .idea-status-shipped {

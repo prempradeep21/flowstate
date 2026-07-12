@@ -217,7 +217,7 @@ export function CardQaMenu({
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className={`flex h-8 w-8 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
-          open ? "bg-canvas-bg text-canvas-ink" : ""
+          open ? "bg-canvas-accentSoft text-canvas-accent" : ""
         }`}
       >
         <DotsIcon />

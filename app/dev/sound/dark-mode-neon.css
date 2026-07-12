@@ -1,0 +1,262 @@
+/*
+ * Dark Mode Neon Color System for Sound Panel
+ * Vibrant, saturated phosphorescent accents optimized for dark backgrounds
+ * Uses Tailwind's dark: modifier with shadow-based glowing effects
+ */
+
+/* ============================================================================
+ * CATEGORY-SPECIFIC NEON GLOWS
+ * Each category has a distinct color with multi-layer glow effect
+ * ============================================================================ */
+
+/* CANVAS (Interactions) - Electric Cyan */
+.category-canvas {
+  --neon-primary: rgb(34, 211, 238); /* cyan-300 */
+  --neon-glow: rgba(6, 182, 212, 0.4); /* cyan-500 with transparency */
+  --neon-text: rgb(165, 243, 252); /* cyan-200 */
+  --neon-bg-base: rgba(6, 182, 212, 0.3); /* cyan-500/30 */
+}
+
+/* BRANCH (Operations) - Magenta/Fuchsia */
+.category-branch {
+  --neon-primary: rgb(240, 163, 255); /* fuchsia-300 */
+  --neon-glow: rgba(217, 70, 239, 0.4); /* fuchsia-500 with transparency */
+  --neon-text: rgb(245, 208, 254); /* fuchsia-200 */
+  --neon-bg-base: rgba(217, 70, 239, 0.3); /* fuchsia-500/30 */
+}
+
+/* ARTIFACT (Content) - Neon Lime */
+.category-artifact {
+  --neon-primary: rgb(190, 242, 100); /* lime-300 */
+  --neon-glow: rgba(132, 204, 22, 0.4); /* lime-500 with transparency */
+  --neon-text: rgb(217, 249, 157); /* lime-200 */
+  --neon-bg-base: rgba(132, 204, 22, 0.3); /* lime-500/30 */
+}
+
+/* AGENT (Feedback) - Emerald/Aqua */
+.category-agent {
+  --neon-primary: rgb(167, 243, 208); /* emerald-300 */
+  --neon-glow: rgba(16, 185, 129, 0.4); /* emerald-500 with transparency */
+  --neon-text: rgb(209, 250, 229); /* emerald-200 */
+  --neon-bg-base: rgba(16, 185, 129, 0.3); /* emerald-500/30 */
+}
+
+/* HISTORY (Undo/Redo) - Neon Orange */
+.category-history {
+  --neon-primary: rgb(253, 186, 116); /* orange-300 */
+  --neon-glow: rgba(249, 115, 22, 0.4); /* orange-500 with transparency */
+  --neon-text: rgb(254, 215, 170); /* orange-200 */
+  --neon-bg-base: rgba(249, 115, 22, 0.3); /* orange-500/30 */
+}
+
+/* ============================================================================
+ * WAVEFORM VISUALIZER ENHANCEMENT
+ * Two-layer neon glow for phosphorescent depth
+ * ============================================================================ */
+
+.waveform-canvas {
+  /* Primary bright cyan with glow */
+  --wave-primary: rgba(34, 211, 238, 0.95); /* cyan-300 bright */
+  /* Secondary phosphorescent layer */
+  --wave-glow: rgba(6, 182, 212, 0.35); /* cyan-500 softer glow */
+  /* Idle state subtle baseline */
+  --wave-idle: rgba(100, 116, 139, 0.2); /* slate-400 muted */
+}
+
+/* ============================================================================
+ * GLOW UTILITIES - Apply to any element for neon effect
+ * ============================================================================ */
+
+/* Small glow (for text, badges) */
+.glow-sm {
+  filter: drop-shadow(0 0 3px var(--neon-glow));
+}
+
+/* Medium glow (for buttons, pills) */
+.glow-md {
+  box-shadow: 0 0 8px var(--neon-glow), 0 0 16px var(--neon-glow, rgba(0, 0, 0, 0.15));
+}
+
+/* Large glow (for sections, containers) */
+.glow-lg {
+  box-shadow: 0 0 12px var(--neon-glow), 0 0 24px var(--neon-glow, rgba(0, 0, 0, 0.15));
+}
+
+/* Extra large glow (for emphasized elements) */
+.glow-xl {
+  box-shadow:
+    0 0 8px var(--neon-glow),
+    0 0 16px var(--neon-glow),
+    0 0 32px var(--neon-glow);
+}
+
+/* ============================================================================
+ * PULSING GLOW ANIMATION - Optional enhancement
+ * Add to active/playing elements for dynamic feedback
+ * ============================================================================ */
+
+@keyframes neon-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px var(--neon-glow));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--neon-glow));
+  }
+}
+
+.glow-pulse {
+  animation: neon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================================================
+ * STATUS MESSAGE ENHANCEMENT - Dark mode emerald glow
+ * ============================================================================ */
+
+.status-message-dark {
+  --status-glow: rgba(16, 185, 129, 0.45); /* emerald-500 */
+  background-color: rgba(16, 185, 129, 0.28); /* emerald-500/28 */
+  border-color: rgba(52, 211, 153, 0.7); /* emerald-300/70 */
+  color: rgb(209, 250, 229); /* emerald-100 */
+  box-shadow: 0 0 8px var(--status-glow), 0 0 16px var(--status-glow);
+}
+
+/* ============================================================================
+ * PILL BADGE ENHANCEMENT - Saturated neon with glow
+ * ============================================================================ */
+
+.pill-neon {
+  background-color: var(--neon-bg-base);
+  color: var(--neon-text);
+  border: 1px solid var(--neon-primary);
+  border-opacity: 0.6;
+  box-shadow:
+    0 0 8px var(--neon-glow),
+    inset 0 0 8px var(--neon-glow, rgba(0, 0, 0, 0.1));
+  font-weight: 500;
+}
+
+.pill-neon:hover {
+  box-shadow:
+    0 0 12px var(--neon-glow),
+    inset 0 0 12px var(--neon-glow, rgba(0, 0, 0, 0.15));
+}
+
+/* ============================================================================
+ * BUTTON STATES - Dark mode neon variants
+ * ============================================================================ */
+
+.btn-neon {
+  background-color: var(--neon-bg-base);
+  color: var(--neon-text);
+  border: 1.5px solid var(--neon-primary);
+  border-radius: var(--canvas-radius-md);
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  transition: all 150ms ease;
+  box-shadow: 0 0 8px var(--neon-glow);
+}
+
+.btn-neon:hover {
+  background-color: rgba(var(--neon-primary), 0.15);
+  box-shadow: 0 0 16px var(--neon-glow), 0 0 32px var(--neon-glow);
+  transform: translateY(-1px);
+}
+
+.btn-neon:active {
+  background-color: rgba(var(--neon-primary), 0.2);
+  transform: translateY(0);
+}
+
+.btn-neon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ============================================================================
+ * SECTION HEADERS - Category-specific text color with glow
+ * ============================================================================ */
+
+.section-header-neon {
+  color: var(--neon-primary);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-shadow: 0 0 8px var(--neon-glow);
+}
+
+/* ============================================================================
+ * CONTAINER GLOWS - Apply to section/card backgrounds
+ * ============================================================================ */
+
+.container-glow-light {
+  box-shadow: inset 0 0 0 1px var(--neon-primary), 0 0 12px var(--neon-glow);
+}
+
+.container-glow-medium {
+  box-shadow: inset 0 0 0 2px var(--neon-primary), 0 0 16px var(--neon-glow);
+}
+
+.container-glow-heavy {
+  box-shadow:
+    inset 0 0 0 2px var(--neon-primary),
+    0 0 12px var(--neon-glow),
+    0 0 24px var(--neon-glow);
+}
+
+/* ============================================================================
+ * DARK MODE OVERRIDES - Ensure dark theme colors always apply
+ * ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  .waveform-canvas {
+    /* Force dark mode rendering */
+    background-color: rgb(24, 23, 21); /* canvas-bg dark */
+    border-color: rgb(52, 50, 45); /* canvas-border dark */
+  }
+
+  .category-section {
+    /* Dark mode gradient ensures vibrant neon stands out */
+    background: linear-gradient(
+      135deg,
+      var(--neon-bg-base) 0%,
+      rgba(15, 15, 14, 0.4) 50%,
+      rgba(15, 15, 14, 0.6) 100%
+    );
+  }
+
+  .status-message-dark {
+    /* Ensure visibility in dark mode */
+    min-color-contrast: yes;
+  }
+}
+
+/* ============================================================================
+ * PRINT STYLES - Ensure accessibility when printed
+ * ============================================================================ */
+
+@media print {
+  .glow-sm,
+  .glow-md,
+  .glow-lg,
+  .glow-xl {
+    filter: none;
+    box-shadow: none;
+  }
+
+  .neon-pulse {
+    animation: none;
+  }
+}
+
+/* ============================================================================
+ * REDUCED MOTION - Respect user accessibility preferences
+ * ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-pulse,
+  .btn-neon {
+    animation: none;
+    transition: none;
+  }
+}

@@ -21,10 +21,11 @@ export function HomeHeader({
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
 
   return (
-    <header className="mb-10 flex items-center justify-between gap-4">
-      <FlowstateBrand />
+    <header className="sticky top-0 z-20 border-b border-canvas-border bg-canvas-card shadow-card">
+      <div className="mx-auto flex w-full max-w-[86rem] items-center justify-between gap-4 px-6 py-3 sm:px-8">
+        <FlowstateBrand />
 
-      <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={onToggleTheme}
@@ -63,7 +64,7 @@ export function HomeHeader({
                     className="h-8 w-8 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-compact font-semibold text-white">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas-accent text-canvas-compact font-semibold text-canvas-onAccent">
                     {name.charAt(0).toUpperCase()}
                   </span>
                 )}
@@ -87,7 +88,8 @@ export function HomeHeader({
             >
               Sign in
             </button>
-          ))}
+            ))}
+        </div>
       </div>
     </header>
   );
