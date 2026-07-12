@@ -175,6 +175,8 @@ async function geocodeSavedPlaces(
       typeof o.id === "string" && o.id.trim() ? o.id.trim() : newSavedPlaceId();
     const type =
       typeof o.type === "string" && o.type.trim() ? o.type.trim() : undefined;
+    const group =
+      typeof o.group === "string" && o.group.trim() ? o.group.trim() : undefined;
     const name = typeof o.name === "string" ? o.name.trim() : "";
     const label = typeof o.label === "string" ? o.label.trim() : "";
     const displayLabel = label || name;
@@ -190,7 +192,14 @@ async function geocodeSavedPlaces(
       Number.isFinite(existingLng) &&
       displayLabel
     ) {
-      out.push({ id, label: displayLabel, lat: existingLat, lng: existingLng, type });
+      out.push({
+        id,
+        label: displayLabel,
+        lat: existingLat,
+        lng: existingLng,
+        type,
+        group,
+      });
       continue;
     }
 
@@ -214,6 +223,7 @@ async function geocodeSavedPlaces(
       lat,
       lng,
       type: type ?? hit.type,
+      group,
     });
   }
 
@@ -241,10 +251,15 @@ export async function geocodeMapArtifact(
   };
 
   const savedPlaces = await geocodeSavedPlaces(data, query);
+  const mapStyle =
+    typeof data.mapStyle === "string" && data.mapStyle.trim()
+      ? data.mapStyle.trim()
+      : undefined;
 
   return {
     place,
     zoom: zoomFromNominatim(hit.type, hit.class),
     savedPlaces,
+    mapStyle,
   };
 }

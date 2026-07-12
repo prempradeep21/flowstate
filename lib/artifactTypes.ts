@@ -169,12 +169,20 @@ export interface MapSavedPlace {
   lat: number;
   lng: number;
   type?: string;
+  /**
+   * Optional grouping key. Pins sharing a `group` (a batch created together
+   * for one reason) are tinted the same colour; otherwise pins are coloured by
+   * `type`, falling back to a per-pin colour.
+   */
+  group?: string;
 }
 
 export interface MapArtifactData {
   place: MapPlace;
   zoom: number;
   savedPlaces?: MapSavedPlace[];
+  /** Basemap style id (see MAP_STYLES in MapArtifactContent). Omitted = default. */
+  mapStyle?: string;
 }
 
 export interface StreetViewArtifactData {
