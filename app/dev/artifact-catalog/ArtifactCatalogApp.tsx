@@ -1,15 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@/components/Canvas";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
+import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import {
   ARTIFACT_CATALOG_ENTRIES,
   CATALOG_SECTIONS,
   type ArtifactCatalogCategory,
 } from "@/lib/artifactCatalogSamples";
+import {
+  ARTIFACT_STYLE_PACKS,
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type { ArtifactStyleId } from "@/lib/design/style/types";
 import { useArtifactCatalogCanvas } from "./useArtifactCatalogCanvas";
+
+/** Viewer-local persistence — read nowhere else, so packs can't leak. */
+const STYLE_STORAGE_KEY = "flowstate.artifactStyle.viewer";
 
 function CategoryTab({
   active,
@@ -41,6 +51,31 @@ function CategoryTab({
       >
         {count}
       </span>
+    </button>
+  );
+}
+
+function StyleTab({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-left transition-colors ${
+        active
+          ? "border-canvas-accent/40 bg-canvas-accent text-white shadow-card"
+          : "border-canvas-border/80 bg-canvas-card/90 text-canvas-ink hover:border-canvas-accent/30 hover:bg-canvas-card"
+      }`}
+    >
+      <span className="font-display text-sm font-medium">{label}</span>
     </button>
   );
 }
@@ -83,7 +118,20 @@ export function ArtifactCatalogApp({
   const [activeCategory, setActiveCategory] = useState<ArtifactCatalogCategory>(
     CATALOG_SECTIONS[0]?.id ?? "flowstate",
   );
+  const [styleId, setStyleId] = useState<ArtifactStyleId>(
+    DEFAULT_ARTIFACT_STYLE_ID,
+  );
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STYLE_STORAGE_KEY);
+    if (stored) setStyleId(getArtifactStylePack(stored).id);
+  }, []);
+
+  const selectStyle = (id: ArtifactStyleId) => {
+    setStyleId(id);
+    window.localStorage.setItem(STYLE_STORAGE_KEY, id);
+  };
 
   useArtifactCatalogCanvas(activeCategory, canvasContainerRef, isLoaded);
 
@@ -116,7 +164,7 @@ export function ArtifactCatalogApp({
             ) : null}
             <nav
               aria-label="Artifact categories"
-              className={`flex gap-2 overflow-x-auto pb-0.5 ${embedded ? "w-full" : ""}`}
+              className={`flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5 ${embedded ? "w-full" : ""}`}
             >
               {sectionCounts.map((section) => (
                 <CategoryTab
@@ -128,13 +176,31 @@ export function ArtifactCatalogApp({
                 />
               ))}
             </nav>
+            <nav
+              aria-label="Artifact style"
+              className="flex shrink-0 items-center gap-2 border-canvas-border/60 pl-0 sm:border-l sm:pl-3"
+            >
+              <span className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+                Style
+              </span>
+              {ARTIFACT_STYLE_PACKS.map((pack) => (
+                <StyleTab
+                  key={pack.id}
+                  active={styleId === pack.id}
+                  label={pack.name}
+                  onClick={() => selectStyle(pack.id)}
+                />
+              ))}
+            </nav>
           </div>
         </div>
       </div>
 
-      <div className="relative h-full w-full">
-        <Canvas containerRef={canvasContainerRef} />
-      </div>
+      <ArtifactStyleScope styleId={styleId}>
+        <div className="relative h-full w-full">
+          <Canvas containerRef={canvasContainerRef} />
+        </div>
+      </ArtifactStyleScope>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
         <CanvasBottomToolbar />

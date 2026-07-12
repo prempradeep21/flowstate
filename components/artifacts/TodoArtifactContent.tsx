@@ -74,7 +74,7 @@ function TodoCheckbox({
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`group relative mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] border-2 transition-all duration-200 ease-out ${
+      className={`artifact-todo-checkbox group relative mt-1 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] border-2 transition-all duration-200 ease-out ${
         checked
           ? "border-canvas-accent bg-canvas-accent"
           : TODO_CHECKBOX_UNCHECKED
@@ -158,7 +158,7 @@ function TodoRow({
               )}
               {item.priority && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-canvas-micro font-medium uppercase tracking-wide ${PRIORITY_STYLES[item.priority]}`}
+                  className={`artifact-pill rounded-full px-2 py-0.5 text-canvas-micro font-medium uppercase tracking-wide ${PRIORITY_STYLES[item.priority]}`}
                 >
                   {item.priority}
                 </span>

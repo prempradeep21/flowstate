@@ -173,10 +173,11 @@ export function ArtifactPanelHeader({
 
   return (
     <div
-      className={`flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+      className={`artifact-panel-header flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+      data-artifact-kind={isVideo ? "video" : kind}
     >
       <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
+        className="artifact-header-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)

@@ -320,9 +320,9 @@ export function CalendarArtifactContent({
                         data-no-drag
                         disabled={!iso || !editable}
                         onClick={() => iso && handleDayClick(iso)}
-                        className={`relative min-h-[52px] border-r border-canvas-border/20 p-1.5 text-left transition-colors last:border-r-0 ${
+                        className={`artifact-cal-cell relative min-h-[52px] border-r border-canvas-border/20 p-1.5 text-left transition-colors last:border-r-0 ${
                           cell.inMonth ? "bg-canvas-card" : "bg-canvas-bg/40"
-                        } ${inSelection ? "bg-canvas-ink/5" : ""} ${
+                        } ${inSelection ? "artifact-cal-cell--selected bg-canvas-ink/5" : ""} ${
                           editable && iso
                             ? "cursor-pointer hover:bg-canvas-border/20"
                             : "cursor-default"
@@ -330,13 +330,13 @@ export function CalendarArtifactContent({
                       >
                         {cell.day !== null && (
                           <span
-                            className={`inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full text-canvas-caption tabular-nums ${
+                            className={`artifact-cal-day inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full text-canvas-caption tabular-nums ${
                               isHighlighted
-                                ? "font-semibold text-canvas-ink ring-1 ring-canvas-ink"
+                                ? "artifact-cal-day--highlighted font-semibold text-canvas-ink ring-1 ring-canvas-ink"
                                 : cell.inMonth
                                   ? "text-canvas-ink"
                                   : "text-canvas-muted/50"
-                            }`}
+                            } ${isToday ? "artifact-cal-day--today" : ""}`}
                           >
                             {isToday && (
                               <span

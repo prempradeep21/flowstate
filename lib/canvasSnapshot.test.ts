@@ -27,6 +27,22 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
+  it("defaults canvasArtifactStyle to vanilla for legacy snapshots", () => {
+    const snapshot = normalizeCanvasSnapshot({ version: 1 });
+    expect(snapshot.canvasArtifactStyle).toBe("vanilla");
+  });
+
+  it("preserves a registered canvasArtifactStyle and drops unknown ones", () => {
+    expect(
+      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "neo" })
+        .canvasArtifactStyle,
+    ).toBe("neo");
+    expect(
+      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "bogus" })
+        .canvasArtifactStyle,
+    ).toBe("vanilla");
+  });
+
   it("preserves valid canvasBackgroundStyle values", () => {
     const snapshot = normalizeCanvasSnapshot({
       version: 1,

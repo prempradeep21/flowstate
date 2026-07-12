@@ -447,7 +447,9 @@ export function CanvasArtifactNode({ node }: CanvasArtifactNodeProps) {
       {...(isPermissionPreview ? { "data-permission-preview": "" } : {})}
       {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
       {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
+      {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
+      data-artifact-kind={art?.kind ?? preview?.kind}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

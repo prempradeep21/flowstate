@@ -46,6 +46,11 @@ import {
 } from "@/lib/canvasLayout";
 import { DEFAULT_BODY_FONT_ID } from "@/lib/canvasFonts/registry";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
+import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type { ArtifactStyleId } from "@/lib/design/style/types";
 import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
 import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
@@ -734,6 +739,8 @@ interface CanvasState {
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasBackgroundImageId: string;
   canvasTheme: CanvasTheme;
+  /** Artifact style pack applied to this canvas (structural look). */
+  canvasArtifactStyle: ArtifactStyleId;
   /** UI sound effects enabled for this session. */
   soundEnabled: boolean;
   /** Master UI sound volume (0..1). */
@@ -1100,6 +1107,7 @@ interface CanvasState {
   setCanvasBackgroundImageId: (id: string) => void;
   cycleCanvasBackgroundImage: (delta: -1 | 1) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
+  setCanvasArtifactStyle: (styleId: ArtifactStyleId) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSoundVolume: (volume: number) => void;
   setCanvasPreviewBodyFontId: (id: string) => void;
@@ -2255,6 +2263,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasBackgroundStyle: "grid",
   canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "dark",
+  canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
   soundEnabled: true,
   soundVolume: 0.7,
   canvasPreviewBodyFontId: DEFAULT_BODY_FONT_ID,
@@ -3269,6 +3278,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ),
       collaborationHasEdits: true,
     })),
+
+  setCanvasArtifactStyle: (styleId) =>
+    set({
+      canvasArtifactStyle: getArtifactStylePack(styleId).id,
+      collaborationHasEdits: true,
+    }),
 
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
 
@@ -5404,6 +5419,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasBackgroundStyle: state.canvasBackgroundStyle,
       canvasBackgroundImageId: state.canvasBackgroundImageId,
       canvasTheme: state.canvasTheme,
+      canvasArtifactStyle: state.canvasArtifactStyle,
       selectedModel: state.selectedModel,
       viewMode: state.viewMode,
       sessionArtifacts: state.sessionArtifacts,
@@ -5588,6 +5604,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,
         canvasBackgroundImageId: snapshotNorm.canvasBackgroundImageId,
         canvasTheme: snapshotNorm.canvasTheme,
+        canvasArtifactStyle: getArtifactStylePack(
+          snapshotNorm.canvasArtifactStyle ?? DEFAULT_ARTIFACT_STYLE_ID,
+        ).id,
         selectedModel: snapshotNorm.selectedModel,
         viewMode: snapshotNorm.viewMode,
         sessionArtifacts: repaired.sessionArtifacts,

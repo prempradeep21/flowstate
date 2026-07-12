@@ -1,0 +1,147 @@
+/**
+ * Artifact style packs — structural rules.
+ *
+ * Every selector is prefixed with [data-artifact-style="<pack>"], so nothing
+ * here applies unless a subtree opts in via <ArtifactStyleScope>. The pack's
+ * CSS variables (--canvas-artifact-*) are injected by the scope component
+ * (see lib/design/style/resolveArtifactStyle.ts); this file only consumes
+ * them. Vanilla has no block — it is the absence of a scope.
+ *
+ * !important is deliberate on contested properties: vanilla's chrome is
+ * hover-revealed via Tailwind group-variants whose selectors out-rank a
+ * two-class scope selector, and the resting container fill is forced
+ * transparent with !important in globals.css. The overrides stay contained
+ * to the scoped subtree.
+ */
+
+/* ---------------------------------------------------------------------- */
+/* Neo — landing-page language: ink wire, solid chin, cream card, cobalt. */
+/* ---------------------------------------------------------------------- */
+
+/* Casing: always-on stroke + ambient shadow + solid no-blur chin. */
+[data-artifact-style="neo"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-chin-shadow) !important;
+}
+
+/* Solid card fill at rest. Specificity must beat globals.css's
+   `.group\/artifact:not(...)x3 .artifact-canvas-container-fill` transparent
+   !important rule — hence the attribute-stacked selector. */
+[data-artifact-style="neo"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+
+/* Selected: accent stroke, soft focus ring, accent chin (replaces the
+   Tailwind ring, which is box-shadow based, in a single declaration). */
+[data-artifact-style="neo"] [data-canvas-artifact][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent)) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+
+/* Naked kinds (images, embeds, street view, 3d, sticky notes…) keep their
+   own surface — no wire, no chin. Placed after the selected rule so naked
+   artifacts stay naked even while selected. */
+[data-artifact-style="neo"] [data-canvas-artifact][data-naked-artifact] .artifact-casing {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Inner surface fill follows the pack's card tone. */
+[data-artifact-style="neo"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+}
+
+/* Header: translucent top bar with an ink rule, landing-style. */
+[data-artifact-style="neo"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* Lowercase kind label, pinned right; fades out when hover chrome (version /
+   menu controls) needs the same corner. */
+[data-artifact-style="neo"] .artifact-panel-header::after {
+  content: attr(data-artifact-kind);
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: rgb(var(--canvas-accent));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="neo"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="neo"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="neo"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: cobalt wash instead of ink wash. */
+[data-artifact-style="neo"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-accent) / 0.1) !important;
+}
+
+/* Highlighted dates: soft cobalt rounded square (landing "cal-on"). The
+   Tailwind ring (box-shadow) is replaced by a crisp accent inset stroke. */
+[data-artifact-style="neo"] .artifact-cal-day--highlighted {
+  border-radius: 7px;
+  background-color: rgb(var(--canvas-accent) / 0.14);
+  color: rgb(var(--canvas-accent-deep));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-accent) / 0.55) !important;
+}
+
+/* Today: solid cobalt day chip (landing "cal-hot"). */
+[data-artifact-style="neo"] .artifact-cal-day--today {
+  border-radius: 7px;
+  background-color: rgb(var(--canvas-accent));
+  color: #fff;
+}
+[data-artifact-style="neo"] .artifact-cal-day--today > span {
+  background-color: #fff !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="neo"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 4px !important;
+}
+[data-artifact-style="neo"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neo"] .artifact-todo-checkbox[aria-checked="true"] {
+  border-color: rgb(var(--canvas-accent-deep)) !important;
+}
+
+/* Stroked pills (todo priority tags etc.) — replaces the Tailwind ring. */
+[data-artifact-style="neo"] .artifact-pill {
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Ink rules instead of per-instance accent rules. !important also overrides
+   the inline `borderColor: var(--table-accent-border)` on the header row. */
+[data-artifact-style="neo"] table thead tr {
+  border-bottom-width: 1px;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.25) !important;
+}
+[data-artifact-style="neo"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.12) !important;
+}
