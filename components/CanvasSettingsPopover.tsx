@@ -13,6 +13,7 @@ import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
+import { ARTIFACT_STYLE_PACKS } from "@/lib/design/style/stylePacks";
 import {
   CANVAS_STATIC_BACKGROUND_IMAGES,
   getCanvasBackgroundImageById,
@@ -49,6 +50,10 @@ export function CanvasSettingsPopover({
   );
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
   const setCanvasTheme = useCanvasStore((s) => s.setCanvasTheme);
+  const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
+  const setCanvasArtifactStyle = useCanvasStore(
+    (s) => s.setCanvasArtifactStyle,
+  );
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
   const canvasBackgroundImageId = useCanvasStore((s) => s.canvasBackgroundImageId);
   const setCanvasBackgroundStyle = useCanvasStore(
@@ -147,6 +152,69 @@ export function CanvasSettingsPopover({
               <div className="px-2 py-1.5">
                 <span className="text-canvas-compact font-medium text-canvas-ink">
                   {option.label}
+                </span>
+              </div>
+              {selected && (
+                <span
+                  className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-canvas-ink text-canvas-micro text-canvas-card"
+                  aria-hidden
+                >
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
+        Styles
+      </h3>
+      <div className="grid grid-cols-2 gap-2">
+        {ARTIFACT_STYLE_PACKS.map((pack) => {
+          const selected = canvasArtifactStyle === pack.id;
+          const tokens = pack.light;
+          const accent = pack.accent ?? "rgb(var(--canvas-accent))";
+          return (
+            <button
+              key={pack.id}
+              type="button"
+              aria-pressed={selected}
+              title={pack.description}
+              onClick={() => setCanvasArtifactStyle(pack.id)}
+              className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
+                selected
+                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  : "border-canvas-border hover:border-canvas-muted"
+              }`}
+            >
+              <div className="flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5">
+                <span
+                  className="flex h-8 w-full items-center gap-1.5 px-1.5"
+                  style={{
+                    backgroundColor: tokens.cardFill,
+                    border: `${pack.strokeWidth} solid ${tokens.stroke}`,
+                    borderRadius: pack.radius,
+                    boxShadow:
+                      tokens.chinShadow === "none"
+                        ? undefined
+                        : tokens.chinShadow,
+                  }}
+                  aria-hidden
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: accent }}
+                  />
+                  <span
+                    className="h-1 flex-1 rounded-full"
+                    style={{ backgroundColor: tokens.stroke, opacity: 0.25 }}
+                  />
+                </span>
+              </div>
+              <div className="px-2 py-1.5">
+                <span className="text-canvas-compact font-medium text-canvas-ink">
+                  {pack.name}
                 </span>
               </div>
               {selected && (

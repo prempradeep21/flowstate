@@ -3,6 +3,11 @@ import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { isKnownModel } from "@/lib/models";
 import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type { ArtifactStyleId } from "@/lib/design/style/types";
+import {
   DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   normalizeCanvasBackgroundImageId,
 } from "@/lib/canvasBackgroundImages";
@@ -46,6 +51,7 @@ export interface CanvasSnapshot {
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
+  canvasArtifactStyle?: ArtifactStyleId;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -81,6 +87,7 @@ export interface CanvasSnapshotSource {
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
+  canvasArtifactStyle?: ArtifactStyleId;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -184,6 +191,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     canvasBackgroundStyle: source.canvasBackgroundStyle,
     canvasBackgroundImageId: source.canvasBackgroundImageId,
     canvasTheme: source.canvasTheme,
+    canvasArtifactStyle: normalizeArtifactStyleId(source.canvasArtifactStyle),
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
     sessionArtifacts,
@@ -358,6 +366,7 @@ export function mergeCanvasSnapshots(
     collaborationHasEdits:
       remote.collaborationHasEdits || local.collaborationHasEdits,
     connectorStyle: local.connectorStyle,
+    canvasArtifactStyle: local.canvasArtifactStyle,
     canvasBackgroundStyle: local.canvasBackgroundStyle,
     canvasBackgroundImageId: local.canvasBackgroundImageId,
     canvasTheme: local.canvasTheme,
@@ -382,6 +391,7 @@ export function buildEmptyCanvasSnapshot(
     canvasBackgroundStyle: "grid",
     canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: "dark",
+    canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
@@ -420,6 +430,13 @@ function normalizeCanvasBackgroundStyle(
     VALID_BACKGROUND_STYLES.has(raw as CanvasBackgroundStyle)
     ? (raw as CanvasBackgroundStyle)
     : fallback;
+}
+
+/** Validate a persisted style id against the registry; fall back to vanilla. */
+function normalizeArtifactStyleId(raw: unknown): ArtifactStyleId {
+  return typeof raw === "string"
+    ? getArtifactStylePack(raw).id
+    : DEFAULT_ARTIFACT_STYLE_ID;
 }
 
 const VALID_THEMES = new Set<CanvasTheme>(["light", "dark"]);
@@ -537,6 +554,7 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       base.canvasBackgroundImageId,
     ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
+    canvasArtifactStyle: normalizeArtifactStyleId(snapshot.canvasArtifactStyle),
     selectedModel:
       snapshot.selectedModel && isKnownModel(snapshot.selectedModel)
         ? snapshot.selectedModel

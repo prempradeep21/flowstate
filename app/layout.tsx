@@ -8,6 +8,7 @@ import { resolveTheme } from "@/lib/design/theme/resolveTheme";
 import { denton } from "@/lib/fonts/denton";
 import { satoshi } from "@/lib/fonts/satoshi";
 import "./globals.css";
+import "./styles/artifact-styles.css";
 
 const parkinsans = Parkinsans({
   subsets: ["latin"],

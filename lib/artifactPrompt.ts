@@ -51,12 +51,14 @@ Video data shape:
 
 Map data shape (required when type is "map"):
 - data.place.name: string — a geocodable place name, e.g. "Paris, France" or "California, USA". Include country or state when ambiguous.
-- data.savedPlaces: optional array of pins to drop on the map. Each { name, label?, type? } where:
+- data.savedPlaces: optional array of pins to drop on the map. Each { name, label?, type?, group? } where:
   - name: a specific geocodable location the server will resolve to coordinates, e.g. "The British Museum, London" or "Eiffel Tower, Paris". Include the city/country for accuracy. Do NOT invent lat/lng — the server geocodes name for you.
   - label: optional short display name shown on the pin (defaults to name)
-  - type: optional category like "museum", "park", "landmark"
+  - type: optional category like "museum", "park", "landmark". Pins sharing a type are tinted the same colour.
+  - group: optional short key that ties a batch of pins created together for one reason (e.g. "day-1", "coffee-tour"). Pins sharing a group are tinted the same colour and it overrides type for colouring — use it when several pins belong together regardless of their individual types.
   - When the user asks to add landmarks/places as pins/markers, populate this array — one entry per place.
   - When editing an existing map, preserve pins already present (keep their id, lat, lng) and append any new ones.
+- data.mapStyle: optional basemap style id. Omit (or "standard") for the default street map; "landscape" for a soft terrain/landscape basemap. Preserve the existing value when editing unless the user asks to change the map style.
 
 Street View data shape (required when type is "streetview"):
 - data.place.name: string — a geocodable specific venue, e.g. "South Kensington station, London" or "Eiffel Tower, Paris"
