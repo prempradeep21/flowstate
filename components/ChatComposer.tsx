@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
+import { ComposerModelPicker } from "@/components/ComposerModelPicker";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
 import { SendIconButton } from "@/components/SendIconButton";
@@ -635,6 +636,10 @@ export function ChatComposer({
                 document.body,
               )}
           </div>
+
+          <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+
+          <ComposerModelPicker disabled={disabled} />
 
           <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
 
