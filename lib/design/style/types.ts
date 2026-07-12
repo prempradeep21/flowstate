@@ -26,6 +26,22 @@ export interface ArtifactStyleSurfaceTokens {
   headerBg: string;
   /** Header bottom rule (literal CSS border shorthand). */
   headerRule: string;
+  /**
+   * Canvas backdrop override (hex — emitted as RGB channels on --canvas-bg
+   * and --canvas-artifact-stage inside the scope). null = inherit the theme
+   * backdrop; this is the disabled state for packs that don't recolor the
+   * canvas.
+   */
+  canvasBg: string | null;
+  /**
+   * Canvas grid dot recolor (hex — emitted as RGB channels on --canvas-dot
+   * inside the scope). The grid keeps drawing its own zoom-scaled dots, so
+   * the pattern stays crisp at every viewport scale. null = inherit.
+   */
+  canvasDot: string | null;
+  /** Offset block shadow, zero blur (literal box-shadow layer). "none"
+   * disables. */
+  hardShadow: string;
 }
 
 export interface ArtifactStylePreset {
@@ -56,6 +72,13 @@ export interface ArtifactStylePreset {
   selectedRing: string;
   /** Selected-state chin (literal box-shadow layer; may reference vars). */
   selectedChin: string;
+  /** Resting card rotation (CSS angle). "0deg" disables. */
+  tilt: string;
+  /** Hover translate offsets ("x, y" — consumed via translate(var(--…))).
+   * "0px, 0px" disables. */
+  hoverLift: string;
+  /** Active/press translate offsets ("x, y"). "0px, 0px" disables. */
+  pressPush: string;
   light: ArtifactStyleSurfaceTokens;
   dark: ArtifactStyleSurfaceTokens;
 }

@@ -196,9 +196,11 @@ export function CanvasSettingsPopover({
                     border: `${pack.strokeWidth} solid ${tokens.stroke}`,
                     borderRadius: pack.radius,
                     boxShadow:
-                      tokens.chinShadow === "none"
-                        ? undefined
-                        : tokens.chinShadow,
+                      tokens.hardShadow !== "none"
+                        ? tokens.hardShadow
+                        : tokens.chinShadow === "none"
+                          ? undefined
+                          : tokens.chinShadow,
                   }}
                   aria-hidden
                 >

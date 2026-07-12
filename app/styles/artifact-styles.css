@@ -145,3 +145,173 @@
 [data-artifact-style="neo"] .table-artifact-row {
   border-color: rgb(var(--canvas-artifact-stroke) / 0.12) !important;
 }
+
+/* ---------------------------------------------------------------------- */
+/* Neobrutalism ("Brut") — thick ink borders, hard zero-blur offset        */
+/* shadows, flat opaque fills, sticker headers, tilted cards, acid canvas. */
+/* ---------------------------------------------------------------------- */
+
+/* Canvas backdrop: the pack re-declares --canvas-bg and --canvas-dot
+   (resolver), and GridBackground resolves both inside the scope — the grid
+   keeps drawing its own zoom-scaled dots, so no pattern override here. */
+
+/* Casing: bold border + THE hard shadow + resting tilt. Even-numbered nodes
+   tilt the other way for a scattered-sticker canvas. */
+[data-artifact-style="neobrutalism"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+  transform: rotate(var(--canvas-artifact-tilt));
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact]:nth-of-type(even)
+  .artifact-casing {
+  transform: rotate(calc(var(--canvas-artifact-tilt) * -1));
+}
+
+/* Physical feedback: hover lifts against the shadow, press pushes into it. */
+[data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-casing {
+  transform: translate(var(--canvas-artifact-hover-lift))
+    rotate(var(--canvas-artifact-tilt));
+}
+[data-artifact-style="neobrutalism"] .group\/artifact:active .artifact-casing {
+  transform: translate(var(--canvas-artifact-press-push)) rotate(0deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="neobrutalism"] .artifact-casing,
+  [data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-casing,
+  [data-artifact-style="neobrutalism"] .group\/artifact:active .artifact-casing {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Solid opaque card fill at rest (see the neo block for the specificity
+   rationale — same contested transparent !important rule in globals.css). */
+[data-artifact-style="neobrutalism"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+
+/* Selected: accent outline ring + the shadow flips to the deep accent. */
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact][data-selected]
+  .artifact-casing {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  box-shadow: var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+
+/* Naked kinds keep their own surface — no border, no shadow, no tilt. */
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact][data-naked-artifact]
+  .artifact-casing {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  transform: none;
+}
+
+/* Inner surface fill follows the pack's card tone. */
+[data-artifact-style="neobrutalism"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+}
+
+/* Header: solid sticker-yellow bar under a thick ink rule. */
+[data-artifact-style="neobrutalism"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* Kind label as a rotated sticker chip — bold, uppercase, hard mini-shadow.
+   Fades out when hover chrome needs the corner (same dance as neo). */
+[data-artifact-style="neobrutalism"] .artifact-panel-header::after {
+  content: attr(data-artifact-kind);
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(2deg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--canvas-artifact-stroke));
+  background: rgb(var(--canvas-artifact-card-fill));
+  border: 2px solid rgb(var(--canvas-artifact-stroke));
+  border-radius: 2px;
+  padding: 1px 6px;
+  box-shadow: 2px 2px 0 rgb(var(--canvas-artifact-stroke));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="neobrutalism"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="neobrutalism"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: flat sun-yellow wash — loud, not translucent-subtle. */
+[data-artifact-style="neobrutalism"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-brut-sun)) !important;
+}
+
+/* Highlighted dates: sharp ink-inset square on a sun fill. */
+[data-artifact-style="neobrutalism"] .artifact-cal-day--highlighted {
+  border-radius: 4px;
+  background-color: rgb(var(--canvas-brut-sun));
+  color: rgb(var(--canvas-artifact-stroke));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-artifact-stroke)) !important;
+}
+
+/* Today: solid accent block with an ink frame and its own tiny hard shadow. */
+[data-artifact-style="neobrutalism"] .artifact-cal-day--today {
+  border-radius: 4px;
+  background-color: rgb(var(--canvas-accent));
+  color: rgb(var(--canvas-on-accent));
+  box-shadow: inset 0 0 0 2px rgb(var(--canvas-artifact-stroke)),
+    2px 2px 0 rgb(var(--canvas-artifact-stroke));
+}
+[data-artifact-style="neobrutalism"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--canvas-on-accent)) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+/* Sharp square checkboxes, thick ink stroke, flat accent when checked. */
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 2px !important;
+}
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox[aria-checked="true"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  background-color: rgb(var(--canvas-accent)) !important;
+}
+
+/* Pills: near-square, full ink stroke, their own mini hard shadow. */
+[data-artifact-style="neobrutalism"] .artifact-pill {
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+      rgb(var(--canvas-artifact-stroke)),
+    2px 2px 0 rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Full-strength ink rules — no half-opacity hedging. */
+[data-artifact-style="neobrutalism"] table thead tr {
+  border-bottom-width: 2px;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neobrutalism"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.35) !important;
+}

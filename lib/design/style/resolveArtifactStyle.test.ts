@@ -73,4 +73,59 @@ describe("resolveArtifactStyle", () => {
     const ids = ARTIFACT_STYLE_PACKS.map((pack) => pack.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("emits the quirk variable set for every non-default pack", () => {
+    for (const pack of ARTIFACT_STYLE_PACKS) {
+      if (pack.id === DEFAULT_ARTIFACT_STYLE_ID) continue;
+      const resolved = resolveArtifactStyle(pack.id);
+      for (const name of [
+        "--canvas-artifact-tilt",
+        "--canvas-artifact-hover-lift",
+        "--canvas-artifact-press-push",
+        "--canvas-artifact-hard-shadow",
+      ]) {
+        expect(resolved.lightVars[name], `${pack.id} ${name}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("keeps the quirk tokens inert on neo (present but disabled)", () => {
+    const resolved = resolveArtifactStyle("neo");
+    expect(resolved.lightVars["--canvas-artifact-tilt"]).toBe("0deg");
+    expect(resolved.lightVars["--canvas-artifact-hard-shadow"]).toBe("none");
+    // No canvas recolor unless a pack opts in.
+    expect(resolved.lightVars["--canvas-bg"]).toBeUndefined();
+    expect(resolved.darkVars["--canvas-bg"]).toBeUndefined();
+    expect(resolved.lightVars["--canvas-dot"]).toBeUndefined();
+    expect(resolved.darkVars["--canvas-dot"]).toBeUndefined();
+  });
+
+  it("recolors the canvas backdrop for neobrutalism in both modes", () => {
+    const resolved = resolveArtifactStyle("neobrutalism");
+    expect(resolved.isDefault).toBe(false);
+    // #FFF4CF / #191324 as RGB channels.
+    expect(resolved.lightVars["--canvas-bg"]).toBe("255 244 207");
+    expect(resolved.darkVars["--canvas-bg"]).toBe("25 19 36");
+    expect(resolved.lightVars["--canvas-artifact-stage"]).toBe("255 244 207");
+    // Grid dots recolor to ink; the grid itself keeps zoom-scaled sizing.
+    expect(resolved.lightVars["--canvas-dot"]).toBe("0 0 0");
+    expect(resolved.darkVars["--canvas-dot"]).toBe("242 236 223");
+    expect(resolved.css).toContain('[data-artifact-style="neobrutalism"] {');
+    expect(resolved.css).toContain(
+      'html[data-theme="dark"] [data-artifact-style="neobrutalism"] {',
+    );
+  });
+
+  it("gives neobrutalism hard zero-blur shadows and thick strokes", () => {
+    const resolved = resolveArtifactStyle("neobrutalism");
+    expect(resolved.lightVars["--canvas-artifact-hard-shadow"]).toBe(
+      "6px 6px 0 #000000",
+    );
+    expect(resolved.lightVars["--canvas-artifact-stroke-w"]).toBe("3px");
+    expect(resolved.lightVars["--canvas-artifact-tilt"]).toBe("-0.5deg");
+    // Dark shadow is the hot-pink pop, not black.
+    expect(resolved.darkVars["--canvas-artifact-hard-shadow"]).toBe(
+      "6px 6px 0 #FF7AA8",
+    );
+  });
 });

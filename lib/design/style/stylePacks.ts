@@ -1,4 +1,4 @@
-import { darkCanvasColors } from "@/lib/design/tokens";
+import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
 import type { ArtifactStylePreset } from "@/lib/design/style/types";
 
 /**
@@ -27,6 +27,9 @@ const VANILLA: ArtifactStylePreset = {
   showKindLabel: false,
   selectedRing: "none",
   selectedChin: "none",
+  tilt: "0deg",
+  hoverLift: "0px, 0px",
+  pressPush: "0px, 0px",
   light: {
     cardFill: "#FFFFFF",
     stroke: "#E6E4DF",
@@ -34,6 +37,9 @@ const VANILLA: ArtifactStylePreset = {
     chinShadow: "none",
     headerBg: "transparent",
     headerRule: "none",
+    canvasBg: null,
+    canvasDot: null,
+    hardShadow: "none",
   },
   dark: {
     cardFill: darkCanvasColors.card,
@@ -42,6 +48,9 @@ const VANILLA: ArtifactStylePreset = {
     chinShadow: "none",
     headerBg: "transparent",
     headerRule: "none",
+    canvasBg: null,
+    canvasDot: null,
+    hardShadow: "none",
   },
 };
 
@@ -66,6 +75,9 @@ const NEO: ArtifactStylePreset = {
   showKindLabel: true,
   selectedRing: "0 0 0 4px rgb(var(--canvas-accent) / 0.16)",
   selectedChin: "0 2px 0 rgb(var(--canvas-accent-deep) / 0.55)",
+  tilt: "0deg",
+  hoverLift: "0px, 0px",
+  pressPush: "0px, 0px",
   light: {
     cardFill: "#F4F3EE",
     stroke: "#232323",
@@ -73,6 +85,9 @@ const NEO: ArtifactStylePreset = {
     chinShadow: "0 2px 0 rgba(16, 16, 16, 0.5)",
     headerBg: "rgba(255, 255, 255, 0.5)",
     headerRule: "1.4px solid rgba(16, 16, 16, 0.55)",
+    canvasBg: null,
+    canvasDot: null,
+    hardShadow: "none",
   },
   dark: {
     cardFill: darkCanvasColors.card,
@@ -81,12 +96,65 @@ const NEO: ArtifactStylePreset = {
     chinShadow: "0 2px 0 rgba(0, 0, 0, 0.55)",
     headerBg: "rgba(255, 255, 255, 0.06)",
     headerRule: "1.4px solid rgba(236, 234, 227, 0.4)",
+    canvasBg: null,
+    canvasDot: null,
+    hardShadow: "none",
+  },
+};
+
+/**
+ * Brut — neobrutalism: thick pure-black borders, hard zero-blur offset
+ * shadows, flat opaque fills, sticker-yellow headers, and a recolored acid
+ * canvas. Cards tilt a hair and physically lift on hover / press down on
+ * click (the three-pillar formula: hard shadows, bold borders, high
+ * contrast). Dark mode swaps ink for bone white and shadows for hot pink.
+ */
+const NEOBRUTALISM: ArtifactStylePreset = {
+  id: "neobrutalism",
+  name: "Brut",
+  description:
+    "Neobrutalism — thick ink borders, hard offset shadows, loud flat color.",
+  accent: canvasColors.brutPop,
+  strokeWidth: "3px",
+  radius: "4px",
+  controlStrokeWidth: "2px",
+  checkboxStrokeWidth: "2.5px",
+  pillRadius: "4px",
+  density: 1,
+  showKindLabel: true,
+  selectedRing: "0 0 0 3px rgb(var(--canvas-accent))",
+  selectedChin: "8px 8px 0 rgb(var(--canvas-accent-deep))",
+  tilt: "-0.5deg",
+  hoverLift: "-2px, -2px",
+  pressPush: "2px, 2px",
+  light: {
+    cardFill: "#FFFFFF",
+    stroke: canvasColors.brutInk,
+    ambientShadow: "none",
+    chinShadow: "none",
+    headerBg: canvasColors.brutSun,
+    headerRule: `3px solid ${canvasColors.brutInk}`,
+    canvasBg: canvasColors.brutCanvas,
+    canvasDot: canvasColors.brutInk,
+    hardShadow: `6px 6px 0 ${canvasColors.brutInk}`,
+  },
+  dark: {
+    cardFill: "#241F35",
+    stroke: darkCanvasColors.brutInk,
+    ambientShadow: "none",
+    chinShadow: "none",
+    headerBg: darkCanvasColors.brutSun,
+    headerRule: `3px solid ${darkCanvasColors.brutInk}`,
+    canvasBg: darkCanvasColors.brutCanvas,
+    canvasDot: darkCanvasColors.brutInk,
+    hardShadow: `6px 6px 0 ${darkCanvasColors.brutPop}`,
   },
 };
 
 export const ARTIFACT_STYLE_PACKS: readonly ArtifactStylePreset[] = [
   VANILLA,
   NEO,
+  NEOBRUTALISM,
 ];
 
 export function getArtifactStylePack(id: string): ArtifactStylePreset {

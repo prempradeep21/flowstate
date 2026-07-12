@@ -51,14 +51,27 @@ function accentVars(
 }
 
 function surfaceVars(tokens: ArtifactStyleSurfaceTokens): Record<string, string> {
-  return {
+  const vars: Record<string, string> = {
     "--canvas-artifact-card-fill": hexToRgbChannels(tokens.cardFill),
     "--canvas-artifact-stroke": hexToRgbChannels(tokens.stroke),
     "--canvas-artifact-ambient-shadow": tokens.ambientShadow,
     "--canvas-artifact-chin-shadow": tokens.chinShadow,
     "--canvas-artifact-header-bg": tokens.headerBg,
     "--canvas-artifact-header-rule": tokens.headerRule,
+    "--canvas-artifact-hard-shadow": tokens.hardShadow,
   };
+  // Canvas backdrop override — the grid/gradient backgrounds resolve
+  // rgb(var(--canvas-bg)) / rgb(var(--canvas-dot)) inside the scope, so
+  // re-declaring here recolors the whole canvas without touching the
+  // body/theme layer. The grid still draws its own zoom-scaled dots.
+  if (tokens.canvasBg) {
+    vars["--canvas-bg"] = hexToRgbChannels(tokens.canvasBg);
+    vars["--canvas-artifact-stage"] = hexToRgbChannels(tokens.canvasBg);
+  }
+  if (tokens.canvasDot) {
+    vars["--canvas-dot"] = hexToRgbChannels(tokens.canvasDot);
+  }
+  return vars;
 }
 
 function structureVars(pack: ArtifactStylePreset): Record<string, string> {
@@ -71,6 +84,9 @@ function structureVars(pack: ArtifactStylePreset): Record<string, string> {
     "--canvas-artifact-density": String(pack.density),
     "--canvas-artifact-selected-ring": pack.selectedRing,
     "--canvas-artifact-selected-chin": pack.selectedChin,
+    "--canvas-artifact-tilt": pack.tilt,
+    "--canvas-artifact-hover-lift": pack.hoverLift,
+    "--canvas-artifact-press-push": pack.pressPush,
   };
 }
 

@@ -53,6 +53,11 @@ export const canvasColors = {
   tagDanger: "#be123c",
   tagDangerSoft: "#fff1f2",
   tagDangerRing: "#fecdd3",
+  /** Neobrutalism pack (lib/design/style) — loud, flat, opaque. */
+  brutCanvas: "#FFF4CF",
+  brutInk: "#000000",
+  brutPop: "#FF4081",
+  brutSun: "#FFEB3B",
 } as const;
 
 /**
@@ -103,6 +108,10 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   tagDanger: "#FB7185",
   tagDangerSoft: "#2A1620",
   tagDangerRing: "#5C2A3A",
+  brutCanvas: "#191324",
+  brutInk: "#F2ECDF",
+  brutPop: "#FF7AA8",
+  brutSun: "#3A2F55",
 };
 
 /** "#RRGGBB" -> "R G B" space-separated channels for `rgb(var(--x) / a)`. */
