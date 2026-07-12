@@ -20,7 +20,10 @@ const CORNER_RADIUS = 12;
 
 function GroupBoundsInner({ group }: GroupBoundsProps) {
   const bounds = useGroupBounds(group);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Stroke/dash feed rect GEOMETRY (x/y/w/h insets), so they can't move to
+  // CSS vars — but clamping the selector at 1 makes it a constant while
+  // zoomed in, so settles at scale ≥ 1 never re-render group frames.
+  const scale = useCanvasStore((s) => Math.min(1, s.viewportSettledScale));
 
   if (!bounds) return null;
 

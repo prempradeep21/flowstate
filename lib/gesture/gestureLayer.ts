@@ -67,11 +67,15 @@ function nodeElement(ref: GestureNodeRef): HTMLElement | null {
   return document.querySelector<HTMLElement>(selector);
 }
 
+// Node drags mark the container with mode "drag" — CSS transition
+// suppression matches any [data-gesturing] value, while zoom-only effects
+// (shadow flattening) key on "zoom" from lib/viewportGesture and never
+// apply here (a dragged card without its shadow would look detached).
 function setGesturingAttr(on: boolean): void {
   const container = document.querySelector<HTMLElement>(
     "[data-canvas-container]",
   );
-  if (on) container?.setAttribute("data-gesturing", "true");
+  if (on) container?.setAttribute("data-gesturing", "drag");
   else container?.removeAttribute("data-gesturing");
 }
 

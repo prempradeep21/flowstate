@@ -17,6 +17,7 @@ import {
 } from "@/lib/canvas3dBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
@@ -46,6 +47,8 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const { w: width, h: height } = getCanvas3DBounds(node);
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   // Imperative drag via the shared gesture layer — one store commit on drop.
   const nodeDrag = useCanvasNodeDrag({
@@ -159,6 +162,34 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
       recordedUndo: false,
     };
   };
+
+  // Gesture-time stand-in: 3D nodes host WebGL viewers — the heaviest
+  // possible mid-gesture mount. Hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-3d
+        data-canvas-node-id={node.id}
+        data-3d-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {node.title}
+        </div>
+      </div>
+    );
+  }
 
   const borderClass = isSelected
     ? "ring-2 ring-canvas-ink/40"

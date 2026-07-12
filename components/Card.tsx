@@ -29,6 +29,7 @@ import {
 } from "@/components/QaQuestionSection";
 import { useAnswerTextSelection } from "@/hooks/useAnswerTextSelection";
 import { useCardAsk } from "@/hooks/useCardAsk";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { useLateralBranchesFromCard } from "@/hooks/useLateralBranchesFromCard";
 import {
   anchorYRelativeToCard,
@@ -90,7 +91,6 @@ import {
   newExplainId,
   useCanvasStore,
 } from "@/lib/store";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { QaStatusBadge } from "@/components/QaStatusBadge";
@@ -162,8 +162,16 @@ function CardInner({ card }: CardProps) {
         (c.fromSide === "bottom" || c.fromSide == null),
     ),
   );
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
+  // Crossing-only subscription: re-renders when the LOD boolean flips, not
+  // on every settled-scale change (the post-zoom "settle storm"). Scalar
+  // compensations (border/accent widths) track scale via the --vp-scale CSS
+  // custom property written by CanvasViewport — zero React involvement.
+  const lodPlaceholder = useCanvasStore(
+    (s) => s.viewportSettledScale < MIN_VIEWPORT_SCALE,
+  );
+  // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
+  // placeholder now, hydrate to full content after the gesture settles.
+  const provisionalMount = useGestureProvisionalMount();
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -759,9 +767,12 @@ function CardInner({ card }: CardProps) {
   // every card still paid full markdown/DOM cost — the dominant mount cost
   // when zooming out on large canvases. Render a cheap fixed-size stand-in
   // instead (driven by SETTLED scale so the swap never happens mid-pinch).
-  // Selected cards and open composers keep full DOM (interaction targets).
+  // Nodes that MOUNT mid-gesture (provisionalMount) also stand in, then
+  // hydrate after settle — full-subtree mounts never happen while the
+  // fingers are moving. Selected cards and open composers keep full DOM
+  // (interaction targets).
   if (
-    scale < MIN_VIEWPORT_SCALE &&
+    (provisionalMount || lodPlaceholder) &&
     !isSelected &&
     !isEmptyComposer &&
     !hideForLanding
@@ -817,7 +828,9 @@ function CardInner({ card }: CardProps) {
         left: card.position.x,
         top: card.position.y,
         width: cardWidth,
-        ...(isEmptyComposer ? { borderWidth: cardBorderWidth } : {}),
+        ...(isEmptyComposer
+          ? { borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))" }
+          : {}),
         ...(pendingMinHeight != null ? { minHeight: pendingMinHeight } : {}),
       }}
       aria-hidden={hideForLanding || undefined}
@@ -912,7 +925,7 @@ function CardInner({ card }: CardProps) {
                 !isLanding ? (
                   <CardQaMenu
                     cardId={card.id}
-                    viewportScale={scale}
+                    canvas
                     layout="embedded"
                   />
                 ) : undefined
@@ -928,7 +941,9 @@ function CardInner({ card }: CardProps) {
             : "border-canvas-border"
         } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{
-          borderWidth: cardBorderWidth,
+          // compensatedStrokeWidth(1, scale, 1) as CSS: 1px at scale ≥ 1,
+          // 1/scale below — tracks settle without a React re-render.
+          borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))",
           ...(isSelected && accent
             ? { boxShadow: `0 0 0 2px ${accent}40` }
             : {}),
@@ -946,12 +961,11 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface card={card} accent={accent} scale={scale} />
+              <ConversationCardSurface card={card} accent={accent} />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
                 accentColour={accent}
-                accentWidth={compensatedStrokeWidth(3, scale, 3)}
                 accentBandVariant={isChatCollapsed ? "compact" : "header"}
                 style={
                   isChatCollapsed
@@ -983,7 +997,7 @@ function CardInner({ card }: CardProps) {
                       controls={
                         <CardQaMenu
                           cardId={card.id}
-                          viewportScale={scale}
+                          canvas
                           layout="embedded"
                         />
                       }
@@ -1018,7 +1032,7 @@ function CardInner({ card }: CardProps) {
                       controls={
                         <CardQaMenu
                           cardId={card.id}
-                          viewportScale={scale}
+                          canvas
                           layout="embedded"
                         />
                       }

@@ -3,6 +3,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   MutableRefObject,
+  ReactNode,
   RefObject,
   useEffect,
   useLayoutEffect,
@@ -152,6 +153,43 @@ interface ThreeDPlacementState extends SpawnCanvas3DInput, PlacementState {}
 
 interface ArtifactPlacementState extends PlacementState {
   artifactType: ManualArtifactType;
+}
+
+/**
+ * Mount-once keep-alive for culled STATEFUL nodes (artifacts, assets, gifs,
+ * 3D). Culling used to UNMOUNT offscreen nodes; every 240px band round-trip
+ * destroyed and recreated the subtree — iframes (website/embed/google-doc)
+ * reloaded from the network, WebGL contexts rebuilt, media playback reset,
+ * and content visibly "re-rendered" on pan/zoom. Now such a node mounts the
+ * first time it becomes visible and is thereafter only hidden with
+ * display:none — zero raster/layout cost while offscreen, but DOM (and
+ * iframe/player state) survives, so revisiting a region shows content
+ * instantly, exactly as it was.
+ * `display: contents` keeps the wrapper layout-transparent while visible
+ * (children are absolutely positioned against the viewport).
+ *
+ * Deliberately NOT used for cards/skills/labels: they are plain DOM with no
+ * external state, remount cheaply through the gesture-time placeholder
+ * policy, and keeping hundreds of them resident measurably regressed
+ * pan/zoom at 300 nodes (every hydration wave re-mounted full markdown).
+ *
+ * While culling is enabled but the first visible set hasn't computed yet
+ * (one frame at load), callers pass visible=false — a null-window render
+ * would otherwise pin the ENTIRE canvas in the DOM forever.
+ */
+function CulledKeepAlive({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const seenRef = useRef(false);
+  if (visible) seenRef.current = true;
+  if (!seenRef.current) return null;
+  return (
+    <div style={{ display: visible ? "contents" : "none" }}>{children}</div>
+  );
 }
 
 export function Canvas({
@@ -1981,38 +2019,58 @@ export function Canvas({
         {canvasArtifactOrder.map((id) => {
           const node = canvasArtifactNodes[id];
           if (!node) return null;
-          if (
-            cullingEnabled &&
-            visibleNodes &&
-            !visibleNodes.artifacts.has(id)
-          ) {
-            return null;
-          }
-          return <CanvasArtifactNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
+              }
+            >
+              <CanvasArtifactNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasAssetOrder.map((id) => {
           const node = canvasAssetNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.assets.has(id)) {
-            return null;
-          }
-          return <CanvasAssetNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
+              }
+            >
+              <CanvasAssetNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasGifOrder.map((id) => {
           const node = canvasGifNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.gifs.has(id)) {
-            return null;
-          }
-          return <CanvasGifNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
+              }
+            >
+              <CanvasGifNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvas3DOrder.map((id) => {
           const node = canvas3DNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.threeD.has(id)) {
-            return null;
-          }
-          return <Canvas3DNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
+              }
+            >
+              <Canvas3DNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasSkillOrder.map((id) => {
           const node = canvasSkillNodes[id];

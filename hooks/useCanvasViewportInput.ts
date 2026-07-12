@@ -17,6 +17,7 @@ import {
   shouldCanvasWheelViewport,
   wheelTrackpadPanDelta,
 } from "@/lib/canvasWheel";
+import { filterPanWheelDelta } from "@/lib/wheelMomentum";
 
 /** Safari/WebKit pinch — scale is cumulative from gesture start. */
 type SafariGestureEvent = Event & {
@@ -54,8 +55,12 @@ export function useCanvasViewportInput(
       e.preventDefault();
 
       if (resolveCanvasWheelAction(e) === "pan") {
-        const { dx, dy } = wheelTrackpadPanDelta(e);
-        queuePan(dx, dy);
+        // Momentum suppression (Figma-style dead stop): macOS keeps emitting
+        // a decaying wheel tail after the fingers lift; the filter detects
+        // and attenuates it so the canvas stops when the fingers stop.
+        const raw = wheelTrackpadPanDelta(e);
+        const { dx, dy } = filterPanWheelDelta(raw.dx, raw.dy, e.timeStamp);
+        if (dx !== 0 || dy !== 0) queuePan(dx, dy);
         return;
       }
 

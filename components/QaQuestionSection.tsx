@@ -68,7 +68,6 @@ export function QaQuestionHeaderRow({
 interface QaQuestionSectionProps {
   children: ReactNode;
   accentColour?: string;
-  accentWidth?: number;
   /** `header` = expanded card with control row; `compact` = collapsed summary row. */
   accentBandVariant?: "header" | "compact";
   className?: string;
@@ -90,14 +89,16 @@ export const QA_QUESTION_COMPACT_ACCENT_BAND_HEIGHT_PX =
 export function QaQuestionSection({
   children,
   accentColour,
-  accentWidth = 3,
   accentBandVariant = "header",
   className = "",
   style,
 }: QaQuestionSectionProps) {
   // Wide band, heavily blurred and only quarter-clipped by the card's
   // overflow-hidden edge so most of the diffused colour sits on the card.
-  const bandWidth = accentWidth * 5;
+  // Band width is a compensated 3px accent (×5) — on canvas it tracks the
+  // settled zoom via --vp-scale (written by CanvasViewport) with no React
+  // subscription; off-canvas the var is unset and the fallback yields the
+  // fixed 15px it always had.
   const accentBandHeightPx =
     accentBandVariant === "compact"
       ? QA_QUESTION_COMPACT_ACCENT_BAND_HEIGHT_PX
@@ -114,8 +115,8 @@ export function QaQuestionSection({
           className="pointer-events-none absolute top-0 z-0"
           style={{
             background: accentColour,
-            left: -bandWidth / 4,
-            width: bandWidth,
+            left: "calc(-3.75px / min(var(--vp-scale, 1), 1))",
+            width: "calc(15px / min(var(--vp-scale, 1), 1))",
             height: accentBandHeightPx,
             filter: "blur(20px)",
             opacity: 0.425,

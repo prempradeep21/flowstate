@@ -31,6 +31,11 @@ await page.addInitScript(() => {
         "CanvasViewport",
         "ThemeApplier",
         "PerfHUD",
+        // Regression guards: these must NEVER re-render during pan/zoom —
+        // both were once live-viewport subscribers (fixed in Tier 1/2).
+        "GridBackground",
+        "ViewportSyncedGridBackground",
+        "SelectionToolbar",
       ];
       return {
         roots: Object.fromEntries(

@@ -24,6 +24,7 @@ import {
   type CanvasSkillNode as CanvasSkillNodeType,
 } from "@/lib/store";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const INTERACTIVE =
@@ -34,7 +35,9 @@ const inFlightAnalysis = new Set<string>();
 
 function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const skills = useCanvasStore((s) => s.canvasSkills);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasSkillId === node.id ||
@@ -51,12 +54,13 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const skill = skills[node.skillId];
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const [collapsed, setCollapsed] = useState(false);
   const expandedBounds = getCanvasSkillBounds(node, skill);
   const { w: width, h: height } = collapsed
     ? { w: CANVAS_SKILL_SIZE, h: CANVAS_SKILL_SIZE }
     : expandedBounds;
-  const godView = isGodViewMode(scale);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -174,6 +178,33 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     nodeDrag.end(e);
   };
+
+  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-skill
+        data-canvas-node-id={node.id}
+        data-skill-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {skill.title}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MotionCanvasNode

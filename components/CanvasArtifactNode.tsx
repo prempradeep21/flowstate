@@ -59,6 +59,7 @@ import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 0;
@@ -74,7 +75,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasArtifactId === node.id ||
@@ -151,7 +154,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     ? sessionArtifacts[node.artifactId]
     : undefined;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
-  const godView = isGodViewMode(scale);
+  // Mounted mid-gesture (culling reveal during zoom-out): render a cheap
+  // stand-in now, hydrate the full artifact after the gesture settles.
+  const provisionalMount = useGestureProvisionalMount();
 
   /** Font-scale / content growth wraps the node; never override a manual resize. */
   const handleArtifactContentAreaSize = useCallback(
@@ -192,14 +197,22 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         areaH = Math.max(areaH, intrinsic.heightPx);
       }
 
-      // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
+      // "Default state" floor: the stored node size — the last auto-measure
+      // (user resizes are guarded by userSetSize above) — is authoritative.
+      // Content that is still settling (web fonts, images, iframes loading
+      // after a reveal) measures SMALLER than its final layout; without the
+      // floor the node visibly shrank and re-grew on every reveal (shudder +
+      // geometry churn). Auto-measure may only GROW the node beyond the
+      // stored/spawn size.
       const targetW = Math.max(
         areaW + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
         defaultSize?.w ?? 0,
+        current.size?.w ?? 0,
       );
       const targetH = Math.max(
         areaH + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
         defaultSize?.h ?? 0,
+        current.size?.h ?? 0,
       );
       const next =
         artForBounds?.kind === "streetview"
@@ -386,6 +399,35 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   };
 
   if (!preview && !art) return null;
+
+  // Gesture-time stand-in: bordered rect + title at exact node bounds (same
+  // helpers the culling index uses, so geometry never shifts on hydrate).
+  // Selection and permission previews are interaction targets — full DOM.
+  if (provisionalMount && !isSelected && !preview) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-artifact
+        data-canvas-node-id={node.id}
+        data-artifact-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute z-20 cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height: artifactHeight,
+        }}
+      >
+        <div className="truncate px-6 pt-4 text-[22px] font-medium text-canvas-ink/70">
+          {art?.title ?? ""}
+        </div>
+      </div>
+    );
+  }
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;

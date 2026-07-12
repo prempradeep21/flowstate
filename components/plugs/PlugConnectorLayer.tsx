@@ -30,11 +30,14 @@ export function PlugConnectorLayer() {
   const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (!plugDrag) return null;
 
+  // Rendered only during a plug drag and re-rendered per pointer move —
+  // read the settled scale imperatively instead of subscribing (a settle
+  // subscription re-rendered this layer on every zoom while idle).
+  const viewportSettledScale = useCanvasStore.getState().viewportSettledScale;
   const strokeWidth = compensatedStrokeWidth(
     BASE_STROKE_SCREEN,
     viewportSettledScale,

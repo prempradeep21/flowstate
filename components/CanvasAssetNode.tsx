@@ -31,6 +31,7 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
@@ -41,7 +42,9 @@ const INTERACTIVE =
 
 function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasAssetId === node.id ||
@@ -57,13 +60,14 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const [contentInteractive, setContentInteractive] = useState(false);
 
   const asset = assets[node.assetId];
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
   const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
   const previewKind = asset ? resolvePreviewKind(asset) : null;
   const needsClickToInteract = previewKind
     ? previewRequiresClickToInteract(previewKind)
     : false;
-  const godView = isGodViewMode(scale);
 
   useEffect(() => {
     if (!isSelected) setContentInteractive(false);
@@ -212,6 +216,33 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
       recordedUndo: false,
     };
   };
+
+  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-asset
+        data-canvas-node-id={node.id}
+        data-asset-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {asset.name}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MotionCanvasNode

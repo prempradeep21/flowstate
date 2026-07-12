@@ -213,6 +213,30 @@ export interface AlwaysVisibleSets {
   labels?: Iterable<string>;
 }
 
+/**
+ * The padded visible world rect snapped outward to the CULLING_QUANTIZE
+ * grid — the exact rect searchVisibleNodes queries. Exposed so callers can
+ * compare rects across frames and skip the search entirely when the
+ * quantized rect (and the tree) are unchanged.
+ */
+export function quantizedVisibleRect(
+  viewport: Viewport,
+  containerSize: { width: number; height: number },
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const raw = getVisibleWorldRect(
+    viewport,
+    containerSize.width,
+    containerSize.height,
+  );
+  const q = CULLING_QUANTIZE;
+  return {
+    minX: Math.floor(raw.minX / q) * q,
+    minY: Math.floor(raw.minY / q) * q,
+    maxX: Math.ceil(raw.maxX / q) * q,
+    maxY: Math.ceil(raw.maxY / q) * q,
+  };
+}
+
 /** Search a PREBUILT tree — no rebuild. O(log n + hits). */
 export function searchVisibleNodes(
   tree: SpatialIndex,
@@ -220,18 +244,7 @@ export function searchVisibleNodes(
   containerSize: { width: number; height: number },
   alwaysVisible: AlwaysVisibleSets = {},
 ): VisibleNodes {
-  const raw = getVisibleWorldRect(
-    viewport,
-    containerSize.width,
-    containerSize.height,
-  );
-  const q = CULLING_QUANTIZE;
-  const rect = {
-    minX: Math.floor(raw.minX / q) * q,
-    minY: Math.floor(raw.minY / q) * q,
-    maxX: Math.ceil(raw.maxX / q) * q,
-    maxY: Math.ceil(raw.maxY / q) * q,
-  };
+  const rect = quantizedVisibleRect(viewport, containerSize);
   const hits = tree.search(rect);
 
   const cards = new Set<string>(alwaysVisible.cards ?? []);
@@ -305,8 +318,16 @@ export function visibleNodesEqual(
 export class CanvasSpatialIndexManager {
   private tree: SpatialIndex | null = null;
 
+  /**
+   * Geometry epoch: bumped on every markDirty. Callers pair it with the
+   * quantized query rect to know a previous query's result is still valid
+   * (same rect + same epoch ⇒ same visible set, no search needed).
+   */
+  version = 0;
+
   markDirty(): void {
     this.tree = null;
+    this.version++;
   }
 
   /** Rebuild if dirty, then search. */
