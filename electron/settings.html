@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Flowstate Settings</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f5f5f7;
+        color: #1d1d1f;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #1c1c1e; color: #f5f5f7; }
+        input { background: #2c2c2e; color: #f5f5f7; border-color: #48484a; }
+      }
+      h1 { font-size: 16px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 18px; opacity: 0.7; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        font-size: 13px;
+        border: 1px solid #d2d2d7;
+        border-radius: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .hint { margin-top: 6px; font-size: 12px; opacity: 0.65; }
+      .actions { margin-top: 24px; display: flex; justify-content: flex-end; gap: 10px; }
+      button {
+        font-size: 13px;
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+      }
+      button.primary { background: #0071e3; color: #fff; }
+      button.primary:disabled { opacity: 0.5; cursor: default; }
+      button.secondary { background: transparent; color: inherit; }
+      .status { margin-top: 12px; font-size: 12px; color: #1d9b4e; min-height: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>API Keys</h1>
+    <p class="sub">Flowstate uses your own API keys. They are stored encrypted in your macOS Keychain and never leave this Mac. Anthropic powers Claude models; OpenRouter (optional) unlocks GPT, Gemini, and others.</p>
+
+    <label for="key">Anthropic API key</label>
+    <input id="key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+    <div class="hint" id="hint"></div>
+
+    <label for="orKey" style="margin-top: 16px; display: block;">OpenRouter API key (optional)</label>
+    <input id="orKey" type="password" placeholder="sk-or-..." autocomplete="off" spellcheck="false" />
+    <div class="hint" id="orHint"></div>
+
+    <div class="actions">
+      <button class="secondary" id="cancel" type="button">Close</button>
+      <button class="primary" id="save" type="button" disabled>Save</button>
+    </div>
+    <div class="status" id="status"></div>
+
+    <script>
+      const keyInput = document.getElementById("key");
+      const orKeyInput = document.getElementById("orKey");
+      const saveBtn = document.getElementById("save");
+      const cancelBtn = document.getElementById("cancel");
+      const hint = document.getElementById("hint");
+      const orHint = document.getElementById("orHint");
+      const status = document.getElementById("status");
+
+      function refreshSaveState() {
+        saveBtn.disabled =
+          keyInput.value.trim().length === 0 && orKeyInput.value.trim().length === 0;
+      }
+
+      async function init() {
+        const state = await window.flowstate.settings.get();
+        if (state.hasAnthropicKey) {
+          hint.textContent = "A key is already saved. Enter a new one to replace it.";
+          keyInput.placeholder = "•••••••••• (saved)";
+        } else {
+          hint.textContent = "Required to use Claude models.";
+        }
+        orHint.textContent = state.hasOpenrouterKey
+          ? "A key is already saved. Enter a new one to replace it."
+          : "Optional — enables non-Claude models via OpenRouter.";
+        if (state.hasOpenrouterKey) orKeyInput.placeholder = "•••••••••• (saved)";
+      }
+
+      keyInput.addEventListener("input", refreshSaveState);
+      orKeyInput.addEventListener("input", refreshSaveState);
+
+      saveBtn.addEventListener("click", async () => {
+        saveBtn.disabled = true;
+        status.textContent = "Saving…";
+        await window.flowstate.settings.save({
+          anthropicKey: keyInput.value,
+          openrouterKey: orKeyInput.value,
+        });
+        status.textContent = "Saved.";
+        setTimeout(() => window.close(), 500);
+      });
+
+      cancelBtn.addEventListener("click", () => window.close());
+      init();
+    </script>
+  </body>
+</html>

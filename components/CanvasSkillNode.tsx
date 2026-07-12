@@ -1,11 +1,12 @@
 "use client";
 
-import { PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { memo, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { MotionCanvasNode } from "@/components/motion/MotionCanvasNode";
 import { Plug } from "@/components/plugs/Plug";
 import { SkillNodeCard } from "@/components/skills/SkillNodeCard";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -23,18 +24,20 @@ import {
   type CanvasSkillNode as CanvasSkillNodeType,
 } from "@/lib/store";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
-const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
 
 /** Guards against firing the analysis request twice if two node instances of the same skill mount in the same tick. */
 const inFlightAnalysis = new Set<string>();
 
-export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
+function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const skills = useCanvasStore((s) => s.canvasSkills);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasSkillId === node.id ||
@@ -51,12 +54,13 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const skill = skills[node.skillId];
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const [collapsed, setCollapsed] = useState(false);
   const expandedBounds = getCanvasSkillBounds(node, skill);
   const { w: width, h: height } = collapsed
     ? { w: CANVAS_SKILL_SIZE, h: CANVAS_SKILL_SIZE }
     : expandedBounds;
-  const godView = isGodViewMode(scale);
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -106,19 +110,15 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     observer.observe(el);
     return () => observer.disconnect();
   }, [skill?.metadata, collapsed, node.id, setCanvasSkillNodeSize]);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Node actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "skill",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasSkill(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasSkillNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
 
   if (!skill) return null;
 
@@ -165,55 +165,46 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     }
     if (!inMultiSelection) selectCanvasSkill(node.id);
     if (canvasReadOnly) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: node.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore.getState().duplicateCanvasSkillNode(node.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasSkill(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
+
+  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-skill
+        data-canvas-node-id={node.id}
+        data-skill-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {skill.title}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MotionCanvasNode
@@ -285,7 +276,7 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Expand skill card" : "Collapse skill card"}
             onClick={() => setCollapsed((prev) => !prev)}
-            className={`absolute left-2 top-2 z-40 rounded-full border border-canvas-border/40 bg-canvas-card/80 px-2 py-0.5 text-canvas-micro font-medium text-canvas-muted backdrop-blur-[2px] transition-opacity hover:text-canvas-ink ${
+            className={`absolute left-2 top-2 z-40 rounded-full border border-canvas-border/40 bg-canvas-card/95 px-2 py-0.5 text-canvas-micro font-medium text-canvas-muted transition-opacity hover:text-canvas-ink ${
               collapsed ? "opacity-100" : "opacity-0 group-hover/skill:opacity-100"
             }`}
           >
@@ -315,3 +306,12 @@ export function CanvasSkillNode({ node }: { node: CanvasSkillNodeType }) {
     </MotionCanvasNode>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasSkillNode = memo(
+  CanvasSkillNodeInner,
+  (prev, next) => prev.node === next.node,
+);

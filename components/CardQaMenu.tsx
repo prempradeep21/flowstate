@@ -17,8 +17,8 @@ import { useCanvasStore } from "@/lib/store";
 
 interface CardQaMenuProps {
   cardId: string;
-  /** Present on canvas cards (shows collapse toggle). Omit in chat view. */
-  viewportScale?: number;
+  /** True on canvas cards (shows collapse toggle). Omit in chat view. */
+  canvas?: boolean;
   /** Hide delete on the landing/home empty card. */
   hideDelete?: boolean;
   /** Inline in the question header row instead of overlaying the card. */
@@ -63,7 +63,7 @@ function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
 
 export function CardQaMenu({
   cardId,
-  viewportScale,
+  canvas = false,
   hideDelete = false,
   layout = "overlay",
 }: CardQaMenuProps) {
@@ -78,7 +78,7 @@ export function CardQaMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const isCanvas = viewportScale != null;
+  const isCanvas = canvas;
   const menuPortal = useCanvasFloatingMenuPosition(
     open && isCanvas,
     menuButtonRef,

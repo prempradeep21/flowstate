@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { memo,
   PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
@@ -20,6 +20,7 @@ import {
   resizeAssetMaintainingAspect,
 } from "@/lib/canvasAssetBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -30,6 +31,7 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
@@ -38,9 +40,11 @@ const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
 
-export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
+function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasAssetId === node.id ||
@@ -56,31 +60,28 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
   const [contentInteractive, setContentInteractive] = useState(false);
 
   const asset = assets[node.assetId];
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
   const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
   const previewKind = asset ? resolvePreviewKind(asset) : null;
   const needsClickToInteract = previewKind
     ? previewRequiresClickToInteract(previewKind)
     : false;
-  const godView = isGodViewMode(scale);
 
   useEffect(() => {
     if (!isSelected) setContentInteractive(false);
   }, [isSelected]);
   const nodeRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    /** Alt held at drag start — first move duplicates and drags the copy. */
-    copyOnDrag: boolean;
-    /** Node actually being dragged (the duplicate when alt-dragging). */
-    targetId: string;
-    /** Whole multi-selection moves together when this node is part of it. */
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "asset",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvasAsset(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvasAssetNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
   const resizeStateRef = useRef<{
     pointerId: number;
     corner: NodeResizeCorner;
@@ -139,17 +140,10 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     }
     if (!inMultiSelection) selectCanvasAsset(node.id);
     if (canvasReadOnly) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: node.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -184,41 +178,20 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore.getState().duplicateCanvasAssetNode(node.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvasAsset(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
+    if (resizeStateRef.current?.pointerId === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      resizeStateRef.current = null;
+      return;
     }
-    resizeStateRef.current = null;
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const handleResizePointerDown = (
@@ -243,6 +216,33 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
       recordedUndo: false,
     };
   };
+
+  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-asset
+        data-canvas-node-id={node.id}
+        data-asset-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {asset.name}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MotionCanvasNode
@@ -355,3 +355,12 @@ export function CanvasAssetNode({ node }: { node: CanvasAssetNodeType }) {
     </MotionCanvasNode>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const CanvasAssetNode = memo(
+  CanvasAssetNodeInner,
+  (prev, next) => prev.node === next.node,
+);

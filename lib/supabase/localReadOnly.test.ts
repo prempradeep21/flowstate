@@ -17,4 +17,11 @@ describe("isLocalReadOnlyClient", () => {
     expect(isLocalReadOnlyClient("localhost")).toBe(false);
     process.env.NEXT_PUBLIC_LOCAL_READ_ONLY = prev;
   });
+
+  it("is read-write in the desktop app even on localhost", () => {
+    const prev = process.env.NEXT_PUBLIC_IS_DESKTOP;
+    process.env.NEXT_PUBLIC_IS_DESKTOP = "true";
+    expect(isLocalReadOnlyClient("localhost")).toBe(false);
+    process.env.NEXT_PUBLIC_IS_DESKTOP = prev;
+  });
 });

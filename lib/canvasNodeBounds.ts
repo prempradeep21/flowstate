@@ -166,9 +166,11 @@ export function clampTableArtifactSize(
   w: number,
   h: number,
 ): { w: number; h: number } {
+  // Bounded like every other artifact so corner-resize can't produce an
+  // unusable node; content that exceeds the node scrolls inside it.
   return {
-    w: Math.max(MIN_ARTIFACT_WIDTH, w),
-    h: Math.max(MIN_ARTIFACT_HEIGHT, h),
+    w: Math.min(MAX_ARTIFACT_WIDTH, Math.max(MIN_ARTIFACT_WIDTH, w)),
+    h: Math.min(MAX_ARTIFACT_HEIGHT, Math.max(MIN_ARTIFACT_HEIGHT, h)),
   };
 }
 

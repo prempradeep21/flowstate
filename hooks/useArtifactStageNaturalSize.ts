@@ -59,6 +59,10 @@ export function useArtifactStageNaturalSize({
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const size = measureStageNaturalSize(stage, body);
+        // Hidden (display:none keep-alive) or unlaid-out stages measure 0×0 —
+        // reporting that would collapse the node to its default size. The
+        // ResizeObserver fires again when the node is shown.
+        if (size.w <= 0 && size.h <= 0) return;
         onCanvasSizeChange?.(size);
         if (!fill && onAutoSize) {
           onAutoSize(size);

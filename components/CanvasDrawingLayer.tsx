@@ -2,8 +2,6 @@
 
 import type { CanvasStroke } from "@/lib/canvasStroke";
 import { strokeToSvgPath } from "@/lib/canvasStroke";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
-import { useCanvasStore } from "@/lib/store";
 
 interface Props {
   strokes: Record<string, CanvasStroke>;
@@ -16,14 +14,12 @@ export function CanvasDrawingLayer({
   strokeOrder,
   activeStrokeId,
 }: Props) {
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
-
+  // Zoom compensation comes entirely from the --vp-scale CSS var (written at
+  // settle by CanvasViewport): stroke-width is a presentation property on
+  // SVG, so calc() tracks settle with no React subscription here.
   const renderStroke = (stroke: CanvasStroke) => {
-    const strokeWidth = compensatedStrokeWidth(
-      stroke.width,
-      viewportSettledScale,
-      stroke.width,
-    );
+    // compensatedStrokeWidth(w, scale, w) as CSS: w at scale ≥ 1, w/scale below.
+    const strokeWidthCss = `calc(${stroke.width}px / min(var(--vp-scale, 1), 1))`;
 
     if (stroke.points.length >= 2) {
       return (
@@ -32,7 +28,7 @@ export function CanvasDrawingLayer({
           d={strokeToSvgPath(stroke.points)}
           fill="none"
           stroke={stroke.color}
-          strokeWidth={strokeWidth}
+          style={{ strokeWidth: strokeWidthCss }}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -42,12 +38,19 @@ export function CanvasDrawingLayer({
     if (stroke.points.length === 1) {
       const point = stroke.points[0];
       return (
+        // r is geometry (not a presentation property), so counter-scale the
+        // dot about its own center instead — same result as r/scale.
         <circle
           key={stroke.id}
           cx={point.x}
           cy={point.y}
-          r={strokeWidth / 2}
+          r={stroke.width / 2}
           fill={stroke.color}
+          style={{
+            transform: "scale(calc(1 / min(var(--vp-scale, 1), 1)))",
+            transformBox: "fill-box",
+            transformOrigin: "center",
+          }}
         />
       );
     }

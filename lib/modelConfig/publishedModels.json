@@ -1,0 +1,53 @@
+{
+  "v": 1,
+  "openrouterModels": [
+    {
+      "id": "openai/gpt-4o",
+      "label": "GPT-4o",
+      "supportsTools": true,
+      "supportsImages": true
+    },
+    {
+      "id": "google/gemini-2.0-flash-001",
+      "label": "Gemini 2.0 Flash",
+      "supportsTools": true,
+      "supportsImages": true
+    },
+    {
+      "id": "deepseek/deepseek-chat",
+      "label": "DeepSeek Chat",
+      "supportsTools": true,
+      "supportsImages": false
+    },
+    {
+      "id": "perplexity/sonar",
+      "label": "Perplexity: Sonar",
+      "supportsTools": false,
+      "supportsImages": true
+    },
+    {
+      "id": "perplexity/sonar-deep-research",
+      "label": "Perplexity: Sonar Deep Research",
+      "supportsTools": false,
+      "supportsImages": false
+    },
+    {
+      "id": "perplexity/sonar-pro",
+      "label": "Perplexity: Sonar Pro",
+      "supportsTools": false,
+      "supportsImages": true
+    },
+    {
+      "id": "google/gemini-2.5-pro",
+      "label": "Google: Gemini 2.5 Pro",
+      "supportsTools": true,
+      "supportsImages": true
+    },
+    {
+      "id": "x-ai/grok-4.5",
+      "label": "xAI: Grok 4.5",
+      "supportsTools": true,
+      "supportsImages": true
+    }
+  ]
+}

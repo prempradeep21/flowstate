@@ -131,4 +131,3 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
     </div>
   );
 }
-

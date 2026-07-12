@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -11,7 +11,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
-import { useSelectionToolbarAnchor } from "@/hooks/useSelectionToolbarAnchor";
+import {
+  toolbarScreenPosition,
+  useSelectionToolbarAnchor,
+  type ToolbarWorldAnchor,
+} from "@/hooks/useSelectionToolbarAnchor";
+import { subscribeViewportPaint } from "@/lib/viewportGesture";
 import type { AlignMode } from "@/lib/canvasArrange";
 import { deriveGroupLabel } from "@/lib/deriveGroupLabel";
 import { summarizeGroup } from "@/lib/summarizeGroup";
@@ -33,6 +38,60 @@ const ALIGN_ACTIONS: { mode: AlignMode; label: string; icon: LucideIcon }[] = [
   },
   { mode: "bottom", label: "Align bottom", icon: AlignEndHorizontal },
 ];
+
+/**
+ * Wrapper positioned at a WORLD anchor, converted to screen space
+ * imperatively on viewport writes + gesture paints — subscribing React to
+ * the live viewport re-rendered the toolbar every pan/zoom frame.
+ */
+function AnchoredWrapper({
+  anchor,
+  className,
+  children,
+}: {
+  anchor: ToolbarWorldAnchor;
+  className: string;
+  children: ReactNode;
+}) {
+  const elRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    const apply = (v: { x: number; y: number; scale: number }) => {
+      const pos = toolbarScreenPosition(anchor, v);
+      el.style.left = `${pos.left}px`;
+      el.style.top = `${pos.top}px`;
+    };
+    apply(useCanvasStore.getState().viewport);
+    const unsubStore = useCanvasStore.subscribe((state, prev) => {
+      if (state.viewport !== prev.viewport) apply(state.viewport);
+    });
+    const unsubPaint = subscribeViewportPaint(apply);
+    return () => {
+      unsubStore();
+      unsubPaint();
+    };
+  }, [anchor]);
+
+  const initial = toolbarScreenPosition(
+    anchor,
+    useCanvasStore.getState().viewport,
+  );
+  return (
+    <div
+      ref={elRef}
+      className={className}
+      style={{
+        left: initial.left,
+        top: initial.top,
+        transform: "translate(-50%, -100%)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function ToolbarIconButton({
   label,
@@ -102,13 +161,9 @@ export function SelectionToolbar() {
 
   if (showAlignBar) {
     return (
-      <div
+      <AnchoredWrapper
+        anchor={anchor}
         className="pointer-events-auto absolute z-40"
-        style={{
-          left: anchor.left,
-          top: anchor.top,
-          transform: "translate(-50%, -100%)",
-        }}
       >
         <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
           {ALIGN_ACTIONS.map((a) => (
@@ -132,18 +187,14 @@ export function SelectionToolbar() {
             </>
           )}
         </div>
-      </div>
+      </AnchoredWrapper>
     );
   }
 
   return (
-    <div
+    <AnchoredWrapper
+      anchor={anchor}
       className="pointer-events-auto absolute z-40 min-w-[200px] max-w-[280px]"
-      style={{
-        left: anchor.left,
-        top: anchor.top,
-        transform: "translate(-50%, -100%)",
-      }}
     >
       <div className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 backdrop-blur-sm">
         {activeGroup && (
@@ -172,6 +223,6 @@ export function SelectionToolbar() {
           <p className="mt-2 text-canvas-caption leading-snug text-canvas-danger">{error}</p>
         )}
       </div>
-    </div>
+    </AnchoredWrapper>
   );
 }

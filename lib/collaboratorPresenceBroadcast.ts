@@ -2,9 +2,18 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { clientToWorld } from "@/lib/canvasCoordinates";
 import type { CollaboratorPresence } from "@/lib/collaborationTypes";
 
-export const PRESENCE_BROADCAST_INTERVAL_MS = 33;
+/**
+ * Cursor positions ride the channel's BROADCAST primitive, not presence
+ * `track()`: presence updates make the server diff + re-fan the whole
+ * presence state to every subscriber (~O(members) work per update, 30/s per
+ * user), which is the wrong primitive for a high-frequency stream. Presence
+ * remains for join/leave/identity; 20/s broadcasts are visually identical
+ * because the receiver rAF-interpolates between samples.
+ */
+export const CURSOR_BROADCAST_EVENT = "cursor";
+export const PRESENCE_BROADCAST_INTERVAL_MS = 50;
 export const PRESENCE_MIN_MOVE_WORLD_PX = 1;
-export const PRESENCE_MAX_FLUSHES_PER_SEC = 30;
+export const PRESENCE_MAX_FLUSHES_PER_SEC = 20;
 export const PRESENCE_OFF_SCREEN = -99999;
 
 const MIN_FLUSH_INTERVAL_MS = 1000 / PRESENCE_MAX_FLUSHES_PER_SEC;
@@ -107,7 +116,11 @@ export function createPresenceBroadcaster(
       pendingWorldY,
       now,
     );
-    void channel.track(payload);
+    void channel.send({
+      type: "broadcast",
+      event: CURSOR_BROADCAST_EVENT,
+      payload,
+    });
   };
 
   const startTick = () => {
@@ -147,14 +160,21 @@ export function createPresenceBroadcaster(
       lastFlushAt = now;
       lastWorldX = PRESENCE_OFF_SCREEN;
       lastWorldY = PRESENCE_OFF_SCREEN;
-      void channel.track(
-        mergePresencePayload(
-          basePayload,
-          PRESENCE_OFF_SCREEN,
-          PRESENCE_OFF_SCREEN,
-          now,
-        ),
+      const payload = mergePresencePayload(
+        basePayload,
+        PRESENCE_OFF_SCREEN,
+        PRESENCE_OFF_SCREEN,
+        now,
       );
+      // Broadcast hides live clients immediately; track() persists the
+      // off-screen position as the authoritative presence state so late
+      // joiners never see a stale cursor.
+      void channel.send({
+        type: "broadcast",
+        event: CURSOR_BROADCAST_EVENT,
+        payload,
+      });
+      void channel.track(payload);
     },
 
     destroy() {

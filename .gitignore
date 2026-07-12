@@ -24,6 +24,7 @@
 /.next-vercel-check/
 /.next-mobile-sdlc-sandbox/
 /.next-preview/
+/.next-electron-*/
 /.design-system-export-stash/
 /out/
 build-vercel-check.log
@@ -56,6 +57,10 @@ next-env.d.ts
 
 # Local agent settings
 /.claude/
+
+# Local perf benchmark artifacts (scripts/perf/run-benchmark.mjs output)
+/scratch/
+
 /.next-demo/
 
 # Rendered demo video output (large binaries, not committed)

@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { memo,
   PointerEvent as ReactPointerEvent,
   useRef,
 } from "react";
@@ -16,6 +16,9 @@ import {
   resize3DMaintainingAspect,
 } from "@/lib/canvas3dBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
+import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
+import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -29,12 +32,13 @@ import {
 const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle], canvas";
 
-export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
+function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvas3DId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "3d", node.id),
   );
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const moveCanvas3D = useCanvasStore((s) => s.moveCanvas3D);
   const selectCanvas3D = useCanvasStore((s) => s.selectCanvas3D);
   const setCanvas3DSize = useCanvasStore((s) => s.setCanvas3DSize);
@@ -43,17 +47,18 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const { w: width, h: height } = getCanvas3DBounds(node);
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const nodeRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number;
-    lastX: number;
-    lastY: number;
-    didMove: boolean;
-    recordedUndo: boolean;
-    copyOnDrag: boolean;
-    targetId: string;
-    moveSelection: boolean;
-  } | null>(null);
+  // Imperative drag via the shared gesture layer — one store commit on drop.
+  const nodeDrag = useCanvasNodeDrag({
+    kind: "3d",
+    nodeId: node.id,
+    commitMove: (targetId, dx, dy) => moveCanvas3D(targetId, dx, dy),
+    makeCopy: (id) => useCanvasStore.getState().duplicateCanvas3DNode(id),
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
+    recordUndo,
+  });
   const resizeStateRef = useRef<{
     pointerId: number;
     corner: NodeResizeCorner;
@@ -83,17 +88,10 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
     }
     if (!inMultiSelection) selectCanvas3D(node.id);
     if (canvasReadOnly) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      lastX: e.clientX,
-      lastY: e.clientY,
-      didMove: false,
-      recordedUndo: false,
-      copyOnDrag: e.altKey,
-      targetId: node.id,
+    nodeDrag.start(e, {
       moveSelection: inMultiSelection && !e.altKey,
-    };
+      copyOnDrag: e.altKey,
+    });
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -126,41 +124,20 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
       return;
     }
 
-    const ds = dragStateRef.current;
-    if (!ds || ds.pointerId !== e.pointerId) return;
-    const screenDx = e.clientX - ds.lastX;
-    const screenDy = e.clientY - ds.lastY;
-    const dist = Math.hypot(screenDx, screenDy);
-    if (!ds.didMove && dist < DRAG_THRESHOLD_PX) return;
-    if (!ds.recordedUndo) {
-      recordUndo();
-      ds.recordedUndo = true;
-    }
-    if (!ds.didMove && ds.copyOnDrag) {
-      const copyId = useCanvasStore.getState().duplicateCanvas3DNode(node.id);
-      if (copyId) ds.targetId = copyId;
-    }
-    if (!ds.didMove) clearSpawnMetaIfDragging(ds.targetId);
-    ds.didMove = true;
-    ds.lastX = e.clientX;
-    ds.lastY = e.clientY;
-    const st = useCanvasStore.getState();
-    const vpScale = st.viewport.scale;
-    if (ds.moveSelection) {
-      st.moveSelectedCanvasItems(screenDx / vpScale, screenDy / vpScale);
-    } else {
-      moveCanvas3D(ds.targetId, screenDx / vpScale, screenDy / vpScale);
-    }
+    nodeDrag.move(e);
   };
 
   const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
+    if (resizeStateRef.current?.pointerId === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+      resizeStateRef.current = null;
+      return;
     }
-    resizeStateRef.current = null;
-    dragStateRef.current = null;
+    nodeDrag.end(e);
   };
 
   const handleResizePointerDown = (
@@ -185,6 +162,34 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
       recordedUndo: false,
     };
   };
+
+  // Gesture-time stand-in: 3D nodes host WebGL viewers — the heaviest
+  // possible mid-gesture mount. Hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-3d
+        data-canvas-node-id={node.id}
+        data-3d-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {node.title}
+        </div>
+      </div>
+    );
+  }
 
   const borderClass = isSelected
     ? "ring-2 ring-canvas-ink/40"
@@ -220,7 +225,9 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
             modelUrl={node.modelUrl}
             format={node.format}
             interactive={isSelected && !canvasReadOnly}
-            autoRotate={!isSelected}
+            // Stop the per-node rAF render loop when zoomed out far enough
+            // that the rotation is sub-legible anyway.
+            autoRotate={!isSelected && !godView}
             playAnimations
           />
         </div>
@@ -258,3 +265,12 @@ export function Canvas3DNode({ node }: { node: Canvas3DNodeType }) {
     </MotionCanvasNode>
   );
 }
+
+/**
+ * Memoized: re-renders only when its own props are replaced; store data
+ * comes from narrow selectors inside (matches Card's memo contract).
+ */
+export const Canvas3DNode = memo(
+  Canvas3DNodeInner,
+  (prev, next) => prev.node === next.node,
+);

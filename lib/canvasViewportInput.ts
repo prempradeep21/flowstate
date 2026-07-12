@@ -7,8 +7,19 @@ import { useCanvasStore } from "@/lib/store";
 /** WheelEvent.deltaMode — pixel mode (trackpad scroll / pinch on most browsers). */
 const DOM_DELTA_PIXEL = 0;
 
-/** Max wheel delta (px) per tick before zoom exponent — tames mouse-wheel jumps. */
-const WHEEL_ZOOM_DELTA_CLAMP = 10;
+/**
+ * Max wheel delta per tick before the zoom exponent.
+ *
+ * Continuous (trackpad-pinch) input is NOT velocity-clamped: any per-event
+ * cap throws away pinch surplus and makes vigorous zooms finish after the
+ * fingers stop ("lags behind my fingers"). The only guard is a garbage
+ * ceiling far above anything fingers produce (±240px ⇒ ×e^3 per event),
+ * catching broken OS/driver events. Final scale is still bounded by
+ * clampScale + rubber-band in lib/viewportGesture. Notched wheel input
+ * keeps a tight clamp; its steps are smoothed separately.
+ */
+const WHEEL_ZOOM_DELTA_GUARD_CONTINUOUS = 240;
+const WHEEL_ZOOM_DELTA_CLAMP_NOTCHED = 10;
 
 /** Pinch / modifier+scroll zoom sensitivity. */
 const WHEEL_ZOOM_INTENSITY_PINCH = 0.0125;
@@ -51,8 +62,8 @@ export function resolveCanvasWheelAction(
   return "zoom";
 }
 
-function clampWheelZoomDelta(delta: number): number {
-  return Math.sign(delta) * Math.min(WHEEL_ZOOM_DELTA_CLAMP, Math.abs(delta));
+function clampWheelZoomDelta(delta: number, max: number): number {
+  return Math.sign(delta) * Math.min(max, Math.abs(delta));
 }
 
 /** Effective vertical zoom delta after axis swap and clamp. */
@@ -62,8 +73,31 @@ export function wheelZoomDelta(e: WheelZoomInput): number {
     [dx, dy] = [dy, dx];
   }
   const delta = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
-  if (isZoomWheel(e)) return clampWheelZoomDelta(delta);
+  if (isZoomWheel(e)) {
+    return clampWheelZoomDelta(
+      delta,
+      isContinuousZoomInput(e)
+        ? WHEEL_ZOOM_DELTA_GUARD_CONTINUOUS
+        : WHEEL_ZOOM_DELTA_CLAMP_NOTCHED,
+    );
+  }
   return delta;
+}
+
+/**
+ * True for continuous (trackpad-pinch style) zoom input — applied directly,
+ * 1:1 with the fingers. Notched/discrete wheel zoom (integer deltas ≥ 40,
+ * or line/page delta modes) is routed through smoothing instead.
+ *
+ * macOS pinch and ctrl+mouse-wheel both arrive as ctrlKey + pixel-mode; the
+ * integer-magnitude heuristic (used by other canvas tools) separates them:
+ * pinch deltas are small and usually fractional, notched wheels emit large
+ * integer steps.
+ */
+export function isContinuousZoomInput(e: WheelZoomInput): boolean {
+  if (e.deltaMode !== DOM_DELTA_PIXEL) return false;
+  const { dy } = wheelDeltaXY(e);
+  return !Number.isInteger(dy) || Math.abs(dy) < 40;
 }
 
 /** Exponential zoom factor for a wheel event. */
@@ -78,17 +112,29 @@ export function gestureZoomFactor(prevScale: number, currentScale: number): numb
   return currentScale / prevScale;
 }
 
-/** Apply zoom around a screen-space pivot on the canvas container. */
+/**
+ * Apply zoom around a screen-space pivot on the canvas container.
+ *
+ * `apply` receives (factor, pivotX, pivotY); pass the rAF-coalescing queue
+ * from useCanvasZoom so rapid pinch/wheel ticks collapse to one store write
+ * per frame. The direct-store default remains for programmatic callers.
+ */
 export function applyCanvasZoomAtScreen(
   container: HTMLElement,
   clientX: number,
   clientY: number,
   factor: number,
+  apply?: (factor: number, pivotX: number, pivotY: number) => void,
 ): void {
   if (factor === 1) return;
   const rect = container.getBoundingClientRect();
   const pivotX = clientX - rect.left;
   const pivotY = clientY - rect.top;
+  if (apply) {
+    // Queue handles interaction marking + tween cancel itself.
+    apply(factor, pivotX, pivotY);
+    return;
+  }
   markUserViewportInteraction();
   cancelViewportTween();
   useCanvasStore.getState().zoomAt(factor, pivotX, pivotY);

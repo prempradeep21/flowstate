@@ -3,6 +3,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   MutableRefObject,
+  ReactNode,
   RefObject,
   useEffect,
   useLayoutEffect,
@@ -78,6 +79,11 @@ import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
 import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
+import { ConnectionsCanvas } from "@/components/ConnectionsCanvas";
+import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
+
+/** Kill-switch: restore the legacy SVG connections renderer for one release. */
+const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
 import { SkillPlugConnections } from "@/components/plugs/SkillPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
@@ -117,7 +123,6 @@ import {
 } from "@/lib/canvasLandingState";
 import { GroupBounds } from "@/components/GroupBounds";
 import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
-import { SelectionOverlay } from "@/components/SelectionOverlay";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
 import {
@@ -148,6 +153,43 @@ interface ThreeDPlacementState extends SpawnCanvas3DInput, PlacementState {}
 
 interface ArtifactPlacementState extends PlacementState {
   artifactType: ManualArtifactType;
+}
+
+/**
+ * Mount-once keep-alive for culled STATEFUL nodes (artifacts, assets, gifs,
+ * 3D). Culling used to UNMOUNT offscreen nodes; every 240px band round-trip
+ * destroyed and recreated the subtree — iframes (website/embed/google-doc)
+ * reloaded from the network, WebGL contexts rebuilt, media playback reset,
+ * and content visibly "re-rendered" on pan/zoom. Now such a node mounts the
+ * first time it becomes visible and is thereafter only hidden with
+ * display:none — zero raster/layout cost while offscreen, but DOM (and
+ * iframe/player state) survives, so revisiting a region shows content
+ * instantly, exactly as it was.
+ * `display: contents` keeps the wrapper layout-transparent while visible
+ * (children are absolutely positioned against the viewport).
+ *
+ * Deliberately NOT used for cards/skills/labels: they are plain DOM with no
+ * external state, remount cheaply through the gesture-time placeholder
+ * policy, and keeping hundreds of them resident measurably regressed
+ * pan/zoom at 300 nodes (every hydration wave re-mounted full markdown).
+ *
+ * While culling is enabled but the first visible set hasn't computed yet
+ * (one frame at load), callers pass visible=false — a null-window render
+ * would otherwise pin the ENTIRE canvas in the DOM forever.
+ */
+function CulledKeepAlive({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const seenRef = useRef(false);
+  if (visible) seenRef.current = true;
+  if (!seenRef.current) return null;
+  return (
+    <div style={{ display: visible ? "contents" : "none" }}>{children}</div>
+  );
 }
 
 export function Canvas({
@@ -330,12 +372,16 @@ export function Canvas({
   } | null>(null);
   const spaceHeldRef = useRef(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [marqueeRect, setMarqueeRect] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
+  // Marquee: React state only tracks ACTIVE (mount overlay / hide toolbar);
+  // the rubber-band rect is driven imperatively per frame, and the expensive
+  // spatial query + selection write are rAF-coalesced with a set-equality
+  // skip — the old per-pointermove setState + full-canvas query was a top
+  // jank source during multi-select.
+  const [marqueeActive, setMarqueeActive] = useState(false);
+  const marqueeOverlayRef = useRef<HTMLDivElement | null>(null);
+  const marqueePendingRef = useRef<{ x: number; y: number } | null>(null);
+  const marqueeRafRef = useRef(0);
+  const lastMarqueeSelectionRef = useRef<string>("");
   // Latest cursor position in screen space, kept in a ref so a window keydown
   // listener can read it without re-binding on every mousemove.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -808,54 +854,62 @@ export function Canvas({
     return () => ro.disconnect();
   }, [showLanding, setViewport]);
 
-  // Track cursor position globally; also update ghost position when in placement.
+  // Track cursor position globally; also update ghost position when in
+  // placement. Ghost state updates are rAF-coalesced: one batched React
+  // commit per frame instead of up to six setState calls per mousemove
+  // (placement modes only — plain cursor tracking stays a ref write).
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      cursorRef.current = { x: e.clientX, y: e.clientY };
-      if (placementRef.current) {
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) setPlacement(placementWorld(world));
-      }
-      if (textPlacementRef.current) {
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) setTextPlacement(placementWorld(world));
-      }
+    let rafId = 0;
+    const flushGhosts = () => {
+      rafId = 0;
+      const pos = cursorRef.current;
+      if (!pos) return;
+      const anyPlacement =
+        placementRef.current ||
+        textPlacementRef.current ||
+        imagePlacementRef.current ||
+        gifPlacementRef.current ||
+        threeDPlacementRef.current ||
+        artifactPlacementRef.current;
+      if (!anyPlacement) return;
+      const world = computeWorldFromClient(pos.x, pos.y);
+      if (!world) return;
+      const at = placementWorld(world);
+      if (placementRef.current) setPlacement(at);
+      if (textPlacementRef.current) setTextPlacement(at);
       if (imagePlacementRef.current) {
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) {
-          setImagePlacement((prev) =>
-            prev ? { ...prev, ...placementWorld(world) } : prev,
-          );
-        }
+        setImagePlacement((prev) => (prev ? { ...prev, ...at } : prev));
       }
       if (gifPlacementRef.current) {
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) {
-          setGifPlacement((prev) =>
-            prev ? { ...prev, ...placementWorld(world) } : prev,
-          );
-        }
+        setGifPlacement((prev) => (prev ? { ...prev, ...at } : prev));
       }
       if (threeDPlacementRef.current) {
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) {
-          setThreeDPlacement((prev) =>
-            prev ? { ...prev, ...placementWorld(world) } : prev,
-          );
-        }
+        setThreeDPlacement((prev) => (prev ? { ...prev, ...at } : prev));
       }
       if (artifactPlacementRef.current) {
-        setPlacementScreen({ x: e.clientX, y: e.clientY });
-        const world = computeWorldFromClient(e.clientX, e.clientY);
-        if (world) {
-          setArtifactPlacement((prev) =>
-            prev ? { ...prev, ...placementWorld(world) } : prev,
-          );
-        }
+        setPlacementScreen({ x: pos.x, y: pos.y });
+        setArtifactPlacement((prev) => (prev ? { ...prev, ...at } : prev));
+      }
+    };
+    const onMove = (e: MouseEvent) => {
+      cursorRef.current = { x: e.clientX, y: e.clientY };
+      if (
+        !rafId &&
+        (placementRef.current ||
+          textPlacementRef.current ||
+          imagePlacementRef.current ||
+          gifPlacementRef.current ||
+          threeDPlacementRef.current ||
+          artifactPlacementRef.current)
+      ) {
+        rafId = requestAnimationFrame(flushGhosts);
       }
     };
     window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("mousemove", onMove);
+    };
   }, []);
 
   // Paste a YouTube URL onto the canvas background to create a video artifact.
@@ -1707,11 +1761,48 @@ export function Canvas({
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
-    state.setCanvasSelection(
-      ms.baseSelection
-        ? mergeCanvasSelections(ms.baseSelection, rectSelection)
-        : rectSelection,
-    );
+    const next = ms.baseSelection
+      ? mergeCanvasSelections(ms.baseSelection, rectSelection)
+      : rectSelection;
+    // Most marquee frames don't change what's inside the rect — skip the
+    // store write (and the re-renders it fans out) when the selection is
+    // identical to the last applied one.
+    const key =
+      next.familyRootIds.join("|") +
+      "::" +
+      next.items.map((i) => `${i.kind}:${i.id}`).join("|");
+    if (key === lastMarqueeSelectionRef.current) return;
+    lastMarqueeSelectionRef.current = key;
+    state.setCanvasSelection(next);
+  };
+
+  /** rAF-coalesced marquee: one spatial query + selection write per frame. */
+  const queueMarqueeAt = (clientX: number, clientY: number) => {
+    marqueePendingRef.current = { x: clientX, y: clientY };
+    if (marqueeRafRef.current) return;
+    marqueeRafRef.current = requestAnimationFrame(() => {
+      marqueeRafRef.current = 0;
+      const p = marqueePendingRef.current;
+      marqueePendingRef.current = null;
+      if (p) applyMarqueeAt(p.x, p.y);
+    });
+  };
+
+  /** Imperative rubber-band rect — no React work per pointermove. */
+  const setMarqueeOverlayRect = (
+    rect: { x: number; y: number; w: number; h: number } | null,
+  ) => {
+    const el = marqueeOverlayRef.current;
+    if (!el) return;
+    if (!rect || (rect.w < 2 && rect.h < 2)) {
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "block";
+    el.style.left = `${rect.x}px`;
+    el.style.top = `${rect.y}px`;
+    el.style.width = `${rect.w}px`;
+    el.style.height = `${rect.h}px`;
   };
 
   const isCanvasBackgroundTarget = (target: HTMLElement) =>
@@ -1778,7 +1869,10 @@ export function Canvas({
           }
         : null,
     };
-    setMarqueeRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
+    lastMarqueeSelectionRef.current = "";
+    setMarqueeActive(true);
+    setMarqueeSelecting(true);
+    setMarqueeOverlayRect({ x: e.clientX, y: e.clientY, w: 0, h: 0 });
     if (!additive) clearSelection();
   };
 
@@ -1798,9 +1892,9 @@ export function Canvas({
       const y = Math.min(ms.startY, e.clientY);
       const w = Math.abs(e.clientX - ms.startX);
       const h = Math.abs(e.clientY - ms.startY);
-      setMarqueeRect({ x, y, w, h });
+      setMarqueeOverlayRect({ x, y, w, h });
       if (w >= MARQUEE_MIN_DRAG_PX || h >= MARQUEE_MIN_DRAG_PX) {
-        applyMarqueeAt(e.clientX, e.clientY);
+        queueMarqueeAt(e.clientX, e.clientY);
       }
       return;
     }
@@ -1831,13 +1925,26 @@ export function Canvas({
     if (ms && ms.pointerId === e.pointerId) {
       const w = Math.abs(e.clientX - ms.startX);
       const h = Math.abs(e.clientY - ms.startY);
+      if (marqueeRafRef.current) {
+        cancelAnimationFrame(marqueeRafRef.current);
+        marqueeRafRef.current = 0;
+        marqueePendingRef.current = null;
+      }
+      // Flag off BEFORE the final selection apply so the culling hook's
+      // "selected nodes always render" union runs for the settled selection.
+      setMarqueeSelecting(false);
       if (w >= MARQUEE_MIN_DRAG_PX || h >= MARQUEE_MIN_DRAG_PX) {
+        // Final position applied synchronously so release is exact; force
+        // the store write even if the id set matches the last mid-sweep
+        // apply, so culling re-evaluates with the union enabled.
+        lastMarqueeSelectionRef.current = "";
         applyMarqueeAt(e.clientX, e.clientY);
       } else if (!ms.baseSelection) {
         clearSelection();
       }
       marqueeState.current = null;
-      setMarqueeRect(null);
+      setMarqueeActive(false);
+      setMarqueeOverlayRect(null);
       try {
         (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
       } catch {
@@ -1885,6 +1992,12 @@ export function Canvas({
       }`}
     >
       <CanvasBackgroundLayer />
+      {/* Connections render on a screen-space canvas2d layer (one rAF redraw,
+          zero React work per frame). NEXT_PUBLIC_SVG_CONNECTIONS=1 restores
+          the legacy SVG renderer for one release as a kill-switch. */}
+      {!SVG_CONNECTIONS && connectionsBehindCards && (
+        <ConnectionsCanvas containerRef={containerRef} />
+      )}
       <CanvasViewport>
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
@@ -1893,7 +2006,7 @@ export function Canvas({
           groupList.map((group) => (
             <GroupBounds key={group.id} group={group} />
           ))}
-        {connectionsBehindCards && <Connections />}
+        {SVG_CONNECTIONS && connectionsBehindCards && <Connections />}
         {cardOrder.map((id) => {
           const card = cards[id];
           if (!card) return null;
@@ -1906,38 +2019,58 @@ export function Canvas({
         {canvasArtifactOrder.map((id) => {
           const node = canvasArtifactNodes[id];
           if (!node) return null;
-          if (
-            cullingEnabled &&
-            visibleNodes &&
-            !visibleNodes.artifacts.has(id)
-          ) {
-            return null;
-          }
-          return <CanvasArtifactNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
+              }
+            >
+              <CanvasArtifactNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasAssetOrder.map((id) => {
           const node = canvasAssetNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.assets.has(id)) {
-            return null;
-          }
-          return <CanvasAssetNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
+              }
+            >
+              <CanvasAssetNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasGifOrder.map((id) => {
           const node = canvasGifNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.gifs.has(id)) {
-            return null;
-          }
-          return <CanvasGifNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
+              }
+            >
+              <CanvasGifNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvas3DOrder.map((id) => {
           const node = canvas3DNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.threeD.has(id)) {
-            return null;
-          }
-          return <Canvas3DNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
+              }
+            >
+              <Canvas3DNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasSkillOrder.map((id) => {
           const node = canvasSkillNodes[id];
@@ -1967,7 +2100,7 @@ export function Canvas({
               <GroupSummaryIcon key={`summary-icon-${group.id}`} group={group} />
             ) : null,
           )}
-        {!connectionsBehindCards && <Connections />}
+        {SVG_CONNECTIONS && !connectionsBehindCards && <Connections />}
         <CanvasDrawingLayer
           strokes={canvasStrokes}
           strokeOrder={canvasStrokeOrder}
@@ -1979,6 +2112,9 @@ export function Canvas({
         {gifPlacement && <GhostGif world={gifPlacement} />}
         {threeDPlacement && <Ghost3D world={threeDPlacement} />}
       </CanvasViewport>
+      {!SVG_CONNECTIONS && !connectionsBehindCards && (
+        <ConnectionsCanvas containerRef={containerRef} />
+      )}
       {showLanding &&
         !chatsGloballyHidden &&
         !placement &&
@@ -1988,9 +2124,16 @@ export function Canvas({
         !threeDPlacement &&
         !artifactPlacement &&
         landingCardId && <CanvasLandingOverlay cardId={landingCardId} />}
-      <SelectionOverlay rect={marqueeRect} />
+      {/* Marquee rubber-band — positioned imperatively per frame (no React
+          re-render per pointermove; matches SelectionOverlay's styling). */}
+      <div
+        ref={marqueeOverlayRef}
+        aria-hidden
+        style={{ display: "none" }}
+        className="pointer-events-none fixed z-30 border-2 border-dashed border-canvas-ink/40 bg-canvas-ink/5"
+      />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
-      {!marqueeRect && <SelectionToolbar />}
+      {!marqueeActive && <SelectionToolbar />}
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}

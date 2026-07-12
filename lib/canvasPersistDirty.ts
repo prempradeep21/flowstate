@@ -35,6 +35,13 @@ export interface CanvasPersistSlice {
   collaborationHasEdits: boolean;
 }
 
+/**
+ * Shared sentinels for absent optional fields so two picks of the same state
+ * stay reference-equal — the fast dirty checks below rely on this.
+ */
+const EMPTY_OBJECT: Record<string, never> = Object.freeze({});
+const EMPTY_ARRAY = Object.freeze([]) as unknown as string[];
+
 export function pickCanvasPersistSlice(
   state: CanvasPersistSlice,
 ): CanvasPersistSlice {
@@ -53,19 +60,19 @@ export function pickCanvasPersistSlice(
     selectedModel: state.selectedModel,
     viewMode: state.viewMode,
     sessionArtifacts: state.sessionArtifacts,
-    canvasAssets: state.canvasAssets ?? {},
+    canvasAssets: state.canvasAssets ?? EMPTY_OBJECT,
     canvasArtifactNodes: state.canvasArtifactNodes,
     canvasArtifactOrder: state.canvasArtifactOrder,
-    canvasAssetNodes: state.canvasAssetNodes ?? {},
-    canvasAssetOrder: state.canvasAssetOrder ?? [],
+    canvasAssetNodes: state.canvasAssetNodes ?? EMPTY_OBJECT,
+    canvasAssetOrder: state.canvasAssetOrder ?? EMPTY_ARRAY,
     canvasTextLabels: state.canvasTextLabels,
     canvasTextLabelOrder: state.canvasTextLabelOrder,
-    canvasGifNodes: state.canvasGifNodes ?? {},
-    canvasGifOrder: state.canvasGifOrder ?? [],
-    canvas3DNodes: state.canvas3DNodes ?? {},
-    canvas3DOrder: state.canvas3DOrder ?? [],
-    canvasStrokes: state.canvasStrokes ?? {},
-    canvasStrokeOrder: state.canvasStrokeOrder ?? [],
+    canvasGifNodes: state.canvasGifNodes ?? EMPTY_OBJECT,
+    canvasGifOrder: state.canvasGifOrder ?? EMPTY_ARRAY,
+    canvas3DNodes: state.canvas3DNodes ?? EMPTY_OBJECT,
+    canvas3DOrder: state.canvas3DOrder ?? EMPTY_ARRAY,
+    canvasStrokes: state.canvasStrokes ?? EMPTY_OBJECT,
+    canvasStrokeOrder: state.canvasStrokeOrder ?? EMPTY_ARRAY,
     uploadedAttachments: state.uploadedAttachments,
     collaborationHasEdits: state.collaborationHasEdits,
   };
@@ -155,25 +162,18 @@ function viewportChanged(
   );
 }
 
-/** Fast path: only viewport fields differ (common during pan/zoom). */
-function slicesEqualExceptViewport(
+/**
+ * Reference equality across every persisted field except viewport.
+ *
+ * The zustand store replaces slices immutably, so for store-sourced slices
+ * this is both necessary AND sufficient for "nothing but viewport changed".
+ * Costs ~28 pointer compares vs the ~1MB-each JSON.stringify it replaces —
+ * this runs on EVERY store write (drag pointermoves, pan frames).
+ */
+function nonViewportRefsEqual(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
 ): boolean {
-  const prevSlice = pickCanvasPersistSlice(prev);
-  const nextSlice = pickCanvasPersistSlice(next);
-  return (
-    JSON.stringify({ ...prevSlice, viewport: null }) ===
-    JSON.stringify({ ...nextSlice, viewport: null })
-  );
-}
-
-export function isViewportOnlyChange(
-  prev: CanvasPersistSlice,
-  next: CanvasPersistSlice,
-): boolean {
-  if (!viewportChanged(prev.viewport, next.viewport)) return false;
-  if (slicesEqualExceptViewport(prev, next)) return true;
   return (
     prev.cards === next.cards &&
     prev.cardOrder === next.cardOrder &&
@@ -206,6 +206,30 @@ export function isViewportOnlyChange(
   );
 }
 
+/** Deep fallback: only viewport fields differ (for snapshot-sourced slices). */
+function slicesEqualExceptViewport(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  // Inputs are already picked slices — no re-pick, one stringify per side.
+  return (
+    JSON.stringify({ ...prev, viewport: null }) ===
+    JSON.stringify({ ...next, viewport: null })
+  );
+}
+
+export function isViewportOnlyChange(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  if (!viewportChanged(prev.viewport, next.viewport)) return false;
+  // Cheap reference walk first — hits for all store-sourced slices. Only
+  // snapshot-sourced slices (fresh objects, equal content) need the deep
+  // stringify fallback.
+  if (nonViewportRefsEqual(prev, next)) return true;
+  return slicesEqualExceptViewport(prev, next);
+}
+
 export function isPersistableChange(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
@@ -221,16 +245,39 @@ export function classifyCanvasPersistChange(
   prev: CanvasPersistSlice,
   next: CanvasPersistSlice,
 ): { persist: boolean; contentEdit: boolean } {
-  const persist = isPersistableChange(prev, next);
-  const viewportOnly =
-    persist &&
-    (isViewportOnlyChange(prev, next) ||
-      slicesEqualExceptViewport(prev, next));
+  // Evaluate each predicate at most once (the old shape re-ran the stringify
+  // comparisons up to three times per store write).
+  if (isViewportOnlyChange(prev, next)) {
+    return { persist: true, contentEdit: false };
+  }
+  const persist =
+    JSON.stringify(pickCanvasPersistSlice(prev)) !==
+    JSON.stringify(pickCanvasPersistSlice(next));
   return {
     persist,
     // Any non-viewport canvas change (cards, assets, artifacts, answers, …)
     // must use the priority save path — never the slow viewport debounce.
-    contentEdit: persist && !viewportOnly,
+    contentEdit: persist,
+  };
+}
+
+/**
+ * Reference-only classifier for the per-store-write hot path.
+ *
+ * Store writes are immutable, so a changed reference is the ONLY way content
+ * can change — `persist: false` here is always safe. A replaced-but-identical
+ * object yields a false-positive `persist: true`, which merely schedules a
+ * debounced save of identical content (harmless). No serialization, ever.
+ */
+export function classifyCanvasPersistChangeFast(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): { persist: boolean; contentEdit: boolean } {
+  const contentChanged = !nonViewportRefsEqual(prev, next);
+  if (contentChanged) return { persist: true, contentEdit: true };
+  return {
+    persist: viewportChanged(prev.viewport, next.viewport),
+    contentEdit: false,
   };
 }
 

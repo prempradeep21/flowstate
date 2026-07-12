@@ -223,10 +223,14 @@ body {
   overscroll-behavior: none;
 }
 
-/* Emoji, flags, and symbol fallbacks for custom canvas fonts */
+/* Emoji, flags, and symbol fallbacks for custom canvas fonts.
+ * text-rendering stays `auto`: optimizeLegibility forces full shaping on
+ * every re-raster, which taxes each zoom frame across all visible card
+ * text for an imperceptible difference at canvas sizes. (Do not toggle it
+ * per-gesture — switching changes kerning and reflows text mid-zoom.) */
 .rich-text {
   font-variant-emoji: unicode;
-  text-rendering: optimizeLegibility;
+  text-rendering: auto;
 }
 
 /* Minimal scrollbars — transparent track, no arrows, theme-aware thumb. */
@@ -913,6 +917,49 @@ html[data-theme="dark"] .timeline-band {
 .connection-draw-in {
   animation: connection-draw-in var(--motion-duration-fast) linear both;
   animation-delay: 80ms;
+}
+
+/*
+ * Gesture-time compositing hygiene. data-gesturing carries a mode:
+ *   "drag" — node drag (lib/gesture/gestureLayer.ts)
+ *   "pan"  — viewport pan (lib/viewportGesture.ts)
+ *   "zoom" — viewport gesture that has zoomed at least once
+ * For EVERY mode, child transitions are suppressed — they fight the
+ * imperative transforms, and the post-gesture settle restyle must cut, not
+ * animate. Matching on attribute presence covers all modes.
+ */
+[data-canvas-container][data-gesturing] [data-canvas-card],
+[data-canvas-container][data-gesturing] [data-canvas-artifact],
+[data-canvas-container][data-gesturing] [data-canvas-asset],
+[data-canvas-container][data-gesturing] [data-canvas-gif],
+[data-canvas-container][data-gesturing] [data-canvas-3d],
+[data-canvas-container][data-gesturing] [data-canvas-skill],
+[data-canvas-container][data-gesturing] [data-canvas-text-label] {
+  transition: none !important;
+}
+
+[data-canvas-container][data-gesturing] [data-canvas-card] *,
+[data-canvas-container][data-gesturing] [data-canvas-artifact] *,
+[data-canvas-container][data-gesturing] [data-canvas-skill] * {
+  transition: none !important;
+}
+
+/*
+ * Zoom-only raster hygiene: every zoom frame re-rasterizes the layer at the
+ * new scale, and blurred node shadows are the dominant raster cost. All
+ * shadow-artifact utilities resolve to these tokens (tailwind.config), so
+ * redefining them under the zoom scope flattens card + artifact-casing
+ * shadows in one rule — WITHOUT killing ring-* selection indicators, which
+ * share the box-shadow property. `0 0 #0000` is Tailwind's own empty-shadow
+ * value; `none` would invalidate the composed ring+shadow list.
+ * Pans and node drags keep shadows: they composite the existing raster,
+ * where shadows cost nothing per frame (and a dragged card without its
+ * shadow looks detached). Restored at gesture end inside the
+ * transition-suppressed window, so the return cuts instead of animating.
+ */
+[data-canvas-container][data-gesturing="zoom"] {
+  --canvas-artifact-shadow: 0 0 #0000;
+  --canvas-artifact-shadow-hover: 0 0 #0000;
 }
 
 @media (prefers-reduced-motion: reduce) {

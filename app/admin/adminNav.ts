@@ -52,6 +52,14 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     group: "build",
   },
   {
+    href: "/admin/tools/models",
+    label: "Model Selection",
+    description:
+      "Curate and prioritise the OpenRouter models users can pick in the composer.",
+    icon: "models",
+    group: "build",
+  },
+  {
     href: "/admin/ideas",
     label: "Groundbreaking ideas",
     description:

@@ -172,11 +172,7 @@ export function DemoCard({
               onDraftChange={() => {}}
               onSubmit={() => {}}
               trailingControls={
-                <CardQaMenu
-                  cardId={card.id}
-                  viewportScale={viewportScale}
-                  layout="embedded"
-                />
+                <CardQaMenu cardId={card.id} canvas layout="embedded" />
               }
             />
           </CanvasSharpContent>
@@ -199,17 +195,12 @@ export function DemoCard({
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
                 accentColour={accent}
-                accentWidth={compensatedStrokeWidth(3, viewportScale, 3)}
                 accentBandVariant="header"
                 style={qaInsetStyle("question")}
               >
                 <QaQuestionHeaderRow
                   controls={
-                    <CardQaMenu
-                      cardId={card.id}
-                      viewportScale={viewportScale}
-                      layout="embedded"
-                    />
+                    <CardQaMenu cardId={card.id} canvas layout="embedded" />
                   }
                 />
                 <CardQuestionText question={card.question} collapsed={false} />

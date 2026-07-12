@@ -6,24 +6,20 @@ import {
   QaQuestionSection,
   QaTranslucentSurface,
 } from "@/components/QaQuestionSection";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 import type { Card } from "@/lib/store";
 
 /** Temporary conversation-import card chrome (admin playground only). */
 export function ConversationCardSurface({
   card,
   accent,
-  scale,
 }: {
   card: Card;
   accent: string | undefined;
-  scale: number;
 }) {
   return (
     <QaTranslucentSurface className="group/body flex h-[200px] min-w-0 flex-col overflow-hidden">
       <QaQuestionSection
         accentColour={accent}
-        accentWidth={compensatedStrokeWidth(3, scale, 3)}
         accentBandVariant="header"
         style={{ padding: "14px 18px 10px" }}
       >

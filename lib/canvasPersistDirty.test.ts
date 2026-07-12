@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   areCanvasPersistSlicesEqual,
   classifyCanvasPersistChange,
+  classifyCanvasPersistChangeFast,
+  isViewportOnlyChange,
   pickCanvasPersistSlice,
   type CanvasPersistSlice,
 } from "@/lib/canvasPersistDirty";
@@ -179,5 +181,93 @@ describe("classifyCanvasPersistChange", () => {
       cardOrder: ["c1"],
     });
     expect(areCanvasPersistSlicesEqual(a, b)).toBe(true);
+  });
+});
+
+describe("classifyCanvasPersistChangeFast (per-store-write hot path)", () => {
+  /** Simulates store-style immutable updates: shared refs except changed fields. */
+  function storeNext(
+    prev: CanvasPersistSlice,
+    overrides: Partial<CanvasPersistSlice>,
+  ): CanvasPersistSlice {
+    return { ...prev, ...overrides };
+  }
+
+  it("no change → no persist", () => {
+    const prev = emptySlice();
+    const next = storeNext(prev, {});
+    expect(classifyCanvasPersistChangeFast(prev, next)).toEqual({
+      persist: false,
+      contentEdit: false,
+    });
+  });
+
+  it("viewport-only store write → persist without content edit", () => {
+    const prev = emptySlice();
+    const next = storeNext(prev, { viewport: { x: 10, y: 5, scale: 0.8 } });
+    expect(classifyCanvasPersistChangeFast(prev, next)).toEqual({
+      persist: true,
+      contentEdit: false,
+    });
+  });
+
+  it("card map replacement (drag move) → content edit", () => {
+    const prev = emptySlice({ cards: { c1: baseCard }, cardOrder: ["c1"] });
+    const next = storeNext(prev, {
+      cards: { c1: { ...baseCard, position: { x: 40, y: 12 } } },
+    });
+    expect(classifyCanvasPersistChangeFast(prev, next)).toEqual({
+      persist: true,
+      contentEdit: true,
+    });
+  });
+
+  it("never misses a change the deep classifier would persist", () => {
+    const prev = emptySlice({ cards: { c1: baseCard }, cardOrder: ["c1"] });
+    const cases: CanvasPersistSlice[] = [
+      storeNext(prev, { viewport: { x: 1, y: 1, scale: 1 } }),
+      storeNext(prev, { cards: { c1: { ...baseCard, answer: "hi" } } }),
+      storeNext(prev, { connectorStyle: "curvy" }),
+      storeNext(prev, { canvasTextLabels: { l1: { id: "l1" } } }),
+      storeNext(prev, { collaborationHasEdits: true }),
+    ];
+    for (const next of cases) {
+      const slow = classifyCanvasPersistChange(prev, next);
+      const fast = classifyCanvasPersistChangeFast(prev, next);
+      // Safe direction only: fast may over-persist, never under-persist.
+      if (slow.persist) expect(fast.persist).toBe(true);
+      if (slow.contentEdit) expect(fast.contentEdit).toBe(true);
+    }
+  });
+});
+
+describe("isViewportOnlyChange fast path", () => {
+  it("uses reference walk for store-sourced slices (shared refs)", () => {
+    const prev = emptySlice({ cards: { c1: baseCard }, cardOrder: ["c1"] });
+    const next = {
+      ...prev,
+      viewport: { x: 99, y: 0, scale: 2 },
+    };
+    expect(isViewportOnlyChange(prev, next)).toBe(true);
+  });
+
+  it("falls back to deep compare for snapshot-sourced slices (fresh refs)", () => {
+    const prev = emptySlice({ cards: { c1: baseCard }, cardOrder: ["c1"] });
+    const next = emptySlice({
+      viewport: { x: 99, y: 0, scale: 2 },
+      cards: { c1: { ...baseCard } },
+      cardOrder: ["c1"],
+    });
+    expect(isViewportOnlyChange(prev, next)).toBe(true);
+  });
+
+  it("rejects when content actually changed alongside viewport", () => {
+    const prev = emptySlice({ cards: { c1: baseCard }, cardOrder: ["c1"] });
+    const next = emptySlice({
+      viewport: { x: 99, y: 0, scale: 2 },
+      cards: { c1: { ...baseCard, answer: "changed" } },
+      cardOrder: ["c1"],
+    });
+    expect(isViewportOnlyChange(prev, next)).toBe(false);
   });
 });
