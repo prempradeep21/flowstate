@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeCanvasId,
     canvases,
     switchCanvas,
-    createNewCanvas,
+    createNewCanvas: createNewCanvasRaw,
     renameCanvas,
     deleteOwnedCanvas: deleteOwnedCanvasRaw,
     isSwitching: isSwitchingCanvas,
@@ -129,6 +129,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [activeCanvasId, collaboration.duplicateCanvasById, flushSave],
   );
+
+  const createNewCanvas = useCallback(async () => {
+    const id = await createNewCanvasRaw();
+    // The creator is always the DB owner (createCanvas inserts with
+    // owner_id: user.id) — seed accessInfo immediately instead of waiting
+    // for refreshActiveCanvasCollaboration's fetch, so the new canvas
+    // never renders read-only for its own creator. Local sessions skip the
+    // seed: their canvases have no DB row, and canEdit is granted directly
+    // by localReadOnly in useCollaboration.
+    if (id && !localReadOnly) collaboration.seedOwnerAccessInfo();
+    return id;
+  }, [collaboration.seedOwnerAccessInfo, createNewCanvasRaw, localReadOnly]);
 
   useEffect(() => {
     const readOnly =
