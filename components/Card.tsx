@@ -937,7 +937,7 @@ function CardInner({ card }: CardProps) {
       <div
         className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
-            ? "border-canvas-ink ring-2 ring-canvas-ink/25"
+            ? "border-canvas-accent ring-2 ring-canvas-accent/25"
             : "border-canvas-border"
         } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{

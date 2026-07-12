@@ -85,7 +85,7 @@ export function ConnectorStylePicker({
             onClick={() => onSelect(style)}
             className={`flex h-8 w-8 items-center justify-center rounded-canvas transition-colors ${
               active
-                ? "bg-canvas-ink/10 text-canvas-ink"
+                ? "bg-canvas-accentSoft text-canvas-accent"
                 : "text-canvas-muted hover:bg-canvas-ink/5 hover:text-canvas-ink"
             }`}
           >

@@ -35,7 +35,8 @@
     "test:watch": "vitest",
     "benchmark:pan-zoom": "node scripts/benchmark-pan-zoom.mjs",
     "perf": "node scripts/perf/run-benchmark.mjs",
-    "perf:electron": "node scripts/perf/run-benchmark.mjs --electron"
+    "perf:electron": "node scripts/perf/run-benchmark.mjs --electron",
+    "render:demo-video": "node scripts/render-demo-video.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -91,6 +92,7 @@
     "electron-builder": "^25.1.8",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.18",
+    "ffmpeg-static": "^5.3.0",
     "playwright": "^1.61.1",
     "postcss": "^8.5.14",
     "tailwindcss": "^3.4.19",

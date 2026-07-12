@@ -39,7 +39,7 @@ function MemberAvatar({
   return (
     <span
       title={title}
-      className={`flex ${avatarClass} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-white ${textClass}`}
+      className={`flex ${avatarClass} items-center justify-center rounded-full border-canvas-card bg-canvas-accent font-semibold text-canvas-onAccent ${textClass}`}
     >
       {label.charAt(0).toUpperCase()}
     </span>

@@ -198,7 +198,7 @@ export function CanvasesSection({
                       className="mt-0.5 h-7 w-7 shrink-0 rounded-full object-cover"
                     />
                   ) : (
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-canvas-accent text-canvas-compact font-semibold text-white">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-canvas-accent text-canvas-compact font-semibold text-canvas-onAccent">
                       {(invite.inviterName ?? "?").charAt(0).toUpperCase()}
                     </span>
                   )}
@@ -394,7 +394,7 @@ function CanvasListRow({
     <div
       className={[
         "flex w-full items-center gap-1 rounded-canvas px-2 py-2 transition-colors",
-        active ? "bg-canvas-bg" : "hover:bg-canvas-bg/70",
+        active ? "bg-canvas-accentSoft" : "hover:bg-canvas-bg/70",
         isSwitching ? "opacity-70" : "",
       ].join(" ")}
     >

@@ -103,7 +103,7 @@ function ContributorAvatar({
     <span className="relative shrink-0" style={style}>
       <span
         title={title}
-        className="flex items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-accent text-canvas-micro font-semibold text-white"
+        className="flex items-center justify-center rounded-full border-2 border-canvas-card bg-canvas-accent text-canvas-micro font-semibold text-canvas-onAccent"
         style={{ width: size, height: size }}
       >
         {initial}

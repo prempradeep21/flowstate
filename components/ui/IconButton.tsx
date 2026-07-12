@@ -50,7 +50,7 @@ export function IconButton({
         BUTTON_SIZE_CLASS[size]
       } ${
         active
-          ? "bg-canvas-ink text-canvas-card"
+          ? "bg-canvas-accentSoft text-canvas-accent"
           : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
       } ${className}`}
     >

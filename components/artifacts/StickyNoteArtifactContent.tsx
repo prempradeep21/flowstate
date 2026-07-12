@@ -36,7 +36,7 @@ function ColorSwatch({
       onClick={onSelect}
       className={`h-4 w-4 rounded-full border ${
         selected
-          ? "border-canvas-ink/50 ring-1 ring-canvas-ink/25"
+          ? "border-canvas-accent ring-1 ring-canvas-accent/40"
           : "border-canvas-ink/20"
       } ${disabled ? "cursor-default opacity-60" : "cursor-pointer"}`}
       style={{ backgroundColor: bg }}

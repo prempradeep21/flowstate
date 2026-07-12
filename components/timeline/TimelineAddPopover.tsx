@@ -90,7 +90,7 @@ export function TimelineAddPopover({
           type="button"
           disabled={!valid}
           onClick={handleSave}
-          className="rounded-full bg-canvas-accent px-3 py-1 text-canvas-compact font-medium text-white disabled:opacity-40"
+          className="rounded-full bg-canvas-accent px-3 py-1 text-canvas-compact font-medium text-canvas-onAccent disabled:opacity-40"
           data-no-drag
         >
           Save

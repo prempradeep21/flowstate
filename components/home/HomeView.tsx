@@ -11,7 +11,7 @@ import { SectionHeading } from "@/components/home/SectionHeading";
 import { useHomeCanvasCollaborators } from "@/components/home/useHomeCanvasCollaborators";
 import { useHomeTheme } from "@/components/home/useHomeTheme";
 
-const GRID_CLASS = "grid grid-cols-3 gap-5";
+const GRID_CLASS = "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4";
 
 export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const {
@@ -128,15 +128,15 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
         }}
       />
 
-      <div className="relative mx-auto w-full max-w-6xl px-6 py-8 sm:px-8 sm:py-10">
-        <HomeHeader theme={theme} onToggleTheme={toggleTheme} />
+      <HomeHeader theme={theme} onToggleTheme={toggleTheme} />
 
+      <div className="relative mx-auto w-full max-w-[86rem] px-6 py-8 sm:px-8">
         <section>
           <SectionHeading title="Your canvases" count={canvases.length} />
 
           {loading ? (
             <div className={GRID_CLASS}>
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
                   className="aspect-[16/10] animate-pulse rounded-canvas-lg border border-canvas-border bg-canvas-card"

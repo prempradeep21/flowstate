@@ -3,8 +3,8 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { PanelChevronIcon } from "@/components/PanelChrome";
 
-/** Two rows of three — matches the card grid's fixed 3-column layout. */
-const PAGE_SIZE = 6;
+/** Two rows — matches the card grid's responsive up-to-4-column layout. */
+const PAGE_SIZE = 8;
 
 export interface GridSlot {
   key: string;
@@ -12,14 +12,14 @@ export interface GridSlot {
 }
 
 /**
- * Renders `slots` as a fixed 3-column, 2-row grid (6 per page). When there are
+ * Renders `slots` as a responsive up-to-4-column, 2-row grid (8 per page). When there are
  * more slots than fit, prev/next arrow buttons appear in the gutters on either
  * side and page through the remainder. Used for every Home grid section so
  * pagination behaves identically everywhere.
  */
 export function PaginatedGrid({
   slots,
-  gridClassName = "grid grid-cols-3 gap-5",
+  gridClassName = "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4",
 }: {
   slots: GridSlot[];
   gridClassName?: string;

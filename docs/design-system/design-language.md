@@ -6,7 +6,7 @@ Visual design in Flowstate follows the same discipline as [motion](../motion-des
 
 1. **Token-first** — Every color, type size, and radius flows from `lib/design/tokens.ts`.
 2. **Semantic over primitive** — Use `text-canvas-body-sm` not `text-[13px]`; use `text-canvas-danger` not `text-red-600`.
-3. **One accent** — UI chrome and thread palette[0] share `canvas.accent` (`#6B4EFF`).
+3. **One accent** — UI chrome and thread palette[0] share `canvas.accent` (`#1754C6`, the brand cobalt).
 4. **Clustered scale** — Nine ad-hoc px sizes collapsed to eight named typography steps.
 5. **Composable radii** — `rounded-canvas` (12px) is default; `rounded-canvas-sm` (8px) for compact overlays; `rounded-canvas-xs` (2px) for handles.
 
@@ -58,6 +58,18 @@ All floating UI on the canvas shares one inset and chip typography.
 **Applies to:** `AppLeftPanel`, `AppRightPanel` (collapsed), `CanvasBottomToolbar` shell, panel footers (`p-3` sections).
 
 **Do not** use `text-canvas-heading` for save/auth chips — use `floating-chrome-chip`.
+
+## Selection & active states
+
+Selection reads as **primary blue** everywhere. Two idioms, both themable (they follow the active preset's primary):
+
+| Strength | Recipe | Use |
+|----------|--------|-----|
+| Solid pill | `bg-canvas-accent text-canvas-onAccent` | Segmented controls (view mode, panel tabs), file tabs, the collapsed Artifacts button |
+| Soft fill | `bg-canvas-accentSoft text-canvas-accent` | Selected sidebar row, toolbar/menu toggles, active dropdown rows, active thread |
+| Outline | `border-canvas-accent ring-2 ring-canvas-accent/25` | Selected canvas cards/artifact nodes; `ring-1` for picker swatches |
+
+Never use `text-white` or `text-canvas-card` on an accent fill — `onAccent` flips to near-black in dark mode because the dark accent is lightened for contrast. The marquee (`.canvas-selection-marquee`) and focus rings also use `canvas-accent`.
 
 ## Do / Don't
 

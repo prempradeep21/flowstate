@@ -240,7 +240,7 @@ export function ArtifactPanelHeader({
           <button
             type="button"
             onClick={editControls.onSave}
-            className={`${ctaClass} bg-canvas-accent text-white hover:opacity-90`}
+            className={`${ctaClass} bg-canvas-accent text-canvas-onAccent hover:opacity-90`}
           >
             Save
           </button>
@@ -314,7 +314,7 @@ export function ArtifactPanelHeader({
                       }}
                       className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
                         v.id === activeVersionId
-                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
                           : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
                       }`}
                     >
@@ -336,7 +336,7 @@ export function ArtifactPanelHeader({
                       }}
                       className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
                         v.id === activeVersionId
-                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
                           : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
                       }`}
                     >

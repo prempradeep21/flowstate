@@ -74,9 +74,11 @@ export function AppRightPanel() {
 
       <aside
         className={[
-          "flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
+          "flex flex-col overflow-hidden rounded-canvas border shadow-card transition-[width,height] duration-panel ease-panel",
 
-          collapsed ? "w-auto" : "w-[462px]",
+          collapsed
+            ? "w-auto border-canvas-accent bg-canvas-accent"
+            : "w-[462px] border-canvas-border bg-canvas-card",
 
         ].join(" ")}
 
@@ -101,13 +103,13 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80"
+            className="flex items-center gap-2 rounded-canvas text-canvas-onAccent transition-colors hover:bg-canvas-onAccent/10"
 
           >
 
-            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-accent" />
+            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-onAccent" />
 
-            <span className="text-canvas-body-sm font-medium text-canvas-ink">
+            <span className="text-canvas-body-sm font-medium text-canvas-onAccent">
               {tabLabels[activeTab]}
             </span>
 
@@ -140,7 +142,7 @@ export function AppRightPanel() {
                         onClick={() => setActiveTab(tab)}
                         className={`rounded-canvas px-3 py-1 text-canvas-body-sm font-medium capitalize transition-colors ${
                           active
-                            ? "bg-canvas-ink text-canvas-card shadow-card"
+                            ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                             : "text-canvas-muted hover:text-canvas-ink"
                         }`}
                       >

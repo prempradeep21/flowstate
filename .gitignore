@@ -60,3 +60,19 @@ next-env.d.ts
 
 # Local perf benchmark artifacts (scripts/perf/run-benchmark.mjs output)
 /scratch/
+
+/.next-demo/
+
+# Rendered demo video output (large binaries, not committed)
+/demo-video/
+
+# macOS archive junk and editor backups
+__MACOSX/
+*.backup
+
+# Stray screenshots dropped in repo root
+/Group 3.png
+/git city.png
+
+# Editor backup with .backup infix
+*.backup.tsx

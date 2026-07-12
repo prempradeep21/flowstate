@@ -263,7 +263,7 @@ export function AudioArtifactContent({
         } ${
           canControl
             ? playing
-              ? "bg-canvas-accent text-white shadow-sm hover:bg-canvas-accent/90"
+              ? "bg-canvas-accent text-canvas-onAccent shadow-sm hover:bg-canvas-accent/90"
               : "bg-canvas-accent/15 text-canvas-accent hover:bg-canvas-accent/25"
             : "cursor-not-allowed bg-canvas-border/20 text-canvas-muted/50"
         }`}

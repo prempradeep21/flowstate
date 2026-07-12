@@ -43,7 +43,7 @@ export function ArtifactsSection() {
             }}
             className={`rounded-full px-4 py-2 text-canvas-compact transition-colors ${
               tab === section.id
-                ? "bg-canvas-ink font-medium text-canvas-card"
+                ? "bg-canvas-accent font-medium text-canvas-onAccent"
                 : "border border-canvas-border bg-canvas-card text-canvas-muted hover:text-canvas-ink"
             }`}
           >

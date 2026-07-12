@@ -236,7 +236,7 @@ export function CoachMarkPopover({
             <span
               key={i}
               className={`h-1.5 w-1.5 rounded-full ${
-                i === stepIndex ? "bg-canvas-ink" : "bg-canvas-border"
+                i === stepIndex ? "bg-canvas-accent" : "bg-canvas-border"
               }`}
             />
           ))}

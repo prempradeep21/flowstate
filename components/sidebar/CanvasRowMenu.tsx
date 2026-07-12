@@ -95,7 +95,7 @@ export function CanvasRowMenu({
         }}
         onPointerDown={(e) => e.stopPropagation()}
         className={`flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40 ${
-          open ? "bg-canvas-bg text-canvas-ink" : ""
+          open ? "bg-canvas-accentSoft text-canvas-accent" : ""
         }`}
       >
         <DotsIcon />
