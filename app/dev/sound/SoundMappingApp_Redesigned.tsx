@@ -890,7 +890,7 @@ export function SoundMappingApp({ embedded = false }: { embedded?: boolean }) {
         {[...groupedEvents.entries()].map(([category, events]) => (
           <section key={category} className={`mb-10 rounded-canvas border border-transparent bg-gradient-to-br ${CATEGORY_COLORS[category]?.bg || ""} p-6 shadow-lg shadow-slate-400/15 dark:shadow-slate-700/25 transition-all duration-500`}>
             <h2 className={`mb-4 text-canvas-body font-semibold flex items-center gap-2 ${CATEGORY_COLORS[category]?.text || ""}`}>
-              {CATEGORY_EMOJI[category]} {CATEGORY_LABELS[category] ?? category}
+              {CATEGORY_EMOJI[category]} {CATEGORY_LABELS[category as SoundEventCategory] ?? category}
             </h2>
             <div className="space-y-3">
               {events.map((event) => (

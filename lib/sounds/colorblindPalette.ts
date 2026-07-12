@@ -18,10 +18,8 @@ export interface ColorblindCategory {
   primaryDark: string;
   // Background gradient (subtle, uses primary + complementary)
   bg: string;
-  // Text color
+  // Text color (includes dark: variant)
   text: string;
-  // Text color dark mode
-  textDark: string;
   // Border color
   border: string;
   // Pill/badge colors
