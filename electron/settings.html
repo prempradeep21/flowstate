@@ -45,12 +45,16 @@
     </style>
   </head>
   <body>
-    <h1>API Key</h1>
-    <p class="sub">Flowstate uses your own Anthropic key for AI features. It is stored encrypted in your macOS Keychain and never leaves this Mac.</p>
+    <h1>API Keys</h1>
+    <p class="sub">Flowstate uses your own API keys. They are stored encrypted in your macOS Keychain and never leave this Mac. Anthropic powers Claude models; OpenRouter (optional) unlocks GPT, Gemini, and others.</p>
 
     <label for="key">Anthropic API key</label>
     <input id="key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
     <div class="hint" id="hint"></div>
+
+    <label for="orKey" style="margin-top: 16px; display: block;">OpenRouter API key (optional)</label>
+    <input id="orKey" type="password" placeholder="sk-or-..." autocomplete="off" spellcheck="false" />
+    <div class="hint" id="orHint"></div>
 
     <div class="actions">
       <button class="secondary" id="cancel" type="button">Close</button>
@@ -59,13 +63,18 @@
     <div class="status" id="status"></div>
 
     <script>
-      const params = new URLSearchParams(location.search);
-      const firstRun = params.get("firstRun") === "1";
       const keyInput = document.getElementById("key");
+      const orKeyInput = document.getElementById("orKey");
       const saveBtn = document.getElementById("save");
       const cancelBtn = document.getElementById("cancel");
       const hint = document.getElementById("hint");
+      const orHint = document.getElementById("orHint");
       const status = document.getElementById("status");
+
+      function refreshSaveState() {
+        saveBtn.disabled =
+          keyInput.value.trim().length === 0 && orKeyInput.value.trim().length === 0;
+      }
 
       async function init() {
         const state = await window.flowstate.settings.get();
@@ -73,18 +82,24 @@
           hint.textContent = "A key is already saved. Enter a new one to replace it.";
           keyInput.placeholder = "•••••••••• (saved)";
         } else {
-          hint.textContent = "Required to use AI features.";
+          hint.textContent = "Required to use Claude models.";
         }
+        orHint.textContent = state.hasOpenrouterKey
+          ? "A key is already saved. Enter a new one to replace it."
+          : "Optional — enables non-Claude models via OpenRouter.";
+        if (state.hasOpenrouterKey) orKeyInput.placeholder = "•••••••••• (saved)";
       }
 
-      keyInput.addEventListener("input", () => {
-        saveBtn.disabled = keyInput.value.trim().length === 0;
-      });
+      keyInput.addEventListener("input", refreshSaveState);
+      orKeyInput.addEventListener("input", refreshSaveState);
 
       saveBtn.addEventListener("click", async () => {
         saveBtn.disabled = true;
         status.textContent = "Saving…";
-        await window.flowstate.settings.save({ anthropicKey: keyInput.value });
+        await window.flowstate.settings.save({
+          anthropicKey: keyInput.value,
+          openrouterKey: orKeyInput.value,
+        });
         status.textContent = "Saved.";
         setTimeout(() => window.close(), 500);
       });

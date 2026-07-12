@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev.js",
-    "electron:dev": "ELECTRON_DEV=1 concurrently -k -n next,electron \"next dev -p 3000\" \"wait-on http://localhost:3000 && electron electron/main.js\"",
+    "electron:dev": "ELECTRON_DEV=1 concurrently -k -n next,electron \"next dev -p 3000\" \"wait-on http://localhost:3000 && env -u ELECTRON_RUN_AS_NODE electron electron/main.js\"",
     "prepare:standalone": "node scripts/prepare-standalone.js",
     "dist:mac": "NEXT_PUBLIC_IS_DESKTOP=true next build && npm run prepare:standalone && electron-builder --mac",
     "dev:showcase": "node scripts/showcase-dev.js",
@@ -62,6 +62,8 @@
     "mammoth": "^1.12.0",
     "marked": "^15.0.7",
     "next": "15.5.18",
+    "openai": "^6.42.0",
+    "particles.js": "^2.0.0",
     "rbush": "^4.0.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",

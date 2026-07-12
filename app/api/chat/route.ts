@@ -1,20 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { ARTIFACT_PROMPT } from "@/lib/artifactPrompt";
-import {
-  CUSTOM_ARTIFACT_MAX_BYTES,
-  customArtifactByteSize,
-  normalizeCustomArtifactData,
-} from "@/lib/customArtifact";
-import { geocodeMapArtifact } from "@/lib/geocoding";
-import { normalizeCalendarArtifactData } from "@/lib/calendarArtifact";
-import { normalizeTimelineArtifactData } from "@/lib/timelineArtifact";
-import {
-  buildWebSearchTool,
-  getMaxPauseTurns,
-  isAnthropicWebSearchEnabled,
-} from "@/lib/anthropicWebSearch";
-import { fetchChartData } from "@/lib/chartDataFetch";
-import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifact";
 import {
   CUSTOM_UI_EDIT_SYSTEM_NOTE,
   CUSTOM_UI_INLINE_CODE_NOTE,
@@ -32,6 +16,25 @@ import {
   stripAppendedQuestionContext,
   TIMELINE_EDIT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
+import { isAnthropicWebSearchEnabled } from "@/lib/anthropicWebSearch";
+import { loadMcpConfig } from "@/lib/mcpConfig";
+import { getMcpTools } from "@/lib/mcpManager";
+import type { McpToolsResult } from "@/lib/mcpManager";
+import { getModel, getModelProvider, modelSupportsTools } from "@/lib/models";
+import { findPublishedOpenRouterModel } from "@/lib/modelConfig/publishedModels.server";
+import type {
+  NeutralContentPart,
+  NeutralMessage,
+  NeutralToolDef,
+} from "@/lib/llm/provider";
+import {
+  createToolExecutor,
+  EMIT_ARTIFACT_TOOL,
+  FETCH_CHART_DATA_TOOL,
+  SEARCH_IMAGES_TOOL,
+} from "@/lib/llm/tools";
+import { anthropicProvider } from "@/lib/llm/anthropicProvider";
+import { openrouterProvider } from "@/lib/llm/openrouterProvider";
 import {
   customEditAckText,
   htmlImportAckText,
@@ -39,11 +42,6 @@ import {
   trySimpleCustomEdit,
   type CustomArtifactPayload,
 } from "@/lib/customArtifactShortcuts";
-import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
-import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
-import { loadMcpConfig } from "@/lib/mcpConfig";
-import { getMcpTools, callMcpTool } from "@/lib/mcpManager";
-import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
 import {
   CUSTOM_UI_TURN_TIMEOUT_SECONDS,
   QA_TURN_TIMEOUT_ENABLED,
@@ -57,23 +55,6 @@ import {
 } from "@/lib/fetchPageContent";
 import { extractUrlsFromText } from "@/lib/urlDetection";
 import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
-
-const SEARCH_IMAGES_TOOL: Anthropic.Tool = {
-  name: "search_images",
-  description:
-    "Search for and display EXISTING real-world photos from Wikimedia Commons. Use ONLY when the user wants to see real photographs of places, landmarks, people, or things — NOT for AI image generation or creative/artistic image requests. For generation requests, use a connected image-generation MCP tool instead.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      query: { type: "string", description: "The image search query" },
-      count: {
-        type: "number",
-        description: "Number of images to show (default 4, max 6)",
-      },
-    },
-    required: ["query"],
-  },
-};
 
 const BASE_SYSTEM =
   `You are a helpful AI assistant with access to tools.\n\n` +
@@ -89,159 +70,24 @@ const BASE_SYSTEM =
   `- If the user asks to generate an image but no image-generation MCP tool is available, tell them clearly that image generation requires a connected image-gen MCP server (add one via the MCP panel in the top-right).\n\n` +
   ARTIFACT_PROMPT;
 
-type ChatTool = Anthropic.Tool | ReturnType<typeof buildWebSearchTool>;
-
-const FETCH_CHART_DATA_TOOL: Anthropic.Tool = {
-  name: "fetch_chart_data",
-  description:
-    "Research numeric data for a chart visualization. Call before emit_artifact type chart when the user did not supply complete numbers and the data is not live/current.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      topic: { type: "string", description: "Subject to research" },
-      chartType: {
-        type: "string",
-        enum: ["bar", "area", "line", "pie", "gauge"],
-        description: "Intended chart type",
-      },
-      timeRange: {
-        type: "string",
-        description: "Optional range e.g. 2018-2024",
-      },
-      unit: {
-        type: "string",
-        description: "Optional unit e.g. USD, hours, %",
-      },
-    },
-    required: ["topic", "chartType"],
-  },
-};
-
-const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
-  name: "emit_artifact",
-  description:
-    "Emit a structured UI artifact for the current canvas card. Use for tables, code files, video grids, custom interactive UI, 3D models, travel maps, calendars, timelines, charts, or to-do lists. Put brief context in your text reply; put structured content here.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      type: {
-        type: "string",
-        enum: ["table", "code", "video", "custom", "3d", "map", "streetview", "todo", "calendar", "timeline", "chart"],
-        description: "Artifact type to render on the card",
-      },
-      title: { type: "string", description: "Card artifact title" },
-      description: {
-        type: "string",
-        description: "Optional short subtitle",
-      },
-      data: {
-        type: "object",
-        description:
-          "Type-specific payload. For custom: { html, css?, js? }. For table: { columns, rows }. For 3d: { modelUrl, format? }. For map: { place: { name } }. For todo: { items: [{ label, checked, dueDate?, priority? }] }.",
-      },
-    },
-    required: ["type", "title", "data"],
-  },
-};
-
-async function fetchWikimedia(
-  query: string,
-  count: number,
-): Promise<{ url: string; thumb: string; alt: string }[]> {
-  const url = new URL("https://commons.wikimedia.org/w/api.php");
-  url.searchParams.set("action", "query");
-  url.searchParams.set("generator", "search");
-  url.searchParams.set("gsrsearch", query);
-  url.searchParams.set("gsrnamespace", "6");
-  url.searchParams.set("gsrlimit", String(Math.min(count * 2, 12)));
-  url.searchParams.set("prop", "imageinfo");
-  url.searchParams.set("iiprop", "url|extmetadata");
-  url.searchParams.set("iiurlwidth", "800");
-  url.searchParams.set("format", "json");
-  url.searchParams.set("origin", "*");
-
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": "FlowstateApp/1.0" },
-  });
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  const pages = Object.values(
-    (data?.query?.pages ?? {}) as Record<string, unknown>,
-  ) as Record<string, unknown>[];
-
-  return pages
-    .filter((p) => {
-      const info = (p.imageinfo as Record<string, unknown>[])?.[0];
-      if (!info) return false;
-      return /\.(jpe?g|png|webp)/i.test((info.url as string) ?? "");
-    })
-    .slice(0, count)
-    .map((p) => {
-      const info = (p.imageinfo as Record<string, unknown>[])[0];
-      return {
-        url: info.url as string,
-        thumb: (info.thumburl as string) || (info.url as string),
-        alt: ((p.title as string) ?? query)
-          .replace("File:", "")
-          .replace(/_/g, " "),
-      };
-    });
-}
-
-function mcpImages(imgs: McpImage[]) {
-  return imgs.map((img) => {
-    const dataUrl = `data:${img.mimeType};base64,${img.data}`;
-    return { url: dataUrl, thumb: dataUrl, alt: "Generated image", generated: true };
-  });
-}
-
-const EMPTY_MCP: McpToolsResult = { anthropicTools: [], registry: new Map() };
-
-/**
- * Add an ephemeral cache breakpoint to the final block of the final message so
- * the conversation prefix (history + question, and prior tool-loop rounds) is
- * read from cache on later rounds/turns instead of being re-billed as fresh
- * input. Only applied when the last message is a user turn (the common path:
- * question or tool_result), which always carries cache-compatible blocks.
- * Returns a shallow copy — never mutates the input array.
- */
-function withMessageCache(
-  msgs: Anthropic.MessageParam[],
-): Anthropic.MessageParam[] {
-  const last = msgs[msgs.length - 1];
-  if (!last || last.role !== "user") return msgs;
-  const blocks: Anthropic.ContentBlockParam[] =
-    typeof last.content === "string"
-      ? [{ type: "text", text: last.content }]
-      : last.content.slice();
-  if (blocks.length === 0) return msgs;
-  blocks[blocks.length - 1] = {
-    ...blocks[blocks.length - 1],
-    cache_control: { type: "ephemeral" },
-  } as Anthropic.ContentBlockParam;
-  const out = msgs.slice();
-  out[out.length - 1] = { ...last, content: blocks };
-  return out;
-}
+const EMPTY_MCP: McpToolsResult = { tools: [], registry: new Map() };
 
 /** Match client hard cap for Q&A turns when enabled. Keep in sync with QA_TURN_TIMEOUT_SECONDS. */
 export const maxDuration = 180;
 
 export async function POST(req: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: "ANTHROPIC_API_KEY is not configured" },
-      { status: 500 },
-    );
-  }
-  const anthropic = new Anthropic({ apiKey });
-
   interface IncomingFile { name: string; type: string; data: string; }
   interface HistoryMessage { question: string; answer: string; }
-  const { question, model, files, history: rawHistory, editingArtifact, conversationId, canvasId } = await req.json() as {
-    conversationId: string;
+  const {
+    question,
+    model,
+    files,
+    history: rawHistory,
+    editingArtifact,
+    conversationId,
+    canvasId,
+  } = (await req.json()) as {
+    conversationId?: string;
     canvasId?: string;
     question: string;
     model: string;
@@ -249,6 +95,18 @@ export async function POST(req: Request) {
     history?: HistoryMessage[];
     editingArtifact?: { artifactId: string; payload: unknown };
   };
+
+  // Pick the provider + its API key from the selected model.
+  const provider = getModelProvider(model);
+  const apiKey =
+    provider === "anthropic"
+      ? process.env.ANTHROPIC_API_KEY
+      : process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    const envName =
+      provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENROUTER_API_KEY";
+    return Response.json({ error: `${envName} is not configured` }, { status: 500 });
+  }
 
   const MAX_FULL_HISTORY = 8;
   const allHistory: HistoryMessage[] = rawHistory ?? [];
@@ -288,16 +146,9 @@ export async function POST(req: Request) {
   const timelineIntent = detectTimelineIntent(intentQuestion);
   const chartIntent = detectChartIntent(intentQuestion);
   const useFetchChartData = chartIntent && !liveDataIntent;
+  // Hosted web search is an Anthropic-only capability.
   const webSearchEnabled =
-    isAnthropicWebSearchEnabled() && liveDataIntent;
-
-  const allTools: ChatTool[] = [
-    ...(webSearchEnabled ? [buildWebSearchTool()] : []),
-    ...(useFetchChartData ? [FETCH_CHART_DATA_TOOL] : []),
-    SEARCH_IMAGES_TOOL,
-    EMIT_ARTIFACT_TOOL,
-    ...mcp.anthropicTools,
-  ];
+    provider === "anthropic" && isAnthropicWebSearchEnabled() && liveDataIntent;
 
   const editingPayload =
     editingArtifact?.payload &&
@@ -311,23 +162,31 @@ export async function POST(req: Request) {
   const inlineSourceIntent = detectInlineSourceInQuestion(intentQuestion);
   const primaryKind = resolvePrimaryArtifactKind(question, editingPayload);
 
-  // Build the content for the current user message.
-  const userContent: Anthropic.ContentBlockParam[] = [];
+  // Tool calling drives artifacts; gate it to models that support it. Static
+  // registry first, then the admin-published OpenRouter list (so an admin-added
+  // text-only model isn't offered tools), else assume supported.
+  const supportsTools = getModel(model)
+    ? modelSupportsTools(model)
+    : findPublishedOpenRouterModel(model)?.supportsTools ?? true;
+  const allTools: NeutralToolDef[] = supportsTools
+    ? [
+        ...(useFetchChartData ? [FETCH_CHART_DATA_TOOL] : []),
+        SEARCH_IMAGES_TOOL,
+        EMIT_ARTIFACT_TOOL,
+        ...mcp.tools,
+      ]
+    : [];
+
+  // Build the current user message (multimodal parts if files are attached).
+  const userParts: NeutralContentPart[] = [];
   for (const file of files ?? []) {
     if (file.type.startsWith("image/")) {
-      const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-      userContent.push({
-        type: "image",
-        source: { type: "base64", media_type: mediaType, data: file.data },
-      });
+      userParts.push({ type: "image", mediaType: file.type, data: file.data });
     } else if (file.type === "application/pdf") {
-      userContent.push({
-        type: "document",
-        source: { type: "base64", media_type: "application/pdf", data: file.data },
-      } as unknown as Anthropic.ContentBlockParam);
+      userParts.push({ type: "document", mediaType: file.type, data: file.data });
     }
   }
-  userContent.push({ type: "text", text: question });
+  userParts.push({ type: "text", text: question });
 
   const editingNote = editingArtifact
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
@@ -339,14 +198,47 @@ export async function POST(req: Request) {
       }`
     : "";
 
-  let messages: Anthropic.MessageParam[] = [
+  // Per-request, variable instructions (topic recap, intent notes, artifact-edit
+  // payload). Kept SEPARATE from the cached BASE_SYSTEM prefix so the large,
+  // stable instruction block stays cache-eligible on the Anthropic path.
+  const primaryIntentNote = resolvePrimaryIntentSystemNote(question, editingPayload, {
+    useFetchChartData,
+    liveData: liveDataIntent,
+  });
+  const variableSystem = [
+    systemContext,
+    webSearchEnabled ? LIVE_DATA_SYSTEM_NOTE : null,
+    primaryIntentNote,
+    inlineSourceIntent && !editingArtifact ? CUSTOM_UI_INLINE_CODE_NOTE : null,
+    editingNote || null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  // Force emit_artifact on the first turn for strong artifact intents (charts
+  // route through fetch_chart_data first, so they are deliberately excluded).
+  const shouldForceArtifact =
+    supportsTools &&
+    (todoIntent ||
+      calendarIntent ||
+      timelineIntent ||
+      customUiIntent ||
+      primaryKind === "table") &&
+    (!editingArtifact ||
+      (timelineIntent && editingPayload?.type === "timeline") ||
+      (todoIntent && editingPayload?.type === "todo") ||
+      (calendarIntent && editingPayload?.type === "calendar") ||
+      (customUiIntent && editingCustom) ||
+      (primaryKind === "table" && editingPayload?.type === "table"));
+
+  let messages: NeutralMessage[] = [
     ...history.flatMap(({ question: q, answer: a }) => [
       { role: "user" as const, content: q },
       { role: "assistant" as const, content: a },
     ]),
     {
       role: "user" as const,
-      content: userContent.length === 1 ? question : userContent,
+      content: userParts.length === 1 ? question : userParts,
     },
   ];
 
@@ -354,25 +246,28 @@ export async function POST(req: Request) {
 
   const readable = new ReadableStream({
     async start(controller) {
+      let closed = false;
+      let artifactEmitted = false;
+      let turnError: string | null = null;
+
       const emit = (data: object) => {
         if (closed) return;
+        if ("artifact" in data) artifactEmitted = true;
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
-
-      const totalUsage = { inputTokens: 0, outputTokens: 0 };
-      let closed = false;
-      const turnStartedAt = Date.now();
-      let turnError: string | null = null;
-      let toolTurns = 0;
-      let pauseTurns = 0;
-      let webSearchBlocks = 0;
-      let searchThinkingEmitted = false;
       const closeStream = () => {
         if (closed) return;
         closed = true;
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       };
+
+      const totalUsage = { inputTokens: 0, outputTokens: 0 };
+      const turnStartedAt = Date.now();
+      let toolTurns = 0;
+      let pauseTurns = 0;
+      let webSearchBlocks = 0;
+
       const hardTimeout =
         QA_TURN_TIMEOUT_ENABLED && QA_TURN_TIMEOUT_MS_ACTIVE > 0
           ? setTimeout(() => {
@@ -383,6 +278,8 @@ export async function POST(req: Request) {
           : null;
 
       try {
+        // Fast paths that skip the model entirely (simple custom-UI theme edits
+        // and pasted-HTML imports).
         const fastCustom = (() => {
           if (editingCustom && editingArtifact?.payload) {
             const patched = trySimpleCustomEdit(
@@ -421,383 +318,94 @@ export async function POST(req: Request) {
           });
           emit({ text: fastCustom.text });
         } else {
-        if (
-          primaryKind &&
-          (primaryKind === "calendar" ||
-            primaryKind === "timeline" ||
-            primaryKind === "custom" ||
-            primaryKind === "map" ||
-            primaryKind === "chart" ||
-            primaryKind === "table")
-        ) {
-          emit({
-            thinking: resolveInitialThinkingLabel(question, editingPayload),
-          });
-          emit({ pendingArtifact: { type: primaryKind } });
-        }
-
-        const autoFetchUrls = extractUrlsFromText(intentQuestion).filter(
-          shouldAutoFetchUrl,
-        );
-        if (autoFetchUrls.length > 0) {
-          emit({
-            thinking:
-              autoFetchUrls.length === 1
-                ? "Reading linked page…"
-                : "Reading linked pages…",
-          });
-          const pages = await fetchPagesForChat(autoFetchUrls);
-          const modelQuestion = question + formatFetchedPagesContext(pages);
-          const finalUserContent =
-            userContent.length === 1 && !(files?.length)
-              ? modelQuestion
-              : [
-                  ...userContent.slice(0, -1),
-                  { type: "text" as const, text: modelQuestion },
-                ];
-          messages = [
-            ...messages.slice(0, -1),
-            { role: "user" as const, content: finalUserContent },
-          ];
-        }
-
-        const MAX_TOOL_TURNS = 5;
-        const MAX_PAUSE_TURNS = getMaxPauseTurns();
-        let artifactEmitted = false;
-        let toolTurn = 0;
-
-        while (toolTurn < MAX_TOOL_TURNS) {
-          const primaryIntentNote = resolvePrimaryIntentSystemNote(
-            question,
-            editingPayload,
-            { useFetchChartData, liveData: liveDataIntent },
-          );
-          // Per-request, variable instructions (topic recap, intent notes,
-          // artifact-edit payload). Kept in a SEPARATE, uncached system block
-          // that follows the cached BASE_SYSTEM prefix below.
-          const variableSystem = [
-            systemContext,
-            webSearchEnabled ? LIVE_DATA_SYSTEM_NOTE : null,
-            primaryIntentNote,
-            inlineSourceIntent && !editingArtifact
-              ? CUSTOM_UI_INLINE_CODE_NOTE
-              : null,
-            editingNote || null,
-          ]
-            .filter(Boolean)
-            .join("\n\n");
-          // Cache the large, stable instruction prefix (tools + BASE_SYSTEM,
-          // ~3.6k tokens). The cache breakpoint on this first system block
-          // covers all preceding tool schemas too, so repeat turns and every
-          // extra tool-loop round read it at ~10% cost instead of full price.
-          const system: Anthropic.TextBlockParam[] = [
-            {
-              type: "text",
-              text: BASE_SYSTEM,
-              cache_control: { type: "ephemeral" },
-            },
-          ];
-          if (variableSystem) {
-            system.push({ type: "text", text: variableSystem });
-          }
-          const stream = anthropic.messages.stream({
-            model,
-            max_tokens: customUiIntent ? 8192 : 4096,
-            system,
-            messages: withMessageCache(messages),
-            tools: allTools,
-            ...((todoIntent ||
-              calendarIntent ||
-              timelineIntent ||
-              customUiIntent ||
-              primaryKind === "table") &&
-            (!editingArtifact ||
-              (timelineIntent && editingPayload?.type === "timeline") ||
-              (todoIntent && editingPayload?.type === "todo") ||
-              (calendarIntent && editingPayload?.type === "calendar") ||
-              (customUiIntent && editingCustom) ||
-              (primaryKind === "table" && editingPayload?.type === "table")) &&
-            !artifactEmitted &&
-            toolTurn === 0
-              ? {
-                  tool_choice: {
-                    type: "tool" as const,
-                    name: "emit_artifact",
-                  },
-                }
-              : {}),
-          });
-
-          for await (const event of stream) {
-            if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta"
-            ) {
-              emit({ text: event.delta.text });
-            }
-            if (event.type === "content_block_start") {
-              const block = event.content_block as { type?: string; name?: string };
-              if (block.type === "server_tool_use" && block.name === "web_search") {
-                webSearchBlocks += 1;
-                if (!searchThinkingEmitted) {
-                  searchThinkingEmitted = true;
-                  emit({ thinking: "Searching the web…" });
-                }
-              }
-            }
-          }
-
-          const msg = await stream.finalMessage();
-          // Anthropic reports cache hits/writes separately: `input_tokens` is
-          // the UNcached (full-price) portion, while cache reads are ~10% cost.
-          // Surfacing all four lets the dashboard show the true cost + savings.
-          const cacheReadTokens = msg.usage.cache_read_input_tokens ?? 0;
-          const cacheCreationTokens = msg.usage.cache_creation_input_tokens ?? 0;
-          totalUsage.inputTokens += msg.usage.input_tokens;
-          totalUsage.outputTokens += msg.usage.output_tokens;
+          // Optimistic pending-artifact hint based on detected intent.
           if (
-            msg.usage.input_tokens ||
-            msg.usage.output_tokens ||
-            cacheReadTokens ||
-            cacheCreationTokens
+            primaryKind &&
+            (primaryKind === "calendar" ||
+              primaryKind === "timeline" ||
+              primaryKind === "custom" ||
+              primaryKind === "map" ||
+              primaryKind === "chart" ||
+              primaryKind === "table")
           ) {
             emit({
-              usage: {
-                inputTokens: msg.usage.input_tokens,
-                outputTokens: msg.usage.output_tokens,
-                cacheReadTokens,
-                cacheCreationTokens,
-              },
+              thinking: resolveInitialThinkingLabel(question, editingPayload),
             });
+            emit({ pendingArtifact: { type: primaryKind } });
           }
 
-          if (msg.stop_reason !== "tool_use" && msg.stop_reason !== "pause_turn") {
-            break;
-          }
-
-          if (msg.stop_reason === "pause_turn") {
-            pauseTurns += 1;
-            if (pauseTurns >= MAX_PAUSE_TURNS) {
-              turnError = "Too many web search continuations.";
-              emit({ error: turnError });
-              break;
-            }
-            messages = [
-              ...messages,
-              { role: "assistant" as const, content: msg.content },
-            ];
-            continue;
-          }
-
-          toolTurn += 1;
-
-          const toolUseBlocks = msg.content.filter(
-            (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+          const autoFetchUrls = extractUrlsFromText(intentQuestion).filter(
+            shouldAutoFetchUrl,
           );
-
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-          for (const block of toolUseBlocks) {
-            const input = block.input as Record<string, unknown>;
-            let resultContent = "";
-
-            try {
-              if (block.name === "fetch_chart_data") {
-                const topic = input.topic as string;
-                const chartType = input.chartType as
-                  | "bar"
-                  | "area"
-                  | "line"
-                  | "pie"
-                  | "gauge";
-                emit({ thinking: `Researching data for "${topic}"…` });
-                const fetched = await fetchChartData({
-                  topic,
-                  chartType,
-                  timeRange:
-                    typeof input.timeRange === "string"
-                      ? input.timeRange
-                      : undefined,
-                  unit:
-                    typeof input.unit === "string" ? input.unit : undefined,
-                });
-                resultContent = JSON.stringify(fetched, null, 2);
-              } else if (block.name === "search_images") {
-                const query = input.query as string;
-                const count =
-                  typeof input.count === "number" ? input.count : 4;
-                emit({ thinking: `Searching Wikimedia for "${query}"…` });
-                const images = await fetchWikimedia(query, count);
-                if (images.length) {
-                  emit({ images });
-                  emit({
-                    responseType: "image",
-                    artifactTitle: query,
-                  });
-                }
-                resultContent = `Fetched ${images.length} photos from Wikimedia Commons for "${query}".`;
-              } else if (block.name === "emit_artifact") {
-                const type = input.type as string;
-                const title = (input.title as string) ?? "Artifact";
-                const description = input.description as string | undefined;
-                let data: Record<string, unknown> =
-                  (input.data as Record<string, unknown>) ?? {};
-
-                if (type === "custom") {
-                  const normalized = normalizeCustomArtifactData(data);
-                  if (!normalized?.html) {
-                    resultContent =
-                      "emit_artifact custom requires non-empty data.html with the UI markup.";
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  if (customArtifactByteSize(normalized) > CUSTOM_ARTIFACT_MAX_BYTES) {
-                    resultContent = `Custom UI exceeds ${CUSTOM_ARTIFACT_MAX_BYTES} byte limit.`;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "map" || type === "streetview") {
-                  const enriched = await geocodeMapArtifact(data);
-                  if (!enriched) {
-                    resultContent =
-                      `emit_artifact ${type} requires data.place.name with a geocodable location (e.g. \"Paris, France\"). Could not geocode the place.`;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  if (type === "streetview") {
-                    const sv = normalizeStreetViewArtifactData({
-                      ...data,
-                      place: enriched.place,
-                    });
-                    data = sv as unknown as Record<string, unknown>;
-                  } else {
-                    data = enriched as unknown as Record<string, unknown>;
-                  }
-                }
-
-                if (type === "todo") {
-                  const normalized = normalizeTodoArtifactData(data);
-                  if (normalized.items.length === 0) {
-                    resultContent =
-                      "emit_artifact todo requires data.items with at least one { label, checked } entry.";
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "calendar") {
-                  data = normalizeCalendarArtifactData(
-                    data,
-                  ) as unknown as Record<string, unknown>;
-                }
-
-                if (type === "timeline") {
-                  data = normalizeTimelineArtifactData(
-                    data,
-                  ) as unknown as Record<string, unknown>;
-                }
-
-                if (type === "chart") {
-                  const normalized = normalizeChartArtifactData(data);
-                  const err = validateChartEmit(normalized);
-                  if (err) {
-                    resultContent = err;
-                    toolResults.push({
-                      type: "tool_result" as const,
-                      tool_use_id: block.id,
-                      content: resultContent,
-                    });
-                    continue;
-                  }
-                  data = normalized as unknown as Record<string, unknown>;
-                }
-
-                if (type === "table") {
-                  emit({ pendingArtifact: { type: "table" } });
-                } else if (type === "custom") {
-                  emit({ pendingArtifact: { type: "custom" } });
-                } else if (type === "chart") {
-                  emit({ pendingArtifact: { type: "chart" } });
-                }
-                emit({ thinking: `Building ${type}…` });
-                emit({
-                  artifact: { type, title, description, data },
-                });
-                artifactEmitted = true;
-                resultContent = `Emitted ${type} artifact "${title}" for the canvas card.`;
-              } else if (mcp.registry.has(block.name)) {
-                const server = mcp.registry.get(block.name)!;
-                emit({ thinking: `Calling ${server.name}: ${block.name}…` });
-                const mcpResult = await callMcpTool(server, block.name, input);
-                if (mcpResult.images.length > 0) {
-                  emit({ images: mcpImages(mcpResult.images) });
-                  emit({ responseType: "image" });
-                }
-                resultContent = mcpResult.text;
-              } else {
-                resultContent = `Unknown tool: ${block.name}`;
-              }
-            } catch (err) {
-              resultContent = `Tool error: ${
-                err instanceof Error ? err.message : String(err)
-              }`;
-            }
-
-            toolResults.push({
-              type: "tool_result" as const,
-              tool_use_id: block.id,
-              content: resultContent,
+          if (autoFetchUrls.length > 0) {
+            emit({
+              thinking:
+                autoFetchUrls.length === 1
+                  ? "Reading linked page…"
+                  : "Reading linked pages…",
             });
+            const pages = await fetchPagesForChat(autoFetchUrls);
+            const modelQuestion = question + formatFetchedPagesContext(pages);
+            const onlyText = userParts.length === 1 && !(files?.length);
+            const finalUserContent: string | NeutralContentPart[] = onlyText
+              ? modelQuestion
+              : [
+                  ...userParts.slice(0, -1),
+                  { type: "text" as const, text: modelQuestion },
+                ];
+            messages = [
+              ...messages.slice(0, -1),
+              { role: "user" as const, content: finalUserContent },
+            ];
           }
 
-          // Append assistant turn + tool results before next loop iteration.
-          messages = [
-            ...messages,
-            { role: "assistant" as const, content: msg.content },
-            { role: "user" as const, content: toolResults },
-          ];
-        }
-        toolTurns = toolTurn;
-        if (customUiIntent && !artifactEmitted) {
-          turnError =
-            "Custom UI was not saved — no valid artifact was emitted. Try again with a smaller code snippet.";
-          emit({ error: turnError });
-        }
+          const llm =
+            provider === "anthropic" ? anthropicProvider : openrouterProvider;
+          const executeTool = createToolExecutor({ emit, mcp });
+
+          const result = await llm.run({
+            model,
+            apiKey,
+            system: BASE_SYSTEM,
+            variableSystem: variableSystem || undefined,
+            messages,
+            tools: allTools,
+            forceToolFirstTurn: shouldForceArtifact ? "emit_artifact" : undefined,
+            emit,
+            executeTool,
+            signal: req.signal,
+            maxTokens: customUiIntent ? 8192 : 4096,
+            enableWebSearch: webSearchEnabled,
+          });
+
+          totalUsage.inputTokens = result.usage.inputTokens;
+          totalUsage.outputTokens = result.usage.outputTokens;
+          toolTurns = result.toolTurns;
+          pauseTurns = result.pauseTurns;
+          webSearchBlocks = result.webSearchBlocks;
+          if (result.errorMessage) turnError = result.errorMessage;
+
+          if (customUiIntent && !artifactEmitted) {
+            turnError =
+              "Custom UI was not saved — no valid artifact was emitted. Try again with a smaller code snippet.";
+            emit({ error: turnError });
+          }
         }
       } catch (err) {
-        if (closed) return;
-        let msg = err instanceof Error ? err.message : "Unknown error";
-        try {
-          const inner = JSON.parse(msg);
-          if (inner?.error?.message) msg = inner.error.message;
-        } catch {
-          /* not JSON */
+        if (!closed) {
+          let msg = err instanceof Error ? err.message : "Unknown error";
+          try {
+            const inner = JSON.parse(msg);
+            if (inner?.error?.message) msg = inner.error.message;
+          } catch {
+            /* not JSON */
+          }
+          turnError = msg;
+          if (customUiIntent) {
+            msg = `${msg} Custom UI builds can take up to ${CUSTOM_UI_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
+          }
+          emit({ error: msg });
         }
-        turnError = msg;
-        if (customUiIntent) {
-          msg = `${msg} Custom UI builds can take up to ${CUSTOM_UI_TURN_TIMEOUT_SECONDS / 60} minutes — try a smaller change (e.g. "change colors only") or retry.`;
-        }
-        emit({ error: msg });
       } finally {
         if (hardTimeout) clearTimeout(hardTimeout);
 
@@ -825,8 +433,7 @@ export async function POST(req: Request) {
           errorMessage: turnError,
         });
 
-        if (closed) return;
-        closeStream();
+        if (!closed) closeStream();
       }
     },
   });

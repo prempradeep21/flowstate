@@ -46,6 +46,7 @@ import {
 } from "@/lib/canvasLayout";
 import { DEFAULT_BODY_FONT_ID } from "@/lib/canvasFonts/registry";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
+import type { ModelId } from "@/lib/models";
 import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
 import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
@@ -210,10 +211,9 @@ import {
 } from "@/lib/undo";
 import { create } from "zustand";
 
-export type ClaudeModel =
-  | "claude-opus-4-7"
-  | "claude-sonnet-4-6"
-  | "claude-haiku-4-5";
+// Kept as an alias for backwards compatibility; model ids now span providers
+// (Claude + OpenRouter). See lib/models.ts for the registry.
+export type ClaudeModel = ModelId;
 
 const MANUAL_VIDEO_SOURCE_CARD_ID = "manual-video";
 

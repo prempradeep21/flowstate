@@ -8,6 +8,7 @@ import { HomeButton } from "@/components/home/HomeButton";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
+import { ModelPicker } from "@/components/ModelPicker";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 import { ArtifactUpdateCenter } from "@/components/ArtifactUpdateCenter";
 import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
@@ -116,11 +117,18 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
                 item={0}
                 staggerActive={lineStaggerActive}
               >
-                <SaveStatusBadge size="panel" />
+                <ModelPicker />
               </MotionPanelLine>
               <MotionPanelLine
                 section={LEFT_PANEL_SECTIONS.footer}
                 item={1}
+                staggerActive={lineStaggerActive}
+              >
+                <SaveStatusBadge size="panel" />
+              </MotionPanelLine>
+              <MotionPanelLine
+                section={LEFT_PANEL_SECTIONS.footer}
+                item={2}
                 staggerActive={lineStaggerActive}
               >
                 <AuthButton size="panel" />
@@ -134,4 +142,3 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
     </div>
   );
 }
-

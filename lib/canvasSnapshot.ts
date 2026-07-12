@@ -1,6 +1,7 @@
 import type { CanvasStroke } from "@/lib/canvasStroke";
 import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
+import { isKnownModel } from "@/lib/models";
 import {
   DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   normalizeCanvasBackgroundImageId,
@@ -432,11 +433,6 @@ function normalizeCanvasTheme(
     : fallback;
 }
 
-const VALID_MODELS = new Set<ClaudeModel>([
-  "claude-opus-4-7",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5",
-]);
 
 function normalizeViewport(raw: unknown, fallback: Viewport): Viewport {
   if (!raw || typeof raw !== "object") return { ...fallback };
@@ -542,7 +538,7 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
     ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
     selectedModel:
-      snapshot.selectedModel && VALID_MODELS.has(snapshot.selectedModel)
+      snapshot.selectedModel && isKnownModel(snapshot.selectedModel)
         ? snapshot.selectedModel
         : base.selectedModel,
     viewMode:
