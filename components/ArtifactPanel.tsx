@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { groupHasNewSummaryContent } from "@/lib/groupSummaryStaleness";
 import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
@@ -192,7 +193,10 @@ export function ArtifactPanel() {
             </header>
             <div className="flex-1 overflow-y-auto bg-canvas-card px-6 py-6 text-canvas-body leading-relaxed text-canvas-ink">
               {legacyMarkdown && (
-                <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={MARKDOWN_COMPONENTS}
+                >
                   {legacyMarkdown}
                 </ReactMarkdown>
               )}

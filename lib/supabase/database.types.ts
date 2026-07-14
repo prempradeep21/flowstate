@@ -48,6 +48,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           content_edited_at: string | null;
+          thumbnail_url: string | null;
         };
         Insert: {
           id?: string;
@@ -60,6 +61,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           content_edited_at?: string | null;
+          thumbnail_url?: string | null;
         };
         Update: {
           id?: string;
@@ -72,6 +74,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           content_edited_at?: string | null;
+          thumbnail_url?: string | null;
         };
         Relationships: [
           {

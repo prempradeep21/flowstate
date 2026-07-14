@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampArtifactSize,
-  clampStreetViewArtifactSize,
+  getDefaultArtifactSize,
   MAX_ARTIFACT_HEIGHT,
   MAX_ARTIFACT_WIDTH,
   MIN_ARTIFACT_HEIGHT,
@@ -9,7 +9,6 @@ import {
   STREET_VIEW_ARTIFACT_HEIGHT,
   CANVAS_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
-import { STREET_VIEW_NODE_CHROME_PX } from "@/lib/streetViewArtifact";
 
 describe("clampArtifactSize", () => {
   it("passes through values within bounds", () => {
@@ -31,18 +30,14 @@ describe("clampArtifactSize", () => {
   });
 });
 
-describe("clampStreetViewArtifactSize", () => {
-  it("keeps a square content area at the default width", () => {
-    expect(clampStreetViewArtifactSize(CANVAS_ARTIFACT_WIDTH)).toEqual({
+describe("street view default size", () => {
+  it("defaults to a wide rectangle, then resizes freely", () => {
+    // Street View is not aspect-locked — it spawns as a wide rectangle and
+    // afterwards uses the shared free-resize path (clampArtifactSize).
+    expect(getDefaultArtifactSize("streetview")).toEqual({
       w: CANVAS_ARTIFACT_WIDTH,
       h: STREET_VIEW_ARTIFACT_HEIGHT,
     });
-  });
-
-  it("caps width when height would exceed the artifact maximum", () => {
-    expect(clampStreetViewArtifactSize(MAX_ARTIFACT_WIDTH)).toEqual({
-      w: MAX_ARTIFACT_HEIGHT - STREET_VIEW_NODE_CHROME_PX,
-      h: MAX_ARTIFACT_HEIGHT,
-    });
+    expect(CANVAS_ARTIFACT_WIDTH).toBeGreaterThan(STREET_VIEW_ARTIFACT_HEIGHT);
   });
 });

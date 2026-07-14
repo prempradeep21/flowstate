@@ -11,11 +11,11 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
     id: "flowstate",
     name: "Flowstate",
     description: "The brand cobalt — calm, warm neutrals.",
-    primary: "#1754C6",
+    primary: "#2066EB",
     secondary: "#5B7FD6",
     tertiary: "#D97706",
     categories: {
-      data: "#1754C6",
+      data: "#2066EB",
       viz: "#0284C7",
       geo: "#16A34A",
       media: "#DC2626",

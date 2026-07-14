@@ -43,6 +43,19 @@ describe("formatRichTextForDisplay", () => {
   it("does not rewrite common non-country shortcodes", () => {
     expect(formatRichTextForDisplay(":ok: looks good")).toBe(":ok: looks good");
   });
+
+  it("does not turn mid-sentence words into flags", () => {
+    expect(formatRichTextForDisplay("Alice in Wonderland")).toBe(
+      "Alice in Wonderland",
+    );
+    expect(formatRichTextForDisplay("Journey to Mars")).toBe("Journey to Mars");
+  });
+
+  it("does not flag-ify leading common English words", () => {
+    expect(formatRichTextForDisplay("In Progress")).toBe("In Progress");
+    expect(formatRichTextForDisplay("On Hold")).toBe("On Hold");
+    expect(formatRichTextForDisplay("Is Ready")).toBe("Is Ready");
+  });
 });
 
 describe("withEmojiFontFamily", () => {

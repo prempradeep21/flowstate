@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   applyExplainHighlights,
   cleanupLegacyExplainMarks,
@@ -154,7 +155,9 @@ export function TextCardBody({
     </>
   ) : (
     <>
-      <ReactMarkdown components={MARKDOWN_COMPONENTS}>{card.answer}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+        {card.answer}
+      </ReactMarkdown>
       {isStreaming && <StreamingCaret />}
     </>
   );

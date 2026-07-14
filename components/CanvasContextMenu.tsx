@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   ContextMenuItem,
   CopyIcon,
+  ImageIcon,
   TrashIcon,
   TypeIcon,
   UndoIcon,
@@ -15,6 +16,10 @@ export interface ContextMenuState {
   screenY: number;
   showDelete?: boolean;
   showCopy?: boolean;
+  /** Public URL of a right-clicked image asset, offered as a project thumbnail. */
+  thumbnailImageUrl?: string;
+  /** Whether that image is already the canvas thumbnail (offer "Remove" instead). */
+  isCurrentThumbnail?: boolean;
 }
 
 interface CanvasContextMenuProps {
@@ -23,6 +28,8 @@ interface CanvasContextMenuProps {
   onAddText: () => void;
   onDelete?: () => void;
   onCopy?: () => void;
+  onSetThumbnail?: (url: string) => void;
+  onRemoveThumbnail?: () => void;
 }
 
 export function CanvasContextMenu({
@@ -31,6 +38,8 @@ export function CanvasContextMenu({
   onAddText,
   onDelete,
   onCopy,
+  onSetThumbnail,
+  onRemoveThumbnail,
 }: CanvasContextMenuProps) {
   const undo = useCanvasStore((s) => s.undo);
   const canUndo = useCanvasStore((s) => s.undoPast.length > 0);
@@ -38,6 +47,9 @@ export function CanvasContextMenu({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const showDelete = Boolean(menu.showDelete && onDelete && !canvasReadOnly);
   const showCopy = Boolean(menu.showCopy && onCopy);
+  const showThumbnail = Boolean(
+    menu.thumbnailImageUrl && !canvasReadOnly && onSetThumbnail,
+  );
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -87,6 +99,26 @@ export function CanvasContextMenu({
           }}
         />
       )}
+      {showThumbnail &&
+        (menu.isCurrentThumbnail ? (
+          <ContextMenuItem
+            icon={<ImageIcon />}
+            label="Remove as thumbnail"
+            onClick={() => {
+              onRemoveThumbnail?.();
+              onClose();
+            }}
+          />
+        ) : (
+          <ContextMenuItem
+            icon={<ImageIcon />}
+            label="Set as thumbnail"
+            onClick={() => {
+              if (menu.thumbnailImageUrl) onSetThumbnail?.(menu.thumbnailImageUrl);
+              onClose();
+            }}
+          />
+        ))}
       <ContextMenuItem
         icon={<TypeIcon />}
         label="Add text"

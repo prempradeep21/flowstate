@@ -185,11 +185,15 @@ export interface MapArtifactData {
   mapStyle?: string;
 }
 
+/** Frame shape for a Street View artifact: wide rectangle (default) or sphere. */
+export type StreetViewMode = "rectangle" | "circle";
+
 export interface StreetViewArtifactData {
   place: MapPlace;
   heading?: number;
   pitch?: number;
   fov?: number;
+  viewMode?: StreetViewMode;
 }
 
 export interface WebsiteArtifactData {

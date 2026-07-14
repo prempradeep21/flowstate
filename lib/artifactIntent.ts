@@ -102,6 +102,14 @@ The user is editing an existing timeline artifact. When they ask to add or chang
 
 export const TIMELINE_THINKING_LABEL = "Building timeline…";
 
+export const STREET_VIEW_EDIT_SYSTEM_NOTE = `
+The user is editing an existing Street View artifact. Keep this fast and minimal:
+- Call emit_artifact with type "streetview" and the FULL updated payload.
+- Only change the fields the user asked about (usually heading 0–360, pitch -90–90, fov 10–120, or place.name).
+- Preserve the existing place — keep place.name AND its lat/lng unless the user is moving to a genuinely different location. Do not drop or invent coordinates.
+- Do NOT re-describe the location at length. Reply with one short sentence (max ~15 words) confirming the change.
+`.trim();
+
 /** Detect when the user wants an interactive custom UI artifact. */
 
 const CUSTOM_UI_INTENT =
@@ -265,12 +273,23 @@ const TABLE_REQUEST =
   /\b(give\s+me|show\s+me|create|make|build|put)\b.{0,48}\b(table|columns?|rows?)\b/i;
 const TABLE_TOP_N =
   /\b(top\s+\d+|list\s+(?:the|of)|compare|comparison)\b.{0,80}\b(table|columns?|rows?)\b/i;
+// Implicit tabular requests that never say the word "table" but clearly want a
+// column/attribute grid: comparisons keyed on a spec noun, or a ranked list
+// qualified by concrete attributes.
+const TABLE_COMPARE =
+  /\b(compare|comparison|vs\.?|versus)\b.{0,80}\b(specs?|specifications?|stats?|statistics|features?|pricing|prices?|plans?|options?|models?|dimensions?|attributes?|pros?\s+and\s+cons?)\b/i;
+const TABLE_TOP_N_ATTRS =
+  /\b(top\s+\d+|best\s+\d+|\d+\s+best|list\s+(?:the\s+)?\d+)\b.{0,80}\bwith\b.{0,80}\b(price|cost|rating|ranking|range|specs?|size|weight|year|score|stats?|population|revenue|capacity)\b/i;
 
 export function detectTableIntent(question: string): boolean {
   const q = stripAppendedQuestionContext(question);
   if (!q) return false;
   return (
-    TABLE_EXPLICIT.test(q) || TABLE_REQUEST.test(q) || TABLE_TOP_N.test(q)
+    TABLE_EXPLICIT.test(q) ||
+    TABLE_REQUEST.test(q) ||
+    TABLE_TOP_N.test(q) ||
+    TABLE_COMPARE.test(q) ||
+    TABLE_TOP_N_ATTRS.test(q)
   );
 }
 

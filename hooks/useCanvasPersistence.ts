@@ -35,6 +35,7 @@ import {
   resolveInitialCanvasId,
   saveCanvasState,
   sortCanvasesByContentEditedAt,
+  updateCanvasThumbnail,
   updateCanvasTitle,
   updateLastActiveCanvas,
   type CanvasMeta,
@@ -840,6 +841,22 @@ export function useCanvasPersistence({
     [supabaseConfigured, user],
   );
 
+  const setCanvasThumbnail = useCallback(
+    async (canvasId: string, thumbnailUrl: string | null) => {
+      if (!user || !supabaseConfigured) return;
+
+      if (!localReadOnlyRef.current) {
+        const supabase = createClient();
+        await updateCanvasThumbnail(supabase, canvasId, thumbnailUrl);
+      }
+
+      setCanvases((prev) =>
+        prev.map((c) => (c.id === canvasId ? { ...c, thumbnailUrl } : c)),
+      );
+    },
+    [supabaseConfigured, user],
+  );
+
   const deleteOwnedCanvas = useCallback(
     async (canvasId: string) => {
       if (!user || !supabaseConfigured) return;
@@ -1207,6 +1224,7 @@ export function useCanvasPersistence({
     switchCanvas,
     createNewCanvas,
     renameCanvas,
+    setCanvasThumbnail,
     deleteOwnedCanvas,
     flushSave,
     isSwitching,

@@ -202,6 +202,8 @@ export function Canvas({
     user,
     authLoading,
     activeCanvasId,
+    canvases,
+    setCanvasThumbnail,
     presenceChannelRef,
     presenceChannelReady,
     onlineUserIds,
@@ -1706,11 +1708,29 @@ export function Canvas({
         applyContextMenuSelection(st, hit);
       }
       const next = useCanvasStore.getState();
+      // Offer "Set as thumbnail" when the right-clicked node is an image asset.
+      let thumbnailImageUrl: string | undefined;
+      let isCurrentThumbnail = false;
+      if (hit.kind === "asset") {
+        const assetNode = next.canvasAssetNodes[hit.id];
+        const asset = assetNode
+          ? next.canvasAssets[assetNode.assetId]
+          : undefined;
+        if (asset?.kind === "image" && asset.publicUrl) {
+          thumbnailImageUrl = asset.publicUrl;
+          const currentThumbnail = canvases.find(
+            (c) => c.id === activeCanvasId,
+          )?.thumbnailUrl;
+          isCurrentThumbnail = currentThumbnail === asset.publicUrl;
+        }
+      }
       setContextMenu({
         screenX: e.clientX,
         screenY: e.clientY,
         showDelete: canRemoveCanvasSelection(next),
         showCopy: canCopyCanvasSelection(next),
+        thumbnailImageUrl,
+        isCurrentThumbnail,
       });
       return;
     }
@@ -2141,6 +2161,12 @@ export function Canvas({
           onAddText={handleAddTextAtContextMenu}
           onCopy={handleCopyAtContextMenu}
           onDelete={() => removeSelectedFromCanvas()}
+          onSetThumbnail={(url) => {
+            if (activeCanvasId) void setCanvasThumbnail(activeCanvasId, url);
+          }}
+          onRemoveThumbnail={() => {
+            if (activeCanvasId) void setCanvasThumbnail(activeCanvasId, null);
+          }}
         />
       )}
       <CollaboratorCursors

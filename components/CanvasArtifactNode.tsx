@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
-import { ArtifactRemoteUpdateStroke } from "@/components/artifacts/ArtifactRemoteUpdateStroke";
+import { ArtifactRemoteUpdateGlow } from "@/components/artifacts/ArtifactRemoteUpdateGlow";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -22,7 +22,6 @@ import { Plug } from "@/components/plugs/Plug";
 import {
   CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
   clampArtifactSize,
-  clampStreetViewArtifactSize,
   clampTableArtifactSize,
   getArtifactBounds,
   getDefaultArtifactSize,
@@ -33,6 +32,7 @@ import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
@@ -215,13 +215,11 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         current.size?.h ?? 0,
       );
       const next =
-        artForBounds?.kind === "streetview"
-          ? clampStreetViewArtifactSize(targetW)
-          : artForBounds?.kind === "stickynote"
-            ? clampStickyNoteArtifactSize(targetW, targetH)
-            : artForBounds?.kind === "table"
-              ? clampTableArtifactSize(targetW, targetH)
-              : clampArtifactSize(targetW, targetH, clampOpts);
+        artForBounds?.kind === "stickynote"
+          ? clampStickyNoteArtifactSize(targetW, targetH)
+          : artForBounds?.kind === "table"
+            ? clampTableArtifactSize(targetW, targetH)
+            : clampArtifactSize(targetW, targetH, clampOpts);
       if (
         Math.abs(next.w - bounds.w) > 1 ||
         Math.abs(next.h - bounds.h) > 1
@@ -240,6 +238,11 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     (remoteUpdatingCard &&
       threads[remoteUpdatingCard.threadId]?.accentColour) ??
     plugAccent;
+  // Breathing update glow follows the artifact's category colour, not the
+  // source thread accent, so it reads as "this artifact is rebuilding".
+  const remoteUpdateGlowColour = art
+    ? `rgb(var(--artifact-cat-${artifactCategoryOf(art.kind)}-fg))`
+    : remoteUpdateAccent;
 
   const artifactPlugWorld = (side: "left" | "right") => {
     const anchor = plugAnchorAt(
@@ -317,21 +320,17 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       const vpScale = useCanvasStore.getState().viewport.scale;
       const { sx, sy } = cornerResizeSigns(rs.corner);
       const next =
-        art?.kind === "streetview"
-          ? clampStreetViewArtifactSize(
+        art?.kind === "stickynote"
+          ? clampStickyNoteArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
+              rs.startH + (sy * screenDy) / vpScale,
             )
-          : art?.kind === "stickynote"
-            ? clampStickyNoteArtifactSize(
+          : art?.kind === "table"
+            ? clampTableArtifactSize(
                 rs.startW + (sx * screenDx) / vpScale,
                 rs.startH + (sy * screenDy) / vpScale,
               )
-            : art?.kind === "table"
-              ? clampTableArtifactSize(
-                  rs.startW + (sx * screenDx) / vpScale,
-                  rs.startH + (sy * screenDy) / vpScale,
-                )
-              : clampArtifactSize(
+            : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
               art?.kind === "timeline"
@@ -504,6 +503,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         </>
       )}
 
+      {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
+        <ArtifactRemoteUpdateGlow accentColour={remoteUpdateGlowColour} />
+      ) : null}
+
       <CanvasSharpContent
         worldWidth={width}
         className={
@@ -526,9 +529,6 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
                 }`
         }
       >
-        {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
-          <ArtifactRemoteUpdateStroke accentColour={remoteUpdateAccent} />
-        ) : null}
         {isPermissionPreview && preview ? (
           <ArtifactPermissionPrompt
             kind={preview.kind}

@@ -34,6 +34,10 @@ interface AuthContextValue extends CollaborationContextValue {
   switchCanvas: (canvasId: string) => Promise<void>;
   createNewCanvas: () => Promise<string | null>;
   renameCanvas: (canvasId: string, title: string) => Promise<void>;
+  setCanvasThumbnail: (
+    canvasId: string,
+    thumbnailUrl: string | null,
+  ) => Promise<void>;
   deleteOwnedCanvas: (canvasId: string) => Promise<void>;
   duplicateCanvas: (canvasId: string) => Promise<string | null>;
   localReadOnly: boolean;
@@ -65,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchCanvas,
     createNewCanvas: createNewCanvasRaw,
     renameCanvas,
+    setCanvasThumbnail,
     deleteOwnedCanvas: deleteOwnedCanvasRaw,
     isSwitching: isSwitchingCanvas,
     switchingCanvasId,
@@ -231,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchCanvas,
       createNewCanvas,
       renameCanvas,
+      setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
       localReadOnly,
@@ -250,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchingCanvasTitle,
       persistenceStatus,
       renameCanvas,
+      setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
       localReadOnly,

@@ -159,7 +159,7 @@ export function ChatThreadMessages({
       className={className ?? "flex-1 overflow-y-auto px-4 py-6 md:px-8"}
     >
       <div className="relative mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
+        <div className="chat-casing overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
           {visibleChain.map((cardId) => (
             <QnaTurnBlock key={cardId} cardId={cardId} />
           ))}

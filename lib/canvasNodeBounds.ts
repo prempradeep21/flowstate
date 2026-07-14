@@ -16,7 +16,7 @@ import {
   getDefaultAudioArtifactSize,
   MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/audioArtifact";
-import { streetViewArtifactHeightForWidth, STREET_VIEW_NODE_CHROME_PX } from "@/lib/streetViewArtifact";
+import { streetViewArtifactHeightForWidth } from "@/lib/streetViewArtifact";
 import {
   STICKY_NOTE_ARTIFACT_HEIGHT,
   STICKY_NOTE_ARTIFACT_WIDTH,
@@ -140,7 +140,7 @@ export const CUSTOM_ARTIFACT_HEIGHT = 380;
 export const MEDIA_ARTIFACT_HEIGHT = 400;
 export const THREE_D_ARTIFACT_HEIGHT = 400;
 export const MAP_ARTIFACT_HEIGHT = 380;
-/** Default street-view height for a {@link CANVAS_ARTIFACT_WIDTH} node (square circle body). */
+/** Default street-view height for a {@link CANVAS_ARTIFACT_WIDTH} node (wide rectangle body). */
 export const STREET_VIEW_ARTIFACT_HEIGHT =
   streetViewArtifactHeightForWidth(CANVAS_ARTIFACT_WIDTH);
 export const MIN_ARTIFACT_WIDTH = 280;
@@ -172,20 +172,6 @@ export function clampTableArtifactSize(
     w: Math.min(MAX_ARTIFACT_WIDTH, Math.max(MIN_ARTIFACT_WIDTH, w)),
     h: Math.min(MAX_ARTIFACT_HEIGHT, Math.max(MIN_ARTIFACT_HEIGHT, h)),
   };
-}
-
-/** Street View nodes keep a square content area so the circle fills the frame. */
-export function clampStreetViewArtifactSize(w: number): { w: number; h: number } {
-  const maxW = Math.min(
-    MAX_ARTIFACT_WIDTH,
-    MAX_ARTIFACT_HEIGHT - STREET_VIEW_NODE_CHROME_PX,
-  );
-  const clampedW = Math.min(maxW, Math.max(MIN_ARTIFACT_WIDTH, w));
-  const h = Math.min(
-    MAX_ARTIFACT_HEIGHT,
-    streetViewArtifactHeightForWidth(clampedW),
-  );
-  return { w: clampedW, h };
 }
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
@@ -242,6 +228,7 @@ export function getDefaultArtifactSize(
     case "timeline":
       return { w: TIMELINE_ARTIFACT_WIDTH, h: TIMELINE_ARTIFACT_HEIGHT };
     case "streetview":
+      // A wide rectangle by default; users then resize freely like any artifact.
       return {
         w: CANVAS_ARTIFACT_WIDTH,
         h: STREET_VIEW_ARTIFACT_HEIGHT,

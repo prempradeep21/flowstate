@@ -1,4 +1,5 @@
 import {
+  isVideoArtifactPayload,
   payloadToArtifactKind,
   type ArtifactKind,
 } from "@/lib/artifactTypes";
@@ -59,10 +60,21 @@ export function pushArtifactReadyUpdate(artifactId: string, nodeId?: string): vo
   const sourceCardId = ver.sourceCardId;
   if (!isCardSourcedArtifactBuild(sourceCardId, state.cards)) return;
 
+  const payload = ver.payload;
+  const isVideo = isVideoArtifactPayload(payload);
+  const faviconUrl =
+    payload.type === "website"
+      ? payload.data.faviconUrl
+      : payload.type === "embed"
+        ? payload.data.fallback?.faviconUrl
+        : undefined;
+
   useArtifactUpdateStore.getState().pushUpdate({
     dedupeKey: `ready:${artifactId}`,
     status: "ready",
     kind: art.kind,
+    isVideo,
+    faviconUrl,
     title: artifactDisplayTitle(art, ver),
     detail: "Ready to view",
     artifactId,

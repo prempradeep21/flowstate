@@ -1049,6 +1049,10 @@ interface CanvasState {
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "timeline" }>,
   ) => { versionId: string };
+  saveStreetViewArtifactVersion: (
+    artifactId: string,
+    payload: Extract<ArtifactPayload, { type: "streetview" }>,
+  ) => { versionId: string };
   saveStickyNoteArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "stickynote" }>,
@@ -4289,6 +4293,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       artifactId,
       payload,
       MANUAL_TIMELINE_SOURCE_CARD_ID,
+    );
+    get().setArtifactPanelVersion(versionId);
+    const node = findCanvasNodeByArtifactId(
+      get().canvasArtifactNodes,
+      artifactId,
+    );
+    if (node) {
+      get().setCanvasArtifactVersion(node.id, versionId);
+    }
+    return { versionId };
+  },
+
+  saveStreetViewArtifactVersion: (artifactId, payload) => {
+    const { versionId } = get().createArtifactVersion(
+      artifactId,
+      payload,
+      MANUAL_MAP_SOURCE_CARD_ID,
     );
     get().setArtifactPanelVersion(versionId);
     const node = findCanvasNodeByArtifactId(

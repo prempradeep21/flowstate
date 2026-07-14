@@ -935,7 +935,7 @@ function CardInner({ card }: CardProps) {
         </div>
       ) : (
       <div
-        className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
+        className={`chat-casing group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
             ? "border-canvas-accent ring-2 ring-canvas-accent/25"
             : "border-canvas-border"

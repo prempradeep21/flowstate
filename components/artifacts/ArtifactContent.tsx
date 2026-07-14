@@ -188,6 +188,8 @@ export function ArtifactContent({
             layout={contentLayout}
             forceInteractive={canvasInteractive}
             artifactId={artifactId}
+            canEdit={mapCanEdit && isCanvas}
+            sidebar={isSidebar}
           />
         );
         return contentLayout === "canvas" ? (

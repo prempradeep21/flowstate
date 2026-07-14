@@ -84,6 +84,7 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           canvasId={canvas.id}
           title={canvas.title}
           updatedAt={canvas.contentEditedAt ?? canvas.updatedAt}
+          thumbnailUrl={canvas.thumbnailUrl}
           members={membersByCanvas[canvas.id]}
           isSwitching={isSwitchingCanvas}
           isPendingSwitch={switchingCanvasId === canvas.id}

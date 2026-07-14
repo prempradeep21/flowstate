@@ -236,19 +236,47 @@ export async function geocodeMapArtifact(
   const query = placeNameFromData(data);
   if (!query) return null;
 
-  const hit = await geocodeOneHit(query);
-  if (!hit) return null;
+  // Trust coordinates already resolved for this place — a follow-up/edit (e.g. a
+  // Street View heading/pitch tweak) that keeps the same location re-emits the
+  // full payload with its lat/lng, and re-geocoding it is a wasted, rate-limited
+  // Nominatim round-trip. Mirrors geocodeSavedPlaces, which trusts existing pins.
+  const rawPlace =
+    data.place && typeof data.place === "object"
+      ? (data.place as Record<string, unknown>)
+      : {};
+  const existingLat =
+    typeof rawPlace.lat === "number"
+      ? rawPlace.lat
+      : parseFloat(String(rawPlace.lat ?? ""));
+  const existingLng =
+    typeof rawPlace.lng === "number"
+      ? rawPlace.lng
+      : parseFloat(String(rawPlace.lng ?? ""));
 
-  const lat = parseFloat(hit.lat);
-  const lng = parseFloat(hit.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  let place: MapPlace;
+  let zoom: number;
 
-  const place: MapPlace = {
-    name: query,
-    label: hit.display_name,
-    lat,
-    lng,
-  };
+  if (Number.isFinite(existingLat) && Number.isFinite(existingLng)) {
+    const existingLabel =
+      typeof rawPlace.label === "string" && rawPlace.label.trim()
+        ? rawPlace.label.trim()
+        : query;
+    place = { name: query, label: existingLabel, lat: existingLat, lng: existingLng };
+    zoom =
+      typeof data.zoom === "number" && Number.isFinite(data.zoom)
+        ? (data.zoom as number)
+        : 13;
+  } else {
+    const hit = await geocodeOneHit(query);
+    if (!hit) return null;
+
+    const lat = parseFloat(hit.lat);
+    const lng = parseFloat(hit.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    place = { name: query, label: hit.display_name, lat, lng };
+    zoom = zoomFromNominatim(hit.type, hit.class);
+  }
 
   const savedPlaces = await geocodeSavedPlaces(data, query);
   const mapStyle =
@@ -258,7 +286,7 @@ export async function geocodeMapArtifact(
 
   return {
     place,
-    zoom: zoomFromNominatim(hit.type, hit.class),
+    zoom,
     savedPlaces,
     mapStyle,
   };

@@ -44,18 +44,26 @@
     var(--canvas-artifact-selected-chin) !important;
 }
 
-/* Naked kinds (images, embeds, street view, 3d, sticky notes…) keep their
-   own surface — no wire, no chin. Placed after the selected rule so naked
-   artifacts stay naked even while selected. */
+/* Naked kinds (images/video, embeds, street view, 3d, sticky notes…) keep the
+   shared ink wire + chin so every artifact carries the same stroke, but stay
+   transparent behind it so their own media/content shows through (the card-fill
+   rule above already excludes naked kinds). */
 [data-artifact-style="neo"] [data-canvas-artifact][data-naked-artifact] .artifact-casing {
-  border: 0 !important;
-  box-shadow: none !important;
   background: transparent !important;
 }
 
 /* Inner surface fill follows the pack's card tone. */
 [data-artifact-style="neo"] .artifact-canvas-surface-fill {
   background-color: rgb(var(--canvas-artifact-card-fill));
+}
+
+/* Chat surfaces (on-canvas Q&A cards + the chat-panel thread) carry the same
+   ink wire as artifacts so conversations read as part of one system.
+   !important beats the Tailwind `border-canvas-border` utility and the inline
+   zoom-compensated border-width on these cards. */
+[data-artifact-style="neo"] .chat-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
 }
 
 /* Header: translucent top bar with an ink rule, landing-style. */
@@ -204,12 +212,15 @@
     var(--canvas-artifact-selected-chin) !important;
 }
 
-/* Naked kinds keep their own surface — no border, no shadow, no tilt. */
+/* Naked kinds (images, embeds, street view, sticky notes…) keep their own
+   surface, but Brut still frames them: every node gets a thick ink stroke and
+   the hard offset shadow. Content stays transparent-filled; tilt is dropped to
+   avoid corner clipping on media. */
 [data-artifact-style="neobrutalism"]
   [data-canvas-artifact][data-naked-artifact]
   .artifact-casing {
-  border: 0 !important;
-  box-shadow: none !important;
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
   background: transparent !important;
   transform: none;
 }
@@ -219,11 +230,68 @@
   background-color: rgb(var(--canvas-artifact-card-fill));
 }
 
-/* Header: solid sticker-yellow bar under a thick ink rule. */
+/* Per-category sticker palette — loud flat colors keyed by artifact category
+   (data-artifact-category on the header). Light fills take black ink text
+   (theme --canvas-ink); dark fills are deep/muted so bone-white text reads.
+   Local to this stylesheet — no global tokens. */
+[data-artifact-style="neobrutalism"] {
+  --brut-cat-data: 61 165 245; /* blue */
+  --brut-cat-viz: 255 159 64; /* orange */
+  --brut-cat-geo: 61 220 132; /* green */
+  --brut-cat-media: 255 64 129; /* pink (brutPop) */
+  --brut-cat-docs: 255 235 59; /* yellow (brutSun) */
+  --brut-cat-dev: 176 133 245; /* purple */
+  --brut-cat-planning: 255 107 107; /* coral */
+}
+html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
+  --brut-cat-data: 30 58 95;
+  --brut-cat-viz: 90 58 30;
+  --brut-cat-geo: 30 70 52;
+  --brut-cat-media: 90 37 64;
+  --brut-cat-docs: 74 63 30;
+  --brut-cat-dev: 58 47 85;
+  --brut-cat-planning: 90 37 48;
+}
+
+/* Header: solid sticker bar under a thick ink rule. The base fill is the
+   pack default; per-category selectors below repaint it. */
 [data-artifact-style="neobrutalism"] .artifact-panel-header {
   position: relative;
   background: var(--canvas-artifact-header-bg);
   border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* Per-category header fills — the extra attribute selector out-ranks the base
+   header rule, so no !important needed. */
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="data"] {
+  background: rgb(var(--brut-cat-data));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="viz"] {
+  background: rgb(var(--brut-cat-viz));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="geo"] {
+  background: rgb(var(--brut-cat-geo));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="media"] {
+  background: rgb(var(--brut-cat-media));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="docs"] {
+  background: rgb(var(--brut-cat-docs));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="dev"] {
+  background: rgb(var(--brut-cat-dev));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="planning"] {
+  background: rgb(var(--brut-cat-planning));
+}
+
+/* Header icon circle: a flat card-fill sticker chip with an ink frame, so it
+   reads on any loud header (overrides the inline themed category fill). */
+[data-artifact-style="neobrutalism"] .artifact-header-icon {
+  background-color: rgb(var(--canvas-artifact-card-fill)) !important;
+  color: rgb(var(--canvas-artifact-stroke)) !important;
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  border-radius: 4px;
 }
 
 /* Kind label as a rotated sticker chip — bold, uppercase, hard mini-shadow.
@@ -314,4 +382,196 @@
 }
 [data-artifact-style="neobrutalism"] .table-artifact-row {
   border-color: rgb(var(--canvas-artifact-stroke) / 0.35) !important;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+/* Chat cards render outside the .artifact-casing system (Card.tsx uses theme
+   border tokens), so hook them into the Brut stroke here — inputs get the same
+   thick ink border + hard offset shadow as artifacts. Targets the main Q&A
+   frame, the LOD placeholder, and the empty composer shell. !important beats
+   the inline per-scale borderWidth on the inner frame. The outer .group/card
+   of a normal chat has no border of its own, so it is left untouched to avoid a
+   double frame. */
+[data-artifact-style="neobrutalism"] [data-canvas-card] .group\/inner,
+[data-artifact-style="neobrutalism"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="neobrutalism"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-style: solid !important;
+  border-width: var(--canvas-artifact-stroke-w) !important;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Liquid Glass — Apple-style translucent material: backdrop blur +        */
+/* saturation, specular edge highlights, continuous corners. Cardinal      */
+/* rule: backdrop-filter on exactly ONE element per node (.artifact-casing */
+/* / .chat-casing) — nested blurs multiply raster cost and double-frost.   */
+/* Light/dark differences flow entirely through resolver vars.             */
+/* ---------------------------------------------------------------------- */
+
+/* Casing: hairline luminous rim + ambient depth + specular inner edge +
+   the glass blur itself. */
+[data-artifact-style="liquid-glass"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+  -webkit-backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+  backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+}
+
+/* Translucent glass fill at rest (see the neo block for the specificity
+   rationale — same contested transparent !important rule in globals.css). */
+[data-artifact-style="liquid-glass"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(
+    var(--canvas-artifact-card-fill) / var(--canvas-artifact-card-alpha, 1)
+  ) !important;
+}
+
+/* Selected: the rim brightens to the accent under a soft accent halo. */
+[data-artifact-style="liquid-glass"]
+  [data-canvas-artifact][data-selected]
+  .artifact-casing {
+  border-color: rgb(var(--canvas-accent) / 0.8) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}
+
+/* Naked kinds (images, embeds, street view, sticky notes…) supply their own
+   surface: keep the glass rim + depth so every node reads as one material,
+   but drop the fill and the blur (nothing translucent to frost). */
+[data-artifact-style="liquid-glass"]
+  [data-canvas-artifact][data-naked-artifact]
+  .artifact-casing {
+  background: transparent !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Inner surface fill: a lighter wash of the glass tone — translucent so the
+   casing's blurred backdrop glows through. No second blur. */
+[data-artifact-style="liquid-glass"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.35);
+}
+
+/* Header: brighter glass band under a luminous hairline. No kind label —
+   glass stays quiet. */
+[data-artifact-style="liquid-glass"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: soft accent wash through the glass. */
+[data-artifact-style="liquid-glass"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-accent) / 0.14) !important;
+}
+
+/* Highlighted dates: rounded frosted accent chip with a soft inset ring. */
+[data-artifact-style="liquid-glass"] .artifact-cal-day--highlighted {
+  border-radius: 10px;
+  background-color: rgb(var(--canvas-accent) / 0.16);
+  color: rgb(var(--canvas-accent-deep));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-accent) / 0.4) !important;
+}
+
+/* Today: solid accent lens. */
+[data-artifact-style="liquid-glass"] .artifact-cal-day--today {
+  border-radius: 10px;
+  background-color: rgb(var(--canvas-accent));
+  color: rgb(var(--canvas-on-accent));
+}
+[data-artifact-style="liquid-glass"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--canvas-on-accent)) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="liquid-glass"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 7px !important;
+}
+[data-artifact-style="liquid-glass"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.7) !important;
+}
+
+/* Frosted pill chips: translucent glass fill, luminous inset ring, tiny
+   specular top edge. */
+[data-artifact-style="liquid-glass"] .artifact-pill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.5) !important;
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+      rgb(var(--canvas-artifact-stroke) / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.35) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Luminous hairline rules. */
+[data-artifact-style="liquid-glass"] table thead tr {
+  border-bottom-width: 1px;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
+}
+[data-artifact-style="liquid-glass"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.18) !important;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+/* Chat surfaces become the same glass material as artifacts: the on-canvas
+   Q&A frame + chat-panel thread (.chat-casing), the LOD placeholder and the
+   empty composer shell (same selector set as the Brut chat block). This is
+   the blur element for chat nodes — nothing inside it blurs again.
+   !important beats the Tailwind border utilities, bg-transparent, and the
+   inline per-scale borderWidth on the inner frame. */
+[data-artifact-style="liquid-glass"] .chat-casing,
+[data-artifact-style="liquid-glass"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="liquid-glass"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-style: solid !important;
+  border-width: var(--canvas-artifact-stroke-w) !important;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  background: rgb(
+    var(--canvas-artifact-card-fill) / var(--canvas-artifact-card-alpha, 1)
+  ) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+  -webkit-backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+  backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+}
+
+/* Q&A answer body: a light wash of the glass tone instead of the near-opaque
+   default — the casing behind it already frosts the canvas. Scope specificity
+   (0,2,0) beats the (0,1,0) globals.css rule without !important. */
+[data-artifact-style="liquid-glass"] .canvas-translucent-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.2);
+  background-image: none;
+}
+
+/* Follow-up footer: slightly denser glass band under a luminous rule. */
+[data-artifact-style="liquid-glass"] [data-follow-up-footer] {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.35) !important;
+  border-top-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
+}
+
+/* Composer shell (canvas card footer + chat panel): translucent glass, but
+   NO backdrop-filter — on canvas it nests inside the blurred .chat-casing. */
+[data-artifact-style="liquid-glass"] .chat-composer-casing {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.45) !important;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.5) !important;
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}
+
+/* Chat threads sidebar: frosted panel edge. */
+[data-artifact-style="liquid-glass"] .chat-thread-panel {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.45) !important;
+  border-right-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
 }

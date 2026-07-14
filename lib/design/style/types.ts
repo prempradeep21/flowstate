@@ -42,6 +42,19 @@ export interface ArtifactStyleSurfaceTokens {
   /** Offset block shadow, zero blur (literal box-shadow layer). "none"
    * disables. */
   hardShadow: string;
+  /**
+   * Fill opacity for translucent materials (0–1). Fill hexes can't carry
+   * alpha (they're emitted as RGB channels), so translucency composes at
+   * consumption as `rgb(var(--canvas-artifact-card-fill) / alpha)`. Omit for
+   * opaque packs (CSS falls back to 1).
+   */
+  cardFillAlpha?: number;
+  /**
+   * Specular edge highlight (literal inset box-shadow layers) — the light
+   * catching the top/inner rim of a glass surface. Omit to disable (CSS
+   * falls back to an empty shadow).
+   */
+  innerHighlight?: string;
 }
 
 export interface ArtifactStylePreset {
@@ -54,6 +67,14 @@ export interface ArtifactStylePreset {
    * its scope; dark variants are derived. Omit to inherit the active theme.
    */
   accent?: string;
+  /**
+   * Backdrop material filter (literal CSS filter list, e.g.
+   * "blur(20px) saturate(1.7)"), mode-independent. When set, the pack emits
+   * --canvas-artifact-backdrop-filter and the scoped stylesheet applies it
+   * on exactly one element per node (casing-level — never nested). Omit for
+   * non-glass packs.
+   */
+  backdropFilter?: string;
   /** Casing stroke width (CSS length). */
   strokeWidth: string;
   /** Casing corner radius (CSS length). */

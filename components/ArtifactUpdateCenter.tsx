@@ -85,7 +85,7 @@ function ArtifactUpdateRow({
       {isReady ? (
         <ReadyIcon className="mt-0.5 h-4 w-4 shrink-0 text-canvas-success" />
       ) : null}
-      {update.kind ? (
+      {update.kind || update.isVideo ? (
         <span
           className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
             isReady
@@ -93,7 +93,11 @@ function ArtifactUpdateRow({
               : "bg-canvas-artifactIconBg text-canvas-ink"
           }`}
         >
-          <ArtifactTypeIcon kind={update.kind} className="h-3.5 w-3.5" />
+          <ArtifactTypeIcon
+            kind={update.isVideo ? "video" : update.kind ?? "custom"}
+            faviconUrl={update.isVideo ? undefined : update.faviconUrl}
+            className="h-3.5 w-3.5"
+          />
         </span>
       ) : null}
       <button

@@ -2,41 +2,68 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
-import type { ArtifactPayload } from "@/lib/artifactTypes";
+import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
+import { ArtifactMenuStreetViewControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
+import type { ArtifactPayload, StreetViewMode } from "@/lib/artifactTypes";
 import {
   buildStreetViewEmbedUrl,
   isGoogleMapsKeyConfigured,
 } from "@/lib/googleMaps";
-import { STREET_VIEW_ARTIFACT_HEIGHT } from "@/lib/canvasNodeBounds";
+import {
+  DEFAULT_STREET_VIEW_MODE,
+  normalizeStreetViewArtifactData,
+  streetViewArtifactHeightForWidth,
+} from "@/lib/streetViewArtifact";
+import { CANVAS_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import { useCanvasStore } from "@/lib/store";
 
-function StreetViewCircleFrame({
+function StreetViewFrame({
   children,
   fill,
   minHeight,
+  circle,
 }: {
   children: ReactNode;
   fill: boolean;
   minHeight?: string;
+  circle: boolean;
 }) {
   const panelSizeStyle =
     !fill && minHeight ? { minHeight, height: minHeight } : undefined;
 
+  if (circle) {
+    return (
+      <div
+        className={
+          fill
+            ? "h-full min-h-0 w-full flex-1 [container-type:size]"
+            : "w-full [container-type:size]"
+        }
+        style={panelSizeStyle}
+      >
+        <div className="flex h-full w-full items-center justify-center">
+          <div
+            data-no-drag
+            className="relative aspect-square max-h-full max-w-full shrink-0 overflow-hidden rounded-full [width:min(100cqw,100cqh)]"
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Rectangle: the Street View (and its native controls) fills the whole body.
   return (
     <div
-      className={
-        fill
-          ? "h-full min-h-0 w-full flex-1 [container-type:size]"
-          : "w-full [container-type:size]"
-      }
+      className={fill ? "h-full min-h-0 w-full flex-1" : "w-full"}
       style={panelSizeStyle}
     >
-      <div className="flex h-full w-full items-center justify-center">
-        <div
-          data-no-drag
-          className="relative aspect-square max-h-full max-w-full shrink-0 overflow-hidden rounded-full [width:min(100cqw,100cqh)]"
-        >
-          {children}
-        </div>
+      <div
+        data-no-drag
+        className="relative h-full w-full overflow-hidden rounded-2xl"
+      >
+        {children}
       </div>
     </div>
   );
@@ -47,18 +74,64 @@ export function StreetViewArtifactContent({
   layout = "panel",
   forceInteractive = false,
   artifactId,
+  canEdit = false,
+  sidebar = false,
 }: {
   payload: Extract<ArtifactPayload, { type: "streetview" }>;
   layout?: "canvas" | "panel" | "sidebar";
   forceInteractive?: boolean;
   artifactId?: string;
+  canEdit?: boolean;
+  sidebar?: boolean;
 }) {
-  const [interactive, setInteractive] = useState(forceInteractive);
+  const saveStreetViewArtifactVersion = useCanvasStore(
+    (s) => s.saveStreetViewArtifactVersion,
+  );
 
+  const [interactive, setInteractive] = useState(forceInteractive);
   useEffect(() => {
     setInteractive(forceInteractive);
   }, [forceInteractive]);
-  const { place, heading, pitch, fov } = payload.data;
+
+  const data = payload.data;
+  const [viewMode, setViewMode] = useState<StreetViewMode>(
+    data.viewMode ?? DEFAULT_STREET_VIEW_MODE,
+  );
+  useEffect(() => {
+    setViewMode(data.viewMode ?? DEFAULT_STREET_VIEW_MODE);
+  }, [data.viewMode, payload]);
+
+  const handleViewModeChange = useCallback(
+    (next: StreetViewMode) => {
+      setViewMode(next);
+      // Persist the shape as a new version for editors; viewers still get the
+      // local visual switch above.
+      if (canEdit && artifactId && next !== data.viewMode) {
+        saveStreetViewArtifactVersion(artifactId, {
+          ...payload,
+          data: normalizeStreetViewArtifactData({ ...data, viewMode: next }),
+        });
+      }
+    },
+    [artifactId, canEdit, data, payload, saveStreetViewArtifactVersion],
+  );
+
+  useArtifactMenuDisplayExtras(
+    !sidebar,
+    () => (
+      <ArtifactMenuStreetViewControls
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+      />
+    ),
+    [viewMode, handleViewModeChange, sidebar],
+  );
+
+  const enableInteraction = useCallback(() => {
+    setInteractive(true);
+  }, []);
+
+  const { place, heading, pitch, fov } = data;
   const lat = place.lat;
   const lng = place.lng;
   const label = place.label ?? place.name;
@@ -69,12 +142,9 @@ export function StreetViewArtifactContent({
     Number.isFinite(lng);
   const keyReady = isGoogleMapsKeyConfigured();
 
-  const enableInteraction = useCallback(() => {
-    setInteractive(true);
-  }, []);
-
   const isCanvas = layout === "canvas";
   const fill = isCanvas || layout === "sidebar";
+  const isCircle = viewMode === "circle";
 
   const stageClassName = fill
     ? "relative flex min-h-0 w-full flex-1 flex-col !rounded-none !bg-transparent overflow-hidden"
@@ -103,7 +173,9 @@ export function StreetViewArtifactContent({
   });
 
   const panelMinHeight =
-    layout === "canvas" ? undefined : `${STREET_VIEW_ARTIFACT_HEIGHT}px`;
+    layout === "canvas"
+      ? undefined
+      : `${streetViewArtifactHeightForWidth(CANVAS_ARTIFACT_WIDTH, viewMode)}px`;
 
   return (
     <ArtifactContentStage
@@ -111,7 +183,7 @@ export function StreetViewArtifactContent({
       artifactId={artifactId}
       className={stageClassName}
     >
-      <StreetViewCircleFrame fill={fill} minHeight={panelMinHeight}>
+      <StreetViewFrame fill={fill} minHeight={panelMinHeight} circle={isCircle}>
         {!keyReady ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas-artifactStage p-6 text-center">
             <p className="text-canvas-body-sm font-medium text-canvas-ink">
@@ -146,14 +218,16 @@ export function StreetViewArtifactContent({
                 type="button"
                 data-no-drag
                 onClick={enableInteraction}
-                className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-canvas-ink/0 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-ink/5"
+                className={`absolute inset-0 z-10 flex items-center justify-center ${
+                  isCircle ? "rounded-full" : "rounded-2xl"
+                } bg-canvas-ink/0 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-ink/5`}
               >
                 Click to interact
               </button>
             )}
           </>
         )}
-      </StreetViewCircleFrame>
+      </StreetViewFrame>
     </ArtifactContentStage>
   );
 }

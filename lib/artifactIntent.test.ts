@@ -155,6 +155,22 @@ describe("detectTableIntent", () => {
       ),
     ).toBe(true);
   });
+
+  it("detects implicit comparison requests keyed on a spec noun", () => {
+    expect(detectTableIntent("compare iPhone 15 vs 16 specs")).toBe(true);
+    expect(detectTableIntent("iPhone 15 versus 16 pricing")).toBe(true);
+  });
+
+  it("detects ranked lists qualified by concrete attributes", () => {
+    expect(
+      detectTableIntent("top 5 EVs with range, price and battery capacity"),
+    ).toBe(true);
+  });
+
+  it("does not fire on plain prose comparisons", () => {
+    expect(detectTableIntent("compare these two ideas for me")).toBe(false);
+    expect(detectTableIntent("what is the capital of France")).toBe(false);
+  });
 });
 
 describe("resolvePrimaryArtifactKind table vs travel", () => {

@@ -14,7 +14,7 @@ export const canvasColors = {
   /** AA on bg (4.65:1) and card (5.30:1) — do not lighten past #7A766E. */
   muted: "#6F6B63",
   /** Primary brand cobalt (matches the logo mark) — selected/active states. */
-  accent: "#1754C6",
+  accent: "#2066EB",
   /** Soft accent tint — selected-row/toggle fills (withLightness 0.93/0.9). */
   accentSoft: "#E0E9FA",
   /** Text/icons on solid accent fills — AA against `accent` in both modes. */
@@ -48,7 +48,7 @@ export const canvasColors = {
   infoSoft: "#f0f9ff",
   infoRing: "#bae6fd",
   /** Map marker pins */
-  mapPrimary: "#1754C6",
+  mapPrimary: "#2066EB",
   mapSaved: "#d97706",
   tagDanger: "#be123c",
   tagDangerSoft: "#fff1f2",
@@ -73,10 +73,10 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   border: "#34322D",
   ink: "#ECEAE3",
   muted: "#A8A29A",
-  accent: "#5588E7",
+  accent: "#2066EB",
   accentSoft: "#1F2D47",
-  /** Dark accent is lightened for AA on dark surfaces, so text on it flips dark. */
-  onAccent: "#181715",
+  /** Brand primary on dark; white text/icons clear AA (5.05:1) on this blue. */
+  onAccent: "#FFFFFF",
   secondary: "#8EA6E0",
   tertiary: "#F5A447",
   artifactIconBg: "#1F2D47",
@@ -103,7 +103,7 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   infoText: "#7DD3FC",
   infoSoft: "#14222A",
   infoRing: "#1F4A5C",
-  mapPrimary: "#5588E7",
+  mapPrimary: "#2066EB",
   mapSaved: "#FBBF24",
   tagDanger: "#FB7185",
   tagDangerSoft: "#2A1620",

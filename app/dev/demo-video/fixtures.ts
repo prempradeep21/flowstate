@@ -10,7 +10,7 @@ export const DEMO_THREAD_MAIN = "demo_thread_main";
 export const DEMO_THREAD_BRANCH = "demo_thread_branch";
 export const DEMO_THREAD_SELECTION = "demo_thread_selection";
 
-export const ACCENT_MAIN = "#1754C6";
+export const ACCENT_MAIN = "#2066EB";
 export const ACCENT_BRANCH = "#FF8FA3";
 export const ACCENT_SELECTION = "#6FCF97";
 

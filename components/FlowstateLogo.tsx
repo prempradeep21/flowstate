@@ -34,7 +34,7 @@ export function FlowstateLogo({ className }: { className?: string }) {
             height="145.886"
             rx="72.9432"
             transform="rotate(-45 -30.1572 73.1562)"
-            fill="#1754C6"
+            fill="#2066EB"
           />
           <path
             d="M-18.7098 148.049C-7.86879 137.208 9.23958 120.1 19.1545 110.185C35.0474 94.2922 16.4405 75.6487 40.2324 54.7245"

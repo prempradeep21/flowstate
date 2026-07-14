@@ -175,6 +175,9 @@ export function CanvasSettingsPopover({
           const selected = canvasArtifactStyle === pack.id;
           const tokens = pack.light;
           const accent = pack.accent ?? "rgb(var(--canvas-accent))";
+          // Glass packs preview as translucent frosted chips — solid fill
+          // would hide the one thing the pack is about.
+          const isGlass = Boolean(pack.backdropFilter);
           return (
             <button
               key={pack.id}
@@ -188,15 +191,39 @@ export function CanvasSettingsPopover({
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >
-              <div className="flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5">
+              <div className="relative flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5">
+                {isGlass && (
+                  <span className="pointer-events-none absolute inset-0" aria-hidden>
+                    <span
+                      className="absolute left-3 top-1 h-5 w-5 rounded-full opacity-50"
+                      style={{ backgroundColor: accent }}
+                    />
+                    <span
+                      className="absolute bottom-1 right-4 h-4 w-4 rounded-full bg-canvas-ink opacity-30"
+                    />
+                  </span>
+                )}
                 <span
-                  className="flex h-8 w-full items-center gap-1.5 px-1.5"
+                  className="relative flex h-8 w-full items-center gap-1.5 px-1.5"
                   style={{
-                    backgroundColor: tokens.cardFill,
-                    border: `${pack.strokeWidth} solid ${tokens.stroke}`,
+                    backgroundColor: isGlass
+                      ? `color-mix(in srgb, ${tokens.cardFill} 55%, transparent)`
+                      : tokens.cardFill,
+                    border: `${pack.strokeWidth} solid ${
+                      isGlass
+                        ? `color-mix(in srgb, ${tokens.stroke} 55%, transparent)`
+                        : tokens.stroke
+                    }`,
                     borderRadius: pack.radius,
-                    boxShadow:
-                      tokens.hardShadow !== "none"
+                    ...(isGlass
+                      ? {
+                          backdropFilter: "blur(3px)",
+                          WebkitBackdropFilter: "blur(3px)",
+                        }
+                      : {}),
+                    boxShadow: isGlass
+                      ? tokens.innerHighlight
+                      : tokens.hardShadow !== "none"
                         ? tokens.hardShadow
                         : tokens.chinShadow === "none"
                           ? undefined

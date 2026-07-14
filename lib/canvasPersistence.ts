@@ -21,6 +21,8 @@ export interface CanvasMeta {
   isDefault: boolean;
   updatedAt: string;
   contentEditedAt: string;
+  /** Owner-chosen dashboard thumbnail (a canvas image asset URL); null = use placeholder. */
+  thumbnailUrl?: string | null;
   /** Session-only canvas created on localhost read-only mode. */
   localOnly?: boolean;
 }
@@ -33,9 +35,9 @@ export interface UserPreferences {
 type Supabase = SupabaseClient<Database>;
 
 /** Cached after first PostgREST response — avoids repeated 400s pre-migration. */
-let supportsContentEditedAtColumn: boolean | undefined;
+let supportsExtendedCanvasColumns: boolean | undefined;
 
-function isMissingContentEditedAtColumn(error: {
+function isMissingOptionalCanvasColumn(error: {
   code?: string;
   message?: string;
 }): boolean {
@@ -43,7 +45,8 @@ function isMissingContentEditedAtColumn(error: {
   return (
     error.code === "42703" ||
     error.code === "PGRST204" ||
-    message.includes("content_edited_at")
+    message.includes("content_edited_at") ||
+    message.includes("thumbnail_url")
   );
 }
 
@@ -53,6 +56,7 @@ function mapCanvasMetaRow(row: {
   is_default: boolean;
   updated_at: string;
   content_edited_at?: string | null;
+  thumbnail_url?: string | null;
 }): CanvasMeta {
   return {
     id: row.id,
@@ -60,6 +64,7 @@ function mapCanvasMetaRow(row: {
     isDefault: row.is_default,
     updatedAt: row.updated_at,
     contentEditedAt: row.content_edited_at ?? row.updated_at,
+    thumbnailUrl: row.thumbnail_url ?? null,
   };
 }
 
@@ -133,23 +138,23 @@ export async function fetchCanvasList(
   supabase: Supabase,
   userId: string,
 ): Promise<CanvasMeta[]> {
-  if (supportsContentEditedAtColumn !== false) {
+  if (supportsExtendedCanvasColumns !== false) {
     const { data, error } = await supabase
       .from("canvases")
-      .select("id, title, is_default, updated_at, content_edited_at")
+      .select("id, title, is_default, updated_at, content_edited_at, thumbnail_url")
       .eq("owner_id", userId)
       .order("content_edited_at", { ascending: false, nullsFirst: false });
 
     if (!error) {
-      supportsContentEditedAtColumn = true;
+      supportsExtendedCanvasColumns = true;
       return (data ?? []).map(mapCanvasMetaRow);
     }
 
-    if (!isMissingContentEditedAtColumn(error)) {
+    if (!isMissingOptionalCanvasColumn(error)) {
       throw error;
     }
 
-    supportsContentEditedAtColumn = false;
+    supportsExtendedCanvasColumns = false;
   }
 
   const { data, error } = await supabase
@@ -312,6 +317,20 @@ export async function updateCanvasTitle(
   if (error) throw error;
 }
 
+/** Set (or clear, with `null`) the owner-chosen dashboard thumbnail URL. */
+export async function updateCanvasThumbnail(
+  supabase: Supabase,
+  canvasId: string,
+  thumbnailUrl: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("canvases")
+    .update({ thumbnail_url: thumbnailUrl })
+    .eq("id", canvasId);
+
+  if (error) throw error;
+}
+
 export interface SaveCanvasStateOptions {
   /** Bump content_edited_at for sidebar recency sorting. */
   touchContentEditedAt?: boolean;
@@ -339,7 +358,7 @@ export async function saveCanvasState(
   };
 
   const withContentEditedAt =
-    touchContentEditedAt && supportsContentEditedAtColumn !== false
+    touchContentEditedAt && supportsExtendedCanvasColumns !== false
       ? {
           ...baseUpdate,
           content_edited_at: new Date().toISOString(),
@@ -362,12 +381,12 @@ export async function saveCanvasState(
   if (
     error &&
     touchContentEditedAt &&
-    isMissingContentEditedAtColumn(error)
+    isMissingOptionalCanvasColumn(error)
   ) {
-    supportsContentEditedAtColumn = false;
+    supportsExtendedCanvasColumns = false;
     ({ data, error } = await runUpdate(baseUpdate));
   } else if (!error && touchContentEditedAt) {
-    supportsContentEditedAtColumn = true;
+    supportsExtendedCanvasColumns = true;
   }
 
   if (error) throw error;

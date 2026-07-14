@@ -71,11 +71,23 @@ function surfaceVars(tokens: ArtifactStyleSurfaceTokens): Record<string, string>
   if (tokens.canvasDot) {
     vars["--canvas-dot"] = hexToRgbChannels(tokens.canvasDot);
   }
+  // Glass tokens — emitted only when a pack opts in, so opaque packs keep
+  // their var payload unchanged and the stylesheet fallbacks (alpha 1, empty
+  // shadow) hold everywhere else.
+  if (tokens.cardFillAlpha != null) {
+    vars["--canvas-artifact-card-alpha"] = String(tokens.cardFillAlpha);
+  }
+  if (tokens.innerHighlight) {
+    vars["--canvas-artifact-inner-highlight"] = tokens.innerHighlight;
+  }
   return vars;
 }
 
 function structureVars(pack: ArtifactStylePreset): Record<string, string> {
   return {
+    ...(pack.backdropFilter
+      ? { "--canvas-artifact-backdrop-filter": pack.backdropFilter }
+      : {}),
     "--canvas-artifact-stroke-w": pack.strokeWidth,
     "--canvas-artifact-radius": pack.radius,
     "--canvas-artifact-control-stroke-w": pack.controlStrokeWidth,

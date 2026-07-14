@@ -227,6 +227,15 @@ export function ArtifactShell({
               ? activeVersion.payload.data.fileKind
               : undefined
           }
+          iconFaviconUrl={
+            sessionArtifact.kind === "website" &&
+            activeVersion.payload.type === "website"
+              ? activeVersion.payload.data.faviconUrl
+              : sessionArtifact.kind === "embed" &&
+                  activeVersion.payload.type === "embed"
+                ? activeVersion.payload.data.fallback?.faviconUrl
+                : undefined
+          }
           menuVariant={menuVariant}
           onRemoveFromCanvas={onRemoveFromCanvas}
           contributorProfiles={contributorProfiles}

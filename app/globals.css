@@ -13,7 +13,7 @@
   --canvas-ink: 44 42 38;
   /* AA-compliant muted text (4.65:1 on bg, 5.30:1 on card). */
   --canvas-muted: 111 107 99;
-  --canvas-accent: 23 84 198;
+  --canvas-accent: 32 102 235;
   --canvas-accent-soft: 224 233 250;
   --canvas-on-accent: 255 255 255;
   --canvas-artifact-icon-bg: 224 233 250;
@@ -40,7 +40,7 @@
   --canvas-info-text: 3 105 161;
   --canvas-info-soft: 240 249 255;
   --canvas-info-ring: 186 230 253;
-  --canvas-map-primary: 23 84 198;
+  --canvas-map-primary: 32 102 235;
   --canvas-map-saved: 217 119 6;
   --canvas-tag-danger: 190 18 60;
   --canvas-tag-danger-soft: 255 241 242;
@@ -117,9 +117,9 @@ html[data-theme="dark"],
   --canvas-border: 52 50 45;
   --canvas-ink: 236 234 227;
   --canvas-muted: 168 162 154;
-  --canvas-accent: 85 136 231;
+  --canvas-accent: 32 102 235;
   --canvas-accent-soft: 31 45 71;
-  --canvas-on-accent: 24 23 21;
+  --canvas-on-accent: 255 255 255;
   --canvas-artifact-icon-bg: 31 45 71;
   --canvas-artifact-stage: 30 29 26;
   --canvas-connector: 78 75 69;
@@ -144,7 +144,7 @@ html[data-theme="dark"],
   --canvas-info-text: 125 211 252;
   --canvas-info-soft: 20 34 42;
   --canvas-info-ring: 31 74 92;
-  --canvas-map-primary: 85 136 231;
+  --canvas-map-primary: 32 102 235;
   --canvas-map-saved: 251 191 36;
   --canvas-tag-danger: 251 113 133;
   --canvas-tag-danger-soft: 42 22 32;
@@ -188,7 +188,7 @@ html[data-theme="dark"],
   --canvas-border: 230 228 223;
   --canvas-ink: 44 42 38;
   --canvas-muted: 111 107 99;
-  --canvas-accent: 23 84 198;
+  --canvas-accent: 32 102 235;
   --canvas-accent-soft: 224 233 250;
   --canvas-on-accent: 255 255 255;
   --canvas-artifact-icon-bg: 224 233 250;
@@ -583,58 +583,37 @@ html[data-theme="dark"] .timeline-band {
   }
 }
 
-/* Output artefact stroke while another chat builds the next version */
-@keyframes artifact-remote-stroke-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes artifact-remote-stroke-breathe {
+/* Output artefact glow while another chat builds the next version — a calm
+   breathing pulse in the artifact's category colour (replaces the old spinning
+   conic stroke). */
+@keyframes artifact-remote-glow-breathe {
   0%,
   100% {
-    opacity: 0.42;
+    opacity: 0.4;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--artifact-update-glow) 24%, transparent),
+      0 0 14px 2px color-mix(in srgb, var(--artifact-update-glow) 20%, transparent);
   }
   50% {
-    opacity: 0.78;
+    opacity: 0.9;
+    box-shadow:
+      0 0 0 1.5px color-mix(in srgb, var(--artifact-update-glow) 50%, transparent),
+      0 0 30px 8px color-mix(in srgb, var(--artifact-update-glow) 42%, transparent);
   }
 }
 
-.artifact-remote-update-stroke__ring {
-  padding: 1.5px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 55deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 62%, transparent) 95deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 18%, transparent) 135deg,
-    transparent 180deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 235deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 38%, transparent) 275deg,
-    color-mix(in srgb, var(--artifact-update-stroke) 12%, transparent) 315deg,
-    transparent 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  animation:
-    artifact-remote-stroke-spin 5.5s linear infinite,
-    artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
+.artifact-remote-update-glow {
+  animation: artifact-remote-glow-breathe 2.6s ease-in-out infinite;
 }
 
-.artifact-remote-update-stroke__glow {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--artifact-update-stroke) 14%, transparent),
-    0 0 14px color-mix(in srgb, var(--artifact-update-stroke) 16%, transparent);
-  animation: artifact-remote-stroke-breathe 3.2s ease-in-out infinite;
+@media (prefers-reduced-motion: reduce) {
+  .artifact-remote-update-glow {
+    animation: none;
+    opacity: 0.65;
+    box-shadow:
+      0 0 0 1.5px color-mix(in srgb, var(--artifact-update-glow) 42%, transparent),
+      0 0 20px 4px color-mix(in srgb, var(--artifact-update-glow) 30%, transparent);
+  }
 }
 
 @keyframes todo-row-in {
@@ -719,41 +698,6 @@ html[data-theme="dark"] .timeline-band {
   opacity: 1;
 }
 
-@keyframes switch-node-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes switch-connect {
-  0%,
-  100% {
-    stroke-dashoffset: 8;
-    opacity: 0.35;
-  }
-  50% {
-    stroke-dashoffset: 0;
-    opacity: 0.7;
-  }
-}
-
-@keyframes switch-artifact {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translateX(-50%) scale(0.95) rotate(-2deg);
-  }
-  50% {
-    opacity: 1;
-    transform: translateX(-50%) scale(1.05) rotate(2deg);
-  }
-}
-
 @keyframes switch-dot {
   0%,
   80%,
@@ -765,18 +709,6 @@ html[data-theme="dark"] .timeline-band {
     opacity: 1;
     transform: scale(1.15);
   }
-}
-
-.switch-node-in {
-  animation: switch-node-in 0.6s ease-out both;
-}
-
-.switch-connect {
-  animation: switch-connect 1.2s ease-in-out infinite;
-}
-
-.switch-artifact {
-  animation: switch-artifact 2s ease-in-out infinite;
 }
 
 .switch-dot {
@@ -960,6 +892,9 @@ html[data-theme="dark"] .timeline-band {
 [data-canvas-container][data-gesturing="zoom"] {
   --canvas-artifact-shadow: 0 0 #0000;
   --canvas-artifact-shadow-hover: 0 0 #0000;
+  /* Glass packs: backdrop blur is the other dominant raster cost — flatten
+     it per zoom frame the same way; restored at gesture end. */
+  --canvas-artifact-backdrop-filter: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1001,7 +936,7 @@ html[data-theme="dark"] .timeline-band {
    above its pin and is tinted (via --pin-color) to match the pin colour.
 --------------------------------------------------------------------------- */
 .leaflet-tooltip.map-pin-tooltip {
-  --pin-color: #1754c6;
+  --pin-color: #2066eb;
   display: flex;
   align-items: center;
   gap: 5px;

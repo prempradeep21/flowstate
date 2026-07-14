@@ -27,26 +27,30 @@ export function countryCodeToFlagEmoji(code: string): string | null {
 const FLAG_SHORTCODE_RE = /:flag[-_]([a-z]{2}):/gi;
 const COUNTRY_SHORTCODE_RE = /:([a-z]{2}):/gi;
 const LEADING_COUNTRY_CODE_RE = /^([a-zA-Z]{2})\s+(?=[\p{Lu}])/u;
-const INLINE_COUNTRY_CODE_RE = /(?<=^|\s)([a-z]{2})(?=\s+[\p{Lu}])/gu;
 
 const NON_COUNTRY_SHORTCODES = new Set([
-  "ok",
-  "no",
-  "or",
-  "if",
+  "am",
+  "an",
   "as",
   "at",
+  "be",
   "by",
   "do",
   "go",
   "he",
+  "hi",
   "id",
+  "if",
+  "in",
   "is",
   "it",
   "me",
   "my",
+  "no",
   "of",
+  "ok",
   "on",
+  "or",
   "so",
   "to",
   "up",
@@ -73,13 +77,11 @@ export function formatRichTextForDisplay(text: string): string {
     .replace(COUNTRY_SHORTCODE_RE, replaceCountryShortcode);
 
   result = result.replace(LEADING_COUNTRY_CODE_RE, (match, code: string) => {
+    // Only treat a leading two-letter token as a country code when it is not a
+    // common English word ("In Progress", "Is Ready", etc. must stay literal).
+    if (NON_COUNTRY_SHORTCODES.has(code.toLowerCase())) return match;
     const flag = countryCodeToFlagEmoji(code);
     return flag ? `${flag} ` : match;
-  });
-
-  result = result.replace(INLINE_COUNTRY_CODE_RE, (match, code: string) => {
-    const flag = countryCodeToFlagEmoji(code);
-    return flag ?? match;
   });
 
   return result;

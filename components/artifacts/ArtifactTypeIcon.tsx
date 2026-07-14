@@ -14,7 +14,6 @@ import {
   MapPin,
   PersonStanding,
   SquareCheckBig,
-  SquarePlay,
   StickyNote,
   Table2,
   type LucideIcon,
@@ -29,7 +28,6 @@ import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
  * repo keeps the GitHub mark.
  */
 const KIND_ICONS: Partial<Record<ArtifactKind | "video", LucideIcon>> = {
-  video: SquarePlay,
   table: Table2,
   images: Image,
   "3d": Box,
@@ -106,6 +104,18 @@ function GoogleWorkspaceKindIcon({
   );
 }
 
+function YouTubeMarkIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path
+        d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8Z"
+        fill="#FF0000"
+      />
+      <path d="M9.6 15.6V8.4l6.2 3.6-6.2 3.6Z" fill="#fff" />
+    </svg>
+  );
+}
+
 function GitHubMarkIcon({ className }: { className: string }) {
   return (
     <svg viewBox="0 0 16 16" className={className} aria-hidden fill="none">
@@ -121,11 +131,17 @@ export function ArtifactTypeIcon({
   kind,
   className = "h-4 w-4",
   googleFileKind,
+  faviconUrl,
 }: {
   kind: ArtifactKind | "video";
   className?: string;
   /** When kind is google-doc, picks Docs / Sheets / Slides icon. */
   googleFileKind?: GoogleDriveFileKind;
+  /**
+   * Source favicon for input artifacts (website / embed). When present it
+   * replaces the generic kind icon. YouTube uses its own brand mark instead.
+   */
+  faviconUrl?: string;
 }) {
   if (kind === "google-doc") {
     return (
@@ -137,6 +153,16 @@ export function ArtifactTypeIcon({
   }
   if (kind === "repo") {
     return <GitHubMarkIcon className={className} />;
+  }
+  // YouTube videos carry the "video" pseudo-kind — show the YouTube mark.
+  if (kind === "video") {
+    return <YouTubeMarkIcon className={className} />;
+  }
+  if (faviconUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={faviconUrl} alt="" className={`${className} object-contain`} />
+    );
   }
   const IconComponent = KIND_ICONS[kind];
   if (!IconComponent) return null;

@@ -6,7 +6,7 @@ import {
   UI_CHART_TYPE_LABELS,
   UI_CHART_TYPES,
 } from "@/lib/chartStyles";
-import type { TimelineScale } from "@/lib/artifactTypes";
+import type { StreetViewMode, TimelineScale } from "@/lib/artifactTypes";
 import {
   ARTIFACT_FONT_SCALE_MAX,
   ARTIFACT_FONT_SCALE_MIN,
@@ -204,6 +204,42 @@ export function ArtifactMenuTimelineControls({
         </div>
       </ArtifactNestedMenuSection>
     </>
+  );
+}
+
+const STREET_VIEW_MODE_OPTIONS: { value: StreetViewMode; label: string }[] = [
+  { value: "rectangle", label: "Rectangle" },
+  { value: "circle", label: "Sphere" },
+];
+
+export function ArtifactMenuStreetViewControls({
+  viewMode,
+  onViewModeChange,
+  disabled,
+}: {
+  viewMode: StreetViewMode;
+  onViewModeChange: (viewMode: StreetViewMode) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ArtifactNestedMenuSection title="Street View">
+      <label className="block" data-no-drag>
+        <span className={artifactMenuFieldLabelClass}>Shape</span>
+        <select
+          value={viewMode}
+          disabled={disabled}
+          onChange={(e) => onViewModeChange(e.target.value as StreetViewMode)}
+          className={artifactMenuSelectClass}
+          data-no-drag
+        >
+          {STREET_VIEW_MODE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </ArtifactNestedMenuSection>
   );
 }
 

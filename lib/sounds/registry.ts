@@ -5,7 +5,7 @@ export const DEFAULT_SOUND_MAP: SoundMapping = {
   "card-drag-start": { preset: "swoosh", volume: 0.8 },
   "card-drag-drop": { preset: "drop", volume: 0.1 },
   "artifact-drag-drop": { preset: "drop", volume: 0.2 },
-  "canvas-pan": { preset: "scroll-tick", volume: 0.7 },
+  "canvas-pan": { preset: null, volume: 0.7 },
   "branch-collapse": { preset: "collapse", volume: 1 },
   "chat-collapse": { preset: "collapse", volume: 1 },
   "branch-create": { preset: "swoosh", volume: 1 },

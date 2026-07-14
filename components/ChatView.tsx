@@ -88,7 +88,7 @@ export function ChatView() {
 
   return (
     <div className="flex h-full w-full bg-canvas-bg">
-      <aside className="flex w-[260px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
+      <aside className="chat-thread-panel flex w-[260px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
         <div className="border-b border-canvas-border px-4 py-3">
           <h2 className="text-canvas-body-sm font-semibold text-canvas-ink">Chats</h2>
           <p className="mt-0.5 text-canvas-caption text-canvas-muted">

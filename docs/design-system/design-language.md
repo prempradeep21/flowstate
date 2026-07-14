@@ -6,7 +6,7 @@ Visual design in Flowstate follows the same discipline as [motion](../motion-des
 
 1. **Token-first** — Every color, type size, and radius flows from `lib/design/tokens.ts`.
 2. **Semantic over primitive** — Use `text-canvas-body-sm` not `text-[13px]`; use `text-canvas-danger` not `text-red-600`.
-3. **One accent** — UI chrome and thread palette[0] share `canvas.accent` (`#1754C6`, the brand cobalt).
+3. **One accent** — UI chrome and thread palette[0] share `canvas.accent` (`#2066EB`, the brand cobalt).
 4. **Clustered scale** — Nine ad-hoc px sizes collapsed to eight named typography steps.
 5. **Composable radii** — `rounded-canvas` (12px) is default; `rounded-canvas-sm` (8px) for compact overlays; `rounded-canvas-xs` (2px) for handles.
 
@@ -70,6 +70,26 @@ Selection reads as **primary blue** everywhere. Two idioms, both themable (they 
 | Outline | `border-canvas-accent ring-2 ring-canvas-accent/25` | Selected canvas cards/artifact nodes; `ring-1` for picker swatches |
 
 Never use `text-white` or `text-canvas-card` on an accent fill — `onAccent` flips to near-black in dark mode because the dark accent is lightened for contrast. The marquee (`.canvas-selection-marquee`) and focus rings also use `canvas-accent`.
+
+## Artifact style packs
+
+Artifacts can be re-skinned as a whole via **style packs** — a visual language applied to a subtree that opts in with `<ArtifactStyleScope>`. Packs are add-only: each is one entry in [`lib/design/style/stylePacks.ts`](../../lib/design/style/stylePacks.ts) plus a scoped rule block in [`app/styles/artifact-styles.css`](../../app/styles/artifact-styles.css) (`[data-artifact-style="<pack>"]`). No component changes per pack.
+
+| Pack | id | Language |
+|------|-----|----------|
+| Vanilla | `vanilla` | The factory look — quiet chrome revealed on hover. Structural no-op (never resolved into CSS). |
+| Neo | `neo` | Landing-page language — ink wire strokes, solid no-blur chin, cream card, cobalt accent. |
+| Brut | `neobrutalism` | Neobrutalism — thick ink borders, hard offset shadows, flat loud color, tilted cards. |
+| Liquid Glass | `liquid-glass` | Apple-style liquid glass — translucent blurred material, specular edge highlights, 24px continuous corners, tinted canvas backdrop. No pack accent (adapts to the theme). |
+
+**Consistent stroke (Neo).** In Neo, **every** surface carries the same ink wire so the canvas reads as one system:
+
+- **All artifacts** — input/media *and* output/document. "Naked" kinds (images/video, website, embed, street view, 3d, sticky note) keep the shared `.artifact-casing` stroke + chin and only stay transparent behind it so their own media shows through (they are excluded from the opaque card-fill only).
+- **Chat surfaces** — on-canvas Q&A cards and the chat-panel thread opt in with the `chat-casing` class, which the Neo block strokes with the same `--canvas-artifact-stroke-w` / `--canvas-artifact-stroke`.
+
+The stroke width/color come from the pack's `--canvas-artifact-stroke*` variables (see [token reference](token-reference.md#artifact-style-packs)).
+
+**Glass material (Liquid Glass).** Liquid Glass extends the pack contract with three optional tokens: `backdropFilter` (mode-independent, e.g. `blur(20px) saturate(1.7)`), `cardFillAlpha` (per-mode fill translucency — fill hexes stay alpha-free; opacity composes at consumption), and `innerHighlight` (per-mode specular inset shadow). The blur is applied on exactly **one** element per node (`.artifact-casing` / `.chat-casing`) — never nested — and is flattened during zoom gestures via the raster-hygiene rule in `globals.css`. Beyond `.chat-casing`, the glass reaches the composer (`chat-composer-casing`), the Q&A answer body (`.canvas-translucent-fill`), the follow-up footer, and the chat threads sidebar (`chat-thread-panel`).
 
 ## Do / Don't
 

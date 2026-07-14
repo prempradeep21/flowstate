@@ -8,6 +8,10 @@ export interface ArtifactUpdate {
   dedupeKey: string;
   status: ArtifactUpdateStatus;
   kind?: ArtifactKind;
+  /** YouTube (video) artifact — renders the YouTube mark instead of the kind icon. */
+  isVideo?: boolean;
+  /** Source favicon for input artifacts (website / embed) — shown as the row icon. */
+  faviconUrl?: string;
   title: string;
   detail: string;
   artifactId?: string;

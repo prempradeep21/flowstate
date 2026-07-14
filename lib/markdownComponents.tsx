@@ -26,4 +26,22 @@ export const MARKDOWN_COMPONENTS: Components = {
       {children}
     </code>
   ),
+  table: ({ children }) => (
+    <div className="mb-2 max-w-full overflow-x-auto last:mb-0">
+      <table className="w-full border-collapse text-canvas-body-sm">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => <thead>{children}</thead>,
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tr: ({ children }) => (
+    <tr className="border-b border-canvas-border last:border-0">{children}</tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-2.5 py-1.5 text-left font-semibold">{children}</th>
+  ),
+  td: ({ children }) => (
+    <td className="px-2.5 py-1.5 align-top">{children}</td>
+  ),
 };

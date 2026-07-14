@@ -12,9 +12,9 @@ All values defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts). Tail
 | `ink` | `#2C2A26` | `text-canvas-ink` |
 | `muted` | `#6F6B63` | `text-canvas-muted` (AA on bg + card) |
 | `dot` | `#8B8A86` | `--canvas-dot` in CSS |
-| `accent` | `#1754C6` | `text-canvas-accent`, `bg-canvas-accent` — themable primary (brand cobalt; dark `#5588E7`) |
+| `accent` | `#2066EB` | `text-canvas-accent`, `bg-canvas-accent` — themable primary (brand blue; dark `#2066EB`) |
 | `accentSoft` | `#E0E9FA` | `bg-canvas-accentSoft` — soft selected-state fill (dark `#1F2D47`) |
-| `onAccent` | `#FFFFFF` | `text-canvas-onAccent` — text/icons on solid accent fills (dark `#181715`) |
+| `onAccent` | `#FFFFFF` | `text-canvas-onAccent` — text/icons on solid accent fills (dark `#FFFFFF`) |
 | `secondary` | `#5B7FD6` | `text-canvas-secondary` — themable secondary |
 | `tertiary` | `#D97706` | `text-canvas-tertiary` — themable accent |
 | `artifactIconBg` | `#E0E9FA` | `bg-canvas-artifactIconBg` |
@@ -93,3 +93,47 @@ Defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts) and [`app/global
 ```
 
 Motion variables remain separate; see motion design language.
+
+## Artifact style packs
+
+Style packs are defined in [`lib/design/style/stylePacks.ts`](../../lib/design/style/stylePacks.ts) and resolved into scoped CSS variables by [`lib/design/style/resolveArtifactStyle.ts`](../../lib/design/style/resolveArtifactStyle.ts) (injected by `<ArtifactStyleScope>`). Consumed by the `[data-artifact-style="<pack>"]` rules in [`app/styles/artifact-styles.css`](../../app/styles/artifact-styles.css). See the [design language](design-language.md#artifact-style-packs) for the concept.
+
+### Stroke variables
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--canvas-artifact-stroke-w` | `strokeWidth` | Frame stroke on `.artifact-casing` and `.chat-casing` |
+| `--canvas-artifact-stroke` | `stroke` (RGB channels) | Ink stroke color |
+| `--canvas-artifact-control-stroke-w` | `controlStrokeWidth` | In-card controls (pills, calendar chips) |
+| `--canvas-artifact-checkbox-stroke-w` | `checkboxStrokeWidth` | Todo checkboxes |
+
+### Neo values
+
+| Field | Value |
+|-------|-------|
+| `strokeWidth` | `1.6px` |
+| `controlStrokeWidth` | `1.3px` |
+| `checkboxStrokeWidth` | `1.4px` |
+| `stroke` (light) | `#232323` |
+| `stroke` (dark) | `#ECEAE3` |
+
+In Neo the `1.6px` ink frame stroke (`--canvas-artifact-stroke-w`) is applied uniformly across all input + output artifacts and chat surfaces (`.chat-casing`).
+
+### Glass variables (optional — emitted only when a pack opts in)
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--canvas-artifact-backdrop-filter` | `backdropFilter` (preset-level, mode-independent) | Backdrop blur/saturation on `.artifact-casing` / `.chat-casing`; flattened to `none` during zoom gestures |
+| `--canvas-artifact-card-alpha` | `cardFillAlpha` (per mode) | Fill translucency, composed as `rgb(var(--canvas-artifact-card-fill) / alpha)`; CSS falls back to `1` |
+| `--canvas-artifact-inner-highlight` | `innerHighlight` (per mode) | Specular inset edge, composed into shadow lists; falls back to `0 0 #0000` |
+
+### Liquid Glass values
+
+| Field | Value |
+|-------|-------|
+| `backdropFilter` | `blur(20px) saturate(1.7)` |
+| `radius` | `24px` |
+| `cardFill` / `cardFillAlpha` (light) | `#F7FAFF` / `0.55` |
+| `cardFill` / `cardFillAlpha` (dark) | `#232A36` / `0.5` |
+| `stroke` (light / dark) | `#FFFFFF` / `#8A93A6` — consumed at 55% alpha as a luminous rim |
+| `canvasBg` (light / dark) | `#DDE5EF` / `#101319` — tinted backdrop so the blur has content to refract |

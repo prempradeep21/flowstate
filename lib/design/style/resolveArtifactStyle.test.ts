@@ -31,13 +31,13 @@ describe("resolveArtifactStyle", () => {
     );
   });
 
-  it("scopes the #1754C6 accent (23 84 198) inside neo only", () => {
+  it("scopes the #2066EB accent (32 102 235) inside neo only", () => {
     const resolved = resolveArtifactStyle("neo");
-    expect(resolved.lightVars["--canvas-accent"]).toBe("23 84 198");
+    expect(resolved.lightVars["--canvas-accent"]).toBe("32 102 235");
     expect(resolved.lightVars["--canvas-accent-deep"]).toBeTruthy();
     // Dark accent is derived, not the light hex verbatim.
     expect(resolved.darkVars["--canvas-accent"]).toBeTruthy();
-    expect(resolved.darkVars["--canvas-accent"]).not.toBe("23 84 198");
+    expect(resolved.darkVars["--canvas-accent"]).not.toBe("32 102 235");
   });
 
   it("emits the full structural + surface variable set for neo", () => {
@@ -100,20 +100,62 @@ describe("resolveArtifactStyle", () => {
     expect(resolved.darkVars["--canvas-dot"]).toBeUndefined();
   });
 
-  it("recolors the canvas backdrop for neobrutalism in both modes", () => {
+  it("leaves the canvas backdrop to the theme for neobrutalism", () => {
     const resolved = resolveArtifactStyle("neobrutalism");
     expect(resolved.isDefault).toBe(false);
-    // #FFF4CF / #191324 as RGB channels.
-    expect(resolved.lightVars["--canvas-bg"]).toBe("255 244 207");
-    expect(resolved.darkVars["--canvas-bg"]).toBe("25 19 36");
-    expect(resolved.lightVars["--canvas-artifact-stage"]).toBe("255 244 207");
-    // Grid dots recolor to ink; the grid itself keeps zoom-scaled sizing.
-    expect(resolved.lightVars["--canvas-dot"]).toBe("0 0 0");
-    expect(resolved.darkVars["--canvas-dot"]).toBe("242 236 223");
+    // The pack no longer recolors the canvas — it inherits the theme backdrop.
+    expect(resolved.lightVars["--canvas-bg"]).toBeUndefined();
+    expect(resolved.darkVars["--canvas-bg"]).toBeUndefined();
+    expect(resolved.lightVars["--canvas-artifact-stage"]).toBeUndefined();
+    expect(resolved.lightVars["--canvas-dot"]).toBeUndefined();
+    expect(resolved.darkVars["--canvas-dot"]).toBeUndefined();
+    // The scope block is still emitted for the other (structure/surface) vars.
     expect(resolved.css).toContain('[data-artifact-style="neobrutalism"] {');
     expect(resolved.css).toContain(
       'html[data-theme="dark"] [data-artifact-style="neobrutalism"] {',
     );
+  });
+
+  it("registers packs in picker order with liquid glass last", () => {
+    expect(ARTIFACT_STYLE_PACKS.map((pack) => pack.id)).toEqual([
+      "vanilla",
+      "neo",
+      "neobrutalism",
+      "liquid-glass",
+    ]);
+  });
+
+  it("emits the glass material tokens for liquid glass", () => {
+    const resolved = resolveArtifactStyle("liquid-glass");
+    expect(resolved.isDefault).toBe(false);
+    expect(resolved.css).toContain('[data-artifact-style="liquid-glass"] {');
+    expect(resolved.css).toContain(
+      'html[data-theme="dark"] [data-artifact-style="liquid-glass"] {',
+    );
+    expect(resolved.lightVars["--canvas-artifact-backdrop-filter"]).toBe(
+      "blur(20px) saturate(1.7)",
+    );
+    expect(resolved.lightVars["--canvas-artifact-card-alpha"]).toBe("0.55");
+    expect(resolved.darkVars["--canvas-artifact-card-alpha"]).toBe("0.5");
+    expect(resolved.lightVars["--canvas-artifact-inner-highlight"]).toBeTruthy();
+    expect(resolved.darkVars["--canvas-artifact-inner-highlight"]).toBeTruthy();
+    // Tinted canvas backdrop so the blur has content to refract.
+    expect(resolved.lightVars["--canvas-bg"]).toBe("221 229 239");
+    expect(resolved.darkVars["--canvas-bg"]).toBe("16 19 25");
+    // No pack accent — glass adapts to the active theme accent.
+    expect(resolved.lightVars["--canvas-accent"]).toBeUndefined();
+  });
+
+  it("keeps the glass tokens off non-glass packs", () => {
+    const resolved = resolveArtifactStyle("neo");
+    expect(
+      resolved.lightVars["--canvas-artifact-backdrop-filter"],
+    ).toBeUndefined();
+    expect(resolved.lightVars["--canvas-artifact-card-alpha"]).toBeUndefined();
+    expect(
+      resolved.lightVars["--canvas-artifact-inner-highlight"],
+    ).toBeUndefined();
+    expect(resolved.darkVars["--canvas-artifact-card-alpha"]).toBeUndefined();
   });
 
   it("gives neobrutalism hard zero-blur shadows and thick strokes", () => {

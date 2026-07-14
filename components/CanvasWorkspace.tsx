@@ -11,11 +11,13 @@ import { ChatView } from "@/components/ChatView";
 import { FocusView } from "@/components/FocusView";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
+import { CanvasVideoPlayerLayer } from "@/components/CanvasVideoPlayerLayer";
 import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { useAuth } from "@/components/AuthProvider";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
+import { useVideoPipStore } from "@/lib/videoPipStore";
 
 const CanvasSwitchOverlay = dynamic(
   () =>
@@ -42,6 +44,12 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
     setLeftPanelCollapsed(true);
   }, [isSwitchingCanvas, setLeftPanelCollapsed]);
 
+  // Stop any floating video when the canvas changes — a session belongs to the
+  // node on the canvas it started on, so it must not follow across switches.
+  useEffect(() => {
+    useVideoPipStore.getState().stop();
+  }, [activeCanvasId]);
+
   return (
     <div className="relative h-full w-full">
       <div className="relative h-full w-full">
@@ -58,12 +66,11 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
             <CardAskOrchestrator />
           </>
         )}
-        {isSwitchingCanvas && (
-          <CanvasSwitchOverlay
-            visible={isSwitchingCanvas}
-            canvasTitle={switchingCanvasTitle}
-          />
-        )}
+        <CanvasSwitchOverlay
+          visible={isSwitchingCanvas}
+          canvasTitle={switchingCanvasTitle}
+        />
+
       </div>
       <AppLeftPanel onGoHome={onGoHome} />
       <AppRightPanel />
@@ -76,6 +83,7 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
         <CanvasBottomToolbar />
       </div>
+      {viewMode === "canvas" && <CanvasVideoPlayerLayer />}
     </div>
   );
 }

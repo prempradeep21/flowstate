@@ -18,7 +18,10 @@ import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
-import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
+import {
+  artifactCategoryOf,
+  artifactCategoryStyle,
+} from "@/lib/design/theme/artifactCategories";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export interface ArtifactEditControls {
@@ -73,6 +76,7 @@ export function ArtifactPanelHeader({
   isVideo = false,
   websiteUrl,
   googleFileKind,
+  iconFaviconUrl,
   exportPayload,
 }: {
   kind: ArtifactKind;
@@ -92,6 +96,8 @@ export function ArtifactPanelHeader({
   isVideo?: boolean;
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
+  /** Source favicon for input artifacts (website / embed) — shown as the header icon. */
+  iconFaviconUrl?: string;
   exportPayload?: ArtifactPayload;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
@@ -175,6 +181,7 @@ export function ArtifactPanelHeader({
     <div
       className={`artifact-panel-header flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
       data-artifact-kind={isVideo ? "video" : kind}
+      data-artifact-category={artifactCategoryOf(isVideo ? "video" : kind)}
     >
       <span
         className="artifact-header-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
@@ -195,6 +202,7 @@ export function ArtifactPanelHeader({
           <ArtifactTypeIcon
             kind={isVideo ? "video" : kind}
             googleFileKind={kind === "google-doc" ? googleFileKind : undefined}
+            faviconUrl={isVideo ? undefined : iconFaviconUrl}
             className="h-[22px] w-[22px]"
           />
         </span>

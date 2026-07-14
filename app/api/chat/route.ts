@@ -13,6 +13,7 @@ import {
   resolveInitialThinkingLabel,
   resolvePrimaryArtifactKind,
   resolvePrimaryIntentSystemNote,
+  STREET_VIEW_EDIT_SYSTEM_NOTE,
   stripAppendedQuestionContext,
   TIMELINE_EDIT_SYSTEM_NOTE,
 } from "@/lib/artifactIntent";
@@ -192,9 +193,11 @@ export async function POST(req: Request) {
     ? `\n\nThe user is editing an existing artifact (id: ${editingArtifact.artifactId}). When they ask for changes, call emit_artifact with the full updated payload. Current artifact JSON:\n${JSON.stringify(editingArtifact.payload, null, 2)}${
         editingPayload?.type === "timeline"
           ? `\n\n${TIMELINE_EDIT_SYSTEM_NOTE}`
-          : editingCustom
-            ? `\n\n${CUSTOM_UI_EDIT_SYSTEM_NOTE}`
-            : ""
+          : editingPayload?.type === "streetview"
+            ? `\n\n${STREET_VIEW_EDIT_SYSTEM_NOTE}`
+            : editingCustom
+              ? `\n\n${CUSTOM_UI_EDIT_SYSTEM_NOTE}`
+              : ""
       }`
     : "";
 
