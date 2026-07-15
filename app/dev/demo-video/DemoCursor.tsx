@@ -10,13 +10,54 @@ export function DemoCursor({
   y,
   opacity,
   pressed,
+  color,
+  name,
 }: {
   x: number;
   y: number;
   opacity: number;
   pressed: boolean;
+  /** Collaborator color — with `name`, renders the product's collaborator
+   *  cursor (CollaboratorCursors.tsx path + name pill) instead of the arrow. */
+  color?: string;
+  name?: string;
 }) {
   if (opacity <= 0) return null;
+  if (color && name) {
+    return (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 z-[60000]"
+        style={{
+          transform: `translate(${x}px, ${y}px) scale(${pressed ? 0.88 : 1})`,
+          transformOrigin: "2px 2px",
+          opacity,
+        }}
+      >
+        <svg
+          width="16"
+          height="20"
+          viewBox="0 0 16 20"
+          fill="none"
+          style={{ filter: "drop-shadow(0 1px 2px rgba(20,18,14,0.3))" }}
+        >
+          <path
+            d="M1 1L1 15.5L5.5 11.5L8.5 18.5L10.5 17.5L7.5 10.5L13 10.5L1 1Z"
+            fill={color}
+            stroke="#FFFFFF"
+            strokeWidth="1.2"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span
+          className="absolute left-3.5 top-4 whitespace-nowrap rounded-full px-2 py-0.5 text-canvas-caption font-medium text-white shadow-sm"
+          style={{ backgroundColor: color }}
+        >
+          {name}
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       aria-hidden

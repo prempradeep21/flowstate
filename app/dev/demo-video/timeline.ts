@@ -87,14 +87,14 @@ export function streamed(text: string, t: number, t0: number, t1: number) {
   return text.slice(0, Math.floor(p * text.length));
 }
 
-interface NumKeyframe {
+export interface NumKeyframe {
   t: number;
   v: number;
   /** Ease used travelling INTO this keyframe from the previous one. */
   ease?: Ease;
 }
 
-function track(frames: NumKeyframe[], t: number): number {
+export function track(frames: NumKeyframe[], t: number): number {
   if (t <= frames[0].t) return frames[0].v;
   for (let i = 1; i < frames.length; i++) {
     const a = frames[i - 1];

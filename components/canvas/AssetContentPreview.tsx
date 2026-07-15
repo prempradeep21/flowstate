@@ -201,11 +201,6 @@ function TextAssetPreview({
         compact ? "p-0.5" : ""
       }`}
     >
-      {!compact ? (
-        <div className="shrink-0 truncate border-b border-canvas-border/40 px-2 py-1 text-canvas-micro text-canvas-muted">
-          {fileName}
-        </div>
-      ) : null}
       <pre
         data-canvas-scroll
         className={`min-h-0 flex-1 overflow-auto font-mono leading-[1.45] text-canvas-ink ${
@@ -340,7 +335,6 @@ function CsvAssetPreview({
       rows={data.rows}
       totalRows={data.totalRows}
       totalCols={data.totalCols}
-      label={compact ? undefined : fileName}
       noDrag={noDrag && interactive}
       compact={compact}
     />

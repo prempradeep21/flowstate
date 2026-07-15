@@ -251,6 +251,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      visitor_events: {
+        Row: {
+          id: string;
+          created_at: string;
+          visitor_id: string;
+          path: string | null;
+          is_authenticated: boolean;
+          referrer_host: string | null;
+          source: string | null;
+          utm_source: string | null;
+          utm_medium: string | null;
+          utm_campaign: string | null;
+          country: string | null;
+          region: string | null;
+          city: string | null;
+          world_region: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          visitor_id: string;
+          path?: string | null;
+          is_authenticated?: boolean;
+          referrer_host?: string | null;
+          source?: string | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          country?: string | null;
+          region?: string | null;
+          city?: string | null;
+          world_region?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          visitor_id?: string;
+          path?: string | null;
+          is_authenticated?: boolean;
+          referrer_host?: string | null;
+          source?: string | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          country?: string | null;
+          region?: string | null;
+          city?: string | null;
+          world_region?: string | null;
+        };
+        Relationships: [];
+      };
       qa_turn_events: {
         Row: {
           id: string;

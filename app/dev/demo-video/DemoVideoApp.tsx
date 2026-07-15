@@ -203,10 +203,20 @@ export function DemoVideoApp() {
     if (capture) document.documentElement.setAttribute("data-demo-capture", "");
 
     let cancelled = false;
+    // rAF doesn't fire while the window is hidden (browser-pane iteration) —
+    // race a timeout so seeks still settle; visible capture always wins via rAF.
     const nextFrame = () =>
-      new Promise<void>((r) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => r())),
-      );
+      new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (!done) {
+            done = true;
+            resolve();
+          }
+        };
+        requestAnimationFrame(() => requestAnimationFrame(finish));
+        setTimeout(finish, document.hidden ? 40 : 250);
+      });
 
     const ready = (async () => {
       // Leave the mount commit before any flushSync (React disallows

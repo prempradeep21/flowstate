@@ -69,6 +69,11 @@ export function shouldRestoreCanvasLocalBackup(
   dbSnapshot: CanvasSnapshot,
 ): boolean {
   if (backup.userId !== userId) return false;
+  // Only trust a backup taken on top of the exact row version being loaded.
+  // A mismatch means the row was saved after the backup's base — the backup
+  // is stale, or was mis-paired with this canvas id during a switch (a
+  // "richer" mis-paired backup once overwrote a different canvas's content).
+  if (backup.dbUpdatedAt !== dbUpdatedAt) return false;
   const dbMs = new Date(dbUpdatedAt).getTime();
   if (Number.isFinite(dbMs) && backup.writtenAt > dbMs + 500) return true;
   return backupRichness(backup.snapshot) > backupRichness(dbSnapshot);

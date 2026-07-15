@@ -8,6 +8,7 @@ import { memo,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
+import { CanvasAssetHeader } from "@/components/canvas/CanvasAssetHeader";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -33,7 +34,7 @@ import {
 } from "@/lib/store";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
-import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
+import { previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 
 const DRAG_THRESHOLD_PX = 0;
@@ -63,7 +64,6 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
   const provisionalMount = useGestureProvisionalMount();
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
-  const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
   const previewKind = asset ? resolvePreviewKind(asset) : null;
   const needsClickToInteract = previewKind
     ? previewRequiresClickToInteract(previewKind)
@@ -256,19 +256,12 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
         {...(isSelected ? { "data-chrome-hover": "" } : {})}
+        {...(isSelected ? { "data-selected": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className={`group/asset absolute rounded-canvas border transition-shadow ${
-          hasRichPreview
-            ? isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
-              : "border-canvas-border/60 bg-canvas-card shadow-artifact hover:shadow-artifactHover"
-            : isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
-              : "border-canvas-border bg-canvas-card shadow-artifact hover:shadow-artifactHover"
-        }`}
+        className="group/asset group/artifact absolute"
         style={{
           left: node.position.x,
           top: node.position.y,
@@ -303,22 +296,39 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          <div className="h-full w-full overflow-hidden rounded-canvas">
-            <AssetContentPreview
-              asset={asset}
-              layout="canvas"
-              interactive={
-                needsClickToInteract
-                  ? contentInteractive && isSelected
-                  : isSelected
-              }
-              onActivate={
-                needsClickToInteract
-                  ? () => setContentInteractive(true)
-                  : undefined
-              }
-              noDrag={isSelected}
-            />
+          {/* `.artifact-casing` opts this frame into the artifact style packs,
+              so the stroke, radius, and shadow adapt to the active style
+              (Neo / Brut / Liquid Glass) instead of staying constant. Vanilla
+              falls back to the theme classes below. */}
+          <div
+            className={`artifact-casing flex h-full w-full flex-col overflow-hidden rounded-canvas border bg-canvas-card transition-shadow ${
+              isSelected
+                ? "border-canvas-ink shadow-artifactHover"
+                : "border-canvas-border/60 shadow-artifact hover:shadow-artifactHover"
+            }`}
+          >
+            {/* Documents get a labelled header so they read as documents (and
+                which kind) rather than images; images stay a bare preview. */}
+            {previewKind && previewKind !== "image" ? (
+              <CanvasAssetHeader asset={asset} previewKind={previewKind} />
+            ) : null}
+            <div className="min-h-0 flex-1">
+              <AssetContentPreview
+                asset={asset}
+                layout="canvas"
+                interactive={
+                  needsClickToInteract
+                    ? contentInteractive && isSelected
+                    : isSelected
+                }
+                onActivate={
+                  needsClickToInteract
+                    ? () => setContentInteractive(true)
+                    : undefined
+                }
+                noDrag={isSelected}
+              />
+            </div>
           </div>
         </CanvasSharpContent>
 

@@ -3,6 +3,7 @@ import type {
   UsageAnalysisAccount,
   UsageAnalysisCanvas,
   UsageAnalysisSnapshot,
+  VisitorAnalytics,
 } from "@/lib/admin/usageAnalysisTypes";
 
 const PALETTE = [
@@ -241,6 +242,144 @@ export function buildActivityTimelineOption(
         yAxisIndex: 1,
         data: snapshot.activityByDay.map((d) => d.canvasUpdates),
         itemStyle: { borderRadius: [3, 3, 0, 0], opacity: 0.85 },
+      },
+    ],
+  };
+}
+
+export function buildVisitorSourceDonutOption(
+  visitors: VisitorAnalytics,
+  isDark = false,
+): EChartsOption {
+  const colors = themeColors(isDark);
+  const data = visitors.bySource.map((s) => ({
+    name: s.source,
+    value: s.count,
+  }));
+
+  return {
+    color: PALETTE,
+    tooltip: {
+      trigger: "item",
+      formatter: "{b}<br/>{c} visitors ({d}%)",
+      backgroundColor: colors.card,
+      borderColor: colors.grid,
+      textStyle: { color: colors.ink },
+    },
+    legend: {
+      type: "scroll",
+      bottom: 0,
+      textStyle: { color: colors.muted, fontSize: 11 },
+    },
+    series: [
+      {
+        type: "pie",
+        radius: ["42%", "68%"],
+        center: ["50%", "44%"],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 6, borderColor: colors.card, borderWidth: 2 },
+        label: { show: false },
+        emphasis: {
+          label: { show: true, fontSize: 13, fontWeight: 600, color: colors.ink },
+        },
+        data,
+      },
+    ],
+  };
+}
+
+export function buildVisitorCountryBarOption(
+  visitors: VisitorAnalytics,
+  isDark = false,
+): EChartsOption {
+  const colors = themeColors(isDark);
+  const rows = visitors.byCountry.slice(0, 10).reverse();
+
+  return {
+    color: ["#5B8C7A"],
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params) => {
+        const items = Array.isArray(params) ? params : [params];
+        const idx = items[0]?.dataIndex ?? 0;
+        const row = rows[idx];
+        if (!row) return "";
+        return `<strong>${row.name}</strong><br/>${row.count.toLocaleString()} unique visitors`;
+      },
+      backgroundColor: colors.card,
+      borderColor: colors.grid,
+      textStyle: { color: colors.ink },
+    },
+    grid: { left: 12, right: 24, top: 12, bottom: 12, containLabel: true },
+    xAxis: {
+      type: "value",
+      axisLabel: { color: colors.muted, fontSize: 10 },
+      splitLine: { lineStyle: { color: colors.grid } },
+    },
+    yAxis: {
+      type: "category",
+      data: rows.map((r) => r.name),
+      axisLabel: { color: colors.ink, fontSize: 11 },
+      axisLine: { lineStyle: { color: colors.grid } },
+    },
+    series: [
+      {
+        type: "bar",
+        data: rows.map((r) => r.count),
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+        emphasis: { focus: "series" },
+      },
+    ],
+  };
+}
+
+export function buildVisitorTrendOption(
+  visitors: VisitorAnalytics,
+  isDark = false,
+): EChartsOption {
+  const colors = themeColors(isDark);
+  const dates = visitors.byDay.map((d) => d.date.slice(5));
+
+  return {
+    color: ["#6B7DB3", "#C17F59"],
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: colors.card,
+      borderColor: colors.grid,
+      textStyle: { color: colors.ink },
+    },
+    legend: {
+      top: 0,
+      textStyle: { color: colors.muted, fontSize: 11 },
+    },
+    grid: { left: 12, right: 12, top: 36, bottom: 12, containLabel: true },
+    xAxis: {
+      type: "category",
+      data: dates,
+      axisLabel: { color: colors.muted, fontSize: 10 },
+      axisLine: { lineStyle: { color: colors.grid } },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: colors.muted, fontSize: 10 },
+      splitLine: { lineStyle: { color: colors.grid } },
+    },
+    series: [
+      {
+        name: "Unique visitors",
+        type: "line",
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 6,
+        data: visitors.byDay.map((d) => d.visitors),
+        areaStyle: { opacity: 0.12 },
+      },
+      {
+        name: "Page views",
+        type: "bar",
+        data: visitors.byDay.map((d) => d.pageViews),
+        itemStyle: { borderRadius: [3, 3, 0, 0], opacity: 0.7 },
       },
     ],
   };

@@ -526,6 +526,10 @@ export function useCanvasPersistence({
           "[canvas] restored newer local backup after reload",
           row.id,
         );
+      } else if (localBackup) {
+        // The DB row is authoritative — drop the stale backup so it can never
+        // win a later load via the richness heuristic.
+        clearCanvasLocalBackup(row.id);
       }
 
       hydrateFromSnapshot(state, {
@@ -1113,6 +1117,10 @@ export function useCanvasPersistence({
           idleBackupPendingRef.current = false;
           const activeId = canvasIdRef.current;
           if (!activeId) return;
+          // The idle callback can fire mid canvas-switch — the store may
+          // already hold another canvas's content. Pairing that content with
+          // activeId poisons the backup, so skip; the next edit reschedules.
+          if (isHydratingRef.current || isSwitchingRef.current) return;
           persistLocalBackup(
             activeId,
             buildCanvasSnapshot(

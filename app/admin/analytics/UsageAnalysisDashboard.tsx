@@ -12,6 +12,9 @@ import {
   buildInputOutputBarOption,
   buildTopCanvasesBarOption,
   buildTrackedVsUntrackedOption,
+  buildVisitorCountryBarOption,
+  buildVisitorSourceDonutOption,
+  buildVisitorTrendOption,
 } from "@/lib/admin/usageChartOptions";
 import type { QaTurnFailureRow } from "@/lib/admin/qaTurnEventsTypes";
 import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
@@ -294,6 +297,22 @@ export function UsageAnalysisDashboard() {
     [snapshot],
   );
 
+  const visitors = snapshot?.visitors ?? null;
+  const hasVisitorData = Boolean(visitors && visitors.uniqueVisitors > 0);
+
+  const visitorSourceOption = useMemo(
+    () => (visitors ? buildVisitorSourceDonutOption(visitors) : null),
+    [visitors],
+  );
+  const visitorCountryOption = useMemo(
+    () => (visitors ? buildVisitorCountryBarOption(visitors) : null),
+    [visitors],
+  );
+  const visitorTrendOption = useMemo(
+    () => (visitors ? buildVisitorTrendOption(visitors) : null),
+    [visitors],
+  );
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortAsc((v) => !v);
@@ -501,6 +520,115 @@ export function UsageAnalysisDashboard() {
                 </p>
               </div>
             </div>
+          </section>
+
+          <section className="rounded-canvas border border-canvas-border bg-canvas-card p-5 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-display text-lg font-medium text-canvas-ink">
+                  Non-logged-in visitors
+                </h3>
+                <p className="mt-0.5 text-canvas-body-sm text-canvas-muted">
+                  Anonymous traffic from{" "}
+                  <code className="text-canvas-accent">visitor_events</code> —
+                  first-party page-view beacon, last {visitors?.windowDays ?? 30}{" "}
+                  days.
+                </p>
+              </div>
+              <span className="rounded-full border border-canvas-accent/30 bg-canvas-accent/10 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-accent">
+                Geo via edge headers · unique by cookie
+              </span>
+            </div>
+
+            {!hasVisitorData || !visitors ? (
+              <div className="mt-4 rounded-canvas border border-dashed border-canvas-border bg-canvas-bg/50 p-6 text-center">
+                <p className="text-canvas-body-sm text-canvas-muted">
+                  No anonymous visits recorded yet. Once the migration is applied
+                  and visitors land on a public page, unique counts, geography,
+                  and sources appear here. Geo only resolves in production
+                  (Vercel edge headers).
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <KpiCard
+                    label="Unique visitors"
+                    value={<AnimatedNumber value={visitors.uniqueVisitors} />}
+                    sub={`${fmt(visitors.pageViews)} page views · ${visitors.uniqueVisitorsToday} today`}
+                    accent="linear-gradient(90deg, #5B8C7A, #6B7DB3)"
+                  />
+                  <KpiCard
+                    label="Top source"
+                    value={visitors.topSource?.name ?? "—"}
+                    sub={
+                      visitors.topSource
+                        ? `${fmt(visitors.topSource.count)} unique visitors`
+                        : "no referrer data yet"
+                    }
+                    accent="linear-gradient(90deg, #C17F59, #B8956B)"
+                  />
+                  <KpiCard
+                    label="Top country"
+                    value={visitors.topCountry?.name ?? "—"}
+                    sub={
+                      visitors.topCountry
+                        ? `${fmt(visitors.topCountry.count)} unique visitors`
+                        : "no geo data yet"
+                    }
+                    accent="linear-gradient(90deg, #8C7AA9, #6B7DB3)"
+                  />
+                  <KpiCard
+                    label="World regions"
+                    value={visitors.byWorldRegion.length}
+                    sub={visitors.byWorldRegion
+                      .slice(0, 3)
+                      .map((r) => `${r.region} ${r.count}`)
+                      .join(" · ")}
+                    accent="linear-gradient(90deg, #7A9E9F, #5B8C7A)"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                  <ChartCard
+                    title="Where they come from"
+                    description="Unique visitors by first-touch source"
+                  >
+                    {visitorSourceOption ? (
+                      <ReactECharts
+                        option={visitorSourceOption}
+                        style={{ height: 280, width: "100%" }}
+                        opts={{ renderer: "canvas" }}
+                      />
+                    ) : null}
+                  </ChartCard>
+                  <ChartCard
+                    title="Top countries"
+                    description="Unique visitors by country (geo-IP)"
+                  >
+                    {visitorCountryOption ? (
+                      <ReactECharts
+                        option={visitorCountryOption}
+                        style={{ height: 280, width: "100%" }}
+                        opts={{ renderer: "canvas" }}
+                      />
+                    ) : null}
+                  </ChartCard>
+                  <ChartCard
+                    title="Daily traffic"
+                    description="Unique visitors & page views per day"
+                  >
+                    {visitorTrendOption ? (
+                      <ReactECharts
+                        option={visitorTrendOption}
+                        style={{ height: 280, width: "100%" }}
+                        opts={{ renderer: "canvas" }}
+                      />
+                    ) : null}
+                  </ChartCard>
+                </div>
+              </>
+            )}
           </section>
 
           {snapshot.insights.length > 0 ? (

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Figtree, Parkinsans } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Providers } from "@/components/Providers";
+import { VisitorTracker } from "@/components/VisitorTracker";
 import { THEME_NO_FLASH_SCRIPT } from "@/lib/design/theme/noFlashScript";
 import { readPublishedTheme } from "@/lib/design/theme/publishedTheme.server";
 import { resolveTheme } from "@/lib/design/theme/resolveTheme";
@@ -79,6 +80,7 @@ export default async function RootLayout({
         ) : null}
         <script dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }} />
         <GoogleAnalytics />
+        <VisitorTracker />
         <Providers>{children}</Providers>
       </body>
     </html>

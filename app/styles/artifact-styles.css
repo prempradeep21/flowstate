@@ -575,3 +575,34 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   background-color: rgb(var(--canvas-artifact-card-fill) / 0.45) !important;
   border-right-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
 }
+
+/* ---------------------------------------------------------------------- */
+/* Document input artifacts (canvas assets: PDFs, office, code, text…).    */
+/* They share the .artifact-casing stroke/shadow so their frame adapts to  */
+/* each pack, and .artifact-panel-header so their header adapts too — the  */
+/* same treatment a YouTube/embed artifact gets. Assets are always naked   */
+/* (their preview fills the card) and deliberately do NOT carry            */
+/* [data-canvas-artifact] (it would confuse context-menu hit-testing), so  */
+/* the pack rules keyed off that attribute don't reach them. The two hooks */
+/* below restore the parts that matter: the selected ring and the header   */
+/* kind tag.                                                               */
+/* ---------------------------------------------------------------------- */
+
+/* Selected ring — mirrors each pack's [data-canvas-artifact][data-selected]
+   casing rule, re-scoped to [data-canvas-asset]. */
+[data-artifact-style="neo"] [data-canvas-asset][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent)) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+[data-artifact-style="neobrutalism"] [data-canvas-asset][data-selected] .artifact-casing {
+  box-shadow: var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+[data-artifact-style="liquid-glass"] [data-canvas-asset][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent) / 0.8) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}

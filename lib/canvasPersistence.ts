@@ -288,6 +288,30 @@ export async function createCanvas(
   return { id: data.id, state: parsed, updatedAt: data.updated_at };
 }
 
+/** Insert an already-built snapshot as-is (e.g. a sample-canvas build). */
+export async function createCanvasFromSnapshot(
+  supabase: Supabase,
+  userId: string,
+  title: string,
+  snapshot: CanvasSnapshot,
+): Promise<CanvasRow> {
+  const { data, error } = await supabase
+    .from("canvases")
+    .insert({
+      owner_id: userId,
+      title,
+      state: snapshot as unknown as Database["public"]["Tables"]["canvases"]["Insert"]["state"],
+      is_default: false,
+    })
+    .select("id, state, updated_at")
+    .single();
+
+  if (error) throw error;
+
+  const parsed = parseCanvasSnapshot(data.state) ?? snapshot;
+  return { id: data.id, state: parsed, updatedAt: data.updated_at };
+}
+
 export function sortCanvasesByContentEditedAt(
   canvases: CanvasMeta[],
 ): CanvasMeta[] {
