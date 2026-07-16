@@ -25,6 +25,17 @@ export const SCENES: Record<string, SceneSpec> = {
     warmupMs: [],
     settleExtraMs: {},
   },
+  disney: {
+    id: "disney",
+    durationMs: 36500,
+    // Map tiles (WDW, zoom 10) load at the map beat; pre-seek past the
+    // morph and the pin drop so tiles are cached before capture.
+    warmupMs: [21800, 22300, 35000],
+    settleExtraMs: {
+      [Math.round((11350 / 1000) * 60)]: 1800, // echarts bar-chart morph
+      [Math.round((21600 / 1000) * 60)]: 2500, // leaflet map morph
+    },
+  },
   // 3s brand idents (scenes/logo) — no network content, no settle hints.
   "logo-draw": { id: "logo-draw", durationMs: 3000 },
   "logo-type": { id: "logo-type", durationMs: 3000 },

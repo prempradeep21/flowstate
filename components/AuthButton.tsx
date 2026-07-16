@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
+import { buttonClasses } from "@/components/ui/Button";
 
 type AuthButtonSize = "default" | "panel";
 
@@ -82,9 +83,13 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
               setBusy(false);
             }
           }}
-          className={`shrink-0 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50`}
+          className={buttonClasses({
+            shape: "pill",
+            size: "sm",
+            className: "pointer-events-auto shrink-0",
+          })}
         >
-          Sign out
+          <span>Sign out</span>
         </button>
       </div>
     );
@@ -102,10 +107,14 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
           setBusy(false);
         }
       }}
-      className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
+      className={buttonClasses({
+        shape: "pill",
+        size: "sm",
+        className: "pointer-events-auto",
+      })}
     >
       <GoogleIcon />
-      {activeCanvasId ? "Sign in to save" : "Sign in with Google"}
+      <span>{activeCanvasId ? "Sign in to save" : "Sign in with Google"}</span>
     </button>
   );
 

@@ -33,6 +33,8 @@ export const canvasColors = {
   syntaxKeyword: "#0550AE",
   /** Semantic — status & feedback */
   danger: "#dc2626",
+  /** Text/icons on solid danger fills — AA against `danger` in both modes. */
+  onDanger: "#FFFFFF",
   dangerSoft: "#fef2f2",
   dangerBorder: "#fecaca",
   success: "#10b981",
@@ -89,6 +91,8 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   syntaxString: "#A5D6FF",
   syntaxKeyword: "#FF7B72",
   danger: "#F87171",
+  /** Dark danger is a light red — near-black text keeps AA on solid fills. */
+  onDanger: "#181715",
   dangerSoft: "#2A1818",
   dangerBorder: "#5C2A2A",
   success: "#34D399",

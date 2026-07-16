@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DemoVideoApp } from "./DemoVideoApp";
 import { AssetsSceneApp } from "./scenes/assets/AssetsSceneApp";
+import { DisneySceneApp } from "./scenes/disney/DisneySceneApp";
 import { LogoSceneApp } from "./scenes/logo/LogoSceneApp";
 import { LOGO_VARIANTS, type LogoVariant } from "./scenes/logo/timeline";
 
@@ -24,6 +25,8 @@ export default async function DemoVideoPage({
         <LogoSceneApp variant={scene as LogoVariant} />
       ) : scene === "assets" ? (
         <AssetsSceneApp />
+      ) : scene === "disney" ? (
+        <DisneySceneApp />
       ) : (
         <DemoVideoApp />
       )}

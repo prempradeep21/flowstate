@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
 import { ComposerModelPicker } from "@/components/ComposerModelPicker";
+import { menuItemClass } from "@/components/MenuIcons";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
 import { SendIconButton } from "@/components/SendIconButton";
@@ -584,13 +585,7 @@ export function ChatComposer({
             />
           </div>
 
-          <SendIconButton
-            disabled={!canSend}
-            onClick={submit}
-            className={
-              isLanding ? "bg-canvas-accent hover:opacity-90" : undefined
-            }
-          />
+          <SendIconButton disabled={!canSend} onClick={submit} />
         </div>
 
         {/* Controls row: attachments, card menu, and model selector. */}
@@ -600,7 +595,7 @@ export function ChatComposer({
               type="button"
               disabled={disabled}
               onClick={() => setMenuOpen((o) => !o)}
-              className="group/plus flex h-9 w-9 items-center justify-center rounded-full bg-canvas-bg text-canvas-ink transition-colors hover:bg-canvas-border/60 disabled:opacity-40"
+              className="btn group/plus h-9 w-9 rounded-full bg-canvas-bg text-canvas-ink"
               aria-label="Add attachment"
             >
               <span className="text-canvas-heading font-light leading-none">+</span>
@@ -619,14 +614,14 @@ export function ChatComposer({
                 >
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
+                    className={menuItemClass}
                     onClick={() => imageInputRef.current?.click()}
                   >
                     Image
                   </button>
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
+                    className={menuItemClass}
                     onClick={() => fileInputRef.current?.click()}
                   >
                     File
@@ -634,14 +629,14 @@ export function ChatComposer({
                   <button
                     type="button"
                     disabled={googlePickerBusy}
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg disabled:opacity-50"
+                    className={menuItemClass}
                     onClick={attachGoogleDriveFile}
                   >
                     Google Drive…
                   </button>
                   <button
                     type="button"
-                    className="block w-full px-3 py-2 text-left text-canvas-body-sm hover:bg-canvas-bg"
+                    className={menuItemClass}
                     onClick={() => {
                       setArtifactMenuOpen((o) => !o);
                     }}
@@ -662,7 +657,7 @@ export function ChatComposer({
                             <button
                               key={art.id}
                               type="button"
-                              className="block w-full px-3 py-2 text-left text-canvas-compact hover:bg-canvas-bg"
+                              className={menuItemClass}
                               onClick={() =>
                                 attachArtifact(art.id, ver.id)
                               }

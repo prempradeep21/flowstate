@@ -108,7 +108,7 @@ function ToolbarIconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded-canvas-md text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+      className="btn h-7 w-7 rounded-canvas-md text-canvas-muted hover:text-canvas-ink"
     >
       <Icon icon={icon} size="inline" />
     </button>
@@ -180,7 +180,7 @@ export function SelectionToolbar() {
               <button
                 type="button"
                 onClick={handleGroup}
-                className="rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90"
+                className="btn rounded-canvas bg-canvas-accent px-2.5 py-1 text-canvas-compact font-medium text-canvas-onAccent"
               >
                 Group
               </button>
@@ -209,7 +209,7 @@ export function SelectionToolbar() {
               type="button"
               disabled={summarizing || Boolean(activeGroup.summaryMarkdown)}
               onClick={handleSummarize}
-              className="mt-3 w-full rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn mt-3 w-full rounded-canvas bg-canvas-accent px-3 py-1.5 text-canvas-compact font-medium text-canvas-onAccent"
             >
               {summarizing
                 ? "Summarizing…"

@@ -69,6 +69,7 @@ import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
 import { isLandingCanvasSessionActive } from "@/lib/landingCanvasSession";
 import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
 import { isPerfFixtureSessionActive } from "@/lib/perf/perfFixtureSession";
+import { isSampleCanvasPreviewSessionActive } from "@/lib/sampleCanvases/sampleCanvasPreviewSession";
 import { isTranscriptImportPlaygroundSessionActive } from "@/lib/transcriptImportPlaygroundSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
@@ -356,6 +357,7 @@ export function useCanvasPersistence({
       isArtifactCatalogSessionActive() ||
       isLandingCanvasSessionActive() ||
       isMobileSdlcSandboxSessionActive() ||
+      isSampleCanvasPreviewSessionActive() ||
       isTranscriptImportPlaygroundSessionActive() ||
       useCanvasStore.getState().canvasReadOnly
     ) {
@@ -1122,6 +1124,7 @@ export function useCanvasPersistence({
         isLandingCanvasSessionActive() ||
         isMobileSdlcSandboxSessionActive() ||
         isPerfFixtureSessionActive() ||
+        isSampleCanvasPreviewSessionActive() ||
         isTranscriptImportPlaygroundSessionActive()
       )
         return;

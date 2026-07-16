@@ -30,17 +30,47 @@ export interface SampleEra {
 
 const WIKIPEDIA_FAVICON = "https://en.wikipedia.org/static/apple-touch/wikipedia.png";
 
+/**
+ * Both `previewImageUrl` and `embeddable` are REQUIRED — nothing enriches a
+ * builder-authored website artifact at render time (`/api/link-preview` only
+ * runs when a *user* pastes a URL), so an omitted field ships a dead
+ * "No preview image" card. `embeddable` replicates `isFrameableFromHeaders`
+ * (lib/frameability.ts) against the page's real headers; true ⇒ a live
+ * InteractiveWebFrame. See the research-canvas skill's artifact-recipes.md.
+ */
 function website(
   key: string,
   url: string,
   pageTitle: string,
   domainLabel: string,
-  extras?: { faviconUrl?: string; previewImageUrl?: string },
+  extras: {
+    faviconUrl?: string;
+    previewImageUrl: string;
+    embeddable: boolean;
+  },
 ): SampleArtifactSpec {
   const payload = createWebsitePayload(url, domainLabel, extras);
   payload.title = pageTitle;
   payload.data.title = pageTitle;
   return { key, payload };
+}
+
+/**
+ * en.wikipedia.org article pages send no X-Frame-Options and no CSP
+ * frame-ancestors (verified with a GET, July 2026) ⇒ every Wikipedia card here
+ * renders as a live, scrollable page.
+ */
+function wikipedia(
+  key: string,
+  url: string,
+  pageTitle: string,
+  previewImageUrl: string,
+): SampleArtifactSpec {
+  return website(key, url, pageTitle, "Wikipedia", {
+    faviconUrl: WIKIPEDIA_FAVICON,
+    previewImageUrl,
+    embeddable: true,
+  });
 }
 
 function youtubeVideo(
@@ -481,16 +511,11 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-quadricycle-wiki",
             "https://en.wikipedia.org/wiki/Ford_Quadricycle",
             "Ford Quadricycle - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/a/a3/FordQuadricycle.jpg",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/a/a3/FordQuadricycle.jpg",
           ),
         ],
       },
@@ -553,27 +578,17 @@ export const HFORD_ERAS: SampleEra[] = [
       {
         label: "Start with the canon",
         items: [
-          website(
+          wikipedia(
             "site-model-t-wiki",
             "https://en.wikipedia.org/wiki/Ford_Model_T",
             "Ford Model T - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/1925_Ford_Model_T_touring.jpg/960px-1925_Ford_Model_T_touring.jpg",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/1925_Ford_Model_T_touring.jpg/960px-1925_Ford_Model_T_touring.jpg",
           ),
-          website(
+          wikipedia(
             "site-henry-ford-wiki",
             "https://en.wikipedia.org/wiki/Henry_Ford",
             "Henry Ford - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Henry_Ford_portrait_1915_original_%283x4_cropped%29.png/960px-Henry_Ford_portrait_1915_original_%283x4_cropped%29.png",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Henry_Ford_portrait_1915_original_%283x4_cropped%29.png/960px-Henry_Ford_portrait_1915_original_%283x4_cropped%29.png",
           ),
           youtubeVideo(
             "video-ford-archival",
@@ -667,16 +682,11 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-highland-park-wiki",
             "https://en.wikipedia.org/wiki/Highland_Park_Ford_Plant",
             "Highland Park Ford Plant - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Farm_Mechanics_1922_Ford_Highland_Park_cropped.png/1280px-Farm_Mechanics_1922_Ford_Highland_Park_cropped.png",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Farm_Mechanics_1922_Ford_Highland_Park_cropped.png/1280px-Farm_Mechanics_1922_Ford_Highland_Park_cropped.png",
           ),
           {
             key: "streetview-highland-park",
@@ -740,13 +750,24 @@ export const HFORD_ERAS: SampleEra[] = [
               faviconUrl: "https://archive.org/favicon.ico",
               previewImageUrl:
                 "https://archive.org/download/xd-31051-ford-motor-company-1920s-1930s-footage-mos-vwr/xd-31051-ford-motor-company-1920s-1930s-footage-mos-vwr.thumbs/XD31051%20Ford%20Motor%20Company%201920s-1930s%20Footage_mos_vwr_000027.jpg",
+              // archive.org sends no framing headers — the details page frames
+              // its own player, so the footage is watchable in place.
+              embeddable: true,
             },
           ),
+          // thehenryford.org sets CSP frame-ancestors with no wildcard ('self',
+          // doublethedonation, docebosaas) and publishes no og:image, so all
+          // three of its cards need a curated thumbnail and cannot be framed.
           website(
             "site-henry-ford-museum",
             "https://www.thehenryford.org/",
             "The Henry Ford — Museum, Greenfield Village & Rouge Factory",
             "The Henry Ford",
+            {
+              previewImageUrl:
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/The_Henry_Ford_Museum_%2853623974456%29.jpg/1280px-The_Henry_Ford_Museum_%2853623974456%29.jpg",
+              embeddable: false,
+            },
           ),
         ],
       },
@@ -770,22 +791,22 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-rouge-wiki",
             "https://en.wikipedia.org/wiki/Ford_River_Rouge_complex",
             "Ford River Rouge complex - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg/1280px-Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg/1280px-Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg",
           ),
           website(
             "site-rouge-factory-tour",
             "https://www.thehenryford.org/visit/ford-rouge-factory-tour/",
             "Ford Rouge Factory Tour — The Henry Ford",
             "The Henry Ford",
+            {
+              previewImageUrl:
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg/1280px-Ford_Dearborn_Factory_Aerial_%2845574999515%29.jpg",
+              embeddable: false,
+            },
           ),
           {
             key: "gallery-rouge",
@@ -860,16 +881,11 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-fordlandia-wiki",
             "https://en.wikipedia.org/wiki/Fordl%C3%A2ndia",
             "Fordlândia - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Fordlandia.JPG/1280px-Fordlandia.JPG",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Fordlandia.JPG/1280px-Fordlandia.JPG",
           ),
           {
             key: "gallery-fordlandia",
@@ -961,16 +977,11 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-willow-wiki",
             "https://en.wikipedia.org/wiki/Willow_Run",
             "Willow Run - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/9/91/B-24_bomber_at_Willow_Run.jpg",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/9/91/B-24_bomber_at_Willow_Run.jpg",
           ),
           {
             key: "map-willow-run",
@@ -1060,22 +1071,22 @@ export const HFORD_ERAS: SampleEra[] = [
               },
             },
           },
-          website(
+          wikipedia(
             "site-thf-wiki",
             "https://en.wikipedia.org/wiki/The_Henry_Ford",
             "The Henry Ford - Wikipedia",
-            "Wikipedia",
-            {
-              faviconUrl: WIKIPEDIA_FAVICON,
-              previewImageUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/The_Henry_Ford_Museum_%2853623974456%29.jpg/1280px-The_Henry_Ford_Museum_%2853623974456%29.jpg",
-            },
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/The_Henry_Ford_Museum_%2853623974456%29.jpg/1280px-The_Henry_Ford_Museum_%2853623974456%29.jpg",
           ),
           website(
             "site-greenfield-village",
             "https://www.thehenryford.org/visit/venues/greenfield-village",
             "Greenfield Village — The Henry Ford",
             "The Henry Ford",
+            {
+              previewImageUrl:
+                "https://upload.wikimedia.org/wikipedia/commons/2/2d/Smiths_Creek_Railroad_Depot%2C_Greenfield_Village%2C_Oakwood_Boulevard%2C_Fairlane%2C_Dearborn%2C_MI.jpg",
+              embeddable: false,
+            },
           ),
           {
             key: "map-thf",

@@ -26,6 +26,7 @@
   --canvas-syntax-string: 149 56 0;
   --canvas-syntax-keyword: 5 80 174;
   --canvas-danger: 220 38 38;
+  --canvas-on-danger: 255 255 255;
   --canvas-danger-soft: 254 242 242;
   --canvas-danger-border: 254 202 202;
   --canvas-success: 16 185 129;
@@ -98,6 +99,13 @@
   --motion-shift-md: 24px;
   --motion-shift-lg: 40px;
   --motion-duration-canvas-load: 620ms;
+  /* Button interaction tokens — consumed by .btn (@layer components).
+     State layer per Material 3: a currentColor wash over any fill, so one
+     rule yields the right hover tint on accent, card, ghost, and danger
+     buttons in both themes. Tint only — no lift/transform (design choice). */
+  --btn-layer-strength: 12%;
+  --btn-layer-hover: 0.66;
+  --btn-duration: 140ms;
   /* Minimal scrollbars — thumb only; track stays transparent. */
   --canvas-scrollbar-size: 6px;
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.42);
@@ -130,6 +138,7 @@ html[data-theme="dark"],
   --canvas-syntax-string: 165 214 255;
   --canvas-syntax-keyword: 255 123 114;
   --canvas-danger: 248 113 113;
+  --canvas-on-danger: 24 23 21;
   --canvas-danger-soft: 42 24 24;
   --canvas-danger-border: 92 42 42;
   --canvas-success: 52 211 153;
@@ -175,6 +184,8 @@ html[data-theme="dark"],
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);
+  /* Lighter on-colors need a stronger wash to read on dark. */
+  --btn-layer-strength: 16%;
 }
 
 /* Scoped light theme — re-asserts the light token set on a subtree so it stays
@@ -194,6 +205,7 @@ html[data-theme="dark"],
   --canvas-artifact-icon-bg: 224 233 250;
   --canvas-artifact-stage: 243 242 239;
   --canvas-danger: 220 38 38;
+  --canvas-on-danger: 255 255 255;
   --canvas-success: 16 185 129;
   --canvas-success-text: 4 120 87;
   --canvas-warning: 180 83 9;
@@ -207,6 +219,70 @@ html[data-theme="dark"],
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.42);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.62);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.78);
+  --canvas-on-danger: 255 255 255;
+  --btn-layer-strength: 12%;
+}
+
+@layer components {
+  /* Shared button interaction model (components/ui/Button.tsx, IconButton).
+     Hover/press feedback is a currentColor state layer that fades in — it
+     tracks the radius knob (border-radius: inherit), the active theme, and
+     any accent the user picks. Buttons stay planted: no lift, no shadow. */
+  .btn {
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      color var(--btn-duration) ease,
+      border-color var(--btn-duration) ease;
+  }
+  .btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: color-mix(
+      in srgb,
+      currentColor var(--btn-layer-strength),
+      transparent
+    );
+    opacity: 0;
+    transition: opacity var(--btn-duration) ease;
+    pointer-events: none;
+  }
+  .btn > * {
+    position: relative;
+    z-index: 1;
+  }
+  .btn:hover:not(:disabled)::after {
+    opacity: var(--btn-layer-hover);
+  }
+  .btn:active:not(:disabled)::after {
+    opacity: 1;
+  }
+  /* Quiet buttons (link variant) opt out of the state layer entirely. */
+  .btn-quiet::after {
+    display: none;
+  }
+  .btn:focus-visible {
+    outline: 2px solid rgb(var(--canvas-accent));
+    outline-offset: 2px;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn,
+    .btn::after {
+      transition-duration: 0.01ms;
+    }
+  }
 }
 
 html,

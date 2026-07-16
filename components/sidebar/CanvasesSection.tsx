@@ -156,10 +156,10 @@ export function CanvasesSection({
             type="button"
             disabled={isSwitchingCanvas}
             onClick={() => void createNewCanvas()}
-            className="flex w-full items-center justify-center gap-2 rounded-canvas border border-canvas-border bg-canvas-bg px-3 py-2.5 text-canvas-body-lg font-medium text-canvas-ink transition-colors hover:bg-canvas-card disabled:opacity-50"
+            className="btn w-full gap-2 rounded-canvas bg-canvas-accent px-3 py-2.5 text-canvas-body-lg font-medium text-canvas-onAccent"
           >
             <PlusIcon />
-            Create New Canvas
+            Create new canvas
           </button>
         ) : (
           <p className="text-canvas-body-lg leading-snug text-canvas-muted">
@@ -213,14 +213,14 @@ export function CanvasesSection({
                       <button
                         type="button"
                         onClick={() => void acceptInvite(invite.id)}
-                        className="rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-compact font-medium text-canvas-card"
+                        className="btn rounded-canvas bg-canvas-accent px-2.5 py-1 text-canvas-compact font-medium text-canvas-onAccent"
                       >
                         Accept
                       </button>
                       <button
                         type="button"
                         onClick={() => void declineInvite(invite.id)}
-                        className="rounded-canvas border border-canvas-border px-2.5 py-1 text-canvas-compact text-canvas-muted"
+                        className="btn rounded-canvas border border-canvas-border px-2.5 py-1 text-canvas-compact text-canvas-muted hover:text-canvas-ink"
                       >
                         Decline
                       </button>

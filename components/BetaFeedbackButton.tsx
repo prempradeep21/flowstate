@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { ImageIcon, PlusIcon, ScreenshotIcon } from "@/components/MenuIcons";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { captureAppScreenshot } from "@/lib/feedback/captureAppScreenshot";
 import {
@@ -25,8 +26,11 @@ function createPendingImage(file: File): PendingImage {
   };
 }
 
-const imagePillClassName =
-  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-50";
+const imagePillClassName = buttonClasses({
+  shape: "pill",
+  size: "sm",
+  className: "shrink-0 whitespace-nowrap font-normal text-canvas-muted hover:text-canvas-ink",
+});
 
 export function BetaFeedbackButton() {
   const { user } = useAuth();
@@ -255,25 +259,23 @@ export function BetaFeedbackButton() {
       data-feedback-capture-exclude
       className="relative shrink-0"
     >
-      <div className="rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
-        <div className="floating-chrome-padding flex items-center">
-          <button
-            type="button"
-            aria-label="Give a suggestion"
-            aria-expanded={open}
-            aria-haspopup="dialog"
-            onClick={() => setOpen((v) => !v)}
-            className={`flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80 ${
-              open ? "bg-canvas-accentSoft text-canvas-accent" : ""
-            }`}
-          >
-            <PlusIcon className="h-5 w-5 shrink-0" />
-            <span className="hidden text-canvas-body-sm font-medium sm:inline">
-              Suggestions
-            </span>
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        aria-label="Give a suggestion"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
+        className={`btn floating-chrome-padding gap-2 rounded-canvas border border-canvas-border shadow-card ${
+          open
+            ? "bg-canvas-accentSoft text-canvas-accent"
+            : "bg-canvas-card text-canvas-ink"
+        }`}
+      >
+        <PlusIcon className="h-5 w-5 shrink-0" />
+        <span className="hidden text-canvas-body-sm font-medium sm:inline">
+          Suggestions
+        </span>
+      </button>
 
       {open && (
         <MotionFlowSize
@@ -385,22 +387,21 @@ export function BetaFeedbackButton() {
                   </p>
                 )}
                 <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={close}
                     disabled={busy || capturingScreenshot}
-                    className="rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-bg disabled:opacity-50"
                   >
                     Cancel
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={() => void handleSubmit()}
-                    disabled={busy || capturingScreenshot || !message.trim()}
-                    className="rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={capturingScreenshot || !message.trim()}
+                    loading={busy}
                   >
                     {busy ? "Sending…" : "Submit"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>

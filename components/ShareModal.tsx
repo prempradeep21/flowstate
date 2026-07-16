@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import {
   MotionBackdrop,
   MotionOverlayModal,
@@ -118,14 +120,7 @@ export function ShareModal() {
           <h2 id="share-modal-title" className="text-canvas-heading font-semibold text-canvas-ink">
             Share canvas
           </h2>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-canvas p-1 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <CloseButton onClick={close} />
         </div>
 
         {isOwner && (
@@ -153,14 +148,15 @@ export function ShareModal() {
                   <option value="editor">Editor</option>
                 </select>
               </div>
-              <button
-                type="button"
-                disabled={atCap || busy || !email.trim()}
+              <Button
+                variant="primary"
+                disabled={atCap || !email.trim()}
+                loading={busy}
                 onClick={() => void handleInvite()}
-                className="w-full rounded-canvas bg-canvas-ink px-4 py-2 text-canvas-body font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-40"
+                className="w-full"
               >
                 {atCap ? "Collaborator limit reached (5)" : "Send invite"}
-              </button>
+              </Button>
               {error && (
                 <p className="text-canvas-body-sm text-canvas-danger">{error}</p>
               )}
@@ -190,22 +186,20 @@ export function ShareModal() {
                 View-only link
               </h3>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button
                   onClick={() => void copyLink()}
                   disabled={!shareLink?.token}
-                  className="flex-1 rounded-canvas border border-canvas-border px-3 py-2 text-canvas-body font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-40"
+                  className="flex-1"
                 >
                   {copied ? "Copied!" : "Copy link"}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => void regenerateShareLink()}
                   disabled={busy}
-                  className="rounded-canvas border border-canvas-border px-3 py-2 text-canvas-body text-canvas-muted hover:bg-canvas-bg"
                 >
                   Regenerate
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -247,24 +241,18 @@ export function ShareModal() {
 
         <div className="flex flex-col gap-2 border-t border-canvas-border pt-4">
           {canDuplicate && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleDuplicate()}
-              className="rounded-canvas border border-canvas-border px-4 py-2 text-canvas-body font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-40"
-            >
+            <Button disabled={busy} onClick={() => void handleDuplicate()}>
               Duplicate canvas
-            </button>
+            </Button>
           )}
           {!isOwner && activeCanvasRole && (
-            <button
-              type="button"
+            <Button
+              tone="danger"
               disabled={busy}
               onClick={() => void leaveCanvas()}
-              className="rounded-canvas border border-canvas-dangerBorder px-4 py-2 text-canvas-body font-medium text-canvas-danger hover:bg-canvas-dangerSoft disabled:opacity-40"
             >
               Leave canvas
-            </button>
+            </Button>
           )}
         </div>
         </MotionFlowSize>
@@ -335,22 +323,23 @@ function ShareMemberRow({
             <option value="viewer">Viewer</option>
             <option value="editor">Editor</option>
           </select>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            tone="danger"
+            size="sm"
             onClick={onRemove}
-            className="rounded px-2 py-0.5 text-canvas-compact text-canvas-danger hover:bg-canvas-dangerSoft"
           >
             Remove
-          </button>
+          </Button>
           {member.role === "editor" && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onTransferOwnership}
-              className="rounded px-2 py-0.5 text-canvas-compact text-canvas-muted hover:bg-canvas-bg"
               title="Transfer ownership"
             >
               Make owner
-            </button>
+            </Button>
           )}
         </div>
       )}

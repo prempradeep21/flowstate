@@ -141,7 +141,7 @@ export function FocusAllArtifactsGrid({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-canvas px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="btn rounded-canvas px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-muted hover:text-canvas-ink"
         >
           Cancel
         </button>
@@ -149,7 +149,7 @@ export function FocusAllArtifactsGrid({ onClose }: { onClose: () => void }) {
           type="button"
           disabled={!selectedId}
           onClick={confirm}
-          className="rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-card shadow-card transition-colors hover:bg-canvas-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn rounded-canvas bg-canvas-accent px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-onAccent shadow-card"
         >
           Okay
         </button>

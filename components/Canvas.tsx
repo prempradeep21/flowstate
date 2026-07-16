@@ -104,6 +104,7 @@ import {
   resolveImageFileFromDataTransfer,
 } from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
+import { isCanvasHotkeyBlockedByTarget } from "@/lib/canvasHotkeys";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { landingStackViewportCenter } from "@/lib/canvasOrigin";
 import {
@@ -1056,15 +1057,7 @@ export function Canvas({
       if (pieStateRef.current) closePie();
 
       const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") {
-          const field = target as HTMLInputElement | HTMLTextAreaElement;
-          if (field.value.trim().length > 0) return;
-        } else if (target.isContentEditable) {
-          return;
-        }
-      }
+      if (isCanvasHotkeyBlockedByTarget(target)) return;
 
       if (
         placementRef.current ||

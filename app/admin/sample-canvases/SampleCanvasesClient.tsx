@@ -94,12 +94,14 @@ function SampleCanvasCard({ def }: { def: SampleCanvasDefinition }) {
                 {def.tagline} · {def.eraRange}
               </p>
             </div>
-            <span
-              className="inline-flex shrink-0 items-center rounded-full border border-canvas-border px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-muted"
-              title="Skill and version that produced this canvas"
-            >
-              {def.createdWithSkillVersion}
-            </span>
+            {def.createdWithSkillVersion ? (
+              <span
+                className="inline-flex shrink-0 items-center rounded-full border border-canvas-border px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-muted"
+                title="Skill and version that produced this canvas"
+              >
+                {def.createdWithSkillVersion}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -113,6 +115,15 @@ function SampleCanvasCard({ def }: { def: SampleCanvasDefinition }) {
         {statsLine(def)}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2 pl-12">
+        <a
+          href={`/admin/sample-canvases/preview?slug=${encodeURIComponent(def.slug)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-canvas border border-canvas-border bg-canvas-bg px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:border-canvas-accent/40"
+        >
+          <AdminActionIcon name="expand" />
+          View canvas
+        </a>
         <button
           type="button"
           onClick={handleAdd}
@@ -157,14 +168,18 @@ export function SampleCanvasesClient() {
       <section className="flex gap-3 rounded-canvas border border-canvas-border bg-canvas-card/50 p-4">
         <AdminCardIcon name="sample-canvases" />
         <p className="text-canvas-body-sm text-canvas-muted">
-          Each entry is a code-defined snapshot produced with the{" "}
-          <strong className="font-medium text-canvas-ink">
-            research-canvas
-          </strong>{" "}
-          skill (
-          <code className="text-canvas-micro">.claude/skills/research-canvas</code>
-          ): an overview band of sourced metrics plus era deep-dive clusters.
-          Adding a copy creates a real canvas in your account — edits stay
+          Each entry is a code-defined snapshot.{" "}
+          <strong className="font-medium text-canvas-ink">Research</strong>{" "}
+          canvases deep-research a subject and come from the{" "}
+          <code className="text-canvas-micro">.claude/skills/research-canvas</code>{" "}
+          skill: an overview band of sourced metrics plus era deep-dive clusters.{" "}
+          <strong className="font-medium text-canvas-ink">Project</strong>{" "}
+          canvases model a piece of work moving through states, and are
+          hand-built with their own layout.{" "}
+          <strong className="font-medium text-canvas-ink">View canvas</strong>{" "}
+          opens it in a new tab to explore first — nothing is written to your
+          account. <strong className="font-medium text-canvas-ink">Add to
+          my canvases</strong> then creates a real canvas you own — edits stay
           yours; the code-defined original is untouched.
         </p>
       </section>

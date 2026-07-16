@@ -151,7 +151,7 @@ export function ArtifactPanel() {
                       <button
                         type="button"
                         onClick={() => downloadGroupMarkdown(group)}
-                        className="rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                        className="btn rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted hover:text-canvas-ink"
                       >
                         Download
                       </button>
@@ -159,7 +159,7 @@ export function ArtifactPanel() {
                         type="button"
                         disabled={!canRefresh || refreshing}
                         onClick={handleRefresh}
-                        className="rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:cursor-not-allowed disabled:opacity-40"
+                        className="btn rounded-canvas px-2 py-1 text-canvas-compact text-canvas-muted hover:text-canvas-ink"
                       >
                         {refreshing ? "Refreshing…" : "Refresh"}
                       </button>
@@ -169,7 +169,7 @@ export function ArtifactPanel() {
                     type="button"
                     aria-label="Close"
                     onClick={closeArtifact}
-                    className="flex h-7 w-7 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                    className="btn h-7 w-7 rounded-canvas text-canvas-muted hover:text-canvas-ink"
                   >
                     <svg
                       aria-hidden

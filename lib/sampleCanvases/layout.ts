@@ -1,12 +1,30 @@
 import type { Viewport } from "@/lib/store";
 
 /**
- * Layout conventions for research canvases (see
- * .claude/skills/research-canvas/references/layout-conventions.md).
+ * Two things live in this file, and the distinction matters:
  *
- * World-space geometry mirrors the Walt Disney reference canvas: a wide
- * OVERVIEW band of authored metrics up top, then era deep-dive clusters
- * left-to-right below it, each anchored by a big era title and a giant year.
+ * 1. **Shared geometry maths** — `rowPositions`, `columnPositions`,
+ *    `boundsOfRects`, `viewportForBounds` and the `Size`/`Position`/`Rect`
+ *    types. These carry no conventions and any sample canvas may use them.
+ *
+ * 2. **Research-canvas conventions** — the `SECTION_*` / `CLUSTER_*` constants
+ *    below. These encode the research layout specifically (see
+ *    .claude/skills/research-canvas/references/layout-conventions.md): world-space
+ *    geometry mirroring the Walt Disney reference canvas, with a wide OVERVIEW
+ *    band of authored metrics up top, then era deep-dive clusters left-to-right
+ *    below it, each anchored by a big era title and a giant year.
+ *
+ *    Used by research-canvas (people) **and** company-canvas (companies) — a
+ *    company canvas is `kind: "research"` and its chapter clusters reuse this
+ *    type scale and zigzag. Company-specific geometry lives in companyLayout.ts.
+ *
+ * A `kind: "project"` canvas (e.g. lib/sampleCanvases/guinnessCampaign) must not
+ * import the constants in (2) — it brings its own geometry. Importing the
+ * helpers in (1) is expected.
+ *
+ * Note the type scale here is a *canvas-wide* convention that has already been
+ * forked once (guinnessCampaign/layout.ts re-declares 96/200/28 under its own
+ * names). Prefer these when adding a family.
  */
 
 /** Top-left of the overview band. */

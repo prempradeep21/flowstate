@@ -13,6 +13,7 @@ import {
   PIE_SECTORS,
   type PieSectorId,
 } from "@/lib/canvasPieMenu";
+import { isCanvasHotkeyBlockedByTarget } from "@/lib/canvasHotkeys";
 import type { PieMenuState } from "@/components/CanvasPieMenu";
 
 const SECTOR_ENABLED = Object.fromEntries(
@@ -74,15 +75,7 @@ export function useCanvasPieMenu({
       if (!enabledRef.current) return;
 
       const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") {
-          const field = target as HTMLInputElement | HTMLTextAreaElement;
-          if (field.value.trim().length > 0) return;
-        } else if (target.isContentEditable) {
-          return;
-        }
-      }
+      if (isCanvasHotkeyBlockedByTarget(target)) return;
 
       if (isBlockedRef.current()) return;
 

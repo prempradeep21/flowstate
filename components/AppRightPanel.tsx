@@ -103,7 +103,7 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="flex items-center gap-2 rounded-canvas text-canvas-onAccent transition-colors hover:bg-canvas-onAccent/10"
+            className="btn gap-2 rounded-canvas text-canvas-onAccent"
 
           >
 
@@ -140,7 +140,7 @@ export function AppRightPanel() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => setActiveTab(tab)}
-                        className={`rounded-canvas px-3 py-1 text-canvas-body-sm font-medium capitalize transition-colors ${
+                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium capitalize ${
                           active
                             ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                             : "text-canvas-muted hover:text-canvas-ink"
@@ -163,7 +163,7 @@ export function AppRightPanel() {
 
                 aria-label="Collapse artifacts panel"
 
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
 
               >
 

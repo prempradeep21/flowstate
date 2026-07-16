@@ -26,11 +26,11 @@ import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
+// Shared .btn state layer (globals.css) supplies hover/press/disabled physics.
 const toolbarBtn =
-  "flex items-center gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+  "btn gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink";
 
-const iconToggleBtn =
-  "flex h-9 w-9 items-center justify-center rounded-canvas transition-colors";
+const iconToggleBtn = "btn h-9 w-9 rounded-canvas";
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();

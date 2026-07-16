@@ -48,6 +48,18 @@ const SCENES = {
       [Math.round((23300 / 1000) * FPS)]: 1800, // pie chart morph
     },
   },
+  disney: {
+    durationMs: 36500,
+    framesDir: path.join(ROOT, "demo-video", "frames-disney"),
+    outFile: path.join(ROOT, "demo-video", "flowstate-disney-demo.mp4"),
+    // Map tiles (WDW, zoom 10) at the map beat + pin drop + finale wall.
+    warmupMs: [21800, 22300, 35000],
+    // echarts bar-chart morph + leaflet tile decode at the map morph.
+    settleExtraMs: {
+      [Math.round((11350 / 1000) * FPS)]: 1800,
+      [Math.round((21600 / 1000) * FPS)]: 2500,
+    },
+  },
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(

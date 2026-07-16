@@ -2,6 +2,7 @@
 
 import { FlowstateBrand } from "@/components/FlowstateBrand";
 import { useAuth } from "@/components/AuthProvider";
+import { Button } from "@/components/ui/Button";
 import type { HomeTheme } from "@/components/home/useHomeTheme";
 
 export function HomeHeader({
@@ -31,7 +32,7 @@ export function HomeHeader({
           onClick={onToggleTheme}
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className="btn h-9 w-9 overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-canvas-muted shadow-card hover:text-canvas-ink"
         >
           <span
             className={`absolute transition-all duration-motion-standard ease-motion-settle motion-reduce:transition-none ${
@@ -72,23 +73,15 @@ export function HomeHeader({
                   {name}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className="rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-card hover:text-canvas-ink"
-              >
+              <Button variant="ghost" onClick={() => void signOut()}>
                 Sign out
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => void signInWithGoogle()}
-              className="rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90"
-            >
+            <Button variant="primary" onClick={() => void signInWithGoogle()}>
               Sign in
-            </button>
-            ))}
+            </Button>
+          ))}
         </div>
       </div>
     </header>

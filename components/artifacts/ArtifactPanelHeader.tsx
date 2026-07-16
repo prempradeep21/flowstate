@@ -160,8 +160,9 @@ export function ArtifactPanelHeader({
   const showArtifactCancel =
     editControls?.isEditing && !editControls.isDirty;
 
+  // Shared .btn state layer (globals.css) supplies hover/press feedback.
   const ctaClass =
-    "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
+    "btn h-11 shrink-0 gap-1.5 rounded-full px-4 text-canvas-heading font-medium";
   const chromeClass = isCanvas
     ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
     : "";
@@ -218,7 +219,7 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={editControls.onEdit}
-          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink`}
         >
           Edit
         </button>
@@ -228,7 +229,7 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={editControls.onCancelEdit}
-          className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:text-canvas-ink`}
         >
           Cancel
         </button>
@@ -240,7 +241,7 @@ export function ArtifactPanelHeader({
             <button
               type="button"
               onClick={editControls.onDiscard}
-              className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+              className={`${ctaClass} text-canvas-muted hover:text-canvas-ink`}
             >
               Discard
             </button>
@@ -248,7 +249,7 @@ export function ArtifactPanelHeader({
           <button
             type="button"
             onClick={editControls.onSave}
-            className={`${ctaClass} bg-canvas-accent text-canvas-onAccent hover:opacity-90`}
+            className={`${ctaClass} bg-canvas-accent text-canvas-onAccent`}
           >
             Save
           </button>
@@ -261,7 +262,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink ${chromeClass}`}
         >
           Visit website
           <ExternalLinkIcon />
@@ -272,7 +273,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink ${chromeClass}`}
         >
           Open in Google
           <ExternalLinkIcon />
@@ -297,7 +298,7 @@ export function ArtifactPanelHeader({
               ref={versionButtonRef}
               type="button"
               onClick={() => setVersionOpen((o) => !o)}
-              className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+              className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink`}
             >
               Version {active?.number ?? 1}
               <span className="text-canvas-body opacity-70" aria-hidden>
@@ -368,7 +369,7 @@ export function ArtifactPanelHeader({
             aria-label="More options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className={`flex shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+            className={`btn shrink-0 rounded-full text-canvas-muted hover:text-canvas-ink ${
               isCanvas ? "h-11 w-9" : "h-10 w-10"
             }`}
           >

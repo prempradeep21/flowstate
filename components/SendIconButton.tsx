@@ -34,7 +34,7 @@ export function SendIconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label="Send"
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-ink text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-30 ${className}`}
+      className={`btn h-9 w-9 shrink-0 rounded-full bg-canvas-accent text-canvas-onAccent ${className}`}
     >
       <SendArrowIcon />
     </button>
@@ -46,7 +46,7 @@ export function SendIconPreview({ className = "" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-canvas-ink/70 text-canvas-card ${className}`}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-canvas-accent/70 text-canvas-onAccent ${className}`}
     >
       <SendArrowIcon />
     </span>

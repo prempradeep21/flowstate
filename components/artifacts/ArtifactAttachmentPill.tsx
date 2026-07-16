@@ -41,7 +41,7 @@ export function ArtifactAttachmentPill({
           type="button"
           aria-label="Remove attachment"
           onClick={onRemove}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+          className="btn h-5 w-5 shrink-0 rounded-full text-canvas-muted hover:text-canvas-ink"
         >
           ×
         </button>

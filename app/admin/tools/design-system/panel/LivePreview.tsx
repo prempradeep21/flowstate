@@ -1,6 +1,10 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
+import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
+import { IconButton } from "@/components/ui/IconButton";
 import {
   ARTIFACT_CATEGORY_META,
   artifactCategoryStyle,
@@ -34,26 +38,63 @@ function PreviewCard({
 export function LivePreview() {
   return (
     <div className="flex flex-col gap-6">
-      <PreviewCard title="Buttons">
+      <PreviewCard title="Buttons — variants × tones">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary">Primary action</Button>
+            <Button>Secondary</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button variant="link">Link action</Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary" tone="danger" icon={Trash2}>
+              Delete canvas
+            </Button>
+            <Button tone="danger">Leave canvas</Button>
+            <Button variant="ghost" tone="danger">
+              Remove
+            </Button>
+            <Button variant="link" tone="danger">
+              Discard draft
+            </Button>
+          </div>
+        </div>
+      </PreviewCard>
+
+      <PreviewCard title="Buttons — sizes, shapes, states">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm">Small</Button>
+            <Button size="md">Medium</Button>
+            <Button size="lg">Large</Button>
+            <IconButton icon={Plus} label="Add" size="sm" />
+            <IconButton icon={Plus} label="Add" size="md" />
+            <IconButton icon={Plus} label="Add" size="lg" />
+            <CloseButton />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary" shape="pill" size="lg">
+              Pill primary
+            </Button>
+            <Button shape="pill">Pill secondary</Button>
+            <Button variant="primary" icon={Plus}>
+              With icon
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary" disabled>
+              Disabled
+            </Button>
+            <Button disabled>Disabled</Button>
+            <Button variant="primary" loading>
+              Saving
+            </Button>
+          </div>
+        </div>
+      </PreviewCard>
+
+      <PreviewCard title="Chips">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="rounded-canvas-md bg-canvas-accent px-4 py-2 text-canvas-body-sm font-medium text-white"
-          >
-            Primary action
-          </button>
-          <button
-            type="button"
-            className="rounded-canvas-md border border-canvas-border bg-canvas-card px-4 py-2 text-canvas-body-sm font-medium text-canvas-ink hover:bg-canvas-bg"
-          >
-            Secondary
-          </button>
-          <button
-            type="button"
-            className="rounded-canvas-md px-4 py-2 text-canvas-body-sm font-medium text-canvas-accent hover:bg-canvas-accent/10"
-          >
-            Ghost
-          </button>
           <span className="rounded-full bg-canvas-artifactIconBg px-3 py-1 text-canvas-caption font-medium text-canvas-accent">
             Accent chip
           </span>

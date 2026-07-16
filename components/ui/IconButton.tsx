@@ -46,12 +46,10 @@ export function IconButton({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center justify-center rounded-canvas-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        BUTTON_SIZE_CLASS[size]
-      } ${
+      className={`btn rounded-canvas-md ${BUTTON_SIZE_CLASS[size]} ${
         active
           ? "bg-canvas-accentSoft text-canvas-accent"
-          : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+          : "text-canvas-muted hover:text-canvas-ink"
       } ${className}`}
     >
       <Icon icon={icon} size={ICON_SIZE_FOR_BUTTON[size]} />

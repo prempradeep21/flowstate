@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { CloseButton } from "@/components/ui/CloseButton";
 import { canvasColors, darkCanvasColors, canvasRadiusBasePx } from "@/lib/design/tokens";
 import { contrastRatio, gradeContrast } from "@/lib/design/contrast";
 import { ARTIFACT_CATEGORY_META } from "@/lib/design/theme/artifactCategories";
@@ -248,14 +250,10 @@ export function PanelControls() {
                 <span className="rounded-full bg-canvas-artifactIconBg px-1.5 py-0.5 text-canvas-caption text-canvas-accent">
                   Custom
                 </span>
-                <button
-                  type="button"
+                <CloseButton
                   onClick={() => deleteCustomTheme(p.id)}
-                  aria-label={`Delete ${p.name}`}
-                  className="text-canvas-muted transition-colors hover:text-canvas-danger"
-                >
-                  ×
-                </button>
+                  label={`Delete ${p.name}`}
+                />
               </div>
             );
           })}
@@ -379,14 +377,14 @@ export function PanelControls() {
             placeholder="Name this theme…"
             className="min-w-0 flex-1 rounded-canvas-md border border-canvas-border bg-canvas-card px-3 py-2 text-canvas-body-sm text-canvas-ink outline-none focus-visible:border-canvas-accent/50"
           />
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={saveCurrentAsTheme}
-            disabled={!saveName.trim() || saveStatus.kind === "saving"}
-            className="rounded-canvas-md bg-canvas-ink px-4 py-2 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!saveName.trim()}
+            loading={saveStatus.kind === "saving"}
           >
             {saveStatus.kind === "saving" ? "Saving…" : "Save"}
-          </button>
+          </Button>
         </div>
         {saveStatus.kind === "error" ? (
           <p className="text-canvas-caption text-canvas-danger">{saveStatus.message}</p>
@@ -396,33 +394,23 @@ export function PanelControls() {
       {/* Actions */}
       <section className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={resetToPreset}
-            disabled={!hasOverrides}
-            className="rounded-canvas-md border border-canvas-border bg-canvas-card px-4 py-2 text-canvas-compact font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40"
-          >
+          <Button onClick={resetToPreset} disabled={!hasOverrides}>
             Reset to preset
-          </button>
-          <button
-            type="button"
-            onClick={copyThemeJson}
-            className="rounded-canvas-md border border-canvas-border bg-canvas-card px-4 py-2 text-canvas-compact font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
-          >
+          </Button>
+          <Button variant="ghost" onClick={copyThemeJson}>
             Copy theme JSON
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
             onClick={publishCurrentTheme}
-            disabled={publishStatus.kind === "publishing"}
-            className="rounded-canvas-md bg-canvas-accent px-4 py-2 text-canvas-compact font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            loading={publishStatus.kind === "publishing"}
           >
             {publishStatus.kind === "publishing"
               ? "Publishing…"
               : publishStatus.kind === "published"
                 ? "Published ✓"
                 : "Publish as default"}
-          </button>
+          </Button>
         </div>
         <p className="text-canvas-caption text-canvas-muted">
           Publish sets this as the default for new sessions on this local dev

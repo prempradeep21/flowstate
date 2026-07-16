@@ -71,7 +71,7 @@ export function SkillsSection() {
           type="button"
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-canvas border border-canvas-border px-2 py-0.5 text-canvas-body-lg font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-50"
+          className="btn rounded-canvas border border-canvas-border px-2 py-0.5 text-canvas-body-lg font-medium text-canvas-ink"
         >
           {uploading ? "Uploading" : "Upload"}
         </button>
