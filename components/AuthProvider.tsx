@@ -15,6 +15,8 @@ import { useCanvasPersistence } from "@/hooks/useCanvasPersistence";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
+import { buildCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { stashGuestCanvas } from "@/lib/guestCanvas";
 
 import type { CanvasMeta } from "@/lib/canvasPersistence";
 import type { CollaborationContextValue } from "@/hooks/useCollaboration";
@@ -143,9 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // never renders read-only for its own creator. Local sessions skip the
     // seed: their canvases have no DB row, and canEdit is granted directly
     // by localReadOnly in useCollaboration.
-    if (id && !localReadOnly) collaboration.seedOwnerAccessInfo();
+    // Guests have no DB owner row, so skip the access seed for them.
+    if (id && user && !localReadOnly) collaboration.seedOwnerAccessInfo();
     return id;
-  }, [collaboration.seedOwnerAccessInfo, createNewCanvasRaw, localReadOnly]);
+  }, [collaboration.seedOwnerAccessInfo, createNewCanvasRaw, localReadOnly, user]);
 
   useEffect(() => {
     const readOnly =
@@ -199,6 +202,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     if (!supabaseConfigured) return;
 
+    // Guest save-on-signin: the OAuth redirect discards the in-memory canvas,
+    // so stash the active guest canvas now; it's adopted on return (see
+    // useCanvasPersistence.loadCanvasForUser).
+    if (!user) {
+      try {
+        const source = useCanvasStore.getState().getCanvasSnapshotSource();
+        const snapshot = buildCanvasSnapshot(source);
+        const title =
+          canvases.find((c) => c.id === activeCanvasId)?.title ?? "My canvas";
+        stashGuestCanvas(snapshot, title);
+      } catch {
+        // Best-effort — never block sign-in on a stash failure.
+      }
+    }
+
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback`;
 
@@ -208,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) throw error;
-  }, [supabaseConfigured]);
+  }, [activeCanvasId, canvases, supabaseConfigured, user]);
 
   const signOut = useCallback(async () => {
     if (!supabaseConfigured) return;

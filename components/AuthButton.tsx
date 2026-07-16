@@ -14,6 +14,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
     user,
     authLoading,
     supabaseConfigured,
+    activeCanvasId,
     signInWithGoogle,
     signOut,
   } = useAuth();
@@ -89,7 +90,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
     );
   }
 
-  return (
+  const signInButton = (
     <button
       type="button"
       disabled={busy}
@@ -104,9 +105,23 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
       className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
     >
       <GoogleIcon />
-      Sign in with Google
+      {activeCanvasId ? "Sign in to save" : "Sign in with Google"}
     </button>
   );
+
+  // Guest with a live canvas: make it clear their work is an unsaved draft.
+  if (activeCanvasId) {
+    return (
+      <div className="pointer-events-auto flex flex-col gap-1.5">
+        <span className={`${textSize} text-canvas-muted`}>
+          Guest draft — not saved yet
+        </span>
+        {signInButton}
+      </div>
+    );
+  }
+
+  return signInButton;
 }
 
 function GoogleIcon() {

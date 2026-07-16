@@ -71,7 +71,7 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
       key: "new-canvas",
       node: (
         <NewCanvasCard
-          disabled={!user || !supabaseConfigured || isSwitchingCanvas}
+          disabled={!supabaseConfigured || isSwitchingCanvas}
           busy={creating}
           onCreate={() => void handleCreate()}
         />
