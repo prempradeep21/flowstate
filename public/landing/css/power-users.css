@@ -1,0 +1,140 @@
+/* ============================================================
+   POWER USERS — switchable demo-video showcase
+   shared by index.html + how-it-works.html
+   design language: paper gray · ink outlines · cobalt · dot grid
+   ============================================================ */
+
+.powerusers {
+  position: relative;
+  padding: 7rem 1.4rem 5rem;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.powerusers .playground-head { margin-bottom: 2.4rem; }
+
+/* ---------- tab row (individual pills) ---------- */
+.pu-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  max-width: 100%;
+  margin: 0 auto 1.9rem;
+}
+.pu-tab {
+  padding: 0.5rem 1.05rem;
+  border: 1.5px solid rgba(16, 16, 16, 0.28);
+  border-radius: 999px;
+  background: var(--card);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  white-space: nowrap;
+  color: rgba(16, 16, 16, 0.6);
+  transition: color 0.25s var(--ease-out), background 0.25s var(--ease-out),
+    border-color 0.25s var(--ease-out);
+}
+.pu-tab:hover { color: var(--ink); border-color: var(--ink); }
+.pu-tab.is-active,
+.pu-tab.is-active:hover {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #f2f5ff;
+  box-shadow: inset 0 -2px 0 var(--blue-deep);
+}
+.pu-tab.is-soon {
+  color: rgba(16, 16, 16, 0.34);
+  border-color: rgba(16, 16, 16, 0.18);
+  border-style: dashed;
+  cursor: default;
+}
+.pu-tab.is-soon:hover {
+  color: rgba(16, 16, 16, 0.34);
+  border-color: rgba(16, 16, 16, 0.18);
+}
+.pu-tab-soon {
+  margin-left: 0.4rem;
+  font-size: 0.5rem;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  color: var(--blue);
+  opacity: 0.75;
+}
+
+/* ---------- video card (in-flow override of the absolute .art-card) ---------- */
+.pu-card {
+  position: relative;
+  left: auto;
+  top: auto;
+  rotate: 0deg;
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+}
+.pu-title { font-weight: 560; }
+
+.pu-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0c0c0c;
+}
+.pu-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+/* invisible guard so the passive loop can't be paused / click through to YouTube */
+.pu-guard {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: default;
+}
+
+/* ---------- coming-soon placeholder ---------- */
+.pu-soon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: rgba(242, 245, 255, 0.82);
+  background:
+    radial-gradient(circle at center, rgba(15, 79, 199, 0.22), transparent 68%),
+    #131313;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.4px),
+    radial-gradient(circle at center, rgba(15, 79, 199, 0.22), transparent 68%);
+  background-size: 22px 22px, 100% 100%;
+}
+.pu-soon-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sticky);
+}
+.pu-soon-title { font-size: 1.15rem; font-weight: 600; }
+.pu-soon-sub {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  color: rgba(242, 245, 255, 0.5);
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 640px) {
+  .powerusers { padding: 4.5rem 1rem 3.5rem; }
+  .pu-tabs { gap: 0.4rem; }
+  .pu-tab { padding: 0.44rem 0.7rem; font-size: 0.62rem; }
+  .pu-tab-soon { display: none; }
+}

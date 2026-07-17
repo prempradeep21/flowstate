@@ -3,6 +3,8 @@ import { buildEmergentCanvas } from "@/lib/sampleCanvases/emergent/buildEmergent
 import { buildGuinnessCampaignCanvas } from "@/lib/sampleCanvases/guinnessCampaign/buildGuinnessCampaignCanvas";
 import { buildHenryFordCanvas } from "@/lib/sampleCanvases/henryFord/buildHenryFordCanvas";
 import { buildPhilKnightCanvas } from "@/lib/sampleCanvases/philKnight/buildPhilKnightCanvas";
+import { buildTheLongNoonCanvas } from "@/lib/sampleCanvases/theLongNoon/buildTheLongNoonCanvas";
+import { buildViennaExchangeCanvas } from "@/lib/sampleCanvases/viennaExchange/buildViennaExchangeCanvas";
 import type { SampleCanvasDefinition } from "@/lib/sampleCanvases/types";
 
 /**
@@ -15,10 +17,13 @@ import type { SampleCanvasDefinition } from "@/lib/sampleCanvases/types";
  * then a chapter row). See .claude/skills/<skill>/SKILL.md for the methodology
  * and the checklist for registering one.
  *
- * Entries with `kind: "project"` are hand-built and come from no skill. They
- * model work moving through states rather than facts about a subject, and they
- * bring their own geometry — do not apply the research layout conventions to
- * them, and do not give them a `createdWithSkillVersion`.
+ * Entries with `kind: "project"` model work moving through states rather than
+ * facts about a subject, and they bring their own geometry — do not apply the
+ * research layout conventions to them. Most are hand-built and come from no skill
+ * (e.g. `guinness-campaign`), so they carry no `createdWithSkillVersion`. The
+ * exception is the `filmmaker-canvas` skill, which ships `kind: "project"` film
+ * production canvases (e.g. `the-vienna-exchange`, `the-long-noon`) and does tag
+ * them with a `createdWithSkillVersion` — it is the one skill that makes projects.
  *
  * Must stay client-importable: the admin page builds snapshots in the browser,
  * so nothing in lib/sampleCanvases may import server-only modules. This is why
@@ -138,6 +143,52 @@ export const SAMPLE_CANVAS_REGISTRY: SampleCanvasDefinition[] = [
       other: 40,
     },
     buildSnapshot: buildGuinnessCampaignCanvas,
+  },
+  {
+    slug: "the-vienna-exchange",
+    kind: "project",
+    title: "The Vienna Exchange",
+    subject: "Petra Vogel",
+    subjectKind: "person",
+    tagline: "A fictional 1961 spy thriller, pitch to festival",
+    description:
+      "A filmmaker's production canvas for an invented 1961 Cold War thriller, laid out as a left-to-right pipeline: the pitch, the story, the world we researched, then pre-production, the shoot, the cut and the festival run. The film — its director \"Petra Vogel\", characters, script, schedule and budget — is invented; the reference material is real and verified: the tone films (The Third Man, Bridge of Spies, Tinker Tailor), the archival images, the Vienna/Berlin/Havana/London locations, and the historical figures the story brushes against (George Blake, Operation Gold, the June 1961 Vienna Summit). Leans on maps, street view, dossier tables and archival galleries.",
+    eraRange: "Sep 2025 – Feb 2027",
+    accent: "rgb(var(--artifact-cat-geo-fg))",
+    createdWithSkillVersion: "filmmaker-canvas@0.1.0",
+    stats: {
+      charts: 1,
+      tables: 13,
+      timelines: 1,
+      videos: 3,
+      websites: 5,
+      maps: 3,
+      other: 28,
+    },
+    buildSnapshot: buildViennaExchangeCanvas,
+  },
+  {
+    slug: "the-long-noon",
+    kind: "project",
+    title: "The Long Noon",
+    subject: "Sölas Vey",
+    subjectKind: "person",
+    tagline: "A fictional sci-fi on a tidally-locked world, pitch to festival",
+    description:
+      "The invented-world counterpart to the Vienna Exchange canvas: a filmmaker's production pipeline for an original sci-fi feature set on a tidally-locked exoplanet, where the sun never moves and humans survive only in the twilight ring. With no real place to scout, the world is built from invented cartography (custom tiles), concept models (3D), an on-screen prop UI (code), worldbuilding charts and a heavy VFX shot tracker — the opposite half of the artifact menu from Vienna's maps and street views. The film — director \"Sölas Vey\", the colony Meridian, its factions and language — is invented; the reference science (tidal locking, red-dwarf habitability, Proxima Centauri b), the astronomy/landscape images, and the tone films (Dune, Blade Runner 2049, Interstellar) are real and verified.",
+    eraRange: "Jun 2025 – Sep 2027",
+    accent: "rgb(var(--artifact-cat-viz-fg))",
+    createdWithSkillVersion: "filmmaker-canvas@0.1.0",
+    stats: {
+      charts: 2,
+      tables: 14,
+      timelines: 1,
+      videos: 3,
+      websites: 3,
+      maps: 0,
+      other: 31,
+    },
+    buildSnapshot: buildTheLongNoonCanvas,
   },
 ];
 

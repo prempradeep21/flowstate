@@ -49,8 +49,15 @@ describe("SAMPLE_CANVAS_REGISTRY", () => {
         expect(
           entry.createdWithSkillVersion,
           `"${entry.slug}" must name a skill and a version`,
-        ).toMatch(/^(research-canvas|company-canvas)@\d+\.\d+\.\d+$/);
-        expect(entry.kind).toBe("research");
+        ).toMatch(/^(research-canvas|company-canvas|filmmaker-canvas)@\d+\.\d+\.\d+$/);
+        // research-canvas / company-canvas ship kind:"research"; filmmaker-canvas
+        // is the one skill that ships kind:"project" (a production pipeline).
+        const expectedKind = entry.createdWithSkillVersion.startsWith(
+          "filmmaker-canvas",
+        )
+          ? "project"
+          : "research";
+        expect(entry.kind).toBe(expectedKind);
       }
     }
   });

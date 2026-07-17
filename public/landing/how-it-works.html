@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/landing/css/style.css" />
 <link rel="stylesheet" href="/landing/css/how-it-works.css" />
+<link rel="stylesheet" href="/landing/css/power-users.css" />
 </head>
 <body>
 
@@ -66,6 +67,30 @@
       <p class="hiw-hero-hint mono">scroll — story 01 is waiting ↓</p>
     </div>
   </header>
+
+  <!-- ============ BUILT FOR THE POWER USERS (demo videos) ============ -->
+  <section class="powerusers hiw-powerusers" id="power-users">
+    <div class="playground-head">
+      <p class="mono eyebrow">for the power users</p>
+      <h2>Built for the <em>power users.</em></h2>
+      <p class="mono playground-hint">pick a way to work · watch Flowstate do the whole thing</p>
+    </div>
+
+    <div class="pu-switch">
+      <div class="pu-tabs" id="puTabs" role="tablist" aria-label="Use cases">
+        <!-- tab buttons injected by /landing/js/power-users.js from PU_VIDEOS -->
+      </div>
+
+      <article class="art-card pu-card">
+        <header class="art-head">
+          <span class="art-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 12 21 8.8v6.4L15.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+          <span class="pu-title">Deep research</span>
+          <span class="art-kind">demo · loop</span>
+        </header>
+        <div class="pu-frame" id="puFrame"><!-- video / coming-soon injected by JS --></div>
+      </article>
+    </div>
+  </section>
 
   <!-- ============ STEP 01 — ASK ON THE CANVAS ============ -->
   <section class="hiw-step" id="step-1" data-step="01">
@@ -596,5 +621,6 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 <script src="/landing/js/how-it-works.js"></script>
+<script src="/landing/js/power-users.js"></script>
 </body>
 </html>

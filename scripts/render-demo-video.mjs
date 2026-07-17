@@ -60,6 +60,18 @@ const SCENES = {
       [Math.round((21600 / 1000) * FPS)]: 2500,
     },
   },
+  freelancer: {
+    durationMs: 34500,
+    framesDir: path.join(ROOT, "demo-video", "frames-freelancer"),
+    outFile: path.join(ROOT, "demo-video", "flowstate-freelancer-demo.mp4"),
+    // Custom-artifact iframes (converter / clocks / invoice) + finale wall.
+    warmupMs: [21300, 21900, 28100, 33000],
+    settleExtraMs: {
+      [Math.round((21200 / 1000) * FPS)]: 900, // converter iframe morph
+      [Math.round((21800 / 1000) * FPS)]: 900, // time-zone iframe morph
+      [Math.round((28000 / 1000) * FPS)]: 900, // invoice iframe morph
+    },
+  },
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(

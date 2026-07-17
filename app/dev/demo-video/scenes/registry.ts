@@ -36,6 +36,18 @@ export const SCENES: Record<string, SceneSpec> = {
       [Math.round((21600 / 1000) * 60)]: 2500, // leaflet map morph
     },
   },
+  freelancer: {
+    id: "freelancer",
+    durationMs: 34500,
+    // Custom-artifact iframes (converter / clocks / invoice) paint async on
+    // their morph frames; pre-seek so srcdoc content is warm before capture.
+    warmupMs: [21300, 21900, 28100, 33000],
+    settleExtraMs: {
+      [Math.round((21200 / 1000) * 60)]: 900, // converter iframe morph
+      [Math.round((21800 / 1000) * 60)]: 900, // time-zone iframe morph
+      [Math.round((28000 / 1000) * 60)]: 900, // invoice iframe morph
+    },
+  },
   // 3s brand idents (scenes/logo) — no network content, no settle hints.
   "logo-draw": { id: "logo-draw", durationMs: 3000 },
   "logo-type": { id: "logo-type", durationMs: 3000 },

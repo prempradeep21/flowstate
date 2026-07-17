@@ -59,7 +59,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 em { font-family: inherit; font-style: normal; font-weight: 600; color: var(--blue); }
 
 /* ---------- grain ---------- */
+/* grain overlay disabled site-wide (was drifting noise on top of everything, incl. video) */
 .grain {
+  display: none !important;
   position: fixed; inset: -50%;
   width: 200%; height: 200%;
   pointer-events: none;

@@ -4,6 +4,7 @@ import {
 } from "@/lib/canvasSnapshot";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
+import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import {
   mergeTranscriptImportSections,
   ORIGIN_X,
@@ -23,6 +24,11 @@ export {
   TIP_THREAD_YC_MAIN,
 } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 
+export {
+  TIP_GROUP_ID_HUB,
+  TIP_THREAD_HUB_MAIN,
+} from "@/lib/transcriptImport/buildHubermanCanvasSection";
+
 let cachedContentCenter: { x: number; y: number } | null = null;
 
 /** Pre-built demo canvas for admin transcript-import playground only. */
@@ -30,6 +36,7 @@ export function buildTranscriptImportPlaygroundSnapshot(): CanvasSnapshot {
   const merged = mergeTranscriptImportSections([
     buildDesignToolsCanvasSection(),
     buildYcInterviewCanvasSection(),
+    buildHubermanCanvasSection(),
   ]);
   cachedContentCenter = merged.contentCenter;
 
