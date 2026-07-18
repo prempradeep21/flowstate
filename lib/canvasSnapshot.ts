@@ -32,6 +32,7 @@ import type {
   Connection,
   ConnectorStyle,
   Thread,
+  ThreadGist,
   UploadedAttachment,
   Viewport,
 } from "@/lib/store";
@@ -46,6 +47,7 @@ export interface CanvasSnapshot {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  threadGists?: Record<string, ThreadGist>;
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
@@ -82,6 +84,7 @@ export interface CanvasSnapshotSource {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  threadGists?: Record<string, ThreadGist>;
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
@@ -186,6 +189,7 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     connections,
     threads: { ...source.threads },
     threadOrder: [...source.threadOrder],
+    threadGists: normalizeThreadGists(source.threadGists, source.threads),
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
     canvasBackgroundStyle: source.canvasBackgroundStyle,
@@ -243,6 +247,47 @@ function mergeRecordPreferLocal<T extends Record<string, unknown>>(
   return { ...remote, ...local };
 }
 
+/** Per-thread newest-wins merge so a stale collaborator save can't clobber a fresher gist. */
+function mergeThreadGists(
+  remote: Record<string, ThreadGist>,
+  local: Record<string, ThreadGist>,
+): Record<string, ThreadGist> {
+  const merged = { ...remote };
+  for (const [threadId, gist] of Object.entries(local)) {
+    const existing = merged[threadId];
+    if (!existing || gist.updatedAt >= existing.updatedAt) {
+      merged[threadId] = gist;
+    }
+  }
+  return merged;
+}
+
+/** Drop malformed entries and gists for threads that no longer exist. */
+function normalizeThreadGists(
+  raw: unknown,
+  threads: Record<string, Thread>,
+): Record<string, ThreadGist> {
+  const input = normalizeRecord<ThreadGist>(raw);
+  const out: Record<string, ThreadGist> = {};
+  for (const [threadId, entry] of Object.entries(input)) {
+    if (!threads[threadId]) continue;
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.gist !== "string" || !entry.gist.trim()) continue;
+    out[threadId] = {
+      gist: entry.gist,
+      updatedAt:
+        typeof entry.updatedAt === "number" && Number.isFinite(entry.updatedAt)
+          ? entry.updatedAt
+          : 0,
+      turnCount:
+        typeof entry.turnCount === "number" && Number.isFinite(entry.turnCount)
+          ? entry.turnCount
+          : 0,
+    };
+  }
+  return out;
+}
+
 function mergeOrder(remote: string[], local: string[]): string[] {
   const seen = new Set<string>();
   const merged: string[] = [];
@@ -285,6 +330,10 @@ export function mergeCanvasSnapshots(
     connections,
     threads: mergeRecordPreferLocal(remote.threads, local.threads),
     threadOrder: mergeOrder(remote.threadOrder, local.threadOrder),
+    threadGists: mergeThreadGists(
+      remote.threadGists ?? {},
+      local.threadGists ?? {},
+    ),
     groups: mergeRecordPreferLocal(remote.groups, local.groups),
     sessionArtifacts: mergeRecordPreferLocal(
       remote.sessionArtifacts,
@@ -386,6 +435,7 @@ export function buildEmptyCanvasSnapshot(
     connections: [],
     threads: {},
     threadOrder: [],
+    threadGists: {},
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
@@ -535,6 +585,10 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       : [],
     threads: normalizeRecord<Thread>(snapshot.threads),
     threadOrder: normalizeStringArray(snapshot.threadOrder),
+    threadGists: normalizeThreadGists(
+      snapshot.threadGists,
+      normalizeRecord<Thread>(snapshot.threads),
+    ),
     groups: normalizeRecord<BranchGroup>(snapshot.groups),
     connectorStyle:
       snapshot.connectorStyle === "curvy" ||

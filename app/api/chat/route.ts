@@ -56,6 +56,11 @@ import {
 } from "@/lib/fetchPageContent";
 import { extractUrlsFromText } from "@/lib/urlDetection";
 import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
+import {
+  buildCanvasMemoryNote,
+  buildUserMemoryNote,
+} from "@/lib/memory/injection";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const BASE_SYSTEM =
   `You are a helpful AI assistant with access to tools.\n\n` +
@@ -87,6 +92,7 @@ export async function POST(req: Request) {
     editingArtifact,
     conversationId,
     canvasId,
+    canvasMemory,
   } = (await req.json()) as {
     conversationId?: string;
     canvasId?: string;
@@ -95,6 +101,7 @@ export async function POST(req: Request) {
     files?: IncomingFile[];
     history?: HistoryMessage[];
     editingArtifact?: { artifactId: string; payload: unknown };
+    canvasMemory?: Array<{ title?: string; gist?: string }>;
   };
 
   // Pick the provider + its API key from the selected model.
@@ -140,6 +147,35 @@ export async function POST(req: Request) {
   }
 
   const intentQuestion = stripAppendedQuestionContext(question);
+
+  // Canvas memory (faint sibling-branch awareness) and the requesting user's
+  // cross-canvas memory doc. Both best-effort, hard-capped, and injected into
+  // the uncached variableSystem so the cached BASE_SYSTEM prefix is untouched.
+  const canvasMemoryNote = buildCanvasMemoryNote(canvasMemory);
+  let userMemoryNote: string | null = null;
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: memoryRow } = await supabase
+          .from("user_memories")
+          .select("content")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (memoryRow?.content) {
+          userMemoryNote = buildUserMemoryNote(memoryRow.content, intentQuestion);
+        }
+      }
+    } catch {
+      // memory is best-effort — never block the chat request
+    }
+  }
 
   const liveDataIntent = detectLiveDataIntent(intentQuestion);
   const todoIntent = detectTodoListIntent(intentQuestion);
@@ -210,6 +246,8 @@ export async function POST(req: Request) {
   });
   const variableSystem = [
     systemContext,
+    userMemoryNote,
+    canvasMemoryNote,
     webSearchEnabled ? LIVE_DATA_SYSTEM_NOTE : null,
     primaryIntentNote,
     inlineSourceIntent && !editingArtifact ? CUSTOM_UI_INLINE_CODE_NOTE : null,

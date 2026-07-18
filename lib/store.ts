@@ -448,6 +448,17 @@ export interface Thread {
   accentColour: string;
 }
 
+/**
+ * Rolling one-to-two sentence summary of a thread, refreshed after each
+ * exchange. Injected as faint "canvas memory" into sibling branches without
+ * sharing their full context.
+ */
+export interface ThreadGist {
+  gist: string;
+  updatedAt: number;
+  turnCount: number;
+}
+
 export interface Viewport {
   x: number;
   y: number;
@@ -703,6 +714,8 @@ interface CanvasState {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  threadGists: Record<string, ThreadGist>;
+  setThreadGist: (threadId: string, gist: ThreadGist) => void;
   openArtifactCardId: string | null;
   openGroupArtifactId: string | null;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -2195,6 +2208,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connections: [],
   threads: {},
   threadOrder: [],
+  threadGists: {},
+  setThreadGist: (threadId, gist) =>
+    set((state) => ({
+      threadGists: { ...state.threadGists, [threadId]: gist },
+    })),
   openArtifactCardId: null,
   openGroupArtifactId: null,
   sessionArtifacts: {},
@@ -5435,6 +5453,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connections: state.connections,
       threads: state.threads,
       threadOrder: state.threadOrder,
+      threadGists: state.threadGists,
       groups: state.groups,
       connectorStyle: state.connectorStyle,
       canvasBackgroundStyle: state.canvasBackgroundStyle,
@@ -5475,6 +5494,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       connections: [],
       threads: {},
       threadOrder: [],
+      threadGists: {},
       groups: {},
       sessionArtifacts: {},
       canvasAssets: {},
@@ -5620,6 +5640,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         connections,
         threads,
         threadOrder,
+        threadGists: { ...snapshotNorm.threadGists },
         groups: { ...snapshotNorm.groups },
         connectorStyle: snapshotNorm.connectorStyle,
         canvasBackgroundStyle: snapshotNorm.canvasBackgroundStyle,

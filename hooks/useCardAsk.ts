@@ -13,6 +13,7 @@ import {
 import { resolvePrimaryArtifactKind } from "@/lib/artifactIntent";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { AskHandle } from "@/lib/dummyLLM";
+import { notifyExchangeComplete } from "@/lib/memory/canvasMemory";
 import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { useCanvasStore } from "@/lib/store";
 
@@ -139,6 +140,7 @@ export function useCardAsk(cardId: string, enabled: boolean) {
                 useCanvasStore.getState().cards[cardId]?.responseType ??
                 "text",
             });
+            notifyExchangeComplete(cardId);
           }
           requestAnimationFrame(() => {
             const state = useCanvasStore.getState();
