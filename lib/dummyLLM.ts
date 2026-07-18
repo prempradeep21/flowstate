@@ -184,6 +184,17 @@ export interface AskCallbacks {
   onArtifact?: (artifact: EmittedArtifact) => void;
   onResponseType?: (type: ResponseType) => void;
   onSdkBuildStages?: (stages: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[]) => void;
+  /** An MCP tool call is paused awaiting the user's approval. */
+  onMcpApproval?: (approval: {
+    requestId: string;
+    serverId: string;
+    serverName: string;
+    toolName: string;
+    description: string;
+    inputPreview: Record<string, unknown>;
+  }) => void;
+  /** The approval was decided (possibly elsewhere) — dismiss the popup. */
+  onMcpApprovalResolved?: (requestId: string) => void;
   onDone: (meta: AskDoneMeta) => void;
 }
 

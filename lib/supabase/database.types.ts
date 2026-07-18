@@ -302,6 +302,165 @@ export interface Database {
         };
         Relationships: [];
       };
+      mcp_servers: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          enabled: boolean;
+          transport: "http" | "stdio";
+          url: string | null;
+          auth_type: "none" | "headers" | "oauth";
+          headers_encrypted: string | null;
+          tools_cache: Json | null;
+          tools_cached_at: string | null;
+          last_status: string | null;
+          last_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          enabled?: boolean;
+          transport?: "http" | "stdio";
+          url?: string | null;
+          auth_type?: "none" | "headers" | "oauth";
+          headers_encrypted?: string | null;
+          tools_cache?: Json | null;
+          tools_cached_at?: string | null;
+          last_status?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          enabled?: boolean;
+          transport?: "http" | "stdio";
+          url?: string | null;
+          auth_type?: "none" | "headers" | "oauth";
+          headers_encrypted?: string | null;
+          tools_cache?: Json | null;
+          tools_cached_at?: string | null;
+          last_status?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mcp_oauth_connections: {
+        Row: {
+          server_id: string;
+          user_id: string;
+          access_token_encrypted: string | null;
+          refresh_token_encrypted: string | null;
+          expires_at: string | null;
+          scopes: string[];
+          client_info_encrypted: string | null;
+          code_verifier_encrypted: string | null;
+          oauth_state: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          server_id: string;
+          user_id: string;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          expires_at?: string | null;
+          scopes?: string[];
+          client_info_encrypted?: string | null;
+          code_verifier_encrypted?: string | null;
+          oauth_state?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          server_id?: string;
+          user_id?: string;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          expires_at?: string | null;
+          scopes?: string[];
+          client_info_encrypted?: string | null;
+          code_verifier_encrypted?: string | null;
+          oauth_state?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mcp_tool_grants: {
+        Row: {
+          user_id: string;
+          server_id: string;
+          tool_name: string;
+          decision: "always" | "deny";
+          tool_hash: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          server_id: string;
+          tool_name: string;
+          decision: "always" | "deny";
+          tool_hash: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          server_id?: string;
+          tool_name?: string;
+          decision?: "always" | "deny";
+          tool_hash?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mcp_approval_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          server_id: string;
+          tool_name: string;
+          input_preview: Json | null;
+          tool_hash: string;
+          status: "pending" | "allow_once" | "always" | "deny" | "cancelled" | "expired";
+          created_at: string;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          server_id: string;
+          tool_name: string;
+          input_preview?: Json | null;
+          tool_hash: string;
+          status?: "pending" | "allow_once" | "always" | "deny" | "cancelled" | "expired";
+          created_at?: string;
+          decided_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          server_id?: string;
+          tool_name?: string;
+          input_preview?: Json | null;
+          tool_hash?: string;
+          status?: "pending" | "allow_once" | "always" | "deny" | "cancelled" | "expired";
+          created_at?: string;
+          decided_at?: string | null;
+        };
+        Relationships: [];
+      };
       user_memories: {
         Row: {
           user_id: string;

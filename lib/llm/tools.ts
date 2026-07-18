@@ -14,6 +14,8 @@ import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
+import { resolveApproval } from "@/lib/mcp/approval";
+import type { ApprovalContext } from "@/lib/mcp/approval";
 import type { EmitFn, NeutralToolDef, ToolCall, ToolExecutor } from "@/lib/llm/provider";
 
 // --- Built-in tool definitions (provider-neutral) ----------------------------
@@ -165,6 +167,8 @@ export function mcpImages(imgs: McpImage[]) {
 export interface ToolExecContext {
   emit: EmitFn;
   mcp: McpToolsResult;
+  /** Present when MCP tools are available (signed-in user with servers). */
+  mcpCtx?: Omit<ApprovalContext, "emit"> & { origin?: string };
 }
 
 /**
@@ -172,7 +176,7 @@ export interface ToolExecContext {
  * geocoding / normalization business logic, emits artifact/image/thinking SSE
  * events, and returns the tool-result text the provider feeds back to the model.
  */
-export function createToolExecutor({ emit, mcp }: ToolExecContext): ToolExecutor {
+export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): ToolExecutor {
   return async function executeTool(call: ToolCall): Promise<string> {
     const input = call.input ?? {};
     try {
@@ -265,12 +269,62 @@ export function createToolExecutor({ emit, mcp }: ToolExecContext): ToolExecutor
       }
 
       if (mcp.registry.has(call.name)) {
-        const server = mcp.registry.get(call.name)!;
-        emit({ thinking: `Calling ${server.name}: ${call.name}…` });
-        const mcpResult = await callMcpTool(server, call.name, input);
+        const handle = mcp.registry.get(call.name)!;
+        if (!mcpCtx) {
+          return "MCP tools require a signed-in session.";
+        }
+
+        const toolDef = mcp.tools.find((t) => t.name === call.name);
+        emit({ thinking: `Waiting for permission: ${handle.originalName}…` });
+        const approval = await resolveApproval(
+          { ...mcpCtx, emit },
+          handle,
+          input,
+          toolDef?.description ?? "",
+        );
+        if (!approval.allowed) {
+          if (approval.reason === "aborted") {
+            return "The request was cancelled.";
+          }
+          return approval.reason === "timeout"
+            ? `The user did not respond to the approval prompt for ${handle.originalName}. Do not call this tool again this turn; continue without it.`
+            : `The user declined the ${handle.originalName} call. Continue without it and do not retry it this turn.`;
+        }
+
+        emit({ thinking: `Calling ${handle.serverName}: ${handle.originalName}…` });
+        let mcpResult;
+        try {
+          mcpResult = await callMcpTool(mcpCtx.supabase, handle, input, mcpCtx.origin);
+        } catch (err) {
+          if (err instanceof Error && err.name === "UnauthorizedError") {
+            emit({
+              mcpAuth: { serverId: handle.serverId, serverName: handle.serverName },
+            });
+            return `The ${handle.serverName} server requires authentication. Tell the user to open the MCP tab in the right panel and click Connect for "${handle.serverName}", then ask again.`;
+          }
+          throw err;
+        }
         if (mcpResult.images.length > 0) {
           emit({ images: mcpImages(mcpResult.images) });
           emit({ responseType: "image" });
+        }
+        if (mcpResult.html) {
+          const normalized = normalizeCustomArtifactData({ html: mcpResult.html });
+          if (
+            normalized?.html &&
+            customArtifactByteSize(normalized) <= CUSTOM_ARTIFACT_MAX_BYTES
+          ) {
+            emit({ pendingArtifact: { type: "custom" } });
+            emit({
+              artifact: {
+                type: "custom",
+                title: `${handle.serverName}: ${handle.originalName}`,
+                description: `Output from the ${handle.serverName} MCP tool`,
+                data: normalized as unknown as Record<string, unknown>,
+              },
+            });
+            return `Rendered the ${handle.originalName} result as an interactive card on the canvas. Summarize it briefly for the user.`;
+          }
         }
         return mcpResult.text;
       }
