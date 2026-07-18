@@ -302,6 +302,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_memories: {
+        Row: {
+          user_id: string;
+          content: string;
+          pending_notes: string;
+          turn_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          content?: string;
+          pending_notes?: string;
+          turn_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          content?: string;
+          pending_notes?: string;
+          turn_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       qa_turn_events: {
         Row: {
           id: string;

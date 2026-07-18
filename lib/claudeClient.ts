@@ -8,6 +8,7 @@ import {
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { collectAskAttachments } from "@/lib/askAttachments";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
+import { collectSiblingGists } from "@/lib/memory/canvasMemory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
 import {
   CALENDAR_THINKING_LABEL,
@@ -114,6 +115,10 @@ export function askClaude(
 
       if (cancelled) return;
 
+      // Faint awareness of sibling branches — ranked against the raw question,
+      // never the branches' full context.
+      const canvasMemory = collectSiblingGists(cardId, question);
+
       await registerConversation(cardId, parentConversationId);
 
       const useCustomUiSdk = CUSTOM_UI_SDK_ENABLED && customWork;
@@ -130,6 +135,7 @@ export function askClaude(
           question: questionWithContext,
           model,
           history,
+          canvasMemory: canvasMemory.length > 0 ? canvasMemory : undefined,
           files: files?.length
             ? files.map((f) => ({
                 name: f.name,
