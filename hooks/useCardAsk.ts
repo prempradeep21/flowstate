@@ -42,7 +42,12 @@ export function useCardAsk(cardId: string, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled || !card || card.status !== "thinking") {
-      if (!card || card.status !== "thinking") {
+      // Only forget the started question once the turn has actually ended.
+      // Mid-stream the status flips thinking → streaming → thinking (artifact
+      // progress labels go through onThinking); resetting on "streaming" made
+      // each flip back to "thinking" cancel the live stream and re-issue the
+      // whole /api/chat request in a loop until the turn watchdog expired it.
+      if (!card || card.status === "done" || card.status === "empty") {
         startedForRef.current = null;
       }
       return;
