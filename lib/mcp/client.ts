@@ -5,10 +5,15 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import {
+  getDefaultEnvironment,
+  StdioClientTransport,
+} from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { isStdioMcpAllowed } from "@/lib/supabase/environment";
 import { SupabaseOAuthClientProvider } from "@/lib/mcp/oauthProvider";
 import { decryptHeaderMap } from "@/lib/mcp/secrets";
 import { assertSafeMcpUrl, guardedFetch } from "@/lib/mcp/urlGuard";
@@ -32,6 +37,8 @@ export function resolveAppOrigin(origin?: string): string {
 }
 
 const CONNECT_TIMEOUT_MS = 8_000;
+// Cold `npx`/`uvx` starts (downloading a package on first run) are slow.
+const STDIO_CONNECT_TIMEOUT_MS = 60_000;
 const POOL_IDLE_MS = 5 * 60 * 1000;
 
 interface PooledClient {
@@ -85,6 +92,31 @@ export async function connectMcpServer(
       pooled.lastUsed = Date.now();
       return pooled.client;
     }
+  }
+
+  // Local (stdio) servers spawn a process — desktop/dev only, never on a
+  // hosted web build (defense in depth: also rejected at CRUD + query layers).
+  if (row.transport === "stdio") {
+    if (!isStdioMcpAllowed()) {
+      throw new Error("Local (stdio) MCP servers only run in the desktop app.");
+    }
+    if (!row.stdio_command) {
+      throw new Error("This local MCP server has no command configured.");
+    }
+    const env = decryptHeaderMap(row.stdio_env_encrypted);
+    const args = Array.isArray(row.stdio_args)
+      ? (row.stdio_args as unknown[]).filter((a): a is string => typeof a === "string")
+      : [];
+    const client = new Client({ name: "flowstate", version: "1.0.0" }, { capabilities: {} });
+    const transport = new StdioClientTransport({
+      command: row.stdio_command,
+      args,
+      env: { ...getDefaultEnvironment(), ...env },
+      stderr: "ignore",
+    });
+    await withTimeout(client.connect(transport), STDIO_CONNECT_TIMEOUT_MS, "MCP connect (stdio)");
+    if (!options.fresh) pool.set(row.id, { client, lastUsed: Date.now() });
+    return client;
   }
 
   if (row.transport !== "http" || !row.url) {

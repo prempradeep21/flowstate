@@ -6,7 +6,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { parseServerInput } from "@/lib/mcp/parseServerJson";
+import { parseServerInput, type ParsedMcpServer } from "@/lib/mcp/parseServerJson";
+import { isStdioMcpAllowed } from "@/lib/supabase/environment";
 import type { McpServerSummary } from "@/lib/mcp/types";
 
 interface RegistryEntry {
@@ -14,6 +15,9 @@ interface RegistryEntry {
   description: string;
   remotes: Array<{ type: string; url: string }>;
 }
+
+/** Payload sent to POST /api/mcp/servers (remote or local). */
+type AddServerPayload = ParsedMcpServer & { transport?: "http" | "stdio" };
 
 export function McpSection() {
   const { user, signInWithGoogle } = useAuth();
@@ -312,18 +316,19 @@ function McpServerRow({
 }
 
 function McpAddServer({ onAdded }: { onAdded: () => void }) {
-  const [mode, setMode] = useState<"search" | "paste">("search");
+  const stdioAllowed = isStdioMcpAllowed();
+  const [mode, setMode] = useState<"search" | "paste" | "local">("search");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const addServer = async (name: string, url: string, headers?: Record<string, string>) => {
+  const addServer = async (payload: AddServerPayload): Promise<boolean> => {
     setBusy(true);
     setMessage(null);
     try {
       const res = await fetch("/api/mcp/servers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, url, headers }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json()) as {
         server?: { status: string; toolCount: number; error?: string | null };
@@ -348,26 +353,42 @@ function McpAddServer({ onAdded }: { onAdded: () => void }) {
     }
   };
 
+  const tabs: Array<{ id: typeof mode; label: string }> = [
+    { id: "search", label: "Browse registry" },
+    { id: "paste", label: "Paste URL / JSON" },
+    ...(stdioAllowed ? [{ id: "local" as const, label: "Local command" }] : []),
+  ];
+
   return (
     <div className="mb-4 rounded-canvas border border-canvas-border bg-canvas-bg/60 p-3">
-      <div className="mb-2 flex gap-1">
-        {(["search", "paste"] as const).map((m) => (
+      <div className="mb-2 flex flex-wrap gap-1">
+        {tabs.map((t) => (
           <button
-            key={m}
+            key={t.id}
             type="button"
             className={`btn rounded-full px-3 py-1 text-xs font-medium ${
-              mode === m ? "bg-canvas-accent text-white" : "text-canvas-muted"
+              mode === t.id ? "bg-canvas-accent text-white" : "text-canvas-muted"
             }`}
-            onClick={() => setMode(m)}
+            onClick={() => setMode(t.id)}
           >
-            {m === "search" ? "Browse registry" : "Paste URL / JSON"}
+            {t.label}
           </button>
         ))}
       </div>
       {mode === "search" ? (
-        <McpRegistrySearch busy={busy} onPick={(entry) => void addServer(entry.name.split("/").pop() ?? entry.name, entry.remotes[0]!.url)} />
+        <McpRegistrySearch
+          busy={busy}
+          onPick={(entry) =>
+            void addServer({
+              name: entry.name.split("/").pop() ?? entry.name,
+              url: entry.remotes[0]!.url,
+            })
+          }
+        />
+      ) : mode === "paste" ? (
+        <McpPasteForm busy={busy} allowStdio={stdioAllowed} onSubmit={addServer} />
       ) : (
-        <McpPasteForm busy={busy} onSubmit={addServer} />
+        <McpStdioForm busy={busy} onSubmit={addServer} />
       )}
       {message ? <p className="mt-2 text-xs text-canvas-muted">{message}</p> : null}
     </div>
@@ -454,27 +475,32 @@ function McpRegistrySearch({
 
 function McpPasteForm({
   busy,
+  allowStdio,
   onSubmit,
 }: {
   busy: boolean;
-  onSubmit: (name: string, url: string, headers?: Record<string, string>) => Promise<boolean>;
+  allowStdio: boolean;
+  onSubmit: (payload: AddServerPayload) => Promise<boolean>;
 }) {
   const [raw, setRaw] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
 
   const submit = async () => {
-    const parsed = parseServerInput(raw);
+    const parsed = parseServerInput(raw, allowStdio);
     if (parsed.error || parsed.servers.length === 0) {
       setParseError(parsed.error ?? "No servers found in that config.");
       return;
     }
     setParseError(
       parsed.skippedStdio > 0
-        ? `${parsed.skippedStdio} local (command-based) server(s) skipped — not supported on web.`
+        ? `${parsed.skippedStdio} local (command-based) server(s) skipped — only available in the desktop app.`
         : null,
     );
     for (const server of parsed.servers) {
-      const ok = await onSubmit(server.name, server.url, server.headers);
+      const ok = await onSubmit({
+        ...server,
+        transport: server.command ? "stdio" : "http",
+      });
       if (!ok) break;
     }
     setRaw("");
@@ -497,6 +523,97 @@ function McpPasteForm({
         onClick={() => void submit()}
       >
         Add server{raw.includes("mcpServers") ? "s" : ""}
+      </button>
+    </div>
+  );
+}
+
+function McpStdioForm({
+  busy,
+  onSubmit,
+}: {
+  busy: boolean;
+  onSubmit: (payload: AddServerPayload) => Promise<boolean>;
+}) {
+  const [name, setName] = useState("");
+  const [command, setCommand] = useState("");
+  const [argsText, setArgsText] = useState("");
+  const [envText, setEnvText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!name.trim() || !command.trim()) {
+      setError("Name and command are required.");
+      return;
+    }
+    setError(null);
+    // Args: whitespace-separated, honoring simple quotes.
+    const args = (argsText.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((a) =>
+      a.replace(/^["']|["']$/g, ""),
+    );
+    // Env: KEY=value lines.
+    const env: Record<string, string> = {};
+    for (const line of envText.split("\n")) {
+      const eq = line.indexOf("=");
+      if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    }
+    const ok = await onSubmit({
+      name: name.trim(),
+      transport: "stdio",
+      command: command.trim(),
+      args,
+      env: Object.keys(env).length > 0 ? env : undefined,
+    });
+    if (ok) {
+      setName("");
+      setCommand("");
+      setArgsText("");
+      setEnvText("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-snug text-canvas-muted">
+        ⚠️ A local server runs this command <strong>on your machine</strong> with
+        your permissions. Only add commands you trust.
+      </div>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Name (e.g. pollinations)"
+        className="w-full rounded-lg border border-canvas-border bg-canvas-card px-3 py-2 text-sm text-canvas-ink outline-none placeholder:text-canvas-muted/60"
+      />
+      <input
+        type="text"
+        value={command}
+        onChange={(e) => setCommand(e.target.value)}
+        placeholder="Command (e.g. npx)"
+        className="w-full rounded-lg border border-canvas-border bg-canvas-card px-3 py-2 font-mono text-xs text-canvas-ink outline-none placeholder:text-canvas-muted/60"
+      />
+      <input
+        type="text"
+        value={argsText}
+        onChange={(e) => setArgsText(e.target.value)}
+        placeholder="Args (e.g. -y @pollinations/mcp)"
+        className="w-full rounded-lg border border-canvas-border bg-canvas-card px-3 py-2 font-mono text-xs text-canvas-ink outline-none placeholder:text-canvas-muted/60"
+      />
+      <textarea
+        value={envText}
+        onChange={(e) => setEnvText(e.target.value)}
+        rows={2}
+        placeholder="Env vars, one per line (KEY=value) — optional"
+        className="w-full resize-y rounded-lg border border-canvas-border bg-canvas-card px-3 py-2 font-mono text-xs text-canvas-ink outline-none placeholder:text-canvas-muted/50"
+      />
+      {error ? <p className="text-xs text-amber-600">{error}</p> : null}
+      <button
+        type="button"
+        disabled={busy || !name.trim() || !command.trim()}
+        className="btn self-start rounded-full bg-canvas-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+        onClick={() => void submit()}
+      >
+        Add local server
       </button>
     </div>
   );
