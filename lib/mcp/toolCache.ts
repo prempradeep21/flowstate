@@ -9,6 +9,7 @@ import type { NeutralToolDef } from "@/lib/llm/provider";
 import {
   connectMcpServer,
   evictPooledClient,
+  isAuthRequiredError,
   type McpAuthContext,
   type McpServerRow,
 } from "@/lib/mcp/client";
@@ -76,7 +77,7 @@ export async function refreshServerTools(
   } catch (err) {
     evictPooledClient(row.id);
     const message = err instanceof Error ? err.message : String(err);
-    const needsAuth = err instanceof Error && err.name === "UnauthorizedError";
+    const needsAuth = isAuthRequiredError(err);
     await supabase
       .from("mcp_servers")
       .update({

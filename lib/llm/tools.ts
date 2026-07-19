@@ -14,6 +14,7 @@ import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { callMcpTool } from "@/lib/mcpManager";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
+import { isAuthRequiredError } from "@/lib/mcp/client";
 import { resolveApproval } from "@/lib/mcp/approval";
 import type { ApprovalContext } from "@/lib/mcp/approval";
 import type { EmitFn, NeutralToolDef, ToolCall, ToolExecutor } from "@/lib/llm/provider";
@@ -296,7 +297,7 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
         try {
           mcpResult = await callMcpTool(mcpCtx.supabase, handle, input, mcpCtx.origin);
         } catch (err) {
-          if (err instanceof Error && err.name === "UnauthorizedError") {
+          if (isAuthRequiredError(err)) {
             emit({
               mcpAuth: { serverId: handle.serverId, serverName: handle.serverName },
             });

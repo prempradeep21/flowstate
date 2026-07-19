@@ -117,8 +117,10 @@ export async function connectMcpServer(
     });
     await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, "MCP connect");
   } catch (err) {
-    // UnauthorizedError must bubble up so callers can start the OAuth flow.
-    if (err instanceof Error && err.name === "UnauthorizedError") throw err;
+    // Auth-required failures must bubble up untouched so callers can flag
+    // the server as needs-auth / start the OAuth flow — an SSE retry against
+    // a 401 is pointless and masks the real cause.
+    if (isAuthRequiredError(err)) throw err;
     const status = extractHttpStatus(err);
     if (status !== null && status >= 400 && status < 500) {
       client = makeClient();
@@ -147,6 +149,18 @@ function extractHttpStatus(err: unknown): number | null {
     if (match) return Number(match[1]);
   }
   return null;
+}
+
+/**
+ * True when a connect/call failure means "this server wants authentication"
+ * — either the SDK's typed UnauthorizedError (authProvider path) or a plain
+ * HTTP 401/403 from a server whose auth hasn't been configured yet.
+ */
+export function isAuthRequiredError(err: unknown): boolean {
+  if (err instanceof Error && err.name === "UnauthorizedError") return true;
+  const status = extractHttpStatus(err);
+  if (status === 401 || status === 403) return true;
+  return err instanceof Error && /\bunauthorized\b/i.test(err.message);
 }
 
 /** Drop a server's pooled session (after config/auth changes or errors). */
