@@ -4,18 +4,23 @@ import { useState } from "react";
 import { useCanvasStore } from "@/lib/store";
 
 /**
- * Approval prompt for a paused MCP tool call, anchored above the card's
- * composer. Deliberately NOT dismissed by outside clicks — an accidental
- * click must not deny a tool call; it persists until decided, resolved
- * elsewhere, or the stream ends.
+ * Floating approval dock for paused MCP tool calls. Rendered once at
+ * workspace level (fixed above the bottom toolbar) so it is visible no
+ * matter which card is streaming or which view mode is active — a
+ * mid-stream card renders no composer, so anchoring to the composer would
+ * hide the prompt exactly when it's needed.
+ *
+ * Deliberately NOT dismissed by outside clicks — an accidental click must
+ * not deny a tool call. It persists until decided, resolved elsewhere, or
+ * the stream ends. Approvals queue: the oldest shows first.
  */
-export function McpApprovalPopup({ cardId }: { cardId: string }) {
+export function McpApprovalDock() {
   const approvals = useCanvasStore((s) => s.pendingMcpApprovals);
   const resolveMcpApproval = useCanvasStore((s) => s.resolveMcpApproval);
   const [busy, setBusy] = useState(false);
   const [showInput, setShowInput] = useState(false);
 
-  const approval = approvals.find((a) => a.cardId === cardId);
+  const approval = approvals[0];
   if (!approval) return null;
 
   const decide = async (decision: "allow_once" | "always" | "deny") => {
@@ -41,11 +46,11 @@ export function McpApprovalPopup({ cardId }: { cardId: string }) {
   return (
     <div
       data-mcp-approval
-      className="absolute bottom-full left-0 z-[60] mb-2 w-full min-w-0"
+      className="pointer-events-none absolute inset-x-0 bottom-24 z-[70] flex justify-center px-4"
       role="alertdialog"
       aria-label={`Permission request from ${approval.serverName}`}
     >
-      <div className="rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-artifactHover">
+      <div className="pointer-events-auto w-full max-w-md rounded-canvas border border-canvas-accent/40 bg-canvas-card p-3 shadow-artifactHover">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-canvas-ink">
@@ -72,6 +77,11 @@ export function McpApprovalPopup({ cardId }: { cardId: string }) {
               </pre>
             ) : null}
           </div>
+          {approvals.length > 1 ? (
+            <span className="shrink-0 rounded-full bg-canvas-bg px-2 py-0.5 text-[10px] text-canvas-muted">
+              +{approvals.length - 1} more
+            </span>
+          ) : null}
         </div>
         <div className="mt-2 flex items-center gap-2">
           <button

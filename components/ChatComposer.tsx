@@ -12,7 +12,6 @@ import { createPortal } from "react-dom";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
 import { ComposerModelPicker } from "@/components/ComposerModelPicker";
-import { McpApprovalPopup } from "@/components/mcp/McpApprovalPopup";
 import { menuItemClass } from "@/components/MenuIcons";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
@@ -437,7 +436,6 @@ export function ChatComposer({
       onDragOver={onDragOver}
       onDrop={onDrop}
     >
-      {cardId ? <McpApprovalPopup cardId={cardId} /> : null}
       <div
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
