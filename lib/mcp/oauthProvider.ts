@@ -47,7 +47,10 @@ export class SupabaseOAuthClientProvider implements OAuthClientProvider {
       redirect_uris: [this.redirectUrl],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      token_endpoint_auth_method: "client_secret_post",
+      // Public client secured by PKCE — the registration style the MCP
+      // ecosystem standardizes on; some servers (e.g. Comfy Cloud) reject
+      // confidential-client registrations outright.
+      token_endpoint_auth_method: "none",
     };
   }
 
