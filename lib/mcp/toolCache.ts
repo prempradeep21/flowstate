@@ -20,8 +20,11 @@ import type { McpCachedTool, McpToolHandle } from "@/lib/mcp/types";
 export const TOOLS_CACHE_TTL_MS = 10 * 60 * 1000;
 const LIST_TIMEOUT_MS = 4_000;
 export const MAX_TOOLS_PER_SERVER = 40;
-export const MAX_TOOLS_TOTAL = 100;
+export const MAX_TOOLS_TOTAL = 160;
 const MAX_DESCRIPTION_CHARS = 600;
+
+/** In-flight background refreshes so concurrent requests don't stack them. */
+const refreshInFlight = new Set<string>();
 
 type Supabase = SupabaseClient<Database>;
 
@@ -127,23 +130,42 @@ export async function getMcpToolsForUser(
   const registry = new Map<string, McpToolHandle>();
   if (!rows?.length) return { tools, registry };
 
+  // Stale-while-revalidate: the chat path serves whatever is cached (fresh or
+  // stale) immediately and refreshes stale servers in the background — a slow
+  // server must never eat the route's prompt-build budget and blank out ALL
+  // MCP tools. Only servers with no cache at all (never connected) are
+  // fetched inline, since serving nothing for them isn't an option.
   const perServer = await Promise.all(
     rows.map(async (row) => {
-      if (cacheIsFresh(row)) return { row, cached: parseCachedTools(row) };
+      const cached = parseCachedTools(row);
+      if (cacheIsFresh(row)) return { row, cached };
+      if (cached.length > 0) {
+        if (!refreshInFlight.has(row.id)) {
+          refreshInFlight.add(row.id);
+          void refreshServerTools(supabase, row, origin)
+            .catch(() => {})
+            .finally(() => refreshInFlight.delete(row.id));
+        }
+        return { row, cached };
+      }
       try {
         return { row, cached: await refreshServerTools(supabase, row, origin) };
       } catch {
-        return { row, cached: parseCachedTools(row) }; // stale cache or empty
+        return { row, cached: [] };
       }
     }),
   );
 
   const taken = new Set<string>();
   let total = 0;
+  let truncated = 0;
   for (const { row, cached } of perServer) {
     const slug = slugifyServerName(row.name);
     for (const tool of cached) {
-      if (total >= MAX_TOOLS_TOTAL) break;
+      if (total >= MAX_TOOLS_TOTAL) {
+        truncated += 1;
+        continue;
+      }
       const exposedName = buildExposedName(slug, tool.name, taken);
       tools.push({
         name: exposedName,
@@ -159,6 +181,11 @@ export async function getMcpToolsForUser(
       });
       total += 1;
     }
+  }
+  if (truncated > 0) {
+    console.warn(
+      `[mcp] tool cap hit: exposing ${total}/${total + truncated} tools across ${rows.length} servers — disable unused servers to free slots`,
+    );
   }
   return { tools, registry };
 }
