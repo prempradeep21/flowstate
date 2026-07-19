@@ -57,6 +57,11 @@ import {
 } from "@/lib/artifactRemoteUpdate";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
@@ -83,6 +88,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       s.selectedCanvasArtifactId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "artifact", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasArtifact = useCanvasStore((s) => s.moveCanvasArtifact);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
   const setCanvasArtifactVersion = useCanvasStore(
@@ -112,7 +120,15 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "artifact",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvasArtifact(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("artifact", targetId, dx, dy)) {
+        moveCanvasArtifact(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("artifact", targetId) ?? [
+        { kind: "artifact", id: targetId },
+      ],
     makeCopy: (id) =>
       useCanvasStore.getState().duplicateCanvasArtifactNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
@@ -571,7 +587,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         ) : null}
       </CanvasSharpContent>
 
-      {!godView && !isPermissionPreview && (
+      {!godView && !isPermissionPreview && !isSelectionMember && (
         <NodeCornerResizeHandles
           ariaLabel="Resize artifact"
           zClass="z-[60]"

@@ -1,10 +1,18 @@
 import { collectAncestorCardIds } from "@/lib/buildAncestorHistory";
+import { buildGroupContextBlocks } from "@/lib/groupAskContext";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import type {
+  BranchGroup,
+  Canvas3DNode,
+  CanvasArtifactNode,
   CanvasAsset,
+  CanvasAssetNode,
+  CanvasGifNode,
   CanvasSkill,
+  CanvasTextLabel,
   Card,
   Connection,
+  Thread,
   PendingFileAttachment,
 } from "@/lib/store";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
@@ -30,6 +38,16 @@ interface AskAttachmentGraph {
   canvasAssets: Record<string, CanvasAsset>;
   canvasSkills: Record<string, CanvasSkill>;
   sessionArtifacts?: Record<string, SessionArtifact>;
+  /** Group joint-context fields — optional so narrow callers still work. */
+  groups?: Record<string, BranchGroup>;
+  cardOrder?: string[];
+  threads?: Record<string, Thread>;
+  threadOrder?: string[];
+  canvasArtifactNodes?: Record<string, CanvasArtifactNode>;
+  canvasAssetNodes?: Record<string, CanvasAssetNode>;
+  canvasGifNodes?: Record<string, CanvasGifNode>;
+  canvas3DNodes?: Record<string, Canvas3DNode>;
+  canvasTextLabels?: Record<string, CanvasTextLabel>;
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
@@ -83,10 +101,46 @@ function appendTextContext(
   );
 }
 
+/** Fetch one asset into the binary-file or inline-text channel. */
+async function collectAssetContext(
+  asset: CanvasAsset,
+  files: AskAttachmentFile[],
+  textContexts: string[],
+  contextLabel: string,
+  turnLabel?: string,
+): Promise<void> {
+  if (!asset.publicUrl) return;
+  try {
+    const response = await fetch(asset.publicUrl);
+    if (!response.ok) return;
+    const blob = await response.blob();
+    if (isBinaryAttachmentMime(asset.mimeType)) {
+      files.push({
+        name: asset.name,
+        mimeType: asset.mimeType,
+        base64: await blobToBase64(blob),
+        turnLabel,
+      });
+    } else if (isTextAsset(asset)) {
+      const raw = await blob.text();
+      appendTextContext(
+        textContexts,
+        `${contextLabel}: ${asset.name} (${asset.mimeType})`,
+        raw,
+      );
+    }
+  } catch {
+    textContexts.push(
+      `${contextLabel}: ${asset.name} (${asset.mimeType}) could not be loaded.`,
+    );
+  }
+}
+
 async function collectFilesForCard(
   card: Card,
   graph: AskAttachmentGraph,
   turnLabel?: string,
+  seenGroupIds?: Set<string>,
 ): Promise<{ files: AskAttachmentFile[]; textContexts: string[] }> {
   const files: AskAttachmentFile[] = [];
   const textContexts: string[] = [];
@@ -129,31 +183,14 @@ async function collectFilesForCard(
 
   for (const ref of card.attachedAssets ?? []) {
     const asset = graph.canvasAssets[ref.assetId];
-    if (!asset?.publicUrl) continue;
-    try {
-      const response = await fetch(asset.publicUrl);
-      if (!response.ok) continue;
-      const blob = await response.blob();
-      if (isBinaryAttachmentMime(asset.mimeType)) {
-        files.push({
-          name: asset.name,
-          mimeType: asset.mimeType,
-          base64: await blobToBase64(blob),
-          turnLabel,
-        });
-      } else if (isTextAsset(asset)) {
-        const raw = await blob.text();
-        appendTextContext(
-          textContexts,
-          `Asset${turnLabel ? ` (${turnLabel})` : ""}: ${asset.name} (${asset.mimeType})`,
-          raw,
-        );
-      }
-    } catch {
-      textContexts.push(
-        `Asset${turnLabel ? ` (${turnLabel})` : ""}: ${asset.name} (${asset.mimeType}) could not be loaded.`,
-      );
-    }
+    if (!asset) continue;
+    await collectAssetContext(
+      asset,
+      files,
+      textContexts,
+      `Asset${turnLabel ? ` (${turnLabel})` : ""}`,
+      turnLabel,
+    );
   }
 
   for (const ref of card.attachedSkills ?? []) {
@@ -171,6 +208,49 @@ async function collectFilesForCard(
     } catch {
       textContexts.push(
         `Skill${turnLabel ? ` (${turnLabel})` : ""}: ${skill.title} could not be loaded.`,
+      );
+    }
+  }
+
+  // Attached groups — joint context. Serialized once per ask even when the
+  // same group rides the current card AND its ancestors (follow-up turns).
+  for (const ref of card.attachedGroups ?? []) {
+    if (seenGroupIds?.has(ref.groupId)) continue;
+    seenGroupIds?.add(ref.groupId);
+    const group = graph.groups?.[ref.groupId];
+    if (!group) continue;
+
+    const threadState = {
+      cards: graph.cards,
+      connections: graph.connections,
+      cardOrder: graph.cardOrder ?? [],
+      threads: graph.threads ?? {},
+      threadOrder: graph.threadOrder ?? [],
+    };
+    for (const block of buildGroupContextBlocks(group, {
+      ...threadState,
+      sessionArtifacts: graph.sessionArtifacts,
+      canvasArtifactNodes: graph.canvasArtifactNodes,
+      canvasGifNodes: graph.canvasGifNodes,
+      canvas3DNodes: graph.canvas3DNodes,
+      canvasTextLabels: graph.canvasTextLabels,
+    })) {
+      textContexts.push(block);
+    }
+
+    // Member assets go through the normal channels: images/PDFs as native
+    // model files, text files inline.
+    for (const item of group.items ?? []) {
+      if (item.kind !== "asset") continue;
+      const node = graph.canvasAssetNodes?.[item.id];
+      const asset = node ? graph.canvasAssets[node.assetId] : undefined;
+      if (!asset) continue;
+      await collectAssetContext(
+        asset,
+        files,
+        textContexts,
+        `Asset in group "${group.label}"`,
+        turnLabel,
       );
     }
   }
@@ -213,12 +293,18 @@ export async function collectAskAttachments(
     files.push(file);
   };
 
+  const seenGroupIds = new Set<string>();
   const ancestorIds = ancestorCardIds(graph, cardId);
   for (const [index, ancestorId] of ancestorIds.entries()) {
     const ancestor = graph.cards[ancestorId];
     if (!ancestor) continue;
     const turnLabel = `earlier turn ${index + 1}`;
-    const collected = await collectFilesForCard(ancestor, graph, turnLabel);
+    const collected = await collectFilesForCard(
+      ancestor,
+      graph,
+      turnLabel,
+      seenGroupIds,
+    );
     for (const block of collected.textContexts) {
       contextBlocks.push(block);
     }
@@ -227,7 +313,7 @@ export async function collectAskAttachments(
     }
   }
 
-  const current = await collectFilesForCard(card, graph);
+  const current = await collectFilesForCard(card, graph, undefined, seenGroupIds);
   for (const block of current.textContexts) {
     contextBlocks.push(block);
   }

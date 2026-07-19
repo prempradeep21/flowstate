@@ -18,6 +18,11 @@ import {
 } from "@/lib/canvasTextLabelBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -114,6 +119,9 @@ function CanvasTextLabelNodeInner({
       s.selectedCanvasTextLabelId === label.id ||
       isCanvasItemSelected(s.canvasSelection, "label", label.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasTextLabel = useCanvasStore((s) => s.moveCanvasTextLabel);
   const selectCanvasTextLabel = useCanvasStore((s) => s.selectCanvasTextLabel);
   const updateCanvasTextLabel = useCanvasStore((s) => s.updateCanvasTextLabel);
@@ -137,7 +145,15 @@ function CanvasTextLabelNodeInner({
   const nodeDrag = useCanvasNodeDrag({
     kind: "label",
     nodeId: label.id,
-    commitMove: (targetId, dx, dy) => moveCanvasTextLabel(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("label", targetId, dx, dy)) {
+        moveCanvasTextLabel(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("label", targetId) ?? [
+        { kind: "label", id: targetId },
+      ],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvasTextLabel(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -433,7 +449,7 @@ function CanvasTextLabelNodeInner({
               hasFixedWidth ? "whitespace-pre-wrap" : "whitespace-pre"
             } ${
               isSelected
-                ? "ring-2 ring-canvas-ink/25 ring-offset-2 ring-offset-transparent"
+                ? "ring-2 ring-canvas-accent ring-offset-2 ring-offset-transparent"
                 : ""
             }`}
             style={{ fontSize: label.fontSize }}
@@ -443,7 +459,7 @@ function CanvasTextLabelNodeInner({
         )}
       </CanvasSharpContent>
 
-      {isSelected && !editing && (
+      {isSelected && !editing && !isSelectionMember && (
         <>
           <CornerResizeHandle
             corner="nw"

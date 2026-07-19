@@ -27,7 +27,9 @@ export type CanvasNodeKind =
   | "gif"
   | "3d"
   | "skill"
-  | "label";
+  | "label"
+  /** Group CONTAINER visual — dragged in lockstep with its members. */
+  | "group";
 
 export interface GestureNodeRef {
   kind: CanvasNodeKind;
@@ -59,11 +61,14 @@ const listeners = new Set<NodeDragListener>();
 
 function nodeElement(ref: GestureNodeRef): HTMLElement | null {
   // All node roots already carry stable data attributes (used by hit tests):
-  // cards use data-canvas-card, every other kind data-canvas-node-id.
+  // cards use data-canvas-card, group containers data-group-bounds, every
+  // other kind data-canvas-node-id.
   const selector =
     ref.kind === "card"
       ? `[data-canvas-card="${CSS.escape(ref.id)}"]`
-      : `[data-canvas-node-id="${CSS.escape(ref.id)}"]`;
+      : ref.kind === "group"
+        ? `[data-group-bounds="${CSS.escape(ref.id)}"]`
+        : `[data-canvas-node-id="${CSS.escape(ref.id)}"]`;
   return document.querySelector<HTMLElement>(selector);
 }
 

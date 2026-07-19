@@ -224,7 +224,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
         onPointerCancel={handlePointerUp}
         className={`group/skill absolute rounded-[20px] border bg-canvas-card shadow-artifact transition-shadow ${
           isSelected
-            ? "border-canvas-ink shadow-artifactHover"
+            ? "border-canvas-accent ring-2 ring-canvas-accent/25 shadow-artifactHover"
             : "border-canvas-border hover:shadow-artifactHover"
         }`}
         style={{

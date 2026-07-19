@@ -110,6 +110,16 @@ export function askClaude(
           canvasAssets: state.canvasAssets,
           canvasSkills: state.canvasSkills,
           sessionArtifacts: state.sessionArtifacts,
+          // Group joint-context: membership + every member node collection.
+          groups: state.groups,
+          cardOrder: state.cardOrder,
+          threads: state.threads,
+          threadOrder: state.threadOrder,
+          canvasArtifactNodes: state.canvasArtifactNodes,
+          canvasAssetNodes: state.canvasAssetNodes,
+          canvasGifNodes: state.canvasGifNodes,
+          canvas3DNodes: state.canvas3DNodes,
+          canvasTextLabels: state.canvasTextLabels,
         },
       );
 

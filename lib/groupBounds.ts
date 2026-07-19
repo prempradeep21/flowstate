@@ -1,4 +1,8 @@
 import { CARD_WIDTH, FALLBACK_CARD_HEIGHT } from "@/lib/canvasNodeBounds";
+import {
+  getSelectionBounds,
+  type CanvasNodesState,
+} from "@/lib/canvasSelection";
 import type { BranchGroup, Card } from "@/lib/store";
 import { getFamilyCardIds } from "@/lib/chatThreads";
 import type { ChatThreadState } from "@/lib/chatThreads";
@@ -33,37 +37,22 @@ export function getGroupCardIds(
   return state.cardOrder.filter((id) => ids.has(id));
 }
 
+/** Padded AABB around every member — thread families AND non-card nodes. */
 export function computeGroupBounds(
-  state: ChatThreadState,
+  state: CanvasNodesState,
   group: BranchGroup,
   padding: number = GROUP_BOUNDS_PADDING,
 ): GroupBounds | null {
-  const cardIds = getGroupCardIds(state, group);
-  if (cardIds.length === 0) return null;
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  for (const id of cardIds) {
-    const card = state.cards[id];
-    if (!card) continue;
-    const { x, y, w, h } = cardAabb(card);
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x + w);
-    maxY = Math.max(maxY, y + h);
-  }
-
-  if (!Number.isFinite(minX)) return null;
-
-  const pad = padding;
+  const bounds = getSelectionBounds(state, {
+    familyRootIds: group.familyRootThreadIds,
+    items: group.items ?? [],
+  });
+  if (!bounds) return null;
   return {
-    x: minX - pad,
-    y: minY - pad,
-    w: maxX - minX + pad * 2,
-    h: maxY - minY + pad * 2,
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    w: bounds.w + padding * 2,
+    h: bounds.h + padding * 2,
   };
 }
 

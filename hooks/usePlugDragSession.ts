@@ -32,6 +32,9 @@ export function usePlugDragSession(
   const createRootCardWithSkillAttachment = useCanvasStore(
     (s) => s.createRootCardWithSkillAttachment,
   );
+  const createRootCardWithGroupAttachment = useCanvasStore(
+    (s) => s.createRootCardWithGroupAttachment,
+  );
   const setCardComposerAttachment = useCanvasStore(
     (s) => s.setCardComposerAttachment,
   );
@@ -41,11 +44,17 @@ export function usePlugDragSession(
   const setCardComposerSkillAttachment = useCanvasStore(
     (s) => s.setCardComposerSkillAttachment,
   );
+  const setCardComposerGroupAttachment = useCanvasStore(
+    (s) => s.setCardComposerGroupAttachment,
+  );
   const addArtifactPlugConnection = useCanvasStore(
     (s) => s.addArtifactPlugConnection,
   );
   const addSkillPlugConnection = useCanvasStore(
     (s) => s.addSkillPlugConnection,
+  );
+  const addGroupPlugConnection = useCanvasStore(
+    (s) => s.addGroupPlugConnection,
   );
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -79,7 +88,8 @@ export function usePlugDragSession(
       if (
         drag.kind === "artifact" ||
         drag.kind === "asset" ||
-        drag.kind === "skill"
+        drag.kind === "skill" ||
+        drag.kind === "group"
       ) {
         const nearest = findNearestComposerTarget(
           world,
@@ -222,6 +232,46 @@ export function usePlugDragSession(
             requestCanvasFocus(() => focusCanvasCard(cardId));
           }
         }
+      } else if (drag.kind === "group") {
+        const nearest = findNearestComposerTarget(
+          world,
+          container,
+          viewport,
+          COMPOSER_PROXIMITY_PX,
+        );
+        const hit = nearest ? hitReceivePlug(world, nearest) : null;
+
+        if (hit) {
+          setCardComposerGroupAttachment(hit.cardId, {
+            groupId: drag.groupId,
+          });
+          addGroupPlugConnection({
+            groupId: drag.groupId,
+            cardId: hit.cardId,
+            fromSide: drag.fromSide,
+            toSide: hit.side,
+          });
+        } else if (drag.didDrag) {
+          const { cardWidth } = RESOLVED_CANVAS_TUNING;
+          const cardId = createRootCardWithGroupAttachment(
+            {
+              x: world.x - cardWidth / 2,
+              y: world.y - CARD_DROP_Y_OFFSET,
+            },
+            {
+              groupId: drag.groupId,
+            },
+          );
+          if (cardId) {
+            addGroupPlugConnection({
+              groupId: drag.groupId,
+              cardId,
+              fromSide: drag.fromSide,
+              toSide: drag.fromSide === "left" ? "right" : "left",
+            });
+            requestCanvasFocus(() => focusCanvasCard(cardId));
+          }
+        }
       }
 
       endPlugDrag();
@@ -253,10 +303,13 @@ export function usePlugDragSession(
     createRootCardWithAttachment,
     createRootCardWithAssetAttachment,
     createRootCardWithSkillAttachment,
+    createRootCardWithGroupAttachment,
     setCardComposerAttachment,
     setCardComposerAssetAttachment,
     setCardComposerSkillAttachment,
+    setCardComposerGroupAttachment,
     addArtifactPlugConnection,
     addSkillPlugConnection,
+    addGroupPlugConnection,
   ]);
 }

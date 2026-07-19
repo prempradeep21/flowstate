@@ -17,6 +17,11 @@ import {
 } from "@/lib/canvas3dBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
@@ -38,6 +43,9 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
       s.selectedCanvas3DId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "3d", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const moveCanvas3D = useCanvasStore((s) => s.moveCanvas3D);
   const selectCanvas3D = useCanvasStore((s) => s.selectCanvas3D);
@@ -54,7 +62,13 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "3d",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvas3D(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("3d", targetId, dx, dy)) {
+        moveCanvas3D(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("3d", targetId) ?? [{ kind: "3d", id: targetId }],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvas3DNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -192,7 +206,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   }
 
   const borderClass = isSelected
-    ? "ring-2 ring-canvas-ink/40"
+    ? "ring-2 ring-canvas-accent"
     : "ring-1 ring-transparent hover:ring-canvas-border/60";
 
   return (
@@ -250,7 +264,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && (
+        {!canvasReadOnly && !isSelectionMember && (
           <NodeCornerResizeHandles
             ariaLabel="Resize 3D object"
             visibilityClass={

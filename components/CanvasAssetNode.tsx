@@ -22,6 +22,11 @@ import {
 } from "@/lib/canvasAssetBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -51,6 +56,9 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
       s.selectedCanvasAssetId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "asset", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasAsset = useCanvasStore((s) => s.moveCanvasAsset);
   const selectCanvasAsset = useCanvasStore((s) => s.selectCanvasAsset);
   const setCanvasAssetSize = useCanvasStore((s) => s.setCanvasAssetSize);
@@ -77,7 +85,15 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "asset",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvasAsset(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("asset", targetId, dx, dy)) {
+        moveCanvasAsset(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("asset", targetId) ?? [
+        { kind: "asset", id: targetId },
+      ],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvasAssetNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -303,7 +319,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
           <div
             className={`artifact-casing flex h-full w-full flex-col overflow-hidden rounded-canvas border bg-canvas-card transition-shadow ${
               isSelected
-                ? "border-canvas-ink shadow-artifactHover"
+                ? "border-canvas-accent ring-2 ring-canvas-accent/25 shadow-artifactHover"
                 : "border-canvas-border/60 shadow-artifact hover:shadow-artifactHover"
             }`}
           >
@@ -350,7 +366,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && (
+        {!canvasReadOnly && !isSelectionMember && (
           <NodeCornerResizeHandles
             ariaLabel="Resize asset"
             visibilityClass={

@@ -17,6 +17,11 @@ import {
 } from "@/lib/canvasGifBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -36,6 +41,9 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
       s.selectedCanvasGifId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "gif", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasGif = useCanvasStore((s) => s.moveCanvasGif);
   const selectCanvasGif = useCanvasStore((s) => s.selectCanvasGif);
   const setCanvasGifSize = useCanvasStore((s) => s.setCanvasGifSize);
@@ -49,7 +57,13 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "gif",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvasGif(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("gif", targetId, dx, dy)) {
+        moveCanvasGif(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("gif", targetId) ?? [{ kind: "gif", id: targetId }],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvasGifNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -161,7 +175,7 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
   };
 
   const borderClass = isSelected
-    ? "ring-2 ring-canvas-ink/40"
+    ? "ring-2 ring-canvas-accent"
     : "ring-1 ring-transparent hover:ring-canvas-border/60";
 
   return (
@@ -218,7 +232,7 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && (
+        {!canvasReadOnly && !isSelectionMember && (
           <NodeCornerResizeHandles
             ariaLabel="Resize GIF"
             visibilityClass={
