@@ -44,6 +44,17 @@ export function isDesktopApp(): boolean {
   return process.env.NEXT_PUBLIC_IS_DESKTOP?.trim().toLowerCase() === "true";
 }
 
+/**
+ * Whether local (stdio) MCP servers — which spawn a process — may run.
+ * True in the Electron desktop build (runs on the user's own machine) and
+ * in local `next dev` (localhost-only, for testing). NEVER true on a hosted
+ * production web build, where spawning user-supplied commands would be RCE.
+ * Client-safe: only NEXT_PUBLIC_* and NODE_ENV.
+ */
+export function isStdioMcpAllowed(): boolean {
+  return isDesktopApp() || process.env.NODE_ENV === "development";
+}
+
 export type LocalSupabaseSafety =
   | { kind: "not_local" }
   | { kind: "unconfigured" }

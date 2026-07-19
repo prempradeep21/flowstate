@@ -42,7 +42,7 @@ describe("parseServerInput", () => {
     ]);
   });
 
-  it("errors on garbage and on stdio-only configs", () => {
+  it("errors on garbage and on stdio-only configs (stdio not allowed)", () => {
     expect(parseServerInput("not json at all").error).toBeTruthy();
     const stdioOnly = parseServerInput(
       JSON.stringify({ mcpServers: { gh: { command: "npx" } } }),
@@ -50,5 +50,26 @@ describe("parseServerInput", () => {
     expect(stdioOnly.servers).toHaveLength(0);
     expect(stdioOnly.skippedStdio).toBe(1);
     expect(stdioOnly.error).toMatch(/local/i);
+  });
+
+  it("surfaces stdio servers when allowStdio is set", () => {
+    const res = parseServerInput(
+      JSON.stringify({
+        mcpServers: {
+          pollinations: { command: "npx", args: ["-y", "@pollinations/mcp"], env: { KEY: "v" } },
+          notion: { url: "https://mcp.notion.com/mcp" },
+        },
+      }),
+      true,
+    );
+    expect(res.skippedStdio).toBe(0);
+    const stdio = res.servers.find((s) => s.command);
+    expect(stdio).toMatchObject({
+      name: "pollinations",
+      command: "npx",
+      args: ["-y", "@pollinations/mcp"],
+      env: { KEY: "v" },
+    });
+    expect(res.servers.find((s) => s.url)?.url).toBe("https://mcp.notion.com/mcp");
   });
 });

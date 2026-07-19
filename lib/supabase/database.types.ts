@@ -312,6 +312,9 @@ export interface Database {
           url: string | null;
           auth_type: "none" | "headers" | "oauth";
           headers_encrypted: string | null;
+          stdio_command: string | null;
+          stdio_args: Json | null;
+          stdio_env_encrypted: string | null;
           tools_cache: Json | null;
           tools_cached_at: string | null;
           last_status: string | null;
@@ -328,6 +331,9 @@ export interface Database {
           url?: string | null;
           auth_type?: "none" | "headers" | "oauth";
           headers_encrypted?: string | null;
+          stdio_command?: string | null;
+          stdio_args?: Json | null;
+          stdio_env_encrypted?: string | null;
           tools_cache?: Json | null;
           tools_cached_at?: string | null;
           last_status?: string | null;
@@ -344,6 +350,9 @@ export interface Database {
           url?: string | null;
           auth_type?: "none" | "headers" | "oauth";
           headers_encrypted?: string | null;
+          stdio_command?: string | null;
+          stdio_args?: Json | null;
+          stdio_env_encrypted?: string | null;
           tools_cache?: Json | null;
           tools_cached_at?: string | null;
           last_status?: string | null;

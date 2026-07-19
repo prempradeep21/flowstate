@@ -13,6 +13,7 @@ import {
   type McpAuthContext,
   type McpServerRow,
 } from "@/lib/mcp/client";
+import { isStdioMcpAllowed } from "@/lib/supabase/environment";
 import { buildExposedName, slugifyServerName } from "@/lib/mcp/naming";
 import { computeToolHash } from "@/lib/mcp/toolHash";
 import type { McpCachedTool, McpToolHandle } from "@/lib/mcp/types";
@@ -118,13 +119,15 @@ export async function getMcpToolsForUser(
   userId: string,
   origin?: string,
 ): Promise<McpToolCollection> {
-  const { data: rows } = await supabase
+  // Local (stdio) servers are only served where they can actually spawn a
+  // process (desktop / dev). A hosted web build serves http servers only.
+  let query = supabase
     .from("mcp_servers")
     .select("*")
     .eq("user_id", userId)
-    .eq("enabled", true)
-    .eq("transport", "http")
-    .order("created_at", { ascending: true });
+    .eq("enabled", true);
+  if (!isStdioMcpAllowed()) query = query.eq("transport", "http");
+  const { data: rows } = await query.order("created_at", { ascending: true });
 
   const tools: NeutralToolDef[] = [];
   const registry = new Map<string, McpToolHandle>();
