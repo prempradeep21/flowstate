@@ -142,11 +142,23 @@ export async function connectMcpServer(
 }
 
 function extractHttpStatus(err: unknown): number | null {
-  if (err && typeof err === "object") {
-    const code = (err as { code?: unknown }).code;
-    if (typeof code === "number") return code;
-    const match = err instanceof Error ? err.message.match(/\b(4\d{2})\b/) : null;
-    if (match) return Number(match[1]);
+  if (!err || typeof err !== "object") return null;
+  // Prefer a structured status field — the SDK's transport errors carry the
+  // real HTTP status here (StreamableHTTPError.code, etc.).
+  for (const key of ["status", "statusCode", "code"] as const) {
+    const value = (err as Record<string, unknown>)[key];
+    if (typeof value === "number" && value >= 100 && value <= 599) return value;
+  }
+  // Fall back to the message ONLY when it names an HTTP status explicitly
+  // ("HTTP 401", "status 403", "status code 401", "401 Unauthorized") — never
+  // a bare number, so a "401" buried in unrelated tool-error prose can't flip
+  // a working server to needs-auth.
+  if (err instanceof Error) {
+    const m = err.message.match(
+      /(?:\bhttp\b|\bstatus(?:\s+code)?\b)\D{0,4}(\d{3})|\b(\d{3})\s+(?:unauthorized|forbidden|bad request|not found)/i,
+    );
+    const status = m ? Number(m[1] ?? m[2]) : null;
+    if (status && status >= 100 && status <= 599) return status;
   }
   return null;
 }

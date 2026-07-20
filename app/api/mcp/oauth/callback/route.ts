@@ -10,12 +10,20 @@ export const dynamic = "force-dynamic";
 // finishAuth exchanges the code (PKCE verifier + client info come from the
 // DB, so this works even on a different serverless instance than /start),
 // then a small self-closing page notifies the opener via postMessage.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const serverId = url.searchParams.get("serverId");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const oauthError = url.searchParams.get("error");
+
+  // serverId is reflected into an inline <script>; it is always a UUID, so
+  // anything else is an attack. Validate before it can reach the response,
+  // and only ever emit the validated value (never the raw query string).
+  const safeServerId = serverId && UUID_RE.test(serverId) ? serverId : null;
 
   const respond = (ok: boolean, message?: string) =>
     new Response(
@@ -25,7 +33,7 @@ export async function GET(req: Request) {
   try {
     if (window.opener) {
       window.opener.postMessage(
-        { type: "mcp-oauth-complete", serverId: ${JSON.stringify(serverId)}, ok: ${ok} },
+        { type: "mcp-oauth-complete", serverId: ${jsonForScript(safeServerId)}, ok: ${ok} },
         window.location.origin,
       );
     }
@@ -35,8 +43,8 @@ export async function GET(req: Request) {
       { headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
 
-  if (oauthError) return respond(false, oauthError);
-  if (!serverId || !code || !state) return respond(false, "missing parameters");
+  if (oauthError) return respond(false, "authorization was declined");
+  if (!safeServerId || !code || !state) return respond(false, "missing parameters");
 
   const supabase = await createClient().catch(() => null);
   if (!supabase) return respond(false, "Supabase not configured");
@@ -48,12 +56,12 @@ export async function GET(req: Request) {
   const { data: row } = await supabase
     .from("mcp_servers")
     .select("*")
-    .eq("id", serverId)
+    .eq("id", safeServerId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!row || !row.url) return respond(false, "server not found");
 
-  const provider = new SupabaseOAuthClientProvider(supabase, user.id, serverId, url.origin);
+  const provider = new SupabaseOAuthClientProvider(supabase, user.id, safeServerId, url.origin);
   const stateOk = await provider.consumeState(state);
   if (!stateOk) return respond(false, "invalid state");
 
@@ -75,6 +83,16 @@ export async function GET(req: Request) {
     // last_status/last_error already recorded
   }
   return respond(true);
+}
+
+/**
+ * JSON-encode a value for embedding inside an inline <script>. JSON.stringify
+ * escapes quotes but NOT the literal "</script>", which would break out of the
+ * script element — neutralize `<` as defense-in-depth on top of the UUID
+ * validation of the only value we ever pass here.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value ?? null).replace(/</g, "\\u003c");
 }
 
 function escapeHtml(text: string): string {

@@ -14,6 +14,7 @@ import {
   type McpServerRow,
 } from "@/lib/mcp/client";
 import { buildExposedName, slugifyServerName } from "@/lib/mcp/naming";
+import { after } from "next/server";
 import { computeToolHash } from "@/lib/mcp/toolHash";
 import type { McpCachedTool, McpToolHandle } from "@/lib/mcp/types";
 
@@ -25,6 +26,20 @@ const MAX_DESCRIPTION_CHARS = 600;
 
 /** In-flight background refreshes so concurrent requests don't stack them. */
 const refreshInFlight = new Set<string>();
+
+/**
+ * Run background work that must outlive the current response. On Vercel a
+ * bare fire-and-forget promise is frozen once the response is sent, so wrap
+ * it in `after()`; outside a request scope (tests, scripts) `after` throws,
+ * so fall back to plain execution.
+ */
+function runInBackground(work: () => Promise<void>): void {
+  try {
+    after(work());
+  } catch {
+    void work();
+  }
+}
 
 type Supabase = SupabaseClient<Database>;
 
@@ -142,9 +157,15 @@ export async function getMcpToolsForUser(
       if (cached.length > 0) {
         if (!refreshInFlight.has(row.id)) {
           refreshInFlight.add(row.id);
-          void refreshServerTools(supabase, row, origin)
-            .catch(() => {})
-            .finally(() => refreshInFlight.delete(row.id));
+          runInBackground(async () => {
+            try {
+              await refreshServerTools(supabase, row, origin);
+            } catch {
+              // status columns already recorded by refreshServerTools
+            } finally {
+              refreshInFlight.delete(row.id);
+            }
+          });
         }
         return { row, cached };
       }

@@ -56,10 +56,14 @@ export class SupabaseOAuthClientProvider implements OAuthClientProvider {
 
   private async load(): Promise<ConnectionRow | null> {
     if (this.loaded) return this.row;
+    // Always scope by user_id as well as server_id. RLS + the user-scoped
+    // client make this redundant today, but it is the only line of defense
+    // if this class is ever handed a service-role client for a background job.
     const { data } = await this.supabase
       .from("mcp_oauth_connections")
       .select("*")
       .eq("server_id", this.serverId)
+      .eq("user_id", this.userId)
       .maybeSingle();
     this.row = data ?? null;
     this.loaded = true;
@@ -152,7 +156,8 @@ export class SupabaseOAuthClientProvider implements OAuthClientProvider {
       await this.supabase
         .from("mcp_oauth_connections")
         .delete()
-        .eq("server_id", this.serverId);
+        .eq("server_id", this.serverId)
+        .eq("user_id", this.userId);
       this.loaded = false;
       return;
     }
