@@ -12,6 +12,7 @@ import { FocusView } from "@/components/FocusView";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { CanvasVideoPlayerLayer } from "@/components/CanvasVideoPlayerLayer";
+import { McpApprovalDock } from "@/components/mcp/McpApprovalPopup";
 import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { useAuth } from "@/components/AuthProvider";
@@ -83,6 +84,7 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
         <CanvasBottomToolbar />
       </div>
+      <McpApprovalDock />
       {viewMode === "canvas" && <CanvasVideoPlayerLayer />}
     </div>
   );

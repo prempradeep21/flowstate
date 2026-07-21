@@ -253,6 +253,30 @@ export function askClaude(
               cb.onThinking?.("Preparing map…");
             } else if (parsed.pendingArtifact?.type === "chart") {
               cb.onThinking?.(CHART_THINKING_LABEL);
+            } else if (parsed.mcpApproval) {
+              const approval = parsed.mcpApproval as {
+                requestId?: string;
+                serverId?: string;
+                serverName?: string;
+                toolName?: string;
+                description?: string;
+                inputPreview?: Record<string, unknown>;
+              };
+              if (approval.requestId && approval.toolName) {
+                cb.onMcpApproval?.({
+                  requestId: approval.requestId,
+                  serverId: approval.serverId ?? "",
+                  serverName: approval.serverName ?? "MCP server",
+                  toolName: approval.toolName,
+                  description: approval.description ?? "",
+                  inputPreview: approval.inputPreview ?? {},
+                });
+              }
+            } else if (parsed.mcpApprovalResolved) {
+              const resolved = parsed.mcpApprovalResolved as { requestId?: string };
+              if (resolved.requestId) {
+                cb.onMcpApprovalResolved?.(resolved.requestId);
+              }
             } else if (parsed.thinking || parsed.sdkBuildStages) {
               if (typeof parsed.thinking === "string" && parsed.thinking) {
                 cb.onThinking(parsed.thinking);

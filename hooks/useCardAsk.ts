@@ -136,8 +136,16 @@ export function useCardAsk(cardId: string, enabled: boolean) {
           if (generation !== askGenerationRef.current) return;
           handleStreamArtifact(cardId, artifact);
         },
+        onMcpApproval: (approval) => {
+          if (generation !== askGenerationRef.current) return;
+          useCanvasStore.getState().addMcpApproval({ ...approval, cardId });
+        },
+        onMcpApprovalResolved: (requestId) => {
+          useCanvasStore.getState().resolveMcpApproval(requestId);
+        },
         onDone: ({ responseType }) => {
           endCardAsk(cardId, askToken);
+          useCanvasStore.getState().clearMcpApprovalsForCard(cardId);
           if (generation === askGenerationRef.current) {
             finalizeCardResponse(cardId, {
               responseType:

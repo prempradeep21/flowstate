@@ -13,6 +13,7 @@ import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
+import { McpSection } from "@/components/sidebar/McpSection";
 
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
 import { SkillsSection } from "@/components/sidebar/SkillsSection";
@@ -30,12 +31,13 @@ export function AppRightPanel() {
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
 
   const [activeTab, setActiveTab] = useState<
-    "artifacts" | "assets" | "skills"
+    "artifacts" | "assets" | "skills" | "mcp"
   >("artifacts");
   const tabLabels: Record<typeof activeTab, string> = {
     artifacts: "Artifacts",
     assets: "Assets",
     skills: "Skills",
+    mcp: "MCP",
   };
   const [tileStaggerActive, setTileStaggerActive] = useState(false);
   const [staggerKey, setStaggerKey] = useState(0);
@@ -132,7 +134,7 @@ export function AppRightPanel() {
                   role="group"
                   aria-label="Right panel view"
                 >
-                  {(["artifacts", "assets", "skills"] as const).map((tab) => {
+                  {(["artifacts", "assets", "skills", "mcp"] as const).map((tab) => {
                     const active = activeTab === tab;
                     return (
                       <button
@@ -140,7 +142,9 @@ export function AppRightPanel() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => setActiveTab(tab)}
-                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium capitalize ${
+                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium ${
+                          tab === "mcp" ? "uppercase" : "capitalize"
+                        } ${
                           active
                             ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                             : "text-canvas-muted hover:text-canvas-ink"
@@ -184,8 +188,10 @@ export function AppRightPanel() {
                 />
               ) : activeTab === "assets" ? (
                 <AttachmentsSection />
-              ) : (
+              ) : activeTab === "skills" ? (
                 <SkillsSection />
+              ) : (
+                <McpSection />
               )}
 
             </div>

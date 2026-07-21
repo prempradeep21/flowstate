@@ -484,6 +484,17 @@ export interface ThreadGist {
   turnCount: number;
 }
 
+/** A pending MCP tool-call approval shown next to the card's composer. */
+export interface PendingMcpApproval {
+  requestId: string;
+  cardId: string;
+  serverId: string;
+  serverName: string;
+  toolName: string;
+  description: string;
+  inputPreview: Record<string, unknown>;
+}
+
 export interface Viewport {
   x: number;
   y: number;
@@ -756,6 +767,11 @@ interface CanvasState {
   threadOrder: string[];
   threadGists: Record<string, ThreadGist>;
   setThreadGist: (threadId: string, gist: ThreadGist) => void;
+  /** Mid-turn MCP tool-call approvals awaiting a user decision. */
+  pendingMcpApprovals: PendingMcpApproval[];
+  addMcpApproval: (approval: PendingMcpApproval) => void;
+  resolveMcpApproval: (requestId: string) => void;
+  clearMcpApprovalsForCard: (cardId: string) => void;
   openArtifactCardId: string | null;
   openGroupArtifactId: string | null;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -2333,6 +2349,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setThreadGist: (threadId, gist) =>
     set((state) => ({
       threadGists: { ...state.threadGists, [threadId]: gist },
+    })),
+  pendingMcpApprovals: [],
+  addMcpApproval: (approval) =>
+    set((state) => ({
+      pendingMcpApprovals: [
+        ...state.pendingMcpApprovals.filter(
+          (a) => a.requestId !== approval.requestId,
+        ),
+        approval,
+      ],
+    })),
+  resolveMcpApproval: (requestId) =>
+    set((state) => ({
+      pendingMcpApprovals: state.pendingMcpApprovals.filter(
+        (a) => a.requestId !== requestId,
+      ),
+    })),
+  clearMcpApprovalsForCard: (cardId) =>
+    set((state) => ({
+      pendingMcpApprovals: state.pendingMcpApprovals.filter(
+        (a) => a.cardId !== cardId,
+      ),
     })),
   openArtifactCardId: null,
   openGroupArtifactId: null,
