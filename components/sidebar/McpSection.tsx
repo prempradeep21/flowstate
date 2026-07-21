@@ -425,9 +425,9 @@ function McpRegistrySearch({
         <p className="mt-2 text-xs text-canvas-muted/80">No remote-capable servers found.</p>
       ) : (
         <ul className="mt-2 flex max-h-56 flex-col gap-1 overflow-y-auto">
-          {results.map((entry) => (
+          {results.map((entry, i) => (
             <li
-              key={entry.name}
+              key={`${entry.name}-${i}`}
               className="flex items-center gap-2 rounded-lg border border-canvas-border bg-canvas-card px-2 py-1.5"
             >
               <div className="min-w-0 flex-1">

@@ -68,9 +68,18 @@ export async function searchRegistry(options: {
       throw new Error(`Registry responded ${res.status}`);
     }
     const data = (await res.json()) as RawRegistryResponse;
+    // The registry returns one entry per published version, so the same
+    // server name can appear several times — collapse to the first (latest)
+    // occurrence so callers get a unique-by-name list.
+    const seen = new Set<string>();
     const servers = (data.servers ?? [])
       .map(normalizeEntry)
-      .filter((entry): entry is RegistryServerEntry => entry !== null);
+      .filter((entry): entry is RegistryServerEntry => entry !== null)
+      .filter((entry) => {
+        if (seen.has(entry.name)) return false;
+        seen.add(entry.name);
+        return true;
+      });
     return { servers, nextCursor: data.metadata?.nextCursor ?? null };
   } finally {
     clearTimeout(timer);
