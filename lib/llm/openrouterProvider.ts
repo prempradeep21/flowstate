@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_MAX_TOOL_TURNS,
+  toolTurnLimitMessage,
   type LLMProvider,
   type NeutralMessage,
   type RunArgs,
@@ -85,6 +86,8 @@ export const openrouterProvider: LLMProvider = {
       cacheCreationTokens: 0,
     };
     let toolTurns = 0;
+    // See anthropicProvider: separates a finished answer from an exhausted loop.
+    let stoppedNaturally = false;
 
     for (let turn = 0; turn < maxTurns; turn++) {
       const stream = await client.chat.completions.create(
@@ -146,7 +149,10 @@ export const openrouterProvider: LLMProvider = {
         });
       }
 
-      if (finishReason !== "tool_calls" || toolAcc.size === 0) break;
+      if (finishReason !== "tool_calls" || toolAcc.size === 0) {
+        stoppedNaturally = true;
+        break;
+      }
 
       toolTurns += 1;
       const calls = [...toolAcc.values()];
@@ -172,6 +178,12 @@ export const openrouterProvider: LLMProvider = {
       }
     }
 
-    return { usage, toolTurns, pauseTurns: 0, webSearchBlocks: 0, errorMessage: null };
+    let errorMessage: string | null = null;
+    if (!stoppedNaturally) {
+      errorMessage = toolTurnLimitMessage(maxTurns);
+      emit({ error: errorMessage });
+    }
+
+    return { usage, toolTurns, pauseTurns: 0, webSearchBlocks: 0, errorMessage };
   },
 };

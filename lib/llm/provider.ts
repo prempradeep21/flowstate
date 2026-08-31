@@ -91,4 +91,24 @@ export interface LLMProvider {
 }
 
 export const DEFAULT_MAX_TOOL_TURNS = 5;
+
+/**
+ * Tool turns available when MCP servers are connected. An approve -> call ->
+ * emit_artifact chain needs headroom, and reflective tools (e.g. sequential
+ * thinking) legitimately call themselves once per step, so a low cap silently
+ * consumes the whole turn before the model ever writes an answer.
+ */
+export const MCP_MAX_TOOL_TURNS = 24;
+
+/**
+ * Shown when the loop exhausts its turns without the model finishing. Without
+ * this the run returns no text and the client reports a connection timeout,
+ * which sends debugging in entirely the wrong direction.
+ */
+export function toolTurnLimitMessage(maxTurns: number): string {
+  return (
+    `Stopped after ${maxTurns} tool calls without reaching an answer. ` +
+    `Ask a narrower question, or tell the model to use fewer steps.`
+  );
+}
 export const DEFAULT_MAX_TOKENS = 4096;

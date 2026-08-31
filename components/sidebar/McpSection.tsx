@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { parseServerInput, type ParsedMcpServer } from "@/lib/mcp/parseServerJson";
-import { isStdioMcpAllowed } from "@/lib/supabase/environment";
+import { isDesktopRuntime } from "@/lib/desktopRuntime";
 import type { McpServerSummary } from "@/lib/mcp/types";
 
 interface RegistryEntry {
@@ -316,7 +316,14 @@ function McpServerRow({
 }
 
 function McpAddServer({ onAdded }: { onAdded: () => void }) {
-  const stdioAllowed = isStdioMcpAllowed();
+  // Local commands run on the user's machine, so the option belongs to the
+  // desktop app only — the browser never offers it, even in dev where the
+  // server-side gate would technically permit a spawn. Resolved after mount
+  // because the check reads navigator, which the server render cannot see.
+  const [stdioAllowed, setStdioAllowed] = useState(false);
+  useEffect(() => {
+    setStdioAllowed(isDesktopRuntime());
+  }, []);
   const [mode, setMode] = useState<"search" | "paste" | "local">("search");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -385,7 +392,7 @@ function McpAddServer({ onAdded }: { onAdded: () => void }) {
             })
           }
         />
-      ) : mode === "paste" ? (
+      ) : mode === "paste" || !stdioAllowed ? (
         <McpPasteForm busy={busy} allowStdio={stdioAllowed} onSubmit={addServer} />
       ) : (
         <McpStdioForm busy={busy} onSubmit={addServer} />

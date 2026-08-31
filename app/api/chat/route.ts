@@ -22,10 +22,11 @@ import { getMcpTools } from "@/lib/mcpManager";
 import type { McpToolsResult } from "@/lib/mcpManager";
 import { getModel, getModelProvider, modelSupportsTools } from "@/lib/models";
 import { findPublishedOpenRouterModel } from "@/lib/modelConfig/publishedModels.server";
-import type {
-  NeutralContentPart,
-  NeutralMessage,
-  NeutralToolDef,
+import {
+  MCP_MAX_TOOL_TURNS,
+  type NeutralContentPart,
+  type NeutralMessage,
+  type NeutralToolDef,
 } from "@/lib/llm/provider";
 import {
   createToolExecutor,
@@ -442,8 +443,10 @@ export async function POST(req: Request) {
             maxTokens: customUiIntent ? 8192 : 4096,
             enableWebSearch: webSearchEnabled,
             // Approve → call → emit_artifact chains need more headroom than
-            // the default 5 tool turns.
-            maxToolTurns: mcp.tools.length > 0 ? 8 : undefined,
+            // the default 5 tool turns. Reflective MCP tools (sequential
+            // thinking) call themselves once per step, so 8 was low enough to
+            // burn the whole turn before any answer was written.
+            maxToolTurns: mcp.tools.length > 0 ? MCP_MAX_TOOL_TURNS : undefined,
           });
 
           totalUsage.inputTokens = result.usage.inputTokens;
