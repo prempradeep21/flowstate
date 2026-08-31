@@ -10,6 +10,7 @@ import { SampleCanvasesSection } from "@/components/home/SampleCanvasesSection";
 import { SectionHeading } from "@/components/home/SectionHeading";
 import { useHomeCanvasCollaborators } from "@/components/home/useHomeCanvasCollaborators";
 import { useHomeTheme } from "@/components/home/useHomeTheme";
+import { WhatYouCanDoSection } from "@/components/home/WhatYouCanDoSection";
 
 const GRID_CLASS = "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4";
 
@@ -155,6 +156,8 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
             <PaginatedGrid slots={sharedCanvasSlots} gridClassName={GRID_CLASS} />
           </section>
         )}
+
+        <WhatYouCanDoSection />
 
         <SampleCanvasesSection />
       </div>

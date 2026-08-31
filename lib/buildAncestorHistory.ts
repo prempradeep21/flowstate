@@ -135,6 +135,11 @@ export function formatQuestionForContext(
   if (card.attachedSkills?.length) {
     notes.push(`[User attached ${card.attachedSkills.length} skill(s)]`);
   }
+  if (card.attachedGroups?.length) {
+    notes.push(
+      `[User attached ${card.attachedGroups.length} canvas group(s) as joint context]`,
+    );
+  }
   if (card.pendingFiles?.length) {
     notes.push(`[User attached ${card.pendingFiles.length} uploaded file(s)]`);
   }

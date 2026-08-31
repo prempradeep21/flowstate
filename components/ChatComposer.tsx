@@ -14,6 +14,7 @@ import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
 import { ComposerModelPicker } from "@/components/ComposerModelPicker";
 import { menuItemClass } from "@/components/MenuIcons";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
+import { GroupAttachmentPill } from "@/components/GroupAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
 import { SendIconButton } from "@/components/SendIconButton";
 import {
@@ -33,6 +34,7 @@ import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import {
   AttachedArtifactRef,
   AttachedAssetRef,
+  AttachedGroupRef,
   AttachedSkillRef,
   CardImage,
   FollowUpOptions,
@@ -85,6 +87,10 @@ export function ChatComposer({
   const plugSkillAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerSkillAttachments[cardId] : undefined,
   );
+  const plugGroupAttachment = useCanvasStore((s) =>
+    cardId ? s.plugComposerGroupAttachments[cardId] : undefined,
+  );
+  const groups = useCanvasStore((s) => s.groups);
   const storedComposerDraft = useCanvasStore((s) =>
     cardId ? s.composerDraftsByCardId[cardId] : undefined,
   );
@@ -126,6 +132,7 @@ export function ChatComposer({
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
   const [attachedAssets, setAttachedAssets] = useState<AttachedAssetRef[]>([]);
   const [attachedSkills, setAttachedSkills] = useState<AttachedSkillRef[]>([]);
+  const [attachedGroups, setAttachedGroups] = useState<AttachedGroupRef[]>([]);
   const [pendingImages, setPendingImages] = useState<CardImage[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
   const { connected: googleConnected, connect: connectGoogle } = useGoogleConnection();
@@ -173,6 +180,13 @@ export function ChatComposer({
     });
   };
 
+  const addGroupAttachment = (ref: AttachedGroupRef) => {
+    setAttachedGroups((prev) => {
+      if (prev.some((r) => r.groupId === ref.groupId)) return prev;
+      return [...prev, ref];
+    });
+  };
+
   useEffect(() => {
     if (plugAttachment) {
       addAttachment(plugAttachment);
@@ -190,6 +204,12 @@ export function ChatComposer({
       addSkillAttachment(plugSkillAttachment);
     }
   }, [plugSkillAttachment]);
+
+  useEffect(() => {
+    if (plugGroupAttachment) {
+      addGroupAttachment(plugGroupAttachment);
+    }
+  }, [plugGroupAttachment]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -238,6 +258,7 @@ export function ChatComposer({
       attachedArtifacts: attached.length > 0 ? attached : undefined,
       attachedAssets: attachedAssets.length > 0 ? attachedAssets : undefined,
       attachedSkills: attachedSkills.length > 0 ? attachedSkills : undefined,
+      attachedGroups: attachedGroups.length > 0 ? attachedGroups : undefined,
       pendingImages: pendingImages.length > 0 ? pendingImages : undefined,
       pendingFiles: pendingFiles.length > 0 ? pendingFiles : undefined,
     });
@@ -248,6 +269,7 @@ export function ChatComposer({
     }
     setAttached([]);
     setAttachedAssets([]);
+    setAttachedGroups([]);
     setPendingImages([]);
     setPendingFiles([]);
     setMenuOpen(false);
@@ -453,6 +475,7 @@ export function ChatComposer({
         {(attached.length > 0 ||
           attachedAssets.length > 0 ||
           attachedSkills.length > 0 ||
+          attachedGroups.length > 0 ||
           pendingImages.length > 0 ||
           pendingFiles.length > 0) && (
           <div
@@ -516,6 +539,24 @@ export function ChatComposer({
                   onRemove={() =>
                     setAttachedSkills((prev) =>
                       prev.filter((r) => r.skillId !== ref.skillId),
+                    )
+                  }
+                />
+              );
+            })}
+            {attachedGroups.map((ref) => {
+              const group = groups[ref.groupId];
+              if (!group) return null;
+              const memberCount =
+                group.familyRootThreadIds.length + (group.items?.length ?? 0);
+              return (
+                <GroupAttachmentPill
+                  key={ref.groupId}
+                  label={group.label}
+                  memberCount={memberCount}
+                  onRemove={() =>
+                    setAttachedGroups((prev) =>
+                      prev.filter((r) => r.groupId !== ref.groupId),
                     )
                   }
                 />

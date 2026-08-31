@@ -5,6 +5,7 @@ import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import { getConnectionCardBounds } from "@/lib/canvasMeasure";
+import { computeGroupBounds } from "@/lib/groupBounds";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import { CANVAS_ACCENT, CANVAS_CONNECTOR } from "@/lib/design/tokens";
 
 const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
@@ -105,7 +106,7 @@ export function PlugConnectorLayer() {
     );
     stroke = "#7C9EFF";
     dashed = true;
-  } else {
+  } else if (plugDrag.kind === "skill") {
     const node = canvasSkillNodes[plugDrag.skillNodeId];
     if (!node) return null;
     const skill = canvasSkills[node.skillId];
@@ -120,6 +121,19 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     stroke = STROKE_FALLBACK;
+    dashed = true;
+  } else {
+    // Group container bounds derive from every member node — read the full
+    // store imperatively (this layer already re-renders per pointer move).
+    const state = useCanvasStore.getState();
+    const group = state.groups[plugDrag.groupId];
+    if (!group) return null;
+    const bounds = computeGroupBounds(state, group);
+    if (!bounds) return null;
+    fromSide = plugDrag.fromSide;
+    toSide = plugDrag.fromSide === "left" ? "right" : "left";
+    fromAnchor = plugAnchorAt(bounds.x, bounds.y, bounds.w, bounds.h, fromSide);
+    stroke = CANVAS_ACCENT;
     dashed = true;
   }
 

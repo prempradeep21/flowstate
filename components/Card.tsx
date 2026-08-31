@@ -43,6 +43,10 @@ import {
   subtreeGestureRefs,
   useCanvasNodeDrag,
 } from "@/hooks/useCanvasNodeDrag";
+import {
+  commitGroupMoveForCard,
+  groupRefsForCardDrag,
+} from "@/lib/groupMembership";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -271,11 +275,17 @@ function CardInner({ card }: CardProps) {
 
   // Imperative drag: pointermoves transform the subtree's DOM once per frame
   // via the gesture layer; moveSubtree commits ONE store write on drop.
+  // Cards inside a group drag the whole group instead (locked positions).
   const nodeDrag = useCanvasNodeDrag({
     kind: "card",
     nodeId: card.id,
-    commitMove: (targetId, dx, dy) => moveSubtree(targetId, dx, dy),
-    resolveRefs: subtreeGestureRefs,
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForCard(targetId, dx, dy)) {
+        moveSubtree(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForCardDrag(targetId) ?? subtreeGestureRefs(targetId),
     onDragStart: (targetId) => {
       clearSpawnMetaIfDragging(targetId);
       void playSoundThrottled("card-drag-start");

@@ -86,6 +86,7 @@ import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
 import { SkillPlugConnections } from "@/components/plugs/SkillPlugConnections";
+import { GroupPlugConnections } from "@/components/plugs/GroupPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
@@ -1825,7 +1826,8 @@ export function Canvas({
     !target.closest("[data-canvas-gif]") &&
     !target.closest("[data-canvas-text-label]") &&
     !target.closest("[data-canvas-landing]") &&
-    !target.closest("[data-group-summary-icon]");
+    !target.closest("[data-group-summary-icon]") &&
+    !target.closest("[data-selection-toolbar]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     // While the pie is held open the gesture owns the pointer — no pan,
@@ -2015,10 +2017,10 @@ export function Canvas({
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
-        {!chatsGloballyHidden &&
-          groupList.map((group) => (
-            <GroupBounds key={group.id} group={group} />
-          ))}
+        <GroupPlugConnections />
+        {groupList.map((group) => (
+          <GroupBounds key={group.id} group={group} />
+        ))}
         {SVG_CONNECTIONS && connectionsBehindCards && <Connections />}
         {cardOrder.map((id) => {
           const card = cards[id];

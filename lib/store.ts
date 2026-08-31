@@ -346,6 +346,7 @@ export interface Card {
   attachedArtifacts?: AttachedArtifactRef[];
   attachedAssets?: AttachedAssetRef[];
   attachedSkills?: AttachedSkillRef[];
+  attachedGroups?: AttachedGroupRef[];
   inheritedArtifactId?: string;
   pendingFiles?: PendingFileAttachment[];
   contributorIds?: string[];
@@ -370,6 +371,7 @@ export interface FollowUpOptions {
   attachedArtifacts?: AttachedArtifactRef[];
   attachedAssets?: AttachedAssetRef[];
   attachedSkills?: AttachedSkillRef[];
+  attachedGroups?: AttachedGroupRef[];
   pendingImages?: CardImage[];
   pendingFiles?: PendingFileAttachment[];
 }
@@ -415,6 +417,15 @@ export type PlugDragState =
       didDrag: boolean;
       receiveTargetCardId: string | null;
       hoveredReceiveSide: PlugSide | null;
+    }
+  | {
+      kind: "group";
+      groupId: string;
+      fromSide: PlugSide;
+      pointerWorld: { x: number; y: number };
+      didDrag: boolean;
+      receiveTargetCardId: string | null;
+      hoveredReceiveSide: PlugSide | null;
     };
 
 export interface Connection {
@@ -441,6 +452,20 @@ export interface SkillPlugConnection {
   cardId: string;
   fromSide: PlugSide;
   toSide: PlugSide;
+}
+
+/** Dashed plug link from a group container edge to a question card composer. */
+export interface GroupPlugConnection {
+  id: string;
+  groupId: string;
+  cardId: string;
+  fromSide: PlugSide;
+  toSide: PlugSide;
+}
+
+/** A whole group attached to a question as joint context. */
+export interface AttachedGroupRef {
+  groupId: string;
 }
 
 export interface Thread {
@@ -495,9 +520,24 @@ export interface BranchGroup {
   id: string;
   label: string;
   familyRootThreadIds: string[];
+  /** Non-card members (artifacts, assets, gifs, 3d, labels — never skills). Absent on legacy groups. */
+  items?: CanvasSelectionItem[];
   summaryMarkdown: string | null;
   summaryGeneratedAt?: number;
   summaryContentFingerprint?: string;
+}
+
+/** Non-card node kinds a group may contain (skills are deliberately excluded). */
+export const GROUPABLE_ITEM_KINDS: readonly CanvasSelectionItem["kind"][] = [
+  "artifact",
+  "asset",
+  "gif",
+  "3d",
+  "label",
+];
+
+export function isGroupableItem(item: CanvasSelectionItem): boolean {
+  return GROUPABLE_ITEM_KINDS.includes(item.kind);
 }
 
 export interface ArtifactPermissionPreview {
@@ -802,12 +842,14 @@ interface CanvasState {
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
   plugComposerAssetAttachments: Record<string, AttachedAssetRef>;
   plugComposerSkillAttachments: Record<string, AttachedSkillRef>;
+  plugComposerGroupAttachments: Record<string, AttachedGroupRef>;
   /** Unsubmitted composer text per card — session-only, not persisted. */
   composerDraftsByCardId: Record<string, string>;
   setComposerDraft: (cardId: string, draft: string) => void;
   clearComposerDraft: (cardId: string) => void;
   artifactPlugConnections: ArtifactPlugConnection[];
   skillPlugConnections: SkillPlugConnection[];
+  groupPlugConnections: GroupPlugConnection[];
 
   selectedFamilyRootIds: string[];
   /** Unified multi-selection of non-card canvas nodes (cards select via families). */
@@ -857,6 +899,9 @@ interface CanvasState {
   closeGroupArtifact: () => void;
   removeGroup: (groupId: string) => void;
   setActiveGroupId: (groupId: string | null) => void;
+  renameGroup: (groupId: string, label: string) => void;
+  /** Move every member of a group (families + nodes) by a world-space delta. */
+  moveGroupBy: (groupId: string, dx: number, dy: number) => void;
 
   recordUndo: () => void;
   undo: () => void;
@@ -918,6 +963,10 @@ interface CanvasState {
     position: { x: number; y: number },
     ref: AttachedSkillRef,
   ) => string;
+  createRootCardWithGroupAttachment: (
+    position: { x: number; y: number },
+    ref: AttachedGroupRef,
+  ) => string;
   setCardComposerAttachment: (
     cardId: string,
     ref: AttachedArtifactRef,
@@ -930,6 +979,10 @@ interface CanvasState {
     cardId: string,
     ref: AttachedSkillRef,
   ) => void;
+  setCardComposerGroupAttachment: (
+    cardId: string,
+    ref: AttachedGroupRef,
+  ) => void;
   addArtifactPlugConnection: (conn: {
     artifactNodeId: string;
     cardId: string;
@@ -938,6 +991,12 @@ interface CanvasState {
   }) => void;
   addSkillPlugConnection: (conn: {
     skillNodeId: string;
+    cardId: string;
+    fromSide: PlugSide;
+    toSide: PlugSide;
+  }) => void;
+  addGroupPlugConnection: (conn: {
+    groupId: string;
     cardId: string;
     fromSide: PlugSide;
     toSide: PlugSide;
@@ -1404,6 +1463,8 @@ function unifiedSelectionPatch(selection: CanvasSelection) {
     selection.familyRootIds.length === 0 && selection.items.length === 1
       ? selection.items[0]
       : null;
+  const hasSelection =
+    selection.familyRootIds.length > 0 || selection.items.length > 0;
   return {
     selectedFamilyRootIds: selection.familyRootIds,
     canvasSelection: selection.items,
@@ -1413,6 +1474,10 @@ function unifiedSelectionPatch(selection: CanvasSelection) {
     selectedCanvas3DId: single?.kind === "3d" ? single.id : null,
     selectedCanvasSkillId: single?.kind === "skill" ? single.id : null,
     selectedCanvasTextLabelId: single?.kind === "label" ? single.id : null,
+    // Selecting anything else deactivates the active group (Figma-section
+    // behavior); empty patches leave it alone so group creation — which
+    // clears the selection and activates the new group — is not undone.
+    ...(hasSelection ? { activeGroupId: null } : {}),
   };
 }
 
@@ -1446,6 +1511,55 @@ function moveNodeRecord<T extends { position: { x: number; y: number } }>(
       ...node,
       position: { x: node.position.x + dx, y: node.position.y + dy },
     },
+  };
+}
+
+/** Group fields touched when node deletion prunes group membership. */
+interface GroupPruneSlice {
+  groups: Record<string, BranchGroup>;
+  activeGroupId: string | null;
+  openGroupArtifactId: string | null;
+  groupPlugConnections: GroupPlugConnection[];
+}
+
+/**
+ * Drop removed node ids from every group's items. Groups left with no
+ * members at all are deleted (mirrors the family-deletion cleanup).
+ */
+function pruneGroupItemsForRemovedNodes(
+  state: GroupPruneSlice,
+  kind: CanvasSelectionItem["kind"],
+  removedIds: Iterable<string>,
+): Partial<GroupPruneSlice> {
+  const removed = new Set(removedIds);
+  if (removed.size === 0) return {};
+  let changed = false;
+  const nextGroups = { ...state.groups };
+  let activeGroupId = state.activeGroupId;
+  let openGroupArtifactId = state.openGroupArtifactId;
+  for (const [gid, group] of Object.entries(nextGroups)) {
+    const items = group.items ?? [];
+    const remaining = items.filter(
+      (item) => !(item.kind === kind && removed.has(item.id)),
+    );
+    if (remaining.length === items.length) continue;
+    changed = true;
+    if (remaining.length === 0 && group.familyRootThreadIds.length === 0) {
+      delete nextGroups[gid];
+      if (activeGroupId === gid) activeGroupId = null;
+      if (openGroupArtifactId === gid) openGroupArtifactId = null;
+    } else {
+      nextGroups[gid] = { ...group, items: remaining };
+    }
+  }
+  if (!changed) return {};
+  return {
+    groups: nextGroups,
+    activeGroupId,
+    openGroupArtifactId,
+    groupPlugConnections: state.groupPlugConnections.filter(
+      (c) => nextGroups[c.groupId],
+    ),
   };
 }
 
@@ -1618,6 +1732,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasAssetId && removedNodeIds.has(state.selectedCanvasAssetId)
             ? null
             : state.selectedCanvasAssetId,
+        ...pruneGroupItemsForRemovedNodes(state, "asset", removedNodeIds),
         collaborationHasEdits: true,
       };
     }),
@@ -1705,6 +1820,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "asset" && i.id === nodeId),
         ),
+        ...pruneGroupItemsForRemovedNodes(state, "asset", [nodeId]),
         collaborationHasEdits: true,
       };
     }),
@@ -1816,6 +1932,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "gif" && i.id === nodeId),
         ),
+        ...pruneGroupItemsForRemovedNodes(state, "gif", [nodeId]),
         collaborationHasEdits: true,
       };
     }),
@@ -1908,6 +2025,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "3d" && i.id === nodeId),
         ),
+        ...pruneGroupItemsForRemovedNodes(state, "3d", [nodeId]),
         collaborationHasEdits: true,
       };
     }),
@@ -2151,6 +2269,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       outputArtifactVersionId: undefined,
       attachedArtifacts,
       attachedAssets: options?.attachedAssets,
+      attachedGroups: options?.attachedGroups?.length
+        ? options.attachedGroups
+        : card.attachedGroups,
       pendingFiles: options?.pendingFiles,
       quotedSelection: undefined,
       answerExplains: undefined,
@@ -2359,6 +2480,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   plugComposerAttachments: {},
   plugComposerAssetAttachments: {},
   plugComposerSkillAttachments: {},
+  plugComposerGroupAttachments: {},
   composerDraftsByCardId: {},
 
   setComposerDraft: (cardId, draft) =>
@@ -2378,6 +2500,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }),
   artifactPlugConnections: [],
   skillPlugConnections: [],
+  groupPlugConnections: [],
 
   selectedFamilyRootIds: [],
   canvasSelection: [],
@@ -2470,6 +2593,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selectedCanvasGifId: null,
       selectedCanvas3DId: null,
       selectedCanvasSkillId: null,
+      activeGroupId: null,
     }),
 
   removeSelectedFromCanvas: () =>
@@ -2671,23 +2795,46 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ),
       );
 
+      const removedItemsByKind: Record<string, Set<string>> = {
+        artifact: removedArtifactNodeIds,
+        asset: removedAssetNodeIds,
+        gif: removedGifNodeIds,
+        "3d": removed3DNodeIds,
+        label: removedLabelIds,
+      };
+      const itemRemoved = (item: CanvasSelectionItem) =>
+        removedItemsByKind[item.kind]?.has(item.id) ?? false;
+
       let nextGroups = state.groups;
       let activeGroupId = state.activeGroupId;
       let openGroupArtifactId = state.openGroupArtifactId;
-      if (deletedFamilyRoots.size > 0) {
+      {
         nextGroups = { ...state.groups };
+        let groupsChanged = false;
         for (const [gid, group] of Object.entries(nextGroups)) {
           const remaining = group.familyRootThreadIds.filter(
             (id) => !deletedFamilyRoots.has(id),
           );
-          if (remaining.length === 0) {
+          const items = group.items ?? [];
+          const remainingItems = items.filter((item) => !itemRemoved(item));
+          const rootsChanged =
+            remaining.length !== group.familyRootThreadIds.length;
+          const itemsChanged = remainingItems.length !== items.length;
+          if (!rootsChanged && !itemsChanged) continue;
+          groupsChanged = true;
+          if (remaining.length === 0 && remainingItems.length === 0) {
             delete nextGroups[gid];
             if (activeGroupId === gid) activeGroupId = null;
             if (openGroupArtifactId === gid) openGroupArtifactId = null;
-          } else if (remaining.length !== group.familyRootThreadIds.length) {
-            nextGroups[gid] = { ...group, familyRootThreadIds: remaining };
+          } else {
+            nextGroups[gid] = {
+              ...group,
+              familyRootThreadIds: remaining,
+              items: remainingItems,
+            };
           }
         }
+        if (!groupsChanged) nextGroups = state.groups;
       }
 
       return {
@@ -2723,6 +2870,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           (c) =>
             !cardIdsToDelete.has(c.cardId) &&
             !removedSkillNodeIds.has(c.skillNodeId),
+        ),
+        groupPlugConnections: state.groupPlugConnections.filter(
+          (c) => !cardIdsToDelete.has(c.cardId) && nextGroups[c.groupId],
         ),
         ...unifiedSelectionPatch({ familyRootIds: [], items: [] }),
         collaborationHasEdits: true,
@@ -3200,7 +3350,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         : undefined;
     let groupId: string | null = null;
     set((state) => {
-      if (state.selectedFamilyRootIds.length === 0) return state;
+      const items = state.canvasSelection.filter(isGroupableItem);
+      if (state.selectedFamilyRootIds.length === 0 && items.length === 0) {
+        return state;
+      }
       const id = newGroupId();
       groupId = id;
       const groupCount = Object.keys(state.groups).length;
@@ -3208,12 +3361,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         id,
         label: safeLabel ?? `Group ${groupCount + 1}`,
         familyRootThreadIds: [...state.selectedFamilyRootIds],
+        items,
         summaryMarkdown: null,
       };
       return {
         groups: { ...state.groups, [id]: group },
         activeGroupId: id,
-        selectedFamilyRootIds: [],
+        ...unifiedSelectionPatch({ familyRootIds: [], items: [] }),
+        collaborationHasEdits: true,
       };
     });
     return groupId;
@@ -3274,10 +3429,54 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.openGroupArtifactId === groupId
             ? null
             : state.openGroupArtifactId,
+        groupPlugConnections: state.groupPlugConnections.filter(
+          (c) => c.groupId !== groupId,
+        ),
+        collaborationHasEdits: true,
       };
     }),
 
   setActiveGroupId: (groupId) => set({ activeGroupId: groupId }),
+
+  renameGroup: (groupId, label) =>
+    set((state) => {
+      const group = state.groups[groupId];
+      const trimmed = label.trim();
+      if (!group || !trimmed || trimmed === group.label) return state;
+      return {
+        groups: {
+          ...state.groups,
+          [groupId]: { ...group, label: trimmed },
+        },
+        collaborationHasEdits: true,
+      };
+    }),
+
+  moveGroupBy: (groupId, dx, dy) =>
+    set((state) => {
+      if (dx === 0 && dy === 0) return state;
+      const group = state.groups[groupId];
+      if (!group) return state;
+      const deltas: SelectionUnitDelta[] = [
+        ...group.familyRootThreadIds.map((id) => ({
+          kind: "family" as const,
+          id,
+          dx,
+          dy,
+        })),
+        ...(group.items ?? []).map((item) => ({
+          kind: item.kind,
+          id: item.id,
+          dx,
+          dy,
+        })),
+      ];
+      if (deltas.length === 0) return state;
+      return {
+        ...applySelectionUnitDeltas(state, deltas),
+        collaborationHasEdits: true,
+      };
+    }),
 
   recordUndo: () =>
     set((state) => {
@@ -4594,6 +4793,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         artifactPlugConnections: state.artifactPlugConnections.filter(
           (c) => c.artifactNodeId !== nodeId,
         ),
+        ...pruneGroupItemsForRemovedNodes(state, "artifact", [nodeId]),
       };
     }),
 
@@ -4692,6 +4892,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "label" && i.id === nodeId),
         ),
+        ...pruneGroupItemsForRemovedNodes(state, "label", [nodeId]),
       };
     }),
 
@@ -4841,6 +5042,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       },
     })),
 
+  setCardComposerGroupAttachment: (cardId, ref) =>
+    set((state) => ({
+      plugComposerGroupAttachments: {
+        ...state.plugComposerGroupAttachments,
+        [cardId]: ref,
+      },
+    })),
+
   addArtifactPlugConnection: (conn) =>
     set((state) => {
       const id = `artplug_${conn.artifactNodeId}_${conn.cardId}`;
@@ -4875,6 +5084,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           ...withoutDup,
           { ...conn, id },
         ],
+      };
+    }),
+
+  addGroupPlugConnection: (conn) =>
+    set((state) => {
+      const id = `groupplug_${conn.groupId}_${conn.cardId}`;
+      const withoutDup = state.groupPlugConnections.filter(
+        (c) => !(c.groupId === conn.groupId && c.cardId === conn.cardId),
+      );
+      return {
+        groupPlugConnections: [...withoutDup, { ...conn, id }],
       };
     }),
 
@@ -5152,6 +5372,49 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         cardOrder: [...state.cardOrder, id],
         plugComposerSkillAttachments: {
           ...state.plugComposerSkillAttachments,
+          [id]: ref,
+        },
+      };
+    });
+    get().setSpawnMeta({
+      targetId: cardId,
+      targetKind: "card",
+      kind: "drop",
+      createdAt: Date.now(),
+    });
+    return cardId;
+  },
+
+  createRootCardWithGroupAttachment: (position, ref) => {
+    let cardId = "";
+    set((state) => {
+      const undoPast = pushUndoSnapshot(state);
+      const tuning = TUNING;
+      const id = newCardId();
+      cardId = id;
+      const threadId = newThreadId();
+      const accent = PALETTE[state.threadOrder.length % PALETTE.length];
+      const thread: Thread = { id: threadId, accentColour: accent };
+      const card: Card = {
+        id,
+        threadId,
+        question: "",
+        answer: "",
+        status: "empty",
+        position,
+        size: emptyCardSize(tuning),
+        parentCardId: null,
+        parentConversationId: null,
+        attachedGroups: [ref],
+      };
+      return {
+        undoPast,
+        threads: { ...state.threads, [threadId]: thread },
+        threadOrder: [...state.threadOrder, threadId],
+        cards: { ...state.cards, [id]: card },
+        cardOrder: [...state.cardOrder, id],
+        plugComposerGroupAttachments: {
+          ...state.plugComposerGroupAttachments,
           [id]: ref,
         },
       };
@@ -5575,8 +5838,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       plugComposerAttachments: {},
       plugComposerAssetAttachments: {},
       plugComposerSkillAttachments: {},
+      plugComposerGroupAttachments: {},
       artifactPlugConnections: [],
       skillPlugConnections: [],
+      groupPlugConnections: [],
       canvasPlacementRequest: null,
       activeCanvasPlacement: null,
       artifactPlacementRequest: null,

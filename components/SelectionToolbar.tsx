@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -8,19 +8,24 @@ import {
   AlignEndVertical,
   AlignStartHorizontal,
   AlignStartVertical,
+  FileText,
+  Presentation,
+  Sparkles,
+  Ungroup,
   type LucideIcon,
 } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
+import { SelectionBoundsBox } from "@/components/SelectionBoundsBox";
 import {
   toolbarScreenPosition,
-  useSelectionToolbarAnchor,
+  useSelectionWorldBounds,
   type ToolbarWorldAnchor,
 } from "@/hooks/useSelectionToolbarAnchor";
 import { subscribeViewportPaint } from "@/lib/viewportGesture";
 import type { AlignMode } from "@/lib/canvasArrange";
 import { deriveGroupLabel } from "@/lib/deriveGroupLabel";
 import { summarizeGroup } from "@/lib/summarizeGroup";
-import { useCanvasStore } from "@/lib/store";
+import { isGroupableItem, useCanvasStore } from "@/lib/store";
 
 const ALIGN_ACTIONS: { mode: AlignMode; label: string; icon: LucideIcon }[] = [
   { mode: "left", label: "Align left", icon: AlignStartVertical },
@@ -81,12 +86,18 @@ function AnchoredWrapper({
   return (
     <div
       ref={elRef}
+      data-selection-toolbar
       className={className}
       style={{
         left: initial.left,
         top: initial.top,
         transform: "translate(-50%, -100%)",
       }}
+      // The toolbar lives INSIDE the canvas container — without this, a
+      // press on any toolbar button bubbles to the canvas pointerdown,
+      // which starts a marquee, clears the selection, and unmounts the
+      // toolbar before the click can fire.
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {children}
     </div>
@@ -115,8 +126,53 @@ function ToolbarIconButton({
   );
 }
 
+/** Icon + label action in the horizontal group bar. */
+function GroupActionButton({
+  icon,
+  label,
+  onClick,
+  disabled = false,
+  accent = false,
+  title,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  accent?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title ?? label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`btn flex h-7 items-center gap-1.5 rounded-canvas-md px-2 text-canvas-compact font-medium ${
+        accent
+          ? "bg-canvas-accent text-canvas-onAccent"
+          : "text-canvas-muted hover:text-canvas-ink"
+      } ${disabled && !accent ? "opacity-60" : ""}`}
+    >
+      <Icon icon={icon} size="inline" />
+      <span className="whitespace-nowrap">{label}</span>
+    </button>
+  );
+}
+
 export function SelectionToolbar() {
-  const anchor = useSelectionToolbarAnchor();
+  // One bounds computation feeds both the box and the toolbar anchor — each
+  // hook call subscribes to every canvas node collection, so calling it twice
+  // would double the re-render churn on any node mutation.
+  const worldBounds = useSelectionWorldBounds();
+  const anchor: ToolbarWorldAnchor | null = useMemo(
+    () =>
+      worldBounds
+        ? { worldX: worldBounds.x + worldBounds.w / 2, worldY: worldBounds.y }
+        : null,
+    [worldBounds],
+  );
   const selectedFamilyRootIds = useCanvasStore(
     (s) => s.selectedFamilyRootIds,
   );
@@ -127,6 +183,7 @@ export function SelectionToolbar() {
   const createGroupFromSelection = useCanvasStore(
     (s) => s.createGroupFromSelection,
   );
+  const removeGroup = useCanvasStore((s) => s.removeGroup);
   const alignSelectedCanvasItems = useCanvasStore(
     (s) => s.alignSelectedCanvasItems,
   );
@@ -137,7 +194,11 @@ export function SelectionToolbar() {
   const activeGroup = activeGroupId ? groups[activeGroupId] : null;
   const unitCount = selectedFamilyRootIds.length + canvasSelection.length;
   const hasSelection = unitCount > 0;
-  const canGroup = selectedFamilyRootIds.length > 0;
+  // Anything on the canvas can join a group except skills.
+  const groupableUnits =
+    selectedFamilyRootIds.length +
+    canvasSelection.filter(isGroupableItem).length;
+  const canGroup = groupableUnits >= 2;
   const showAlignBar = unitCount >= 2;
   const showGroupPanel = Boolean(activeGroup) && !hasSelection;
 
@@ -161,66 +222,86 @@ export function SelectionToolbar() {
 
   if (showAlignBar) {
     return (
-      <AnchoredWrapper
-        anchor={anchor}
-        className="pointer-events-auto absolute z-40"
-      >
-        <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
-          {ALIGN_ACTIONS.map((a) => (
-            <ToolbarIconButton
-              key={a.mode}
-              label={a.label}
-              icon={a.icon}
-              onClick={() => alignSelectedCanvasItems(a.mode)}
-            />
-          ))}
-          {canGroup && (
-            <>
-              <div className="mx-1 h-5 w-px bg-canvas-border" />
-              <button
-                type="button"
-                onClick={handleGroup}
-                className="btn rounded-canvas bg-canvas-accent px-2.5 py-1 text-canvas-compact font-medium text-canvas-onAccent"
-              >
-                Group
-              </button>
-            </>
-          )}
-        </div>
-      </AnchoredWrapper>
+      <>
+        {worldBounds && <SelectionBoundsBox bounds={worldBounds} />}
+        <AnchoredWrapper
+          anchor={anchor}
+          className="pointer-events-auto absolute z-40"
+        >
+          <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
+            {ALIGN_ACTIONS.map((a) => (
+              <ToolbarIconButton
+                key={a.mode}
+                label={a.label}
+                icon={a.icon}
+                onClick={() => alignSelectedCanvasItems(a.mode)}
+              />
+            ))}
+            {canGroup && (
+              <>
+                <div className="mx-1 h-5 w-px bg-canvas-border" />
+                <button
+                  type="button"
+                  onClick={handleGroup}
+                  className="btn rounded-canvas bg-canvas-accent px-2.5 py-1 text-canvas-compact font-medium text-canvas-onAccent"
+                >
+                  Group
+                </button>
+              </>
+            )}
+          </div>
+        </AnchoredWrapper>
+      </>
     );
   }
 
   return (
     <AnchoredWrapper
       anchor={anchor}
-      className="pointer-events-auto absolute z-40 min-w-[200px] max-w-[280px]"
+      className="pointer-events-auto absolute z-40"
     >
-      <div className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-3.5 py-3 backdrop-blur-sm">
-        {activeGroup && (
-          <>
-            <p className="text-canvas-caption font-medium uppercase tracking-[0.06em] text-canvas-muted">
-              Group
-            </p>
-            <p className="mt-1 truncate text-canvas-body-sm font-medium leading-snug text-canvas-ink">
-              {activeGroup.label}
-            </p>
-            <button
-              type="button"
-              disabled={summarizing || Boolean(activeGroup.summaryMarkdown)}
-              onClick={handleSummarize}
-              className="btn mt-3 w-full rounded-canvas bg-canvas-accent px-3 py-1.5 text-canvas-compact font-medium text-canvas-onAccent"
-            >
-              {summarizing
-                ? "Summarizing…"
-                : activeGroup.summaryMarkdown
-                  ? "Summarized"
-                  : "Summarize"}
-            </button>
-          </>
-        )}
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
+          {activeGroup && (
+            <>
+              <GroupActionButton
+                icon={Sparkles}
+                label={
+                  summarizing
+                    ? "Summarizing…"
+                    : activeGroup.summaryMarkdown
+                      ? "Summarized"
+                      : "Summarize"
+                }
+                accent={!summarizing && !activeGroup.summaryMarkdown}
+                disabled={summarizing || Boolean(activeGroup.summaryMarkdown)}
+                onClick={handleSummarize}
+              />
+              <GroupActionButton
+                icon={Ungroup}
+                label="Ungroup"
+                onClick={() => removeGroup(activeGroup.id)}
+              />
+              <div className="mx-1 h-5 w-px bg-canvas-border" />
+              <GroupActionButton
+                icon={FileText}
+                label="Create PDF"
+                disabled
+                title="Coming soon"
+              />
+              <GroupActionButton
+                icon={Presentation}
+                label="Create Slide"
+                disabled
+                title="Coming soon"
+              />
+            </>
+          )}
+        </div>
         {error && (
-          <p className="mt-2 text-canvas-caption leading-snug text-canvas-danger">{error}</p>
+          <p className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-2 py-0.5 text-canvas-caption leading-snug text-canvas-danger backdrop-blur-sm">
+            {error}
+          </p>
         )}
       </div>
     </AnchoredWrapper>
