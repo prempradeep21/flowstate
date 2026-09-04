@@ -37,8 +37,11 @@ export function resolveAppOrigin(origin?: string): string {
 }
 
 const CONNECT_TIMEOUT_MS = 8_000;
-// Cold `npx`/`uvx` starts (downloading a package on first run) are slow.
-const STDIO_CONNECT_TIMEOUT_MS = 60_000;
+// Cold `npx`/`uvx` starts download the package first. Measured: 53MB / ~34s
+// for @modelcontextprotocol/server-everything on a fast link, and `npx -y`
+// re-downloads whenever a new version is published — so 60s left no headroom
+// on a slower connection.
+const STDIO_CONNECT_TIMEOUT_MS = 180_000;
 const POOL_IDLE_MS = 5 * 60 * 1000;
 
 interface PooledClient {
@@ -112,9 +115,37 @@ export async function connectMcpServer(
       command: row.stdio_command,
       args,
       env: { ...getDefaultEnvironment(), ...env },
-      stderr: "ignore",
+      // Piped, not ignored: when a server dies during handshake its stderr is
+      // the only explanation, and discarding it made every stdio failure look
+      // like the same undiagnosable timeout.
+      stderr: "pipe",
     });
-    await withTimeout(client.connect(transport), STDIO_CONNECT_TIMEOUT_MS, "MCP connect (stdio)");
+    // Drain from the start. An unread pipe fills its buffer and BLOCKS the
+    // child — attaching this only after connect() would deadlock a chatty
+    // server during the very handshake we are waiting on.
+    let stderrTail = "";
+    transport.stderr?.on("data", (chunk: Buffer) => {
+      stderrTail = (stderrTail + chunk.toString("utf8")).slice(-500);
+    });
+    try {
+      // The SDK applies its own DEFAULT_REQUEST_TIMEOUT_MSEC (60s) to the
+      // `initialize` request, so raising our wrapper alone changes nothing —
+      // the inner timeout fires first. Pass the budget through to it.
+      await withTimeout(
+        client.connect(transport, { timeout: STDIO_CONNECT_TIMEOUT_MS }),
+        STDIO_CONNECT_TIMEOUT_MS,
+        "MCP connect (stdio)",
+      );
+    } catch (err) {
+      void transport.close().catch(() => {});
+      const base = err instanceof Error ? err.message : String(err);
+      const detail = stderrTail.trim();
+      throw new Error(
+        detail
+          ? `${base} — the command reported: ${detail}`
+          : `${base}. Nothing was reported by the command, which usually means a first-run package download did not finish in time. Try running \`${[row.stdio_command, ...args].join(" ")}\` once in a terminal to cache it, then Refresh.`,
+      );
+    }
     if (!options.fresh) pool.set(row.id, { client, lastUsed: Date.now() });
     return client;
   }
