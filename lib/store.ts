@@ -45,6 +45,7 @@ import {
   computeFollowUpPositionFromDom,
 } from "@/lib/canvasLayout";
 import { DEFAULT_BODY_FONT_ID } from "@/lib/canvasFonts/registry";
+import type { CustomUiSourceData } from "@/lib/customUiSource";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import type { ModelId } from "@/lib/models";
 import {
@@ -349,6 +350,12 @@ export interface Card {
   attachedGroups?: AttachedGroupRef[];
   inheritedArtifactId?: string;
   pendingFiles?: PendingFileAttachment[];
+  /** MCP output handed to the custom-UI builder; transient, never persisted. */
+  customUiSource?: CustomUiSourceData;
+  /** Set on build_custom_ui follow-ups: this card builds a NEW artifact from
+   *  customUiSource, so the usual parent-chain artifact inheritance (which
+   *  would turn it into an edit of the parent's artifact) must not apply. */
+  suppressArtifactInheritance?: boolean;
   contributorIds?: string[];
   answerExplains?: AnswerExplain[];
   quotedSelection?: string;
@@ -374,6 +381,7 @@ export interface FollowUpOptions {
   attachedGroups?: AttachedGroupRef[];
   pendingImages?: CardImage[];
   pendingFiles?: PendingFileAttachment[];
+  customUiSource?: CustomUiSourceData;
 }
 
 export type CardSide = "top" | "bottom" | "left" | "right";
@@ -4950,11 +4958,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.connections,
           state.cardOrder,
         );
+      const handoffSource = options?.customUiSource;
+      // A handoff builds from its own data. Inheriting the parent's artifact
+      // would make /api/custom-ui treat it as a surgical EDIT of that artifact.
+      const effectiveInheritedArtifactId = handoffSource ? undefined : inheritedArtifactId;
+      const effectiveAttachedArtifacts = handoffSource ? undefined : attachedArtifacts;
       const customUiSeed = seedCustomUiTurnState(
         question,
-        inheritedArtifactId,
-        attachedArtifacts,
+        effectiveInheritedArtifactId,
+        effectiveAttachedArtifacts,
         state.sessionArtifacts,
+        { force: Boolean(handoffSource) },
       );
       const child: Card = {
         id,
@@ -4970,12 +4984,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         size: { w: tuning.cardWidth, h: tuning.fallbackCardHeight },
         parentCardId: parentId,
         parentConversationId: parentId,
-        attachedArtifacts,
+        attachedArtifacts: effectiveAttachedArtifacts,
         attachedAssets: options?.attachedAssets,
         attachedSkills: options?.attachedSkills,
-        inheritedArtifactId,
+        inheritedArtifactId: effectiveInheritedArtifactId,
         attachedImages: options?.pendingImages,
         pendingFiles: options?.pendingFiles,
+        customUiSource: handoffSource,
+        suppressArtifactInheritance: handoffSource ? true : undefined,
       };
       const connId = `conn_${parentId}_${id}`;
       const conn: Connection = {

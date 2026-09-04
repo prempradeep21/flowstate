@@ -184,6 +184,10 @@ export interface AskCallbacks {
   onArtifact?: (artifact: EmittedArtifact) => void;
   onResponseType?: (type: ResponseType) => void;
   onSdkBuildStages?: (stages: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[]) => void;
+  /** The model handed an MCP result to the custom-UI builder; spawn a follow-up card. */
+  onCustomUiHandoff?: (
+    handoff: import("@/lib/customUiHandoffSpawn").CustomUiHandoff,
+  ) => void;
   /** An MCP tool call is paused awaiting the user's approval. */
   onMcpApproval?: (approval: {
     requestId: string;

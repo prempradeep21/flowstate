@@ -48,6 +48,8 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
     const attachedImages = card ? getQuestionAttachedImages(card) : [];
     createFollowUp(cardId, card.question, {
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
+      // See Card.tsx handleTryAgain: a handoff card needs its source to retry.
+      customUiSource: card.customUiSource,
     });
   }, [card, cardId, createFollowUp]);
 

@@ -15,6 +15,10 @@ import {
 } from "@/lib/artifactIntent";
 import type { CustomArtifactPayload } from "@/lib/customArtifactShortcuts";
 import type { AskAttachmentFile } from "@/lib/askAttachments";
+import {
+  formatCustomUiSourceBlock,
+  type CustomUiSourceData,
+} from "@/lib/customUiSource";
 
 const EMIT_ARTIFACT_TOOL: Anthropic.Tool = {
   name: "emit_artifact",
@@ -47,6 +51,8 @@ export interface CustomUiAnthropicStreamInput {
   history: { question: string; answer: string }[];
   files?: AskAttachmentFile[];
   editingArtifact?: { artifactId: string; payload: unknown } | null;
+  /** MCP output handed over by build_custom_ui; rendered as a fenced data block. */
+  sourceData?: CustomUiSourceData | null;
   model?: string;
   emit: (data: object) => void;
   signal?: AbortSignal;
@@ -79,7 +85,8 @@ export async function streamCustomUiViaAnthropic(
       ? (input.editingArtifact.payload as { type?: string })
       : null;
 
-  if (!isCustomUiWork(intentQuestion, editingPayload)) {
+  // A handoff carries its own intent — see the matching bypass in the route.
+  if (!input.sourceData && !isCustomUiWork(intentQuestion, editingPayload)) {
     return {
       artifact: null,
       assistantText: "",
@@ -135,6 +142,12 @@ export async function streamCustomUiViaAnthropic(
         },
       } as unknown as Anthropic.ContentBlockParam);
     }
+  }
+  if (input.sourceData) {
+    userContent.push({
+      type: "text",
+      text: formatCustomUiSourceBlock(input.sourceData),
+    });
   }
   userContent.push({ type: "text", text: input.question });
   messages.push({

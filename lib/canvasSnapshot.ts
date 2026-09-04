@@ -152,6 +152,8 @@ function normalizeCardForPersist(card: Card): Card {
     status: normalizeCardStatus(card),
     thinkingLabel: undefined,
     pendingFiles: undefined,
+    // Transient turn state, like pendingFiles — not canvas content.
+    customUiSource: undefined,
     quotedSelection: undefined,
     answerExplains: normalizeAnswerExplains(card.answerExplains),
   };

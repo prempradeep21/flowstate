@@ -15,6 +15,10 @@ import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { AskHandle } from "@/lib/dummyLLM";
 import { notifyExchangeComplete } from "@/lib/memory/canvasMemory";
 import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
+import {
+  buildCustomUiHandoffFollowUp,
+  type CustomUiHandoff,
+} from "@/lib/customUiHandoffSpawn";
 import { useCanvasStore } from "@/lib/store";
 
 const CUSTOM_UI_THINKING =
@@ -28,12 +32,17 @@ export function useCardAsk(cardId: string, enabled: boolean) {
   const askHandleRef = useRef<AskHandle | null>(null);
   const askGenerationRef = useRef(0);
   const startedForRef = useRef<string | null>(null);
+  // Held until the turn ends: spawning on receipt would read the parent's DOM
+  // box before it settles, and would leave a stray card behind if the user
+  // cancels mid-stream.
+  const pendingHandoffRef = useRef<CustomUiHandoff | null>(null);
 
   const restartAsk = useCallback(() => {
     askHandleRef.current?.cancel();
     askHandleRef.current = null;
     askGenerationRef.current += 1;
     startedForRef.current = null;
+    pendingHandoffRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -143,6 +152,10 @@ export function useCardAsk(cardId: string, enabled: boolean) {
         onMcpApprovalResolved: (requestId) => {
           useCanvasStore.getState().resolveMcpApproval(requestId);
         },
+        onCustomUiHandoff: (handoff) => {
+          if (generation !== askGenerationRef.current) return;
+          pendingHandoffRef.current = handoff;
+        },
         onDone: ({ responseType }) => {
           endCardAsk(cardId, askToken);
           useCanvasStore.getState().clearMcpApprovalsForCard(cardId);
@@ -164,6 +177,13 @@ export function useCardAsk(cardId: string, enabled: boolean) {
             );
             if (hasBottomChild) {
               state.relayoutFollowUpChainFromParent(cardId);
+            }
+
+            const handoff = pendingHandoffRef.current;
+            pendingHandoffRef.current = null;
+            if (handoff && generation === askGenerationRef.current) {
+              const { question, options } = buildCustomUiHandoffFollowUp(handoff);
+              state.createFollowUp(cardId, question, options);
             }
           });
         },
@@ -188,6 +208,7 @@ export function useCardAsk(cardId: string, enabled: boolean) {
       // for good (the re-run effect skips identical questions).
       askGenerationRef.current += 1;
       startedForRef.current = null;
+      pendingHandoffRef.current = null;
     };
   }, [cardId]);
 

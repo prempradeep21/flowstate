@@ -696,6 +696,9 @@ function CardInner({ card }: CardProps) {
             ? attachedFromPlug
             : undefined,
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
+      // Without this a retried build_custom_ui card loses its source data and
+      // /api/custom-ui rejects it.
+      customUiSource: card.customUiSource,
     });
   }, [canEdit, card, card.id, submitFollowUp]);
 

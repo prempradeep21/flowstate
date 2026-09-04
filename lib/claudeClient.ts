@@ -10,6 +10,7 @@ import { collectAskAttachments } from "@/lib/askAttachments";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { collectSiblingGists } from "@/lib/memory/canvasMemory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
+import { sanitizeCustomUiSource } from "@/lib/customUiSource";
 import {
   CALENDAR_THINKING_LABEL,
   CHART_THINKING_LABEL,
@@ -63,6 +64,7 @@ export function askClaude(
   const controller = new AbortController();
   let responseType: ResponseType = "text";
   let receivedContent = false;
+  let handoffSeen = false;
   let hardTimeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const clearHardTimeout = () => {
@@ -75,10 +77,12 @@ export function askClaude(
   const run = async () => {
     if (cancelled) return;
     const editingArtifact = resolveEditingPayloadForApi(cardId);
-    const customWork = isCustomUiWork(
-      question,
-      editingArtifact?.payload as { type?: string } | null,
-    );
+    const handoffSource = useCanvasStore.getState().cards[cardId]?.customUiSource;
+    // A handoff is custom-UI work by construction — force it so this turn gets
+    // the /api/custom-ui route and its 5-minute budget regardless of wording.
+    const customWork =
+      Boolean(handoffSource) ||
+      isCustomUiWork(question, editingArtifact?.payload as { type?: string } | null);
     const turnTimeoutMs = getActiveTurnTimeoutMs(customWork);
     if (QA_TURN_TIMEOUT_ENABLED && turnTimeoutMs > 0) {
       hardTimeoutId = setTimeout(() => {
@@ -155,6 +159,7 @@ export function askClaude(
               }))
             : undefined,
           editingArtifact,
+          sourceData: handoffSource,
         }),
         signal: controller.signal,
       });
@@ -276,6 +281,19 @@ export function askClaude(
               const resolved = parsed.mcpApprovalResolved as { requestId?: string };
               if (resolved.requestId) {
                 cb.onMcpApprovalResolved?.(resolved.requestId);
+              }
+            } else if (parsed.customUiHandoff) {
+              if (!handoffSeen) {
+                const raw = parsed.customUiHandoff as {
+                  title?: unknown;
+                  source?: unknown;
+                };
+                const source = sanitizeCustomUiSource(raw.source);
+                const title = typeof raw.title === "string" ? raw.title.trim() : "";
+                if (source && title) {
+                  handoffSeen = true;
+                  cb.onCustomUiHandoff?.({ title, source });
+                }
               }
             } else if (parsed.thinking || parsed.sdkBuildStages) {
               if (typeof parsed.thinking === "string" && parsed.thinking) {

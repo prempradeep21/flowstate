@@ -11,6 +11,7 @@ import {
   resolveInitialThinkingLabel,
   stripAppendedQuestionContext,
 } from "@/lib/artifactIntent";
+import { sanitizeCustomUiSource } from "@/lib/customUiSource";
 import { streamCustomUiViaAnthropic } from "@/lib/customUiAnthropicStream";
 import { runCustomUiGenerator } from "@/lib/cursorSdk/customUiGenerator";
 import { getCursorSdkRuntimeIssue } from "@/lib/cursorSdk/runtimeCheck";
@@ -71,9 +72,12 @@ export async function POST(req: Request) {
     files?: IncomingFile[];
     editingArtifact?: { artifactId: string; payload: unknown };
     model?: string;
+    /** MCP tool output handed over by build_custom_ui in a preceding chat turn. */
+    sourceData?: unknown;
   };
 
   const { question, history: rawHistory = [], files, editingArtifact, model } = body;
+  const sourceData = sanitizeCustomUiSource(body.sourceData);
   const attachmentFiles = mapIncomingFiles(files);
   const intentQuestion = stripAppendedQuestionContext(question);
   const editingPayload =
@@ -83,7 +87,9 @@ export async function POST(req: Request) {
       ? (editingArtifact.payload as { type?: string })
       : null;
 
-  if (!isCustomUiWork(intentQuestion, editingPayload)) {
+  // A handoff carries its own intent: the question is machine-authored and
+  // need not contain the keywords isCustomUiWork looks for.
+  if (!sourceData && !isCustomUiWork(intentQuestion, editingPayload)) {
     return Response.json({ error: "Not a custom UI request." }, { status: 400 });
   }
 
@@ -131,6 +137,7 @@ export async function POST(req: Request) {
           history: rawHistory,
           files: attachmentFiles,
           editingArtifact,
+          sourceData,
           model,
           emit,
           signal: req.signal,
@@ -213,6 +220,7 @@ export async function POST(req: Request) {
           history: rawHistory,
           files: attachmentFiles,
           editingArtifact,
+          sourceData,
           onProgress: (payload) => emit(payload),
           onArtifact: (artifact) => {
             emit({
