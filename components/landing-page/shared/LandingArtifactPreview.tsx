@@ -11,7 +11,6 @@ import {
 import type { ArtifactCatalogEntry } from "@/lib/artifactCatalogSamples";
 import { CARD_WIDTH } from "@/lib/canvasNodeBounds";
 import { qaInsetStyle } from "@/lib/design/canvasInsets";
-import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import type { Card } from "@/lib/store";
@@ -58,7 +57,6 @@ export function LandingProductCard({
   entry: ArtifactCatalogEntry;
 }) {
   const card = catalogTextCard(entry);
-  const accent = THREAD_ACCENT_PALETTE[0]!;
 
   return (
     <div
@@ -67,7 +65,7 @@ export function LandingProductCard({
     >
       <CanvasSharpContent worldWidth={CARD_WIDTH}>
         <QaTranslucentSurface>
-          <QaQuestionSection accentColour={accent}>
+          <QaQuestionSection>
             <div
               className="w-full min-w-0 break-words text-canvas-heading font-semibold leading-snug text-canvas-ink"
               style={qaInsetStyle("question")}

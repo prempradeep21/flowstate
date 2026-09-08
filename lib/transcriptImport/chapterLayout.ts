@@ -16,8 +16,12 @@ import type {
  * Chapter layout — the shared geometry engine for every transcript import.
  *
  * A chapter is one node on the transcript's main spine. Its conversation card
- * heads the chapter (title + summary), its sub-branch cards sit in rows under
- * it, and the artifacts it produced fill a bento grid below those. Each
+ * heads the chapter (title + summary) and opens a LEFT-TO-RIGHT main line: the
+ * chapter's first sub-branch continues along that same row, so the beat reads
+ * as one sentence running rightwards rather than a column of stacked rows.
+ * Every further branch hangs BELOW that line, each on its own row and itself
+ * running left to right. Under the conversation block sits a hairline divider,
+ * and under that the artifacts the chapter produced, in a bento grid. Each
  * chapter becomes a BranchGroup, so the box around it is derived, not authored.
  *
  * Builders author CONTENT ONLY — every position here is computed from measured
@@ -27,8 +31,8 @@ import type {
 
 /** Gap between tiles inside a chapter, horizontally and vertically. */
 export const TILE_GAP = 48;
-/** Gap between the chapter's title card and the content beneath it. */
-export const HEAD_GAP_Y = 64;
+/** Gap above and below the rule that separates conversation from artifacts. */
+export const DIVIDER_GAP_Y = 36;
 /** Gap between one chapter's box and the next. */
 export const CHAPTER_GAP_X = 260;
 /** Bento width — the full six-column grid. Only full-bleed tiles exceed it. */
@@ -398,20 +402,6 @@ export function packBentoGrid(input: BentoTile[]): PackedBento {
  * stay legible at caption size on a light canvas while tinting to nearly
  * nothing at 4.5% fill.
  */
-export const CHAPTER_ACCENTS = [
-  "#D2537E",
-  "#2F9E68",
-  "#B5820B",
-  "#8B4FD1",
-  "#2A8FBD",
-  "#D06A2C",
-  "#5B62D6",
-] as const;
-
-export function chapterAccent(index: number): string {
-  return CHAPTER_ACCENTS[index % CHAPTER_ACCENTS.length]!;
-}
-
 /**
  * The label chip is the ordinal alone. A full chapter title inside a chip that
  * counter-scales with zoom was both unreadable when zoomed out and long enough
@@ -545,6 +535,8 @@ export function layoutChapters(
 
   const groups: Record<string, BranchGroup> = {};
   const chapterCenters: { x: number; y: number }[] = [];
+  /** Cards that end up in the same row as their parent, so the connector runs right→left. */
+  const inlineWithParent = new Set<string>();
   let chapterX = originX;
 
   // The masthead column: stacked top-down at the origin, with the spine pushed
@@ -567,12 +559,9 @@ export function layoutChapters(
   mainCardIds.forEach((mainId, index) => {
     const head = cards[mainId];
     if (!head) return;
-    const headSize = getCardBounds(head);
-    head.position = { x: chapterX, y: originY };
-
     // Sub-branch cards: one row per thread, so the right/left connectors
     // between consecutive cards in a thread always land side by side.
-    const subRows: string[][] = [];
+    const branches: string[][] = [];
     const rowOfThread = new Map<string, string[]>();
     for (const id of subCardIds[index]!) {
       const threadId = cards[id]?.threadId ?? "";
@@ -580,25 +569,24 @@ export function layoutChapters(
       if (!row) {
         row = [];
         rowOfThread.set(threadId, row);
-        subRows.push(row);
+        branches.push(row);
       }
       row.push(id);
     }
 
-    let contentWidth = CHAPTER_CONTENT_WIDTH;
-    for (const row of subRows) {
-      const rowW =
-        row.reduce((sum, id) => sum + getCardBounds(cards[id]!).w, 0) +
-        TILE_GAP * Math.max(0, row.length - 1);
-      contentWidth = Math.max(contentWidth, rowW);
-    }
+    // The main line: the head plus the chapter's first branch, side by side.
+    // Every remaining branch drops below it, one row each. A branch's own cards
+    // always run left to right, whichever row it lands in.
+    const rows: string[][] = [[mainId, ...(branches[0] ?? [])], ...branches.slice(1)];
+    for (const id of branches[0] ?? []) inlineWithParent.add(id);
 
     // The box is derived from where members actually land, so the advance has
     // to track the same extent — otherwise a thin chapter leaves a wide gap.
-    let chapterRight = chapterX + headSize.w;
+    let chapterRight = chapterX;
 
-    let y = originY + headSize.h + HEAD_GAP_Y;
-    for (const row of subRows) {
+    let y = originY;
+    let cardsBottom = originY;
+    for (const row of rows) {
       let x = chapterX;
       let rowH = 0;
       for (const id of row) {
@@ -609,6 +597,7 @@ export function layoutChapters(
         rowH = Math.max(rowH, size.h);
         chapterRight = Math.max(chapterRight, card.position.x + size.w);
       }
+      cardsBottom = y + rowH;
       y += rowH + TILE_GAP;
     }
 
@@ -624,6 +613,12 @@ export function layoutChapters(
       (kind === "stickynote" ? stickyIds : gridIds).push(nodeId);
     }
 
+    // The divider rides in the middle of the band between the conversation
+    // block and the artifacts — DIVIDER_GAP_Y of air on each side of it.
+    const hasArtifacts = gridIds.length > 0 || stickyIds.length > 0;
+    const dividerY = hasArtifacts ? cardsBottom + DIVIDER_GAP_Y : null;
+    if (dividerY !== null) y = dividerY + DIVIDER_GAP_Y;
+
     const tiles: BentoTile[] = gridIds.map((nodeId) =>
       bentoTileFor(nodeId, canvasArtifactNodes, sessionArtifacts),
     );
@@ -638,7 +633,7 @@ export function layoutChapters(
       chapterRight = Math.max(chapterRight, chapterX + tile.x + tile.w);
     }
 
-    let contentBottom = y + bento.height;
+    let contentBottom = hasArtifacts ? y + bento.height : cardsBottom;
     if (stickyIds.length > 0) {
       let stickyX = chapterX;
       const stickyY = bento.placed.length > 0 ? contentBottom + TILE_GAP : y;
@@ -670,7 +665,7 @@ export function layoutChapters(
         kind: "artifact" as const,
         id,
       })),
-      accentColour: chapterAccent(index),
+      ...(dividerY !== null ? { dividerY } : {}),
       summaryMarkdown: null,
     };
 
@@ -688,6 +683,7 @@ export function layoutChapters(
       cards,
       chapterIndexOfCard,
       new Set(mainCardIds),
+      inlineWithParent,
     ),
     contentCenter: averagePoint(chapterCenters, { x: originX, y: originY }),
   };
@@ -720,24 +716,24 @@ export function normalizeChapterConnections(
   cards: Record<string, Card>,
   chapterIndexOfCard: Map<string, number>,
   mainCardIds: Set<string>,
+  inlineWithParent: Set<string> = new Set(),
 ): Connection[] {
   const out: Connection[] = [];
   for (const connection of connections) {
     const fromChapter = chapterIndexOfCard.get(connection.from);
     const toChapter = chapterIndexOfCard.get(connection.to);
-    const fromIsMain = mainCardIds.has(connection.from);
 
     // Head-to-head links land here too: consecutive heads are always in
     // different chapters, so this drops the inter-chapter spine.
     if (fromChapter !== toChapter) continue;
-    if (fromIsMain) {
-      out.push({ ...connection, fromSide: "bottom", toSide: "top" });
-      continue;
-    }
-    // Sub cards share a row only when they share a thread; otherwise the
-    // target sits in a row further down.
+
+    // A card the layout put beside its parent — the first branch, continuing
+    // the head's row — is linked across; anything below its parent is linked
+    // down. Sub cards sharing a thread always share a row.
     const sameRow =
-      cards[connection.from]?.threadId === cards[connection.to]?.threadId;
+      inlineWithParent.has(connection.to) ||
+      (!mainCardIds.has(connection.from) &&
+        cards[connection.from]?.threadId === cards[connection.to]?.threadId);
     out.push(
       sameRow
         ? { ...connection, fromSide: "right", toSide: "left" }

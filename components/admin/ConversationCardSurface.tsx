@@ -11,11 +11,9 @@ import { CONVERSATION_CARD_LAYOUT_H } from "@/lib/transcriptImport/playgroundLay
 /** Temporary conversation-import card chrome (admin playground only). */
 export function ConversationCardSurface({
   card,
-  accent,
   zoom,
 }: {
   card: Card;
-  accent: string | undefined;
   /** Zoom tier resolved by the card (settled scale — never steps mid-pinch). */
   zoom: ConversationZoomDisplay;
 }) {
@@ -27,11 +25,7 @@ export function ConversationCardSurface({
       className="group/body flex min-w-0 flex-col overflow-hidden"
       style={{ height: CONVERSATION_CARD_LAYOUT_H }}
     >
-      <QaQuestionSection
-        accentColour={accent}
-        accentBandVariant="header"
-        style={{ padding: "14px 18px 10px" }}
-      >
+      <QaQuestionSection style={{ padding: "17.5px 22.5px 12.5px" }}>
         <div
           data-selectable-text
           className="qa-question-text w-full min-w-0 cursor-text overflow-hidden break-words font-semibold text-canvas-ink"
@@ -48,8 +42,8 @@ export function ConversationCardSurface({
       </QaQuestionSection>
       {zoom.showSummary && (
         <>
-          <div className="mx-5 shrink-0 h-px bg-canvas-border" />
-          <div className="line-clamp-6 flex-1 overflow-hidden px-[18px] py-3 text-canvas-body-sm leading-relaxed text-canvas-ink">
+          <div className="mx-[22.5px] shrink-0 h-px bg-canvas-border" />
+          <div className="line-clamp-6 flex-1 overflow-hidden px-[22.5px] py-[15px] text-canvas-body-sm leading-relaxed text-canvas-ink">
             {card.answer}
           </div>
         </>

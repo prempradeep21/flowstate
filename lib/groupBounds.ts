@@ -7,7 +7,12 @@ import type { BranchGroup, Card } from "@/lib/store";
 import { getFamilyCardIds } from "@/lib/chatThreads";
 import type { ChatThreadState } from "@/lib/chatThreads";
 
-export const GROUP_BOUNDS_PADDING = 24;
+/**
+ * Inner padding of a group frame. Held equal to the transcript bento's
+ * TILE_GAP so the air inside the frame reads as the same gutter that runs
+ * between the artifacts it contains.
+ */
+export const GROUP_BOUNDS_PADDING = 48;
 export const ARTIFACT_GAP = 24;
 export const SUMMARY_ICON_GAP = 8;
 

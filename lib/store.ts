@@ -525,6 +525,12 @@ export interface BranchGroup {
   headingText?: string;
   /** Subtle identifying hue (hex). Absent leaves the neutral frame. */
   accentColour?: string;
+  /**
+   * World Y of a hairline rule drawn across the group — a transcript chapter
+   * uses it to separate its conversation cards from the artifacts below them.
+   * Absent draws nothing.
+   */
+  dividerY?: number;
   summaryMarkdown: string | null;
   summaryGeneratedAt?: number;
   summaryContentFingerprint?: string;

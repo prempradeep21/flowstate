@@ -754,37 +754,35 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Bento — the tonal two-tone system. Every card IS its category color:    */
-/* headline kinds (stat, quote, definition, sticky) are SOLID cards (deep  */
-/* hue, light text, huge type); everything else is a PALE card (tint       */
-/* surface, hue-tinted near-black ink). No strokes on any kind; depth from */
-/* tone contrast plus one soft tinted shadow. Neutral tokens are           */
-/* re-declared per node so every canvas-* utility inside recolors itself.  */
+/* Bento — the SOLID tonal system. Every card IS its category color: one   */
+/* saturated fill edge to edge (header included), light ink on top, huge   */
+/* display type. No pale/tint role, no strokes; depth comes from the tone  */
+/* contrast against the canvas plus one soft tinted shadow. Anything drawn */
+/* ON a card (chips, rules, table head, step blocks) paints in --art-accent */
+/* (the on-fill tone) with --art-on-accent text, so it stays legible on a  */
+/* saturated ground. Neutral tokens are re-declared per node so every      */
+/* canvas-* utility inside recolors itself.                               */
 /* ---------------------------------------------------------------------- */
 
-/* Pale role (default for every node) — re-bind the neutral tokens. */
+/* Every node, every kind: the solid role. `--art-fill` / `--art-on-fill`
+   are the card's own pair; `--art-accent` / `--art-on-accent` are the
+   inverse pair for anything painted on top of it. */
 [data-artifact-style="bento"] [data-artifact-category] {
-  --canvas-ink: var(--art-ink);
-  --canvas-muted: var(--art-muted);
-  --canvas-card: var(--art-pale);
-  --canvas-border: var(--art-line);
-  --canvas-artifact-stage: var(--art-stage);
-  --canvas-code-bg: var(--art-stage);
-  --canvas-plug-fill: var(--art-pale);
-  --canvas-accent: var(--art-solid);
-  --canvas-on-accent: var(--art-on-solid);
-  --canvas-accent-soft: var(--art-line);
-  --canvas-artifact-icon-bg: var(--art-solid);
-  --canvas-map-primary: var(--art-solid);
-}
+  --art-fill: var(--art-solid);
+  --art-on-fill: var(--art-on-solid);
+  --art-accent: var(--art-on-solid);
+  --art-on-accent: var(--art-solid);
 
-/* Solid role — headline kinds flip to the deep fill with light text. */
-[data-artifact-style="bento"] [data-artifact-kind="stat"],
-[data-artifact-style="bento"] [data-artifact-kind="quote"],
-[data-artifact-style="bento"] [data-artifact-kind="definition"],
-[data-artifact-style="bento"] [data-artifact-kind="stickynote"] {
   --canvas-ink: var(--art-on-solid);
   --canvas-muted: var(--art-on-solid-muted);
+  /* Every neutral that can carry text has to travel with the fill, or a
+     remapped hue leaves stale ink behind on the card. */
+  --canvas-secondary: var(--art-on-solid);
+  --canvas-tertiary: var(--art-on-solid-muted);
+  --canvas-connector: var(--art-on-solid-muted);
+  --canvas-syntax-comment: var(--art-on-solid-muted);
+  --canvas-syntax-string: var(--art-on-solid);
+  --canvas-syntax-keyword: var(--art-on-solid);
   --canvas-card: var(--art-solid);
   --canvas-border: var(--art-solid-line);
   --canvas-artifact-stage: var(--art-solid-stage);
@@ -793,7 +791,8 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   --canvas-accent: var(--art-on-solid);
   --canvas-on-accent: var(--art-solid);
   --canvas-accent-soft: var(--art-solid-line);
-  --canvas-artifact-icon-bg: var(--art-pale);
+  --canvas-artifact-icon-bg: var(--art-on-solid);
+  --canvas-map-primary: var(--art-on-solid);
 }
 
 /* Casing: no stroke, pack corners, one soft tinted shadow, category fill.
@@ -832,7 +831,7 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 [data-artifact-style="bento"] [data-canvas-artifact][data-selected] .artifact-casing,
 [data-artifact-style="bento"] [data-canvas-asset][data-selected] .artifact-casing {
   box-shadow: var(--canvas-artifact-ambient-shadow),
-    0 0 0 3px rgb(var(--art-solid) / 0.45) !important;
+    0 0 0 3px rgb(var(--art-fill) / 0.45) !important;
 }
 
 /* Inner surfaces follow the node's card tone (stage carries bg-canvas-card
@@ -857,11 +856,6 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   border-radius: 14px;
   background-color: rgb(var(--canvas-artifact-icon-bg)) !important;
   color: rgb(var(--canvas-on-accent)) !important;
-}
-[data-artifact-style="bento"] [data-artifact-kind="stat"] .artifact-header-icon,
-[data-artifact-style="bento"] [data-artifact-kind="quote"] .artifact-header-icon,
-[data-artifact-style="bento"] [data-artifact-kind="definition"] .artifact-header-icon {
-  color: rgb(var(--art-ink)) !important;
 }
 [data-artifact-style="bento"] .artifact-header-icon > span {
   background: transparent !important;
@@ -1051,7 +1045,7 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   border-left: 0 !important;
   padding: 16px 16px 14px;
   border-radius: 16px;
-  background: rgb(var(--art-solid) / 0.08);
+  background: rgb(var(--art-accent) / 0.08);
   overflow: hidden;
 }
 [data-artifact-style="bento"] .artifact-claim-side::before {
@@ -1060,7 +1054,7 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   inset: 0 auto auto 0;
   width: 100%;
   height: 4px;
-  background: rgb(var(--art-solid));
+  background: rgb(var(--art-accent));
 }
 [data-artifact-style="bento"] .artifact-claim-side[data-claim-side="counter"]::before {
   opacity: 0.45;
@@ -1068,7 +1062,7 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 [data-artifact-style="bento"] .artifact-claim-role {
   font-size: 11px;
   letter-spacing: var(--canvas-artifact-eyebrow-tracking);
-  color: rgb(var(--art-solid));
+  color: rgb(var(--art-accent));
 }
 
 /* ------------------------------ Mechanism ------------------------------ */
@@ -1102,8 +1096,8 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   padding: 12px 14px;
   border-radius: 14px;
   border: 0;
-  background: rgb(var(--art-solid));
-  color: rgb(var(--art-on-solid));
+  background: rgb(var(--art-accent));
+  color: rgb(var(--art-on-accent));
 }
 [data-artifact-style="bento"] .artifact-mech-step > span {
   color: inherit;
@@ -1127,7 +1121,7 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   overflow-wrap: anywhere;
 }
 [data-artifact-style="bento"] .artifact-mech-glyph {
-  color: rgb(var(--art-solid));
+  color: rgb(var(--art-accent));
   opacity: 1;
   font-weight: 700;
   font-size: 18px;
@@ -1139,21 +1133,21 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
    hue is overruled (inline --table-accent) so tables join the category
    system. */
 [data-artifact-style="bento"] .table-artifact-head {
-  background: rgb(var(--art-solid)) !important;
+  background: rgb(var(--art-accent)) !important;
   border-bottom-width: 0;
   border-color: transparent !important;
   backdrop-filter: none;
 }
 [data-artifact-style="bento"] .table-artifact-th {
-  color: rgb(var(--art-on-solid)) !important;
+  color: rgb(var(--art-on-accent)) !important;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 [data-artifact-style="bento"] .table-artifact-row {
-  border-color: rgb(var(--art-solid) / 0.12) !important;
+  border-color: rgb(var(--art-accent) / 0.12) !important;
 }
 [data-artifact-style="bento"] .table-artifact-row:hover {
-  background-color: rgb(var(--art-solid) / 0.06) !important;
+  background-color: rgb(var(--art-accent) / 0.06) !important;
 }
 
 /* -------------------------------- Todo --------------------------------- */
@@ -1161,17 +1155,17 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 [data-artifact-style="bento"] .artifact-todo-checkbox {
   border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
   border-radius: 999px !important;
-  border-color: rgb(var(--art-solid)) !important;
+  border-color: rgb(var(--art-accent)) !important;
 }
 [data-artifact-style="bento"] .artifact-todo-checkbox[aria-checked="true"] {
-  background-color: rgb(var(--art-solid)) !important;
+  background-color: rgb(var(--art-accent)) !important;
 }
 [data-artifact-style="bento"] .artifact-todo-checkbox[aria-checked="true"] svg {
-  color: rgb(var(--art-on-solid));
+  color: rgb(var(--art-on-accent));
 }
 [data-artifact-style="bento"] .artifact-pill {
-  background-color: rgb(var(--art-solid) / 0.12) !important;
-  color: rgb(var(--art-ink)) !important;
+  background-color: rgb(var(--art-accent) / 0.12) !important;
+  color: rgb(var(--art-on-fill)) !important;
   box-shadow: none !important;
   border-radius: var(--canvas-artifact-pill-radius);
 }
@@ -1179,30 +1173,30 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 /* ------------------------------- Calendar ------------------------------ */
 
 [data-artifact-style="bento"] .artifact-cal-cell--selected {
-  background-color: rgb(var(--art-solid) / 0.1) !important;
+  background-color: rgb(var(--art-accent) / 0.1) !important;
 }
 [data-artifact-style="bento"] .artifact-cal-day--highlighted {
   border-radius: 999px;
-  background-color: rgb(var(--art-solid) / 0.16);
-  color: rgb(var(--art-ink));
+  background-color: rgb(var(--art-accent) / 0.16);
+  color: rgb(var(--art-on-fill));
   box-shadow: none !important;
 }
 [data-artifact-style="bento"] .artifact-cal-day--today {
   border-radius: 999px;
-  background-color: rgb(var(--art-solid));
-  color: rgb(var(--art-on-solid));
+  background-color: rgb(var(--art-accent));
+  color: rgb(var(--art-on-accent));
 }
 [data-artifact-style="bento"] .artifact-cal-day--today > span {
-  background-color: rgb(var(--art-on-solid)) !important;
+  background-color: rgb(var(--art-on-accent)) !important;
 }
 [data-artifact-style="bento"] .artifact-cal-chip {
-  color: rgb(var(--art-ink)) !important;
+  color: rgb(var(--art-on-fill)) !important;
 }
 
 /* -------------------------------- Chart -------------------------------- */
 
 [data-artifact-style="bento"] .artifact-chart-footer {
-  border-top-color: rgb(var(--art-solid) / 0.14) !important;
+  border-top-color: rgb(var(--art-accent) / 0.14) !important;
 }
 
 /* ------------------------------- Sticky -------------------------------- */
@@ -1210,8 +1204,8 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
 /* The pack owns color: sticky notes become solid docs-tone cards (the
    yellow card of the references); the per-note swatch picker is hidden. */
 [data-artifact-style="bento"] .artifact-sticky-surface {
-  background-color: rgb(var(--art-solid)) !important;
-  color: rgb(var(--art-on-solid)) !important;
+  background-color: rgb(var(--art-fill)) !important;
+  color: rgb(var(--art-on-fill)) !important;
   box-shadow: none !important;
   border-radius: var(--canvas-artifact-radius) !important;
 }
@@ -1238,23 +1232,39 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   --art-paper: 255 255 255;
   --art-paper-stage: 245 244 250;
   --art-paper-line: 226 223 236;
+  --art-paper-ink: 26 25 34;
+  --art-paper-muted: 90 88 102;
 }
 html[data-theme="dark"] [data-artifact-style="bento"] {
   --art-paper: 26 25 34;
   --art-paper-stage: 34 33 44;
   --art-paper-line: 51 49 64;
+  --art-paper-ink: 237 236 242;
+  --art-paper-muted: 166 163 180;
 }
 
+/* Paper role: the card is neutral, so the pairs flip back — ink is the dark
+   neutral and the category tone becomes the accent painted on it. */
 [data-artifact-style="bento"] [data-canvas-card][data-artifact-category] {
-  --art-pale: var(--art-paper);
+  --art-fill: var(--art-paper);
+  --art-on-fill: var(--art-paper-ink);
+  --art-accent: var(--art-solid);
+  --art-on-accent: var(--art-paper);
   --art-stage: var(--art-paper-stage);
   --art-line: var(--art-paper-line);
+  --canvas-ink: var(--art-paper-ink);
+  --canvas-muted: var(--art-paper-muted);
+  --canvas-secondary: var(--art-paper-ink);
+  --canvas-tertiary: var(--art-paper-muted);
   --canvas-card: var(--art-paper);
   --canvas-artifact-stage: var(--art-paper-stage);
   --canvas-code-bg: var(--art-paper-stage);
   --canvas-border: var(--art-paper-line);
   --canvas-plug-fill: var(--art-paper);
+  --canvas-accent: var(--art-solid);
+  --canvas-on-accent: var(--art-paper);
   --canvas-accent-soft: var(--art-paper-line);
+  --canvas-artifact-icon-bg: var(--art-solid);
 }
 
 [data-artifact-style="bento"] .chat-casing,

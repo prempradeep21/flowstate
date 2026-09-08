@@ -193,11 +193,7 @@ export function DemoCard({
             className="flex min-w-0 flex-col"
           >
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
-              <QaQuestionSection
-                accentColour={accent}
-                accentBandVariant="header"
-                style={qaInsetStyle("question")}
-              >
+              <QaQuestionSection style={qaInsetStyle("question")}>
                 <QaQuestionHeaderRow
                   controls={
                     <CardQaMenu cardId={card.id} canvas layout="embedded" />

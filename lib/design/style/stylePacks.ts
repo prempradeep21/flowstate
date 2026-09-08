@@ -221,15 +221,16 @@ const LIQUID_GLASS: ArtifactStylePreset = {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Bento — the tonal two-tone system (nue / finance-bento references). One hue
- * per artifact category expressed as a tonal pair: headline kinds (stat,
- * quote, definition, sticky note) are SOLID cards (deep hue, light text, huge
- * type); every other kind is a PALE card (tint surface, hue-tinted near-black
- * ink). No strokes on any kind; depth comes from tone contrast plus one soft
- * hue-tinted shadow. All solids share L≈0.36 and all pales L≈0.93, so eight
- * hues still read as one family. Dark mode brightens the solids (on-color
- * becomes a deep tint of the hue) and turns the pales into deep-dark tints
- * with light ink. Every text pair is AA-checked in stylePacks.contrast.test.
+ * Bento — the solid tonal system (nue / finance-bento references). One hue
+ * per artifact category, and EVERY card is that hue at full strength, header
+ * band included: a saturated fill edge to edge with light ink and huge type.
+ * There is no pale card role any more — `pale` / `ink` / `muted` stay in the
+ * table as the derivation source for hairlines, stages and the contrast test,
+ * but app/styles/artifact-styles.css binds every node to the solid pair.
+ * Anything painted ON a card (chips, table head, step blocks, rules) inverts
+ * to the on-solid tone. All solids share L≈0.36 so eight hues still read as
+ * one family; dark mode brightens them and flips the ink to a deep tint of
+ * the hue. Every text pair is AA-checked in stylePacks.contrast.test.
  */
 const BENTO_LIGHT_CATEGORIES: Record<ArtifactCategoryId, ArtifactStyleCategoryTones> = {
   data:      { solid: "#2B5BE0", onSolid: "#FFFFFF", onSolidMuted: "#E1E8FB", pale: "#E3E9FC", ink: "#17265C", muted: "#4A5A8E", vivid: "#2B5BE0" },
@@ -257,7 +258,7 @@ const BENTO: ArtifactStylePreset = {
   id: "bento",
   name: "Bento",
   description:
-    "Tonal bento — every card is its category color: solid headline cards, pale content cards, no strokes.",
+    "Tonal bento — every card is one solid category color, edge to edge, no strokes.",
   strokeWidth: "0px",
   radius: "36px",
   controlStrokeWidth: "0px",
@@ -282,7 +283,7 @@ const BENTO: ArtifactStylePreset = {
     eyebrowFamily: "inherit",
     eyebrowTracking: "0.08em",
   },
-  previewSwatches: ["#5B2DEE", "#EAE4FB", "#F2C230"],
+  previewSwatches: ["#5B2DEE", "#0E7C9A", "#F2C230"],
   light: {
     cardFill: "#E3E9FC",
     stroke: "#D6D5DE",

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { resolveArtifactStyle } from "@/lib/design/style/resolveArtifactStyle";
 import {
   DEFAULT_ARTIFACT_STYLE_ID,
@@ -11,6 +12,15 @@ import type {
   ArtifactStylePreset,
   ResolvedArtifactStyle,
 } from "@/lib/design/style/types";
+
+/**
+ * TEMPORARY dev tool. Lazy so it never reaches a production bundle: it only
+ * loads when the Bento pack is live in a dev build.
+ */
+const BentoColorLab = dynamic(
+  () => import("@/components/dev/BentoColorLab").then((m) => m.BentoColorLab),
+  { ssr: false },
+);
 
 const DEFAULT_RESOLVED: ResolvedArtifactStyle = {
   css: "",
@@ -68,6 +78,9 @@ export function ArtifactStyleScope({
       <div data-artifact-style={styleId} className="contents">
         <style>{resolved.css}</style>
         {children}
+        {process.env.NODE_ENV !== "production" && styleId === "bento" ? (
+          <BentoColorLab />
+        ) : null}
       </div>
     </ArtifactStyleContext.Provider>
   );

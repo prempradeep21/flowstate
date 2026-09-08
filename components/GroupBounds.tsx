@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { GROUP_BOUNDS_PADDING } from "@/lib/groupBounds";
 import { useGroupBounds } from "@/lib/useGroupBounds";
 import { groupGestureRefs } from "@/lib/groupMembership";
 import { plugAnchorAt } from "@/lib/plugConnector";
@@ -16,10 +17,7 @@ interface GroupBoundsProps {
 }
 
 const SCREEN_STROKE = 1.5;
-const CORNER_RADIUS = 10;
-/** Chapter tint — enough to tell two neighbours apart, not enough to notice. */
-const ACCENT_FILL_OPACITY = 0.045;
-const ACCENT_STROKE_OPACITY = 0.35;
+const CORNER_RADIUS = 30;
 
 /** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
@@ -29,7 +27,7 @@ const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
  * not counter-scaled, so it reads as a title over the district at any zoom and
  * stays the most legible thing on screen when the whole canvas is in view.
  */
-const HEADING_FONT_SIZE = 56;
+const HEADING_FONT_SIZE = 112;
 /** Screen height of the label chip, used to stack the heading clear of it. */
 const LABEL_CHIP_SCREEN_H = 26;
 const HEADING_GAP = 10;
@@ -80,9 +78,6 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
 
   const stroke = compensatedStrokeWidth(SCREEN_STROKE, scale, SCREEN_STROKE);
   const inset = stroke / 2;
-  // An identifying hue, kept far below the selection accent so a wall of
-  // chapters still reads as one calm surface.
-  const accent = group.accentColour;
 
   const handleLabelPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || editing) return;
@@ -149,21 +144,25 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
           stroke={
             isActive
               ? "rgb(var(--canvas-accent))"
-              : accent ?? "rgb(var(--canvas-ink) / 0.16)"
+              : "rgb(var(--canvas-ink) / 0.16)"
           }
-          strokeOpacity={!isActive && accent ? ACCENT_STROKE_OPACITY : 1}
           strokeWidth={isActive ? stroke * 1.5 : stroke}
         />
-        {accent ? (
-          <rect
-            x={inset}
-            y={inset}
-            width={Math.max(0, bounds.w - stroke)}
-            height={Math.max(0, bounds.h - stroke)}
-            rx={CORNER_RADIUS}
-            ry={CORNER_RADIUS}
-            fill={accent}
-            fillOpacity={ACCENT_FILL_OPACITY}
+        {/*
+          Hairline between the group's conversation cards and its artifacts.
+          Inset by the frame padding so it starts and ends on the same gutter
+          the tiles inside line up to, and translucent enough to read as a
+          separation rather than a border of its own.
+        */}
+        {group.dividerY !== undefined ? (
+          <line
+            x1={GROUP_BOUNDS_PADDING}
+            x2={Math.max(GROUP_BOUNDS_PADDING, bounds.w - GROUP_BOUNDS_PADDING)}
+            y1={group.dividerY - bounds.y}
+            y2={group.dividerY - bounds.y}
+            stroke="rgb(var(--canvas-ink))"
+            strokeOpacity={0.18}
+            strokeWidth={stroke}
           />
         ) : null}
       </svg>
@@ -178,7 +177,6 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
             maxWidth: bounds.w,
             fontSize: HEADING_FONT_SIZE,
             lineHeight: 1.15,
-            ...(accent ? { color: accent } : {}),
           }}
         >
           {group.headingText}
@@ -220,15 +218,8 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
             className={`inline-block rounded-canvas-sm border px-2 py-0.5 text-canvas-caption font-medium shadow-sm ${
               isActive
                 ? "border-canvas-accent bg-canvas-card text-canvas-accent"
-                : accent
-                  ? "bg-canvas-card/90"
-                  : "border-canvas-border bg-canvas-card/90 text-canvas-muted"
+                : "border-canvas-border bg-canvas-card/90 text-canvas-muted"
             }`}
-            style={
-              !isActive && accent
-                ? { borderColor: `${accent}66`, color: accent }
-                : undefined
-            }
           >
             {group.label}
           </span>

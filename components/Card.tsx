@@ -996,16 +996,10 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface
-                card={card}
-                accent={accent}
-                zoom={conversationZoom}
-              />
+              <ConversationCardSurface card={card} zoom={conversationZoom} />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
-                accentColour={accent}
-                accentBandVariant={isChatCollapsed ? "compact" : "header"}
                 style={
                   isChatCollapsed
                     ? qaInsetStyle("questionCollapsed")

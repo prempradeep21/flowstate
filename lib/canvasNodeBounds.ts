@@ -165,6 +165,13 @@ export const MIN_ARTIFACT_WIDTH = 280;
 export const MAX_ARTIFACT_WIDTH = 1200;
 export const MIN_ARTIFACT_HEIGHT = 160;
 export const MAX_ARTIFACT_HEIGHT = 1170;
+/**
+ * The episode/link masthead pair spawns larger than the generic ceiling, so it
+ * gets its own — otherwise the auto-measure and corner-resize clamps would drag
+ * it back down to 1200×1170 the moment it rendered.
+ */
+export const MAX_MASTHEAD_ARTIFACT_WIDTH = EPISODE_ARTIFACT_WIDTH;
+export const MAX_MASTHEAD_ARTIFACT_HEIGHT = EPISODE_ARTIFACT_HEIGHT;
 
 export function clampArtifactSize(
   w: number,
@@ -374,16 +381,38 @@ export function getArtifactLayoutFloors(
   };
 }
 
-/** Largest node box a kind may be stretched to, mirroring the runtime clamps. */
-export function getArtifactMaxSize(kind: ArtifactKind): { w: number; h: number } {
+/**
+ * Per-kind overrides for {@link clampArtifactSize} — the one place the free
+ * resize path and the auto-measure path read their ceilings from, so the two
+ * cannot drift apart.
+ */
+export function getArtifactClampOpts(
+  kind: ArtifactKind | undefined,
+): { maxW?: number; maxH?: number } | undefined {
   switch (kind) {
     case "timeline":
-      return { w: MAX_TIMELINE_ARTIFACT_WIDTH, h: MAX_ARTIFACT_HEIGHT };
+      return { maxW: MAX_TIMELINE_ARTIFACT_WIDTH };
     case "audio":
-      return { w: MAX_AUDIO_ARTIFACT_WIDTH, h: MAX_ARTIFACT_HEIGHT };
-    case "stickynote":
-      return { w: STICKY_NOTE_MAX_WIDTH, h: STICKY_NOTE_MAX_HEIGHT };
+      return { maxW: MAX_AUDIO_ARTIFACT_WIDTH };
+    case "episode":
+    case "linkgroup":
+      return {
+        maxW: MAX_MASTHEAD_ARTIFACT_WIDTH,
+        maxH: MAX_MASTHEAD_ARTIFACT_HEIGHT,
+      };
     default:
-      return { w: MAX_ARTIFACT_WIDTH, h: MAX_ARTIFACT_HEIGHT };
+      return undefined;
   }
+}
+
+/** Largest node box a kind may be stretched to, mirroring the runtime clamps. */
+export function getArtifactMaxSize(kind: ArtifactKind): { w: number; h: number } {
+  if (kind === "stickynote") {
+    return { w: STICKY_NOTE_MAX_WIDTH, h: STICKY_NOTE_MAX_HEIGHT };
+  }
+  const opts = getArtifactClampOpts(kind);
+  return {
+    w: opts?.maxW ?? MAX_ARTIFACT_WIDTH,
+    h: opts?.maxH ?? MAX_ARTIFACT_HEIGHT,
+  };
 }

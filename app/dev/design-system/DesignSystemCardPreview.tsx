@@ -17,7 +17,6 @@ import {
   type DesignSystemCardSample,
 } from "@/lib/designSystemCardSamples";
 import { qaInsetStyle } from "@/lib/design/canvasInsets";
-import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 
 function CardChrome({
   sample,
@@ -26,7 +25,6 @@ function CardChrome({
   sample: DesignSystemCardSample;
   children: React.ReactNode;
 }) {
-  const accent = THREAD_ACCENT_PALETTE[0]!;
 
   return (
     <div
@@ -35,7 +33,7 @@ function CardChrome({
     >
       <CanvasSharpContent worldWidth={DESIGN_SYSTEM_CARD_WIDTH}>
         <QaTranslucentSurface>
-          <QaQuestionSection accentColour={accent}>
+          <QaQuestionSection>
             <div
               className="w-full min-w-0 break-words text-canvas-heading font-semibold leading-snug text-canvas-ink"
               style={qaInsetStyle("question")}

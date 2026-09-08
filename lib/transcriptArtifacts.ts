@@ -1,4 +1,5 @@
 import type {
+  ArtifactKind,
   ArtifactPayload,
   ClaimArtifactData,
   EpisodeArtifactData,
@@ -249,10 +250,25 @@ export function mechanismPayload(
 export const MANUAL_EPISODE_SOURCE_CARD_ID = "__manual_episode__";
 export const MANUAL_LINK_GROUP_SOURCE_CARD_ID = "__manual_linkgroup__";
 
-export const EPISODE_ARTIFACT_WIDTH = 560;
-export const EPISODE_ARTIFACT_HEIGHT = 660;
-export const LINK_GROUP_ARTIFACT_WIDTH = 560;
-export const LINK_GROUP_ARTIFACT_HEIGHT = 420;
+/*
+ * The masthead pair is the entrance to an imported video: the first thing read
+ * and the index everything else hangs off. They are drawn at 2.5× the node size
+ * of an ordinary artifact, with their content zoomed by the same factor
+ * ({@link MASTHEAD_ARTIFACT_SCALE}) so the blow-up is uniform rather than a
+ * normal-sized card floating in a large box.
+ */
+export const MASTHEAD_ARTIFACT_SCALE = 2.5;
+
+/** The kinds that get the {@link MASTHEAD_ARTIFACT_SCALE} treatment on canvas. */
+export const MASTHEAD_ARTIFACT_KINDS: ReadonlySet<ArtifactKind> = new Set<ArtifactKind>([
+  "episode",
+  "linkgroup",
+]);
+
+export const EPISODE_ARTIFACT_WIDTH = 560 * MASTHEAD_ARTIFACT_SCALE;
+export const EPISODE_ARTIFACT_HEIGHT = 660 * MASTHEAD_ARTIFACT_SCALE;
+export const LINK_GROUP_ARTIFACT_WIDTH = 560 * MASTHEAD_ARTIFACT_SCALE;
+export const LINK_GROUP_ARTIFACT_HEIGHT = 420 * MASTHEAD_ARTIFACT_SCALE;
 
 /** Google's favicon service — the same source spawnWebsite already uses. */
 export function faviconForUrl(url: string): string | undefined {

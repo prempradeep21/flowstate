@@ -21,9 +21,12 @@ function displayHost(url: string): string {
 function WebsiteFavicon({
   faviconUrl,
   className,
+  bare = false,
 }: {
   faviconUrl?: string;
   className: string;
+  /** Drop the gray plate and let the glyph fill the box — for the hero icon. */
+  bare?: boolean;
 }) {
   // A favicon commonly 403s on hotlink-protected origins. Without a fallback
   // that left a blank square, so failure falls through to the type icon.
@@ -46,9 +49,11 @@ function WebsiteFavicon({
   }
   return (
     <div
-      className={`${className} flex items-center justify-center bg-canvas-bg text-canvas-muted`}
+      className={`${className} flex items-center justify-center ${
+        bare ? "text-canvas-ink/70" : "bg-canvas-bg text-canvas-muted"
+      }`}
     >
-      <ArtifactTypeIcon kind="website" className="h-1/2 w-1/2" />
+      <ArtifactTypeIcon kind="website" className={bare ? "h-full w-full" : "h-1/2 w-1/2"} />
     </div>
   );
 }
@@ -207,43 +212,78 @@ export function WebsiteArtifactContent({
     );
   }
 
-  const card = (
-    <div className="flex flex-col gap-4 p-4">
-      {pending && !showPreview ? (
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
-          <div className="flex h-full flex-col items-center justify-center gap-2">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent" />
-            <span className="text-canvas-micro text-canvas-muted">Loading preview…</span>
-          </div>
-        </div>
-      ) : showPreview ? (
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
-          <PreviewThumbnail
-            previewImageUrl={previewSrc!}
-            alt={title}
-            className="h-full w-full object-contain"
-            onFailed={handlePreviewError}
-          />
-        </div>
-      ) : (
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
-          <div className="flex h-full flex-col items-center justify-center gap-1 text-canvas-muted">
-            <ArtifactTypeIcon kind="website" className="h-8 w-8 opacity-40" />
-            <span className="text-canvas-micro">No preview image</span>
-          </div>
-        </div>
-      )}
-      <div className="flex items-start gap-3">
+  // Two shapes, picked by state. With a preview there is a media block plus a
+  // chin; without one — still fetching, or none exists — a gray slab with a
+  // spinner in it was just a hole in the card, so the chin's own contents
+  // become the card instead: hero icon, title and link centered on the
+  // artifact's own colour, no plate behind them.
+  const linkRow = (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer noopener"
+      title={url}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      className="break-all text-canvas-caption text-canvas-ink/70 underline decoration-canvas-ink/30 underline-offset-2 transition-colors hover:text-canvas-ink hover:decoration-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50"
+    >
+      {displayHost(url)}
+    </a>
+  );
+
+  const identity = (
+    <div
+      className={`flex flex-col items-center justify-center gap-4 p-6 text-center ${
+        fill ? "h-full min-h-0" : "min-h-[240px]"
+      }`}
+    >
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <WebsiteFavicon
+          bare
+          faviconUrl={faviconUrl}
+          className="aspect-square h-40 max-h-full w-auto shrink-0"
+        />
+      </div>
+      <div className="flex w-full shrink-0 flex-col items-center gap-1">
+        <h3
+          className={`max-w-full truncate text-canvas-body font-semibold leading-snug ${
+            pending ? "text-canvas-ink/60" : "text-canvas-ink"
+          }`}
+        >
+          {title}
+        </h3>
+        {linkRow}
+      </div>
+    </div>
+  );
+
+  // The chin must stay visible at every node height, so the media block flexes
+  // into whatever space is left instead of claiming a fixed 4:3 slab that
+  // pushes it out of view on short cards. Only the unsized (panel) case keeps
+  // the aspect ratio.
+  const card = showPreview ? (
+    <div className={`flex flex-col gap-4 p-4 ${fill ? "h-full min-h-0" : ""}`}>
+      <div
+        className={
+          fill
+            ? "relative min-h-0 w-full flex-1 overflow-hidden rounded-canvas bg-canvas-bg"
+            : "relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg"
+        }
+      >
+        <PreviewThumbnail
+          previewImageUrl={previewSrc!}
+          alt={title}
+          className="h-full w-full object-contain"
+          onFailed={handlePreviewError}
+        />
+      </div>
+      <div className="flex shrink-0 items-start gap-3">
         <WebsiteFavicon
           faviconUrl={faviconUrl}
           className="mt-0.5 h-10 w-10 shrink-0 rounded-canvas"
         />
         <div className="min-w-0 flex-1">
-          <h3
-            className={`text-canvas-body font-semibold leading-snug ${
-              pending ? "text-canvas-muted" : "text-canvas-ink"
-            }`}
-          >
+          <h3 className="text-canvas-body font-semibold leading-snug text-canvas-ink">
             {title}
           </h3>
           <p className="mt-1 break-all text-canvas-caption text-canvas-muted">
@@ -252,6 +292,8 @@ export function WebsiteArtifactContent({
         </div>
       </div>
     </div>
+  ) : (
+    identity
   );
 
   if (fill) {
@@ -261,7 +303,7 @@ export function WebsiteArtifactContent({
         artifactId={artifactId}
         className="h-full !bg-transparent"
       >
-        <div className="flex h-full min-h-0 flex-col overflow-auto">{card}</div>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">{card}</div>
       </ArtifactContentStage>
     );
   }
