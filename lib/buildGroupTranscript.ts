@@ -98,6 +98,24 @@ export function buildGroupTranscript(
     }
   }
 
+  // Individually named cards (a chapter's own nodes) read as one thread —
+  // they may come from several threads, and only this group's slice of each.
+  const namedExchanges: TranscriptExchange[] = [];
+  for (const cardId of group.cardIds ?? []) {
+    const card = state.cards[cardId];
+    if (!card || card.status !== "done" || !card.answer.trim()) continue;
+    namedExchanges.push({
+      question: card.question.trim(),
+      answer: card.answer.trim(),
+    });
+  }
+  if (namedExchanges.length > 0) {
+    families.push({
+      rootTitle: group.label,
+      threads: [{ title: group.label, exchanges: namedExchanges }],
+    });
+  }
+
   return { families };
 }
 

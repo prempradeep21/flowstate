@@ -2,6 +2,7 @@ import { hexToRgbChannels } from "@/lib/design/tokens";
 import {
   deriveDarkAccent,
   hexToHsl,
+  mixHex,
   withLightness,
 } from "@/lib/design/theme/color";
 import {
@@ -14,6 +15,7 @@ import type {
   ArtifactStyleSurfaceTokens,
   ResolvedArtifactStyle,
 } from "@/lib/design/style/types";
+import { ARTIFACT_CATEGORY_IDS } from "@/lib/design/theme/types";
 
 function cssBlock(selector: string, vars: Record<string, string>): string {
   const lines = Object.entries(vars).map(
@@ -80,6 +82,47 @@ function surfaceVars(tokens: ArtifactStyleSurfaceTokens): Record<string, string>
   if (tokens.innerHighlight) {
     vars["--canvas-artifact-inner-highlight"] = tokens.innerHighlight;
   }
+  // Neutral token re-declarations — every Tailwind `canvas-*` utility in the
+  // scope resolves through these, so a pack recolors all artifact text /
+  // rules / connectors in one move without per-component rules.
+  if (tokens.surfaceCard) {
+    vars["--canvas-card"] = hexToRgbChannels(tokens.surfaceCard);
+  }
+  if (tokens.surfaceInk) {
+    vars["--canvas-ink"] = hexToRgbChannels(tokens.surfaceInk);
+  }
+  if (tokens.surfaceMuted) {
+    vars["--canvas-muted"] = hexToRgbChannels(tokens.surfaceMuted);
+  }
+  if (tokens.surfaceBorder) {
+    vars["--canvas-border"] = hexToRgbChannels(tokens.surfaceBorder);
+  }
+  if (tokens.canvasConnector) {
+    vars["--canvas-connector"] = hexToRgbChannels(tokens.canvasConnector);
+  }
+  // Per-category tonal palette — emitted as `--art-cat-<category>-<role>`
+  // channels; the pack stylesheet binds the active category's set to the
+  // generic `--art-<role>` vars on each node via [data-artifact-category].
+  if (tokens.categories) {
+    for (const category of ARTIFACT_CATEGORY_IDS) {
+      const tones = tokens.categories[category];
+      const prefix = `--art-cat-${category}`;
+      vars[`${prefix}-solid`] = hexToRgbChannels(tones.solid);
+      vars[`${prefix}-on-solid`] = hexToRgbChannels(tones.onSolid);
+      vars[`${prefix}-on-solid-muted`] = hexToRgbChannels(tones.onSolidMuted);
+      vars[`${prefix}-pale`] = hexToRgbChannels(tones.pale);
+      vars[`${prefix}-ink`] = hexToRgbChannels(tones.ink);
+      vars[`${prefix}-muted`] = hexToRgbChannels(tones.muted);
+      vars[`${prefix}-vivid`] = hexToRgbChannels(tones.vivid);
+      // Derived in-family neutrals so rules and stages on a tinted card never
+      // fall back to the theme's grey: a hairline and a raised stage for the
+      // pale surface, and the same pair for the solid surface.
+      vars[`${prefix}-line`] = hexToRgbChannels(mixHex(tones.pale, tones.solid, 0.18));
+      vars[`${prefix}-stage`] = hexToRgbChannels(mixHex(tones.pale, tones.solid, 0.06));
+      vars[`${prefix}-solid-line`] = hexToRgbChannels(mixHex(tones.solid, tones.onSolid, 0.28));
+      vars[`${prefix}-solid-stage`] = hexToRgbChannels(mixHex(tones.solid, tones.onSolid, 0.1));
+    }
+  }
   return vars;
 }
 
@@ -99,6 +142,17 @@ function structureVars(pack: ArtifactStylePreset): Record<string, string> {
     "--canvas-artifact-tilt": pack.tilt,
     "--canvas-artifact-hover-lift": pack.hoverLift,
     "--canvas-artifact-press-push": pack.pressPush,
+    ...(pack.typography
+      ? {
+          "--canvas-artifact-display-family": pack.typography.displayFamily,
+          "--canvas-artifact-display-weight": pack.typography.displayWeight,
+          "--canvas-artifact-display-tracking": pack.typography.displayTracking,
+          "--canvas-artifact-display-size": pack.typography.displaySize,
+          "--canvas-artifact-quote-size": pack.typography.quoteSize,
+          "--canvas-artifact-eyebrow-family": pack.typography.eyebrowFamily,
+          "--canvas-artifact-eyebrow-tracking": pack.typography.eyebrowTracking,
+        }
+      : {}),
   };
 }
 

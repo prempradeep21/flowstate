@@ -82,10 +82,12 @@ export function buildGroupContextBlocks(
 ): string[] {
   const blocks: string[] = [];
   const items = group.items ?? [];
+  const cardIds = group.cardIds ?? [];
 
   blocks.push(
     `Canvas group "${group.label}" is attached as joint context ` +
-      `(${group.familyRootThreadIds.length} chat thread(s), ${items.length} canvas item(s)). ` +
+      `(${group.familyRootThreadIds.length} chat thread(s), ` +
+      `${cardIds.length} card(s), ${items.length} canvas item(s)). ` +
       `Treat everything in this group as shared background for the question.`,
   );
 
@@ -105,7 +107,7 @@ export function buildGroupContextBlocks(
         );
       }
     }
-  } else if (group.familyRootThreadIds.length > 0) {
+  } else if (group.familyRootThreadIds.length > 0 || cardIds.length > 0) {
     const transcript = buildGroupTranscript(graph, group);
     if (transcriptHasContent(transcript)) {
       blocks.push(

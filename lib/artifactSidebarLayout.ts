@@ -29,6 +29,13 @@ const DEFAULT_LAYOUTS: Record<ArtifactKind, SidebarTileLayout> = {
   chart: { span: 2, aspectClass: null, minHeight: 200, maxHeight: 280 },
   audio: { span: 1, aspectClass: null, minHeight: 80, maxHeight: 120 },
   stickynote: { span: 1, aspectClass: "aspect-square", minHeight: 120, maxHeight: 160 },
+  quote: { span: 2, aspectClass: null, minHeight: 100, maxHeight: 150 },
+  stat: { span: 1, aspectClass: null, minHeight: 100, maxHeight: 140 },
+  definition: { span: 2, aspectClass: null, minHeight: 90, maxHeight: 130 },
+  claim: { span: 2, aspectClass: null, minHeight: 180, maxHeight: 240 },
+  mechanism: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 220 },
+  episode: { span: 2, aspectClass: null, minHeight: 220, maxHeight: 300 },
+  linkgroup: { span: 2, aspectClass: null, minHeight: 160, maxHeight: 220 },
 };
 
 /** Wide map every 3rd map (1-indexed: 3rd, 6th, …). */

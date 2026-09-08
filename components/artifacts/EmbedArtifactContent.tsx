@@ -42,6 +42,11 @@ function EmbedFavicon({
   );
 }
 
+/**
+ * Renders its own empty state on failure. Returning null left the sized
+ * container behind as a blank slab, which reads as a broken artifact rather
+ * than one whose preview simply could not be fetched.
+ */
 function PreviewThumbnail({
   previewImageUrl,
   alt,
@@ -52,7 +57,18 @@ function PreviewThumbnail({
   className: string;
 }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return null;
+  useEffect(() => {
+    setFailed(false);
+  }, [previewImageUrl]);
+
+  if (failed) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-canvas-bg text-canvas-muted">
+        <ArtifactTypeIcon kind="embed" className="h-8 w-8 opacity-40" />
+        <span className="text-canvas-micro">No preview image</span>
+      </div>
+    );
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -60,6 +76,7 @@ function PreviewThumbnail({
       src={previewImageUrl}
       alt={alt}
       className={className}
+      referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
     />
   );

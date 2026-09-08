@@ -22,6 +22,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#D97706",
       dev: "#64748B",
       planning: "#DB2777",
+      discourse: "#7C3AED",
     },
   },
   {
@@ -39,6 +40,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#CA8A04",
       dev: "#78716C",
       planning: "#E11D48",
+      discourse: "#A21CAF",
     },
   },
   {
@@ -56,6 +58,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#0369A1",
       dev: "#64748B",
       planning: "#2563EB",
+      discourse: "#C026D3",
     },
   },
   {
@@ -73,6 +76,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#A16207",
       dev: "#57534E",
       planning: "#65A30D",
+      discourse: "#7E22CE",
     },
   },
   {
@@ -90,6 +94,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#A8A29A",
       dev: "#292524",
       planning: "#57534E",
+      discourse: "#6B6560",
     },
   },
 ];

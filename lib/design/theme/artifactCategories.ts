@@ -28,6 +28,13 @@ const KIND_TO_CATEGORY: Record<ArtifactCategoryKind, ArtifactCategoryId> = {
   todo: "planning",
   calendar: "planning",
   timeline: "planning",
+  mechanism: "viz",
+  stat: "viz",
+  quote: "discourse",
+  claim: "discourse",
+  definition: "discourse",
+  episode: "media",
+  linkgroup: "docs",
 };
 
 export const ARTIFACT_CATEGORY_META: Record<
@@ -35,15 +42,19 @@ export const ARTIFACT_CATEGORY_META: Record<
   { label: string; kinds: ArtifactCategoryKind[] }
 > = {
   data: { label: "Data & tables", kinds: ["table"] },
-  viz: { label: "Visualization", kinds: ["chart"] },
+  viz: { label: "Visualization", kinds: ["chart", "stat", "mechanism"] },
   geo: { label: "Maps & places", kinds: ["map", "streetview"] },
-  media: { label: "Media", kinds: ["images", "video", "audio", "3d"] },
+  media: { label: "Media", kinds: ["images", "video", "audio", "3d", "episode"] },
   docs: {
     label: "Documents & web",
-    kinds: ["website", "google-doc", "embed", "stickynote"],
+    kinds: ["website", "google-doc", "embed", "stickynote", "linkgroup"],
   },
   dev: { label: "Code & dev", kinds: ["code", "repo", "custom"] },
   planning: { label: "Planning", kinds: ["todo", "calendar", "timeline"] },
+  discourse: {
+    label: "Discourse",
+    kinds: ["quote", "claim", "definition"],
+  },
 };
 
 export function artifactCategoryOf(

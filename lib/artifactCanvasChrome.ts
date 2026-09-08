@@ -19,6 +19,13 @@ const CANVAS_SURFACE_FILL_KINDS = new Set<ArtifactKind>([
   "timeline",
   "map",
   "audio",
+  "quote",
+  "stat",
+  "definition",
+  "claim",
+  "mechanism",
+  "episode",
+  "linkgroup",
 ]);
 
 export function artifactKindUsesCanvasSurfaceFill(kind: ArtifactKind): boolean {

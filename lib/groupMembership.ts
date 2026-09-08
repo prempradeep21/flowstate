@@ -34,13 +34,28 @@ export function findGroupForFamily(
   return null;
 }
 
-/** The group containing a card (via its thread family), if any. */
+/** The group naming a card individually, if any. */
+export function findGroupForNamedCard(
+  groups: Record<string, BranchGroup>,
+  cardId: string,
+): BranchGroup | null {
+  for (const group of Object.values(groups)) {
+    if (group.cardIds?.includes(cardId)) return group;
+  }
+  return null;
+}
+
+/** The group containing a card — named individually, or via its thread family. */
 export function findGroupForCard(
   state: ChatThreadState & { groups: Record<string, BranchGroup> },
   cardId: string,
 ): BranchGroup | null {
   const card = state.cards[cardId];
   if (!card) return null;
+  // Named membership wins: a chapter holds one card off a shared thread, so
+  // the family lookup would pull in its neighbours' cards too.
+  const named = findGroupForNamedCard(state.groups, cardId);
+  if (named) return named;
   return findGroupForFamily(
     state.groups,
     getFamilyRootThreadId(state, card.threadId),
@@ -63,6 +78,9 @@ export function groupGestureRefs(
     for (const cardId of getFamilyCardIds(state, rootId)) {
       refs.push({ kind: "card", id: cardId });
     }
+  }
+  for (const cardId of group.cardIds ?? []) {
+    refs.push({ kind: "card", id: cardId });
   }
   for (const item of getGroupItems(group)) {
     refs.push({ kind: item.kind, id: item.id });

@@ -136,3 +136,59 @@ export function lineClampStyle(lines: number | null): CSSProperties | undefined 
     overflow: "hidden",
   };
 }
+
+/**
+ * Conversation-card legibility tiers.
+ *
+ * A transcript chapter's title is the only thing worth reading when the whole
+ * canvas is on screen, but at 18px it shrinks with the card and turns into a
+ * grey smear. Three discrete steps (rather than a continuous ramp) keep the
+ * title readable at a glance: the type grows in world units as the viewport
+ * shrinks, and the summary — unreadable long before the title is — drops out.
+ */
+export type ConversationZoomTier = "full" | "mid" | "far";
+
+export interface ConversationZoomDisplay {
+  tier: ConversationZoomTier;
+  /** Title size in world px. */
+  titleFontSize: number;
+  titleLineHeight: number;
+  /** Lines of title before truncation. */
+  titleLineClamp: number;
+  showSummary: boolean;
+}
+
+/** Below this scale the summary is sub-legible and the title grows. */
+export const CONVERSATION_ZOOM_MID = 0.5;
+/** Below this scale only a very large title survives. */
+export const CONVERSATION_ZOOM_FAR = 0.28;
+
+export function conversationZoomDisplay(
+  scale: number,
+): ConversationZoomDisplay {
+  if (scale < CONVERSATION_ZOOM_FAR) {
+    return {
+      tier: "far",
+      titleFontSize: 60,
+      titleLineHeight: 1.1,
+      titleLineClamp: 2,
+      showSummary: false,
+    };
+  }
+  if (scale < CONVERSATION_ZOOM_MID) {
+    return {
+      tier: "mid",
+      titleFontSize: 34,
+      titleLineHeight: 1.15,
+      titleLineClamp: 3,
+      showSummary: false,
+    };
+  }
+  return {
+    tier: "full",
+    titleFontSize: 18,
+    titleLineHeight: 1.35,
+    titleLineClamp: 3,
+    showSummary: true,
+  };
+}

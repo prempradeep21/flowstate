@@ -17,6 +17,13 @@ import { EmbedArtifactContent } from "@/components/artifacts/EmbedArtifactConten
 import { RepoArtifactContent } from "@/components/artifacts/RepoArtifactContent";
 import { TimelineArtifactContent } from "@/components/artifacts/TimelineArtifactContent";
 import { AudioArtifactContent } from "@/components/artifacts/AudioArtifactContent";
+import { EpisodeArtifactContent } from "@/components/artifacts/EpisodeArtifactContent";
+import { LinkGroupArtifactContent } from "@/components/artifacts/LinkGroupArtifactContent";
+import { ClaimArtifactContent } from "@/components/artifacts/ClaimArtifactContent";
+import { DefinitionArtifactContent } from "@/components/artifacts/DefinitionArtifactContent";
+import { MechanismArtifactContent } from "@/components/artifacts/MechanismArtifactContent";
+import { QuoteArtifactContent } from "@/components/artifacts/QuoteArtifactContent";
+import { StatArtifactContent } from "@/components/artifacts/StatArtifactContent";
 import { StickyNoteArtifactContent } from "@/components/artifacts/StickyNoteArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
@@ -350,6 +357,90 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             canvasContentInteractive={canvasInteractive}
+          />
+        );
+      }
+      break;
+    case "quote":
+      if (payload.type === "quote") {
+        return (
+          <QuoteArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "stat":
+      if (payload.type === "stat") {
+        return (
+          <StatArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "definition":
+      if (payload.type === "definition") {
+        return (
+          <DefinitionArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "claim":
+      if (payload.type === "claim") {
+        return (
+          <ClaimArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "mechanism":
+      if (payload.type === "mechanism") {
+        return (
+          <MechanismArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "episode":
+      if (payload.type === "episode") {
+        return (
+          <EpisodeArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
+          />
+        );
+      }
+      break;
+    case "linkgroup":
+      if (payload.type === "linkgroup") {
+        return (
+          <LinkGroupArtifactContent
+            payload={payload}
+            fill={fill}
+            sidebar={isSidebar}
+            artifactId={artifactId}
           />
         );
       }

@@ -178,6 +178,9 @@ export function CanvasSettingsPopover({
           // Glass packs preview as translucent frosted chips — solid fill
           // would hide the one thing the pack is about.
           const isGlass = Boolean(pack.backdropFilter);
+          // Color-led packs preview as three tone chips — the palette is
+          // the one thing those packs are about.
+          const swatches = pack.previewSwatches;
           return (
             <button
               key={pack.id}
@@ -191,8 +194,40 @@ export function CanvasSettingsPopover({
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >
-              <div className="relative flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5">
-                {isGlass && (
+              <div
+                className="relative flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5"
+                style={
+                  swatches && tokens.canvasBg
+                    ? { backgroundColor: tokens.canvasBg }
+                    : undefined
+                }
+              >
+                {swatches ? (
+                  <span
+                    className="relative flex h-8 w-full items-stretch gap-1.5"
+                    aria-hidden
+                  >
+                    {swatches.map((hex, i) => (
+                      <span
+                        key={`${hex}-${i}`}
+                        className={i === 0 ? "flex-[1.4]" : "flex-1"}
+                        style={{
+                          backgroundColor: hex,
+                          borderRadius: `calc(${pack.radius} * 0.4)`,
+                          border:
+                            pack.strokeWidth !== "0px"
+                              ? `${pack.strokeWidth} solid ${tokens.stroke}`
+                              : undefined,
+                          boxShadow:
+                            tokens.hardShadow !== "none"
+                              ? tokens.hardShadow.replace(/\b3px\b/g, "2px")
+                              : undefined,
+                        }}
+                      />
+                    ))}
+                  </span>
+                ) : null}
+                {!swatches && isGlass && (
                   <span className="pointer-events-none absolute inset-0" aria-hidden>
                     <span
                       className="absolute left-3 top-1 h-5 w-5 rounded-full opacity-50"
@@ -203,6 +238,7 @@ export function CanvasSettingsPopover({
                     />
                   </span>
                 )}
+                {!swatches && (
                 <span
                   className="relative flex h-8 w-full items-center gap-1.5 px-1.5"
                   style={{
@@ -240,6 +276,7 @@ export function CanvasSettingsPopover({
                     style={{ backgroundColor: tokens.stroke, opacity: 0.25 }}
                   />
                 </span>
+                )}
               </div>
               <div className="px-2 py-1.5">
                 <span className="text-canvas-compact font-medium text-canvas-ink">

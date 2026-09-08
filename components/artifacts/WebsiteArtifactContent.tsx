@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { InteractiveWebFrame } from "@/components/artifacts/InteractiveWebFrame";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
+import { refreshAssetSignedUrl } from "@/lib/refreshAssetUrl";
+import { useCanvasStore } from "@/lib/store";
 import { isWebsiteTitlePending } from "@/lib/websiteArtifact";
 
 function displayHost(url: string): string {
@@ -23,13 +25,22 @@ function WebsiteFavicon({
   faviconUrl?: string;
   className: string;
 }) {
-  if (faviconUrl) {
+  // A favicon commonly 403s on hotlink-protected origins. Without a fallback
+  // that left a blank square, so failure falls through to the type icon.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [faviconUrl]);
+
+  if (faviconUrl && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={faviconUrl}
         alt=""
         className={`${className} object-contain`}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
       />
     );
   }
@@ -42,25 +53,30 @@ function WebsiteFavicon({
   );
 }
 
+/**
+ * Reports failure upward rather than rendering nothing. Returning null used to
+ * leave the sized container behind as a blank slab — the caller needs to know so
+ * it can show the real empty state instead.
+ */
 function PreviewThumbnail({
   previewImageUrl,
   alt,
   className,
+  onFailed,
 }: {
   previewImageUrl: string;
   alt: string;
   className: string;
+  onFailed: () => void;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={previewImageUrl}
       alt={alt}
       className={className}
-      onError={() => setFailed(true)}
+      referrerPolicy="no-referrer"
+      onError={onFailed}
     />
   );
 }
@@ -80,7 +96,8 @@ export function WebsiteArtifactContent({
   forceInteractive?: boolean;
   artifactId?: string;
 }) {
-  const { url, title, faviconUrl, previewImageUrl, embeddable } = payload.data;
+  const { url, title, faviconUrl, previewImageUrl, previewAssetId, embeddable } =
+    payload.data;
   const pending = isWebsiteTitlePending(payload);
 
   // The live frame is preferred when the site allows embedding; the watchdog
@@ -91,6 +108,41 @@ export function WebsiteArtifactContent({
     setFrameFailed(false);
   }, [url]);
   const showLiveFrame = embeddable === true && !frameFailed && !sidebar;
+
+  // A preview that 404s, 403s or rate-limits must fall through to the empty
+  // state below, not leave an empty box the size of the whole card.
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState(previewImageUrl);
+  const resignedRef = useRef(false);
+  useEffect(() => {
+    setPreviewFailed(false);
+    setPreviewSrc(previewImageUrl);
+    resignedRef.current = false;
+  }, [previewImageUrl]);
+
+  // When the image is a canvas asset, its signed URL expires after a week. One
+  // re-sign from the stored path is the difference between a card that keeps
+  // working and one that quietly empties out.
+  const handlePreviewError = () => {
+    const asset = previewAssetId
+      ? useCanvasStore.getState().canvasAssets[previewAssetId]
+      : undefined;
+    if (!resignedRef.current && asset?.storagePath) {
+      resignedRef.current = true;
+      void refreshAssetSignedUrl(asset.storagePath).then((nextUrl) => {
+        if (!nextUrl) {
+          setPreviewFailed(true);
+          return;
+        }
+        setPreviewSrc(nextUrl);
+        useCanvasStore.getState().patchCanvasAssetPublicUrl(asset.id, nextUrl);
+      });
+      return;
+    }
+    setPreviewFailed(true);
+  };
+
+  const showPreview = Boolean(previewSrc) && !previewFailed;
 
   if (showLiveFrame) {
     const frame = (
@@ -119,12 +171,13 @@ export function WebsiteArtifactContent({
   if (sidebar) {
     return (
       <div className="flex h-full min-h-[80px] items-center gap-2 px-3 py-2">
-        {previewImageUrl ? (
+        {showPreview ? (
           <div className="h-10 w-16 shrink-0 overflow-hidden rounded-canvas bg-canvas-bg">
             <PreviewThumbnail
-              previewImageUrl={previewImageUrl}
+              previewImageUrl={previewSrc!}
               alt={title}
               className="h-full w-full object-cover"
+              onFailed={handlePreviewError}
             />
           </div>
         ) : (
@@ -132,7 +185,7 @@ export function WebsiteArtifactContent({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            {previewImageUrl && (
+            {showPreview && (
               <WebsiteFavicon
                 faviconUrl={faviconUrl}
                 className="h-4 w-4 shrink-0 rounded-canvas-xs"
@@ -156,19 +209,20 @@ export function WebsiteArtifactContent({
 
   const card = (
     <div className="flex flex-col gap-4 p-4">
-      {pending && !previewImageUrl ? (
+      {pending && !showPreview ? (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
           <div className="flex h-full flex-col items-center justify-center gap-2">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent" />
             <span className="text-canvas-micro text-canvas-muted">Loading preview…</span>
           </div>
         </div>
-      ) : previewImageUrl ? (
+      ) : showPreview ? (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
           <PreviewThumbnail
-            previewImageUrl={previewImageUrl}
+            previewImageUrl={previewSrc!}
             alt={title}
             className="h-full w-full object-contain"
+            onFailed={handlePreviewError}
           />
         </div>
       ) : (

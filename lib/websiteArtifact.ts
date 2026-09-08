@@ -21,6 +21,10 @@ export function normalizeWebsiteArtifactData(data: unknown): WebsiteArtifactData
     typeof obj.previewImageUrl === "string" && obj.previewImageUrl.trim()
       ? obj.previewImageUrl.trim()
       : undefined;
+  const previewAssetId =
+    typeof obj.previewAssetId === "string" && obj.previewAssetId.trim()
+      ? obj.previewAssetId.trim()
+      : undefined;
   const embeddable =
     typeof obj.embeddable === "boolean" ? obj.embeddable : undefined;
   return {
@@ -29,6 +33,7 @@ export function normalizeWebsiteArtifactData(data: unknown): WebsiteArtifactData
     domainLabel: domainLabel || title,
     faviconUrl,
     previewImageUrl,
+    previewAssetId,
     embeddable,
   };
 }

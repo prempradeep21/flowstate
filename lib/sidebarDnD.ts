@@ -22,7 +22,14 @@ export type SidebarArtifactCategory =
   | "timeline"
   | "chart"
   | "audio"
-  | "stickynote";
+  | "stickynote"
+  | "quote"
+  | "stat"
+  | "definition"
+  | "claim"
+  | "mechanism"
+  | "episode"
+  | "linkgroup";
 
 export type SidebarDragPayload =
   | {

@@ -1,8 +1,5 @@
 import type { ArtifactPayload } from "@/lib/artifactTypes";
-import {
-  CANVAS_ARTIFACT_WIDTH,
-  CARD_WIDTH,
-} from "@/lib/canvasNodeBounds";
+import { CARD_WIDTH } from "@/lib/canvasNodeBounds";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import {
   createSessionArtifactFromPayload,
@@ -19,24 +16,28 @@ import type {
 } from "@/lib/store";
 import { domainDisplayLabel } from "@/lib/urlDetection";
 
-export const CARD_GAP_X = 160;
-export const CARD_STEP_X = CARD_WIDTH + CARD_GAP_X;
-/** Horizontal gap from conversation card to its linked artifact. */
-export const ARTIFACT_OFFSET_X = 640;
-/** Vertical gap between stacked artifacts beside one card. */
-export const ARTIFACT_STACK_Y = 280;
-/** Extra lane for generated output artifacts (timeline, table). */
-export const OUTPUT_ARTIFACT_LANE_X = 960;
-/** Minimum gap between input website / link artifacts. */
-export const INPUT_ARTIFACT_GAP = 300;
-export const INPUT_ARTIFACT_STEP = CANVAS_ARTIFACT_WIDTH + INPUT_ARTIFACT_GAP;
+/**
+ * Content helpers for the transcript-import playground. Every node is spawned
+ * at the origin and then positioned by layoutChapters (see chapterLayout.ts) —
+ * builders author what is on the canvas, never where it sits.
+ */
 
-export const ORIGIN_X = 100;
-/** Fixed layout height so horizontal connectors stay level across a row. */
-export const CONVERSATION_CARD_LAYOUT_H = 200;
+import { transcriptWebsitePreview } from "@/lib/transcriptImport/websitePreviews";
 
-/** Vertical offset between stacked playground conversation imports. */
-export const PLAYGROUND_SECTION_GAP_Y = 640;
+export const ORIGIN_X = 0;
+/**
+ * Fixed layout height so horizontal connectors stay level across a row.
+ *
+ * Sized for a two-line title plus a six-line summary at 420px wide: the body is
+ * 13px text on relaxed leading (~21px a line) across ~384px of usable width, so
+ * six lines need ~127px on top of the header, divider and padding. At 200px the
+ * card could not fit the four lines its own clamp asked for, and summaries were
+ * cut mid-sentence.
+ */
+export const CONVERSATION_CARD_LAYOUT_H = 300;
+
+/** Placeholder until the chapter engine assigns a real position. */
+const UNPLACED = { x: 0, y: 0 };
 
 export interface TranscriptImportCanvasSection {
   cards: Record<string, Card>;
@@ -63,7 +64,6 @@ export function convCard(
   threadId: string,
   title: string,
   summary: string,
-  position: { x: number; y: number },
   parentConversationId: string | null = null,
 ): Card {
   return {
@@ -73,7 +73,7 @@ export function convCard(
     question: title,
     answer: summary,
     status: "done",
-    position,
+    position: { ...UNPLACED },
     size: { w: CARD_WIDTH, h: CONVERSATION_CARD_LAYOUT_H },
     parentCardId: null,
     parentConversationId,
@@ -89,25 +89,28 @@ export function conn(
   return { id: `conn-${from}-${to}`, from, to, fromSide, toSide };
 }
 
+/**
+ * Website artifacts point at images this app serves, never at a third party.
+ *
+ * These previously carried a live api.microlink.io screenshot call as the
+ * <img src> and a Google favicon-service call beside it, so every card hotlinked
+ * two rate-limited third parties on every render — the blank artifacts. The
+ * preview now comes from the build-time manifest
+ * (scripts/prefetch-transcript-previews.mjs), and a URL with no entry simply has
+ * no preview, which the card renders as a proper empty state.
+ */
 export function spawnWebsite(
   id: string,
   url: string,
   title: string,
   cardId: string,
-  position: { x: number; y: number },
   sessionArtifacts: Record<string, SessionArtifact>,
   canvasArtifactNodes: Record<string, CanvasArtifactNode>,
   canvasArtifactOrder: string[],
 ): void {
-  let faviconUrl: string | undefined;
-  try {
-    faviconUrl = `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`;
-  } catch {
-    faviconUrl = undefined;
-  }
+  const preview = transcriptWebsitePreview(url);
   const payload = createWebsitePayload(url, title || domainDisplayLabel(url), {
-    faviconUrl,
-    previewImageUrl: `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&embed=screenshot.url`,
+    previewImageUrl: preview?.path,
   });
   const art = createSessionArtifactFromPayload(payload, cardId);
   sessionArtifacts[art.id] = art;
@@ -118,39 +121,35 @@ export function spawnWebsite(
     artifactId: art.id,
     versionId: ver.id,
     sourceCardId: cardId,
-    position,
+    position: { ...UNPLACED },
   };
   canvasArtifactOrder.push(nodeId);
 }
 
-/** Place input websites in a strip below the conversation threads. */
-export function spawnInputWebsiteStrip(
+/** Spawn every mentioned link; each lands in the chapter of its source card. */
+export function spawnWebsites(
   items: { id: string; url: string; title: string; cardId: string }[],
-  startX: number,
-  y: number,
   sessionArtifacts: Record<string, SessionArtifact>,
   canvasArtifactNodes: Record<string, CanvasArtifactNode>,
   canvasArtifactOrder: string[],
 ): void {
-  items.forEach((item, index) => {
+  for (const item of items) {
     spawnWebsite(
       item.id,
       item.url,
       item.title,
       item.cardId,
-      { x: startX + index * INPUT_ARTIFACT_STEP, y },
       sessionArtifacts,
       canvasArtifactNodes,
       canvasArtifactOrder,
     );
-  });
+  }
 }
 
 export function spawnPayload(
   nodeId: string,
   payload: ArtifactPayload,
   cardId: string,
-  position: { x: number; y: number },
   sessionArtifacts: Record<string, SessionArtifact>,
   canvasArtifactNodes: Record<string, CanvasArtifactNode>,
   canvasArtifactOrder: string[],
@@ -163,54 +162,7 @@ export function spawnPayload(
     artifactId: art.id,
     versionId: ver.id,
     sourceCardId: cardId,
-    position,
+    position: { ...UNPLACED },
   };
   canvasArtifactOrder.push(nodeId);
-}
-
-export function mergeTranscriptImportSections(
-  sections: TranscriptImportCanvasSection[],
-): Omit<TranscriptImportCanvasSection, "contentCenter"> & {
-  contentCenter: { x: number; y: number };
-} {
-  const cards: Record<string, Card> = {};
-  const cardOrder: string[] = [];
-  const connections: Connection[] = [];
-  const threads: Record<string, Thread> = {};
-  const threadOrder: string[] = [];
-  const groups: Record<string, BranchGroup> = {};
-  const sessionArtifacts: Record<string, SessionArtifact> = {};
-  const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
-  const canvasArtifactOrder: string[] = [];
-
-  for (const section of sections) {
-    Object.assign(cards, section.cards);
-    cardOrder.push(...section.cardOrder);
-    connections.push(...section.connections);
-    Object.assign(threads, section.threads);
-    threadOrder.push(...section.threadOrder);
-    Object.assign(groups, section.groups);
-    Object.assign(sessionArtifacts, section.sessionArtifacts);
-    Object.assign(canvasArtifactNodes, section.canvasArtifactNodes);
-    canvasArtifactOrder.push(...section.canvasArtifactOrder);
-  }
-
-  const centers = sections.map((s) => s.contentCenter);
-  const contentCenter = {
-    x: centers.reduce((sum, c) => sum + c.x, 0) / centers.length,
-    y: centers.reduce((sum, c) => sum + c.y, 0) / centers.length,
-  };
-
-  return {
-    cards,
-    cardOrder,
-    connections,
-    threads,
-    threadOrder,
-    groups,
-    sessionArtifacts,
-    canvasArtifactNodes,
-    canvasArtifactOrder,
-    contentCenter,
-  };
 }

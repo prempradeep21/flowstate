@@ -76,7 +76,7 @@ import {
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
 import { getCardBounds } from "@/lib/canvasNodeBounds";
-import { MIN_VIEWPORT_SCALE } from "@/lib/zoomDisplay";
+import { MIN_VIEWPORT_SCALE, conversationZoomDisplay } from "@/lib/zoomDisplay";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
@@ -172,6 +172,14 @@ function CardInner({ card }: CardProps) {
   // custom property written by CanvasViewport — zero React involvement.
   const lodPlaceholder = useCanvasStore(
     (s) => s.viewportSettledScale < MIN_VIEWPORT_SCALE,
+  );
+  // Conversation cards are the exception: their title steps up through zoom
+  // tiers, so they DO track the settled scale. Collapsed to a constant for
+  // every other card so the settle storm still costs those nothing.
+  const conversationZoom = conversationZoomDisplay(
+    useCanvasStore((s) =>
+      card.cardKind === "conversation" ? s.viewportSettledScale : 1,
+    ),
   );
   // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
   // placeholder now, hydrate to full content after the gesture settles.
@@ -792,6 +800,7 @@ function CardInner({ card }: CardProps) {
       <div
         ref={cardRef}
         data-canvas-card={card.id}
+        data-artifact-category="discourse"
         data-card-lod="placeholder"
         onPointerDown={handleCardPointerDown}
         onPointerMove={handleDragPointerMove}
@@ -811,7 +820,22 @@ function CardInner({ card }: CardProps) {
           className="h-2 w-full"
           style={{ background: accent ?? CANVAS_ACCENT }}
         />
-        <div className="truncate px-6 pt-4 text-[28px] font-medium text-canvas-ink/80">
+        <div
+          className="overflow-hidden px-6 pt-4 font-medium text-canvas-ink/80"
+          style={
+            // Match the far-zoom conversation title so crossing the LOD
+            // threshold is not a visible jump in type size.
+            isConversation
+              ? {
+                  fontSize: conversationZoom.titleFontSize,
+                  lineHeight: conversationZoom.titleLineHeight,
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: conversationZoom.titleLineClamp,
+                }
+              : { fontSize: 28, whiteSpace: "nowrap", textOverflow: "ellipsis" }
+          }
+        >
           {card.question}
         </div>
       </div>
@@ -822,6 +846,7 @@ function CardInner({ card }: CardProps) {
     <div
       ref={cardRef}
       data-canvas-card={card.id}
+      data-artifact-category="discourse"
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       onPointerDown={handleCardPointerDown}
       onPointerMove={handleDragPointerMove}
@@ -971,7 +996,11 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface card={card} accent={accent} />
+              <ConversationCardSurface
+                card={card}
+                accent={accent}
+                zoom={conversationZoom}
+              />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection

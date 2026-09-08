@@ -19,6 +19,7 @@ import {
   monthLabel,
   todayIso,
 } from "@/lib/calendarArtifact";
+import { useTimelinePalette } from "@/hooks/useTimelinePalette";
 import { useCanvasStore } from "@/lib/store";
 import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
@@ -62,6 +63,7 @@ export function CalendarArtifactContent({
     (s) => s.saveCalendarArtifactVersion,
   );
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
+  const timelinePalette = useTimelinePalette();
   const editable = canEdit && !canvasReadOnly && Boolean(artifactId);
 
   const [viewYear, setViewYear] = useState(payload.data.viewYear);
@@ -352,12 +354,13 @@ export function CalendarArtifactContent({
                             {dayEvents.slice(0, 2).map((ev) => {
                               const chipStyle = calendarEventChipStyle(
                                 eventColorIndex.get(ev.id) ?? 0,
+                                timelinePalette,
                               );
                               return (
                                 <div
                                   key={ev.id}
                                   title={ev.title}
-                                  className="truncate rounded px-1 py-0.5 text-canvas-caption font-medium leading-tight"
+                                  className="artifact-cal-chip truncate rounded px-1 py-0.5 text-canvas-caption font-medium leading-tight"
                                   style={chipStyle}
                                 >
                                   {truncateTitle(ev.title, 10)}
@@ -381,6 +384,7 @@ export function CalendarArtifactContent({
                       .map((seg) => {
                         const chipStyle = calendarEventChipStyle(
                           eventColorIndex.get(seg.event.id) ?? 0,
+                          timelinePalette,
                         );
                         return (
                           <button
@@ -396,7 +400,7 @@ export function CalendarArtifactContent({
                               setEditTitle(seg.event.title);
                               clearSelection();
                             }}
-                            className="absolute mx-0.5 truncate rounded-canvas-xs px-1.5 text-left text-canvas-caption font-medium leading-[18px] transition-opacity hover:opacity-80 disabled:cursor-default"
+                            className="artifact-cal-chip absolute mx-0.5 truncate rounded-canvas-xs px-1.5 text-left text-canvas-caption font-medium leading-[18px] transition-opacity hover:opacity-80 disabled:cursor-default"
                             style={{
                               left: `calc(${(seg.startCol / 7) * 100}% + 2px)`,
                               width: `calc(${(seg.span / 7) * 100}% - 4px)`,

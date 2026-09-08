@@ -6,13 +6,15 @@ import {
   getChartPalette,
   withAlpha,
 } from "@/lib/echartsTheme";
+import type { ArtifactStyleChartPalette } from "@/lib/design/style/types";
 
 export function buildEChartsOption(
   data: ChartArtifactData,
   style: ChartStyleOption,
   isDark: boolean,
+  paletteOverride?: ArtifactStyleChartPalette,
 ): EChartsOption {
-  const palette = getChartPalette(isDark);
+  const palette = getChartPalette(isDark, paletteOverride);
   const textStyle = baseEChartsTextStyle(palette);
 
   const base: EChartsOption = {
@@ -28,7 +30,7 @@ export function buildEChartsOption(
     },
     tooltip: {
       trigger: style.chartType === "pie" ? "item" : "axis",
-      backgroundColor: isDark ? "#211F1C" : "#FFFFFF",
+      backgroundColor: palette.bg,
       borderColor: palette.border,
       textStyle: { color: palette.ink, fontSize: 12 },
     },
@@ -51,11 +53,11 @@ export function buildEChartsOption(
       ...base,
       legend: series.length > 1 ? { bottom: 0, textStyle } : undefined,
       xAxis: horizontal
-        ? { type: "value", axisLine: { lineStyle: { color: palette.muted } }, splitLine: { lineStyle: { color: withAlpha(palette.muted, 0.2) } } }
+        ? { type: "value", axisLine: { lineStyle: { color: palette.muted } }, splitLine: { lineStyle: { color: palette.grid } } }
         : { type: "category", data: categories, axisLine: { lineStyle: { color: palette.muted } }, axisLabel: { color: palette.muted } },
       yAxis: horizontal
         ? { type: "category", data: categories, axisLine: { lineStyle: { color: palette.muted } }, axisLabel: { color: palette.muted } }
-        : { type: "value", name: data.unit, axisLine: { show: false }, splitLine: { lineStyle: { color: withAlpha(palette.muted, 0.2) } }, axisLabel: { color: palette.muted } },
+        : { type: "value", name: data.unit, axisLine: { show: false }, splitLine: { lineStyle: { color: palette.grid } }, axisLabel: { color: palette.muted } },
       series: series.map((s, i) => ({
         name: s.name,
         type: "bar",
@@ -81,7 +83,7 @@ export function buildEChartsOption(
         type: "value",
         name: data.unit,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: withAlpha(palette.muted, 0.2) } },
+        splitLine: { lineStyle: { color: palette.grid } },
         axisLabel: { color: palette.muted },
       },
       series: series.map((s, i) => ({
@@ -113,7 +115,7 @@ export function buildEChartsOption(
         type: "value",
         name: data.unit,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: withAlpha(palette.muted, 0.2) } },
+        splitLine: { lineStyle: { color: palette.grid } },
         axisLabel: { color: palette.muted },
       },
       series: series.map((s, i) => ({

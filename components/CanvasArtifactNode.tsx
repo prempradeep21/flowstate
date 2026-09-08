@@ -181,7 +181,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
       const st = useCanvasStore.getState();
       const current = st.canvasArtifactNodes[node.id];
-      if (!current || current.userSetSize) return;
+      if (!current || current.userSetSize || current.layoutSetSize) return;
       const artForBounds = current.artifactId
         ? st.sessionArtifacts[current.artifactId]
         : undefined;
@@ -466,6 +466,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
       data-artifact-kind={art?.kind ?? preview?.kind}
+      data-artifact-category={artifactCategoryOf(
+        (art?.kind ?? preview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
+      )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

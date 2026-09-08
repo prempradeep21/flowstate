@@ -208,12 +208,14 @@ export function ArtifactPanelHeader({
           />
         </span>
       </span>
-      <EditableArtifactTitle
-        displayTitle={title}
-        renameTitle={renameTitle ?? title}
-        canRename={canRenameTitle && Boolean(onRenameTitle)}
-        onRename={(next) => onRenameTitle?.(next)}
-      />
+      <div className="artifact-header-title flex min-w-0 flex-1 items-center">
+        <EditableArtifactTitle
+          displayTitle={title}
+          renameTitle={renameTitle ?? title}
+          canRename={canRenameTitle && Boolean(onRenameTitle)}
+          onRename={(next) => onRenameTitle?.(next)}
+        />
+      </div>
 
       {showArtifactEdit && (
         <button

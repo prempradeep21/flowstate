@@ -23,6 +23,7 @@ import {
   getStreamOffset,
   getVisxCurve,
 } from "@/lib/visxChartProps";
+import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { useCanvasStore } from "@/lib/store";
 
 const MARGIN = { top: 20, right: 20, bottom: 44, left: 48 };
@@ -39,7 +40,12 @@ function VisxChartInner({
   height: number;
 }) {
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
-  const palette = getChartPalette(canvasTheme === "dark");
+  const { pack } = useArtifactStyle();
+  const isDark = canvasTheme === "dark";
+  const palette = getChartPalette(
+    isDark,
+    (isDark ? pack.dark : pack.light).chart,
+  );
 
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom);
@@ -115,7 +121,7 @@ function VisxChartInner({
         <GridRows
           scale={yScale}
           width={innerWidth}
-          stroke={withAlpha(palette.muted, 0.2)}
+          stroke={palette.grid}
           strokeDasharray="2,4"
         />
         {style.chartType === "bar" &&

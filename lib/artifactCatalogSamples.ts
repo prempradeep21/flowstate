@@ -10,7 +10,11 @@ export const CATALOG_CUBBON_PARK = {
   lng: 77.59234,
 } as const;
 
-export type ArtifactCatalogCategory = "flowstate" | "input" | "custom-example";
+export type ArtifactCatalogCategory =
+  | "flowstate"
+  | "input"
+  | "custom-example"
+  | "transcript";
 
 export interface ArtifactCatalogEntry {
   id: string;
@@ -507,6 +511,190 @@ export const ARTIFACT_CATALOG_ENTRIES: ArtifactCatalogEntry[] = [
       },
     },
   },
+  {
+    id: "quote",
+    category: "transcript",
+    name: "Quotes",
+    title: "A line worth keeping, in the speaker's own words",
+    description:
+      "The sentence you would underline. Attribution stays quiet so the wording is the loudest thing on the card.",
+    chips: ["podcasts", "interviews", "talks"],
+    payload: {
+      type: "quote",
+      title: "The real secret",
+      data: {
+        text:
+          "But the real secret is that neuroplasticity doesn't occur during wakefulness — it occurs during sleep.",
+        speaker: "Andrew Huberman",
+        context: "The turn into the chapter on sleep and NSDR",
+      },
+    },
+  },
+  {
+    id: "stat",
+    category: "transcript",
+    name: "Figures",
+    title: "One spoken number, or a stated change",
+    description:
+      "A single figure the speaker leaned on. Three or more comparable numbers belong in a chart; one belongs here.",
+    chips: ["podcasts", "earnings calls", "research"],
+    payload: {
+      type: "stat",
+      title: "Turnover after the $5 day",
+      data: {
+        value: "1.4%",
+        label: "Annual turnover after the wage change",
+        delta: { from: "31.9%", to: "1.4%" },
+        source: "Ford Motor Company, 1914–1915",
+      },
+    },
+  },
+  {
+    id: "definition",
+    category: "transcript",
+    name: "Definitions",
+    title: "Jargon, and the gloss that followed it",
+    description:
+      "A term the speaker explained on the spot, so the reader does not have to go and look it up.",
+    chips: ["expert interviews", "lectures", "technical talks"],
+    payload: {
+      type: "definition",
+      title: "Cohort retention",
+      data: {
+        term: "Cohort retention",
+        gloss: "10 weeks out, 20 weeks out, how many people are still using it?",
+        speaker: "Garry Tan",
+      },
+    },
+  },
+  {
+    id: "claim",
+    category: "transcript",
+    name: "Claims",
+    title: "A proposition and the pushback it drew",
+    description:
+      "Both sides at equal weight, and deliberately no verdict — who was right is a judgement the transcript does not contain.",
+    chips: ["debates", "interviews", "panels"],
+    payload: {
+      type: "claim",
+      title: "Does every experience change your brain?",
+      data: {
+        topic: "Whether every experience you have changes your brain",
+        proposition: {
+          speaker: "Commonly claimed",
+          text: "Every experience you have changes your brain.",
+        },
+        counter: {
+          speaker: "Andrew Huberman",
+          text:
+            "That's absolutely not true. The nervous system changes when certain neurochemicals are released.",
+        },
+      },
+    },
+  },
+  {
+    id: "mechanism",
+    category: "transcript",
+    name: "Mechanisms",
+    title: "A described chain of cause",
+    description:
+      "Order without dates — what a timeline cannot express. Edge labels are the speaker's own connectives.",
+    chips: ["science podcasts", "explainers", "post-mortems"],
+    payload: {
+      type: "mechanism",
+      title: "Where the rewiring actually happens",
+      data: {
+        steps: [
+          { id: "focus", label: "~90 minutes of hard focus" },
+          {
+            id: "stamp",
+            label: "Acetylcholine stamps the active synapses",
+            note: "Marks them as biased to change",
+          },
+          { id: "sleep", label: "Deep sleep, that night and the nights after" },
+          { id: "strengthen", label: "Those circuits strengthen, others are lost" },
+        ],
+        edges: [
+          { from: "focus", to: "stamp" },
+          { from: "stamp", to: "sleep" },
+          { from: "sleep", to: "strengthen", label: "consolidates" },
+        ],
+      },
+    },
+  },
+  {
+    id: "episode",
+    category: "transcript",
+    name: "Episodes",
+    title: "The masthead for an imported video",
+    description:
+      "What the source is, plus a chapter index. On a canvas with chapters, each row frames its chapter group when clicked.",
+    chips: ["podcasts", "interviews", "long video"],
+    payload: {
+      type: "episode",
+      title: "The episode",
+      data: {
+        videoTitle:
+          "Rana Daggubati On Baahubali, His Health Crisis & The Reset | InFocus | THR India",
+        channel: "The Hollywood Reporter India",
+        duration: "46:08",
+        url: "https://www.youtube.com/watch?v=lSRSF7l7-rg",
+        thumb: "https://img.youtube.com/vi/lSRSF7l7-rg/maxresdefault.jpg",
+        description:
+          "Anupama Chopra sits down with Rana Daggubati for InFocus, at a moment when the actor-producer has at least three world domination plans running at once.",
+        // No groupIds here: this catalog canvas has no chapter groups to frame,
+        // so the rows render as a plain index rather than as dead controls.
+        chapters: [
+          { label: "Intro", start: "0:00" },
+          { label: "Why acting is a lifestyle, not a job", start: "6:38" },
+          { label: "Trauma, AI and what machines can't make", start: "13:03" },
+          { label: "Rebuilding after Baahubali and the health crisis", start: "19:41" },
+          { label: "When too much money becomes a problem", start: "26:29" },
+          { label: "Drawing his own lines around AI", start: "32:48" },
+          { label: "Producing his first Hindi film", start: "38:59" },
+        ],
+      },
+    },
+  },
+  {
+    id: "linkgroup",
+    category: "transcript",
+    name: "Link groups",
+    title: "A directory of links under headings",
+    description:
+      "The shape a video description takes — socials, products, related videos. Every chip opens in a new tab.",
+    chips: ["video descriptions", "show notes", "reference"],
+    payload: {
+      type: "linkgroup",
+      title: "Affiliated links",
+      data: {
+        sections: [
+          {
+            label: "The show",
+            links: [
+              { label: "This episode", url: "https://www.youtube.com/watch?v=lSRSF7l7-rg" },
+              { label: "THR India", url: "https://www.youtube.com/@HollywoodReporterIndia" },
+            ],
+          },
+          {
+            label: "People",
+            links: [
+              { label: "Rana Daggubati", url: "https://en.wikipedia.org/wiki/Rana_Daggubati" },
+              { label: "D. Ramanaidu", url: "https://en.wikipedia.org/wiki/D._Ramanaidu" },
+              { label: "Mahesh Babu", url: "https://en.wikipedia.org/wiki/Mahesh_Babu" },
+            ],
+          },
+          {
+            label: "Tools he names",
+            links: [
+              { label: "Claude", url: "https://claude.ai" },
+              { label: "Final Draft", url: "https://www.finaldraft.com" },
+            ],
+          },
+        ],
+      },
+    },
+  },
 ];
 
 export const CATALOG_SECTIONS: {
@@ -523,6 +711,12 @@ export const CATALOG_SECTIONS: {
     id: "input",
     title: "Input artifacts",
     description: "Created from pasted URLs, dropped files, and media links",
+  },
+  {
+    id: "transcript",
+    title: "Transcript artifacts",
+    description:
+      "Extracted from conversation transcripts by the transcript-artifacts skill — not emitted by the AI",
   },
   {
     id: "custom-example",

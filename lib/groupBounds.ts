@@ -34,10 +34,16 @@ export function getGroupCardIds(
       ids.add(id);
     }
   }
+  for (const id of group.cardIds ?? []) {
+    ids.add(id);
+  }
   return state.cardOrder.filter((id) => ids.has(id));
 }
 
-/** Padded AABB around every member — thread families AND non-card nodes. */
+/**
+ * Padded AABB around every member — thread families, individually named
+ * cards, AND non-card nodes.
+ */
 export function computeGroupBounds(
   state: CanvasNodesState,
   group: BranchGroup,
@@ -47,12 +53,28 @@ export function computeGroupBounds(
     familyRootIds: group.familyRootThreadIds,
     items: group.items ?? [],
   });
-  if (!bounds) return null;
+
+  let minX = bounds ? bounds.x : Infinity;
+  let minY = bounds ? bounds.y : Infinity;
+  let maxX = bounds ? bounds.x + bounds.w : -Infinity;
+  let maxY = bounds ? bounds.y + bounds.h : -Infinity;
+
+  for (const id of group.cardIds ?? []) {
+    const card = state.cards[id];
+    if (!card) continue;
+    const { x, y, w, h } = cardAabb(card);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
   return {
-    x: bounds.x - padding,
-    y: bounds.y - padding,
-    w: bounds.w + padding * 2,
-    h: bounds.h + padding * 2,
+    x: minX - padding,
+    y: minY - padding,
+    w: maxX - minX + padding * 2,
+    h: maxY - minY + padding * 2,
   };
 }
 

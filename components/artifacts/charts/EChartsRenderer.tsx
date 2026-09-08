@@ -5,7 +5,9 @@ import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from "rea
 import type { ChartArtifactData } from "@/lib/chartTypes";
 import type { ChartStyleOption } from "@/lib/chartTypes";
 import type { ChartExportHandle } from "@/lib/artifactExport/types";
+import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { buildEChartsOption } from "@/lib/echartsOptions";
+import { getChartPalette } from "@/lib/echartsTheme";
 import { useCanvasStore } from "@/lib/store";
 
 export const EChartsRenderer = forwardRef<
@@ -18,11 +20,13 @@ export const EChartsRenderer = forwardRef<
 >(function EChartsRenderer({ data, style, height }, ref) {
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
   const isDark = canvasTheme === "dark";
+  const { pack } = useArtifactStyle();
+  const packPalette = (isDark ? pack.dark : pack.light).chart;
   const chartRef = useRef<ReactECharts>(null);
 
   const option = useMemo(
-    () => buildEChartsOption(data, style, isDark),
-    [data, style, isDark],
+    () => buildEChartsOption(data, style, isDark, packPalette),
+    [data, style, isDark, packPalette],
   );
 
   useImperativeHandle(ref, () => ({
@@ -33,7 +37,7 @@ export const EChartsRenderer = forwardRef<
         return instance.getDataURL({
           type: "png",
           pixelRatio,
-          backgroundColor: isDark ? "#211F1C" : "#FFFFFF",
+          backgroundColor: getChartPalette(isDark, packPalette).bg,
         });
       } catch {
         return null;

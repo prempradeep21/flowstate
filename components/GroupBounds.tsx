@@ -17,9 +17,22 @@ interface GroupBoundsProps {
 
 const SCREEN_STROKE = 1.5;
 const CORNER_RADIUS = 10;
+/** Chapter tint — enough to tell two neighbours apart, not enough to notice. */
+const ACCENT_FILL_OPACITY = 0.045;
+const ACCENT_STROKE_OPACITY = 0.35;
 
 /** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
+
+/**
+ * Chapter heading above the frame, in WORLD px — unlike the label chip it is
+ * not counter-scaled, so it reads as a title over the district at any zoom and
+ * stays the most legible thing on screen when the whole canvas is in view.
+ */
+const HEADING_FONT_SIZE = 56;
+/** Screen height of the label chip, used to stack the heading clear of it. */
+const LABEL_CHIP_SCREEN_H = 26;
+const HEADING_GAP = 10;
 
 /**
  * Figma-section-style group container: translucent fill behind the members,
@@ -67,6 +80,9 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
 
   const stroke = compensatedStrokeWidth(SCREEN_STROKE, scale, SCREEN_STROKE);
   const inset = stroke / 2;
+  // An identifying hue, kept far below the selection accent so a wall of
+  // chapters still reads as one calm surface.
+  const accent = group.accentColour;
 
   const handleLabelPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || editing) return;
@@ -133,11 +149,41 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
           stroke={
             isActive
               ? "rgb(var(--canvas-accent))"
-              : "rgb(var(--canvas-ink) / 0.16)"
+              : accent ?? "rgb(var(--canvas-ink) / 0.16)"
           }
+          strokeOpacity={!isActive && accent ? ACCENT_STROKE_OPACITY : 1}
           strokeWidth={isActive ? stroke * 1.5 : stroke}
         />
+        {accent ? (
+          <rect
+            x={inset}
+            y={inset}
+            width={Math.max(0, bounds.w - stroke)}
+            height={Math.max(0, bounds.h - stroke)}
+            rx={CORNER_RADIUS}
+            ry={CORNER_RADIUS}
+            fill={accent}
+            fillOpacity={ACCENT_FILL_OPACITY}
+          />
+        ) : null}
       </svg>
+
+      {/* Chapter title above the chip, spanning (and capped at) the frame width. */}
+      {group.headingText ? (
+        <div
+          className="pointer-events-none absolute left-0 truncate font-semibold text-canvas-ink/70"
+          style={{
+            bottom: `calc(100% + ${LABEL_CHIP_SCREEN_H / scale + HEADING_GAP}px)`,
+            width: bounds.w,
+            maxWidth: bounds.w,
+            fontSize: HEADING_FONT_SIZE,
+            lineHeight: 1.15,
+            ...(accent ? { color: accent } : {}),
+          }}
+        >
+          {group.headingText}
+        </div>
+      ) : null}
 
       {/* Name label above the top-left corner (Figma section header). */}
       <div
@@ -174,8 +220,15 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
             className={`inline-block rounded-canvas-sm border px-2 py-0.5 text-canvas-caption font-medium shadow-sm ${
               isActive
                 ? "border-canvas-accent bg-canvas-card text-canvas-accent"
-                : "border-canvas-border bg-canvas-card/90 text-canvas-muted"
+                : accent
+                  ? "bg-canvas-card/90"
+                  : "border-canvas-border bg-canvas-card/90 text-canvas-muted"
             }`}
+            style={
+              !isActive && accent
+                ? { borderColor: `${accent}66`, color: accent }
+                : undefined
+            }
           >
             {group.label}
           </span>
