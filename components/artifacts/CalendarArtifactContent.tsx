@@ -63,7 +63,7 @@ export function CalendarArtifactContent({
     (s) => s.saveCalendarArtifactVersion,
   );
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
-  const timelinePalette = useTimelinePalette();
+  const timelinePalette = useTimelinePalette("calendar");
   const editable = canEdit && !canvasReadOnly && Boolean(artifactId);
 
   const [viewYear, setViewYear] = useState(payload.data.viewYear);

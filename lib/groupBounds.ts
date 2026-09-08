@@ -13,6 +13,23 @@ import type { ChatThreadState } from "@/lib/chatThreads";
  * between the artifacts it contains.
  */
 export const GROUP_BOUNDS_PADDING = 48;
+
+/**
+ * Chapter heading type size, in WORLD px. Lives here rather than in the
+ * renderer because the band below is derived from it — the frame has to
+ * reserve the space before anything is placed inside it.
+ */
+export const GROUP_HEADING_FONT_SIZE = 84;
+export const GROUP_HEADING_LINE_HEIGHT = 1.15;
+/**
+ * Extra top band a group grows by when it carries a heading: one line of
+ * heading plus a gap, so the title gets its own air and the first row of
+ * cards starts below it instead of on top of it. The frame's own padding
+ * still sits above the heading.
+ */
+export const GROUP_HEADING_BAND =
+  Math.round(GROUP_HEADING_FONT_SIZE * GROUP_HEADING_LINE_HEIGHT) + 32;
+
 export const ARTIFACT_GAP = 24;
 export const SUMMARY_ICON_GAP = 8;
 
@@ -75,11 +92,14 @@ export function computeGroupBounds(
   }
 
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+  // A heading is laid out first: the frame grows upward to hold it, so the
+  // members keep their positions and never land under the title.
+  const headingBand = group.headingText ? GROUP_HEADING_BAND : 0;
   return {
     x: minX - padding,
-    y: minY - padding,
+    y: minY - padding - headingBand,
     w: maxX - minX + padding * 2,
-    h: maxY - minY + padding * 2,
+    h: maxY - minY + padding * 2 + headingBand,
   };
 }
 

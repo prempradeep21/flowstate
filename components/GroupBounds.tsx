@@ -2,7 +2,11 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { GROUP_BOUNDS_PADDING } from "@/lib/groupBounds";
+import {
+  GROUP_BOUNDS_PADDING,
+  GROUP_HEADING_FONT_SIZE,
+  GROUP_HEADING_LINE_HEIGHT,
+} from "@/lib/groupBounds";
 import { useGroupBounds } from "@/lib/useGroupBounds";
 import { groupGestureRefs } from "@/lib/groupMembership";
 import { plugAnchorAt } from "@/lib/plugConnector";
@@ -22,15 +26,6 @@ const CORNER_RADIUS = 30;
 /** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
 
-/**
- * Chapter heading above the frame, in WORLD px — unlike the label chip it is
- * not counter-scaled, so it reads as a title over the district at any zoom and
- * stays the most legible thing on screen when the whole canvas is in view.
- */
-const HEADING_FONT_SIZE = 112;
-/** Screen height of the label chip, used to stack the heading clear of it. */
-const LABEL_CHIP_SCREEN_H = 26;
-const HEADING_GAP = 10;
 
 /**
  * Figma-section-style group container: translucent fill behind the members,
@@ -167,16 +162,23 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         ) : null}
       </svg>
 
-      {/* Chapter title above the chip, spanning (and capped at) the frame width. */}
+      {/*
+        Chapter title in the band computeGroupBounds reserved for it at the top
+        of the frame, on the same gutter the tiles inside line up to. Unlike the
+        label chip it is not counter-scaled, so it reads as a title over the
+        district at any zoom and stays the most legible thing on screen when the
+        whole canvas is in view.
+      */}
       {group.headingText ? (
         <div
-          className="pointer-events-none absolute left-0 truncate font-semibold text-canvas-ink/70"
+          className="pointer-events-none absolute truncate font-semibold text-canvas-ink/70"
           style={{
-            bottom: `calc(100% + ${LABEL_CHIP_SCREEN_H / scale + HEADING_GAP}px)`,
-            width: bounds.w,
-            maxWidth: bounds.w,
-            fontSize: HEADING_FONT_SIZE,
-            lineHeight: 1.15,
+            left: GROUP_BOUNDS_PADDING,
+            top: GROUP_BOUNDS_PADDING,
+            width: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
+            maxWidth: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
+            fontSize: GROUP_HEADING_FONT_SIZE,
+            lineHeight: GROUP_HEADING_LINE_HEIGHT,
           }}
         >
           {group.headingText}

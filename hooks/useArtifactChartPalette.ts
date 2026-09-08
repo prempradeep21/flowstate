@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useArtifactStyle } from "@/components/ArtifactStyleScope";
-import { useCategoryTones } from "@/hooks/useCategoryTones";
+import { useArtifactTones } from "@/hooks/useCategoryTones";
 import { tonalChartPalette } from "@/lib/design/style/tonalPalette";
 import type { ArtifactStyleChartPalette } from "@/lib/design/style/types";
 import { useCanvasStore } from "@/lib/store";
@@ -16,7 +16,7 @@ import { useCanvasStore } from "@/lib/store";
 export function useArtifactChartPalette(): ArtifactStyleChartPalette | undefined {
   const { pack } = useArtifactStyle();
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
-  const tones = useCategoryTones("viz");
+  const tones = useArtifactTones("chart");
   const packPalette = (canvasTheme === "dark" ? pack.dark : pack.light).chart;
   return useMemo(
     () => (tones ? tonalChartPalette(tones.fill, tones.onFill) : packPalette),

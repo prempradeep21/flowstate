@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { getArtifactStylePack } from "@/lib/design/style/stylePacks";
-import type { ArtifactCategoryId } from "@/lib/design/theme/types";
+import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
+import type { ArtifactCategoryKind } from "@/lib/design/theme/types";
 import { useCanvasStore } from "@/lib/store";
 
-/** Packs where every card is one solid category colour (no pale role). */
+/** Packs where every card is one solid colour (no pale role). */
 const SOLID_PACKS = new Set(["bento"]);
 
 /**
- * Fired when something rewrites the pack's `--art-cat-*` channels at runtime
+ * Fired when something rewrites the pack's `--art-*` channels at runtime
  * (today: the dev colour lab). CSS repaints itself; the JS renderers —
  * ECharts, visx, the timeline SVG — have to be told to re-read.
  */
@@ -27,32 +28,36 @@ function channelsToHex(value: string): string | null {
     .join("")}`.toUpperCase();
 }
 
+/**
+ * Per-kind channels win over the category's — that is the same precedence the
+ * stylesheet gives them, so a kind mapped on its own stays consistent between
+ * the CSS surfaces and the canvas-rendered ones.
+ */
 function readScopeTones(
   styleId: string,
-  category: ArtifactCategoryId,
+  kind: ArtifactCategoryKind,
 ): CategoryTones | null {
   const scope = document.querySelector(`[data-artifact-style="${styleId}"]`);
   if (!scope) return null;
   const computed = getComputedStyle(scope);
-  const fill = channelsToHex(
-    computed.getPropertyValue(`--art-cat-${category}-solid`),
-  );
-  const onFill = channelsToHex(
-    computed.getPropertyValue(`--art-cat-${category}-on-solid`),
-  );
+  const category = artifactCategoryOf(kind);
+  const read = (role: "solid" | "on-solid") =>
+    channelsToHex(computed.getPropertyValue(`--art-kind-${kind}-${role}`)) ??
+    channelsToHex(computed.getPropertyValue(`--art-cat-${category}-${role}`));
+  const fill = read("solid");
+  const onFill = read("on-solid");
   return fill && onFill ? { fill, onFill } : null;
 }
 
 /**
- * The live solid/ink pair for one artifact category, or null when the active
- * pack is not a solid one (callers then keep their own palette).
+ * The live solid/ink pair for one artifact kind, or null when the active pack
+ * is not a solid one (callers then keep their own palette).
  *
  * The pack literal is the synchronous answer — correct on first paint and
- * during SSR — and the DOM read that follows picks up any runtime override of
- * the same channels.
+ * during SSR — and the DOM read that follows picks up any runtime override.
  */
-export function useCategoryTones(
-  category: ArtifactCategoryId,
+export function useArtifactTones(
+  kind: ArtifactCategoryKind,
 ): CategoryTones | null {
   const { styleId } = useArtifactStyle();
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
@@ -62,7 +67,7 @@ export function useCategoryTones(
     if (!isSolidPack) return null;
     const pack = getArtifactStylePack(styleId);
     const tones = (canvasTheme === "dark" ? pack.dark : pack.light).categories?.[
-      category
+      artifactCategoryOf(kind)
     ];
     return tones ? { fill: tones.solid, onFill: tones.onSolid } : null;
   })();
@@ -74,13 +79,13 @@ export function useCategoryTones(
       setTones(null);
       return;
     }
-    const sync = () => setTones(readScopeTones(styleId, category) ?? packTones);
+    const sync = () => setTones(readScopeTones(styleId, kind) ?? packTones);
     sync();
     window.addEventListener(ARTIFACT_TONES_EVENT, sync);
     return () => window.removeEventListener(ARTIFACT_TONES_EVENT, sync);
     // packTones is derived from the same three inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styleId, category, canvasTheme, isSolidPack]);
+  }, [styleId, kind, canvasTheme, isSolidPack]);
 
   return isSolidPack ? tones : null;
 }
