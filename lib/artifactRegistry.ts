@@ -35,6 +35,13 @@ export const CATEGORY_LABELS: Record<SidebarArtifactCategory, string> = {
   chart: "Charts",
   audio: "Audio",
   stickynote: "Sticky notes",
+  quote: "Quotes",
+  stat: "Figures",
+  definition: "Definitions",
+  claim: "Claims",
+  mechanism: "Mechanisms",
+  episode: "Episodes",
+  linkgroup: "Link groups",
 };
 
 export const SIDEBAR_CATEGORY_ORDER: SidebarArtifactCategory[] = [
@@ -53,6 +60,13 @@ export const SIDEBAR_CATEGORY_ORDER: SidebarArtifactCategory[] = [
   "chart",
   "audio",
   "stickynote",
+  "quote",
+  "stat",
+  "definition",
+  "claim",
+  "mechanism",
+  "episode",
+  "linkgroup",
 ];
 
 const SIDEBAR_KINDS: ArtifactKind[] = [
@@ -71,6 +85,13 @@ const SIDEBAR_KINDS: ArtifactKind[] = [
   "chart",
   "audio",
   "stickynote",
+  "quote",
+  "stat",
+  "definition",
+  "claim",
+  "mechanism",
+  "episode",
+  "linkgroup",
 ];
 
 function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
@@ -105,6 +126,20 @@ function kindToCategory(kind: ArtifactKind): SidebarArtifactCategory | null {
       return "audio";
     case "stickynote":
       return "stickynote";
+    case "quote":
+      return "quote";
+    case "stat":
+      return "stat";
+    case "definition":
+      return "definition";
+    case "claim":
+      return "claim";
+    case "mechanism":
+      return "mechanism";
+    case "episode":
+      return "episode";
+    case "linkgroup":
+      return "linkgroup";
     default:
       return null;
   }
@@ -197,6 +232,13 @@ export function buildArtifactRegistry(
     chart: [],
     audio: [],
     stickynote: [],
+    quote: [],
+    stat: [],
+    definition: [],
+    claim: [],
+    mechanism: [],
+    episode: [],
+    linkgroup: [],
   };
 
   for (const art of artifacts) {

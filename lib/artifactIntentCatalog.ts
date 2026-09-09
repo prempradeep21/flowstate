@@ -948,6 +948,182 @@ export const ARTIFACT_INTENT_CATALOG: ArtifactIntentEntry[] = [
     examples: ["Place a sticky note on the canvas"],
     sourceFiles: ["lib/manualArtifactMenu.ts", "lib/manualArtifactDefaults.ts"],
   }),
+  entry({
+    kind: "quote",
+    label: "Quote",
+    summary: "A line worth keeping, in the speaker's own words.",
+    creationPaths: ["manual"],
+    autoSpawnBehavior:
+      "Authored by transcript-import builders. Not reachable from emit_artifact — absent from the tool enum in lib/llm/tools.ts and from every detector in lib/artifactIntent.ts.",
+    spawnTiming: "none",
+    spawnTrigger: "Transcript import finds a memorable, self-contained formulation",
+    rules: [
+      {
+        id: "quote-memorable",
+        label: "Memorable formulation",
+        triggers: [
+          "A phrase that survives out of context and is under 35 words",
+          "The speaker's own wording carries the point, not just the information",
+        ],
+      },
+    ],
+    promptGuidance:
+      "Never emit for information that happens to be interesting. The test is whether the wording matters, not the fact.",
+    validation: [
+      "text is a verbatim lift from the transcript — never paraphrased",
+      "over 35 words is truncated by normalizeQuoteArtifactData",
+      "speaker attribution is required; an unattributed quote is dropped",
+    ],
+    examples: [
+      "\"Nothing else we measured moved the needle as much\" — a line the reader should hear again",
+    ],
+    sourceFiles: [
+      "lib/transcriptArtifacts.ts",
+      "lib/transcriptImport/",
+      ".claude/skills/transcript-artifacts/references/pickup-classes.md",
+    ],
+  }),
+  entry({
+    kind: "stat",
+    label: "Figure",
+    summary: "One spoken number, or a from-to delta. Three or more comparable numbers is a chart.",
+    creationPaths: ["manual"],
+    autoSpawnBehavior:
+      "Authored by transcript-import builders. Not reachable from emit_artifact — absent from the tool enum in lib/llm/tools.ts and from every detector in lib/artifactIntent.ts.",
+    spawnTiming: "none",
+    spawnTrigger: "Transcript import finds one or two salient figures in a beat",
+    rules: [
+      {
+        id: "stat-salient-figure",
+        label: "Salient figure",
+        triggers: [
+          "A single figure the speaker leaned on",
+          "A stated change between two values (\"we went from 3% to 31%\")",
+        ],
+      },
+    ],
+    promptGuidance:
+      "Do not compute, round or convert. If the number was not said, there is no stat.",
+    validation: [
+      "value is quoted exactly as spoken — \"about a third\" stays a string",
+      "delta needs both ends; one end alone collapses back to the plain value",
+      "three or more comparable numbers belong in a chart, not here",
+    ],
+    examples: [
+      "Turnover fell from 31.9% to 1.4%",
+      "$5 a day — the wage that changed the industry",
+    ],
+    sourceFiles: [
+      "lib/transcriptArtifacts.ts",
+      "lib/transcriptImport/",
+      ".claude/skills/transcript-artifacts/references/pickup-classes.md",
+    ],
+  }),
+  entry({
+    kind: "definition",
+    label: "Definition",
+    summary: "Jargon and the gloss that followed it.",
+    creationPaths: ["manual"],
+    autoSpawnBehavior:
+      "Authored by transcript-import builders. Not reachable from emit_artifact — absent from the tool enum in lib/llm/tools.ts and from every detector in lib/artifactIntent.ts.",
+    spawnTiming: "none",
+    spawnTrigger: "Transcript import finds a term defined in the same beat",
+    rules: [
+      {
+        id: "definition-term-gloss",
+        label: "Term with gloss",
+        triggers: [
+          "A speaker introduces jargon and immediately explains it",
+          "The listener would otherwise have to look the term up",
+        ],
+      },
+    ],
+    promptGuidance:
+      "If the speakers did not define it, do not define it for them. An undefined term is a gap, not an artifact.",
+    validation: [
+      "gloss comes from the transcript — never supplied from outside knowledge",
+      "a term mentioned but never explained is not a definition",
+    ],
+    examples: [
+      "Neuroplasticity — the brain's ability to rewire itself in response to experience",
+    ],
+    sourceFiles: [
+      "lib/transcriptArtifacts.ts",
+      "lib/transcriptImport/",
+      ".claude/skills/transcript-artifacts/references/pickup-classes.md",
+    ],
+  }),
+  entry({
+    kind: "claim",
+    label: "Claim",
+    summary: "A proposition and the pushback it drew. Carries no verdict.",
+    creationPaths: ["manual"],
+    autoSpawnBehavior:
+      "Authored by transcript-import builders. Not reachable from emit_artifact — absent from the tool enum in lib/llm/tools.ts and from every detector in lib/artifactIntent.ts.",
+    spawnTiming: "none",
+    spawnTrigger: "Transcript import finds a proposition met by a counter",
+    rules: [
+      {
+        id: "claim-contested-proposition",
+        label: "Contested proposition",
+        triggers: [
+          "One speaker asserts a position and another qualifies, disputes or rejects it",
+          "Both sides are stated explicitly enough to quote",
+        ],
+      },
+    ],
+    promptGuidance:
+      "Render both sides at equal weight. Never infer how the disagreement resolved, and never imply one side won through styling or ordering.",
+    validation: [
+      "proposition and counter are both verbatim lifts, with speaker attribution",
+      "no resolution, winner or verdict field exists — who was right is a judgement the transcript does not contain",
+      "agreement is not a claim; without a counter, nothing is emitted",
+    ],
+    examples: [
+      "Whether hiring salespeople still matters — asserted, then countered",
+    ],
+    sourceFiles: [
+      "lib/transcriptArtifacts.ts",
+      "lib/transcriptImport/",
+      ".claude/skills/transcript-artifacts/references/pickup-classes.md",
+    ],
+  }),
+  entry({
+    kind: "mechanism",
+    label: "Mechanism",
+    summary: "A described chain of cause: A leads to B leads to C.",
+    creationPaths: ["manual"],
+    autoSpawnBehavior:
+      "Authored by transcript-import builders. Not reachable from emit_artifact — absent from the tool enum in lib/llm/tools.ts and from every detector in lib/artifactIntent.ts.",
+    spawnTiming: "none",
+    spawnTrigger: "Transcript import finds two or more causally linked steps",
+    rules: [
+      {
+        id: "mechanism-causal-chain",
+        label: "Causal chain",
+        triggers: [
+          "Two or more steps linked by because, so, leads to, which causes, that triggers",
+          "The speaker is explaining how something works, not when it happened",
+        ],
+      },
+    ],
+    promptGuidance:
+      "Use for undated sequence and causation. A timeline requires ISO dates and cannot express \"first this, then this\".",
+    validation: [
+      "steps and edge labels come from the transcript; missing links are left unlabelled, never guessed",
+      "capped at 7 steps by normalizeMechanismArtifactData",
+      "edges pointing at dropped steps are discarded rather than rendered dangling",
+      "dated events belong in a timeline; a mechanism is order without dates",
+    ],
+    examples: [
+      "Focus triggers acetylcholine release, which tags the circuit, which consolidates during sleep",
+    ],
+    sourceFiles: [
+      "lib/transcriptArtifacts.ts",
+      "lib/transcriptImport/",
+      ".claude/skills/transcript-artifacts/references/pickup-classes.md",
+    ],
+  }),
 ];
 
 export function getCatalogStats() {

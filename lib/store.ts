@@ -530,6 +530,26 @@ export interface BranchGroup {
   familyRootThreadIds: string[];
   /** Non-card members (artifacts, assets, gifs, 3d, labels — never skills). Absent on legacy groups. */
   items?: CanvasSelectionItem[];
+  /**
+   * Cards named individually rather than by thread family — the way a code-
+   * built group (a transcript chapter) holds one node off a shared thread.
+   * Absent on groups made from a selection, which group whole families.
+   */
+  cardIds?: string[];
+  /**
+   * Display heading rendered in world space above the group frame — the
+   * chapter's own title, while `label` stays the short ordinal chip. Absent on
+   * groups made from a selection, which have no title beyond their name.
+   */
+  headingText?: string;
+  /** Subtle identifying hue (hex). Absent leaves the neutral frame. */
+  accentColour?: string;
+  /**
+   * World Y of a hairline rule drawn across the group — a transcript chapter
+   * uses it to separate its conversation cards from the artifacts below them.
+   * Absent draws nothing.
+   */
+  dividerY?: number;
   summaryMarkdown: string | null;
   summaryGeneratedAt?: number;
   summaryContentFingerprint?: string;
@@ -570,6 +590,15 @@ export interface CanvasArtifactNode {
   size?: CardSize;
   /** Set when the user manually resizes — auto content sizing only grows from here. */
   userSetSize?: boolean;
+  /**
+   * Set when a layout engine authored this size deliberately (transcript-import
+   * chapter bento). Like userSetSize it opts the node out of auto content
+   * sizing, which otherwise floors every node at its kind default and would
+   * silently undo a grid cell that is narrower or shorter than that default.
+   * Distinct from userSetSize so a node the user never touched is not reported
+   * as manually resized.
+   */
+  layoutSetSize?: boolean;
   /** Permission gate — artifact not materialized until user approves. */
   permissionPreview?: ArtifactPermissionPreview;
   /** Canvas placeholder while a version is still generating. */
@@ -1103,6 +1132,7 @@ interface CanvasState {
       title: string;
       faviconUrl?: string;
       previewImageUrl?: string;
+      previewAssetId?: string;
       embeddable?: boolean;
     },
   ) => void;
@@ -3479,11 +3509,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           dy,
         })),
       ];
-      if (deltas.length === 0) return state;
-      return {
-        ...applySelectionUnitDeltas(state, deltas),
-        collaborationHasEdits: true,
-      };
+      const cardIds = group.cardIds ?? [];
+      if (deltas.length === 0 && cardIds.length === 0) return state;
+      const patch = applySelectionUnitDeltas(state, deltas);
+      // Individually named cards move alongside the unit deltas, so a chapter
+      // group still drags as one rigid piece.
+      if (cardIds.length > 0) {
+        const cards = { ...(patch.cards ?? state.cards) };
+        for (const id of cardIds) {
+          const card = cards[id];
+          if (!card) continue;
+          cards[id] = {
+            ...card,
+            position: { x: card.position.x + dx, y: card.position.y + dy },
+          };
+        }
+        patch.cards = cards;
+      }
+      return { ...patch, collaborationHasEdits: true };
     }),
 
   recordUndo: () =>
@@ -4185,6 +4228,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           faviconUrl: patch.faviconUrl ?? latest.payload.data.faviconUrl,
           previewImageUrl:
             patch.previewImageUrl ?? latest.payload.data.previewImageUrl,
+          previewAssetId:
+            patch.previewAssetId ?? latest.payload.data.previewAssetId,
           embeddable: patch.embeddable ?? latest.payload.data.embeddable,
         },
       };

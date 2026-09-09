@@ -369,13 +369,20 @@ export const TIMELINE_EVENT_COLORS = [
  */
 export const AXIS_NEUTRAL_COLOR = "rgb(var(--canvas-accent))";
 
-export function eventColor(index: number): string {
-  return TIMELINE_EVENT_COLORS[index % TIMELINE_EVENT_COLORS.length]!;
+export function eventColor(
+  index: number,
+  palette: readonly string[] = TIMELINE_EVENT_COLORS,
+): string {
+  const colors = palette.length > 0 ? palette : TIMELINE_EVENT_COLORS;
+  return colors[index % colors.length]!;
 }
 
 /** Readable text colour (dark or white) for a filled label pill of eventColor(index). */
-export function eventTextColor(index: number): string {
-  const hex = eventColor(index).replace("#", "");
+export function eventTextColor(
+  index: number,
+  palette: readonly string[] = TIMELINE_EVENT_COLORS,
+): string {
+  const hex = eventColor(index, palette).replace("#", "");
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);

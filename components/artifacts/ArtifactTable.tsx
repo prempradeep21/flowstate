@@ -400,13 +400,13 @@ export function ArtifactTable({
         </colgroup>
         <thead>
           <tr
-            className={`sticky top-0 z-10 border-b backdrop-blur-sm ${surfaceBg}`}
+            className={`table-artifact-head sticky top-0 z-10 border-b backdrop-blur-sm ${surfaceBg}`}
             style={{ borderColor: "var(--table-accent-border)" }}
           >
             {columns.map((col, colIndex) => (
               <th
                 key={`${col.key}-${colIndex}`}
-                className={`relative ${headPad} font-bold`}
+                className={`table-artifact-th relative ${headPad} font-bold`}
                 style={{ color: "var(--table-accent)" }}
               >
                 <span className={`block truncate pr-1 ${RICH_TEXT_CLASS}`}>

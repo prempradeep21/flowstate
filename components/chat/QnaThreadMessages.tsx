@@ -29,9 +29,6 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
-  const accent = useCanvasStore(
-    (s) => s.threads[card?.threadId ?? ""]?.accentColour,
-  );
   const { members, accessInfo, onlineUserIds } = useAuth();
   const contributorProfiles = useContributorProfiles(
     card?.contributorIds,
@@ -69,7 +66,7 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
       <QaTranslucentSurface>
-        <QaQuestionSection accentColour={accent} style={qaInsetStyle("chatPanel")}>
+        <QaQuestionSection style={qaInsetStyle("chatPanel")}>
           <QaQuestionHeaderRow
             collaborators={
               showContributors || showStatusBadge ? (

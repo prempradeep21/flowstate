@@ -1,12 +1,26 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { resolveArtifactStyle } from "@/lib/design/style/resolveArtifactStyle";
-import { DEFAULT_ARTIFACT_STYLE_ID } from "@/lib/design/style/stylePacks";
+import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
 import type {
   ArtifactStyleId,
+  ArtifactStylePreset,
   ResolvedArtifactStyle,
 } from "@/lib/design/style/types";
+
+/**
+ * TEMPORARY dev tool. Lazy so it never reaches a production bundle: it only
+ * loads when the Bento pack is live in a dev build.
+ */
+const BentoColorLab = dynamic(
+  () => import("@/components/dev/BentoColorLab").then((m) => m.BentoColorLab),
+  { ssr: false },
+);
 
 const DEFAULT_RESOLVED: ResolvedArtifactStyle = {
   css: "",
@@ -22,7 +36,13 @@ const DEFAULT_RESOLVED: ResolvedArtifactStyle = {
 const ArtifactStyleContext = createContext<{
   styleId: ArtifactStyleId;
   resolved: ResolvedArtifactStyle;
-}>({ styleId: DEFAULT_ARTIFACT_STYLE_ID, resolved: DEFAULT_RESOLVED });
+  /** The active pack definition — JS renderers read `pack[mode].chart` etc. */
+  pack: ArtifactStylePreset;
+}>({
+  styleId: DEFAULT_ARTIFACT_STYLE_ID,
+  resolved: DEFAULT_RESOLVED,
+  pack: getArtifactStylePack(DEFAULT_ARTIFACT_STYLE_ID),
+});
 
 export function useArtifactStyle() {
   return useContext(ArtifactStyleContext);
@@ -44,7 +64,10 @@ export function ArtifactStyleScope({
   children: React.ReactNode;
 }) {
   const resolved = useMemo(() => resolveArtifactStyle(styleId), [styleId]);
-  const value = useMemo(() => ({ styleId, resolved }), [styleId, resolved]);
+  const value = useMemo(
+    () => ({ styleId, resolved, pack: getArtifactStylePack(styleId) }),
+    [styleId, resolved],
+  );
 
   if (resolved.isDefault) {
     return <>{children}</>;
@@ -55,6 +78,9 @@ export function ArtifactStyleScope({
       <div data-artifact-style={styleId} className="contents">
         <style>{resolved.css}</style>
         {children}
+        {process.env.NODE_ENV !== "production" && styleId === "bento" ? (
+          <BentoColorLab />
+        ) : null}
       </div>
     </ArtifactStyleContext.Provider>
   );

@@ -7,9 +7,65 @@
  * density. Packs resolve to CSS variables scoped under
  * `[data-artifact-style="<id>"]` (see resolveArtifactStyle.ts); the default
  * "vanilla" pack resolves to nothing so existing surfaces stay untouched.
+ *
+ * Color-led packs (Bento, Riso) extend the contract with an optional
+ * per-category tonal palette, a chart palette (the JS seam for canvas
+ * renderers), neutral-token re-declarations, and display typography.
  */
 
+import type { ArtifactCategoryId } from "@/lib/design/theme/types";
+
 export type ArtifactStyleId = string;
+
+/**
+ * Tonal roles for one artifact category (all hexes, one set per mode).
+ * Contrast contract (guarded by stylePacks.contrast.test.ts):
+ * - onSolid / onSolidMuted on solid ≥ 4.5:1
+ * - ink on pale ≥ 4.5:1 (authored to clear 7:1)
+ * - muted on pale ≥ 4.5:1
+ * - vivid carries NO text guarantee — glyphs, chips with their own text
+ *   color, chart series only.
+ */
+export interface ArtifactStyleCategoryTones {
+  /** Strong category fill (solid cards, header chips, table heads). */
+  solid: string;
+  /** Primary text/icon on `solid`. */
+  onSolid: string;
+  /** Secondary text on `solid`. */
+  onSolidMuted: string;
+  /** Soft category fill (pale card surfaces, tint blocks). */
+  pale: string;
+  /** Primary text on `pale` (and on the neutral card, for Riso). */
+  ink: string;
+  /** Secondary text on `pale`. */
+  muted: string;
+  /** Decorative saturated ink — glyphs, outlined chips, chart series. */
+  vivid: string;
+}
+
+/** Chart palette handed to ECharts / visx (they render to canvas/SVG and
+ * cannot read the scoped CSS variables). */
+export interface ArtifactStyleChartPalette {
+  series: string[];
+  ink: string;
+  muted: string;
+  /** Axis / grid line color (may carry alpha via rgba()). */
+  grid: string;
+  /** Tooltip + export background. */
+  bg: string;
+}
+
+/** Display typography for headline artifacts (stat / quote / definition). */
+export interface ArtifactStyleTypography {
+  displayFamily: string;
+  displayWeight: string;
+  displayTracking: string;
+  /** Upper clamp of the display numeral (the responsive clamp lives in CSS). */
+  displaySize: string;
+  quoteSize: string;
+  eyebrowFamily: string;
+  eyebrowTracking: string;
+}
 
 /** Mode-specific surface tokens. Hexes for colors that need alpha composing,
  * literal CSS strings for shadows / border shorthands / raw color values. */
@@ -55,6 +111,28 @@ export interface ArtifactStyleSurfaceTokens {
    * falls back to an empty shadow).
    */
   innerHighlight?: string;
+  /**
+   * Per-category tonal palette. When present the resolver emits
+   * `--art-cat-<category>-<role>` channel vars for every category; the pack
+   * stylesheet binds them to `--art-<role>` per node via
+   * `[data-artifact-category]`.
+   */
+  categories?: Record<ArtifactCategoryId, ArtifactStyleCategoryTones>;
+  /**
+   * Neutral token re-declarations inside the scope (hexes → RGB channels on
+   * --canvas-ink / --canvas-muted / --canvas-border / --canvas-connector).
+   * Because every Tailwind `canvas-*` utility resolves through these vars,
+   * this is how a pack recolors all artifact text in one move.
+   */
+  surfaceCard?: string;
+  surfaceInk?: string;
+  surfaceMuted?: string;
+  surfaceBorder?: string;
+  canvasConnector?: string;
+  /** Chart palette for the JS renderers. */
+  chart?: ArtifactStyleChartPalette;
+  /** Timeline / calendar event colors (cycled by index). */
+  timeline?: readonly string[];
 }
 
 export interface ArtifactStylePreset {
@@ -100,6 +178,10 @@ export interface ArtifactStylePreset {
   hoverLift: string;
   /** Active/press translate offsets ("x, y"). "0px, 0px" disables. */
   pressPush: string;
+  /** Display typography (mode-independent). Omit to keep renderer defaults. */
+  typography?: ArtifactStyleTypography;
+  /** Three swatch hexes for the settings-popover preview chip. */
+  previewSwatches?: readonly [string, string, string];
   light: ArtifactStyleSurfaceTokens;
   dark: ArtifactStyleSurfaceTokens;
 }

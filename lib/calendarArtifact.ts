@@ -347,15 +347,22 @@ export function monthLabel(year: number, month: number): string {
   });
 }
 
-export function calendarEventColor(index: number): string {
-  return TIMELINE_EVENT_COLORS[index % TIMELINE_EVENT_COLORS.length]!;
+export function calendarEventColor(
+  index: number,
+  palette: readonly string[] = TIMELINE_EVENT_COLORS,
+): string {
+  const colors = palette.length > 0 ? palette : TIMELINE_EVENT_COLORS;
+  return colors[index % colors.length]!;
 }
 
-export function calendarEventChipStyle(index: number): {
+export function calendarEventChipStyle(
+  index: number,
+  palette: readonly string[] = TIMELINE_EVENT_COLORS,
+): {
   backgroundColor: string;
   color: string;
 } {
-  const base = calendarEventColor(index);
+  const base = calendarEventColor(index, palette);
   return {
     backgroundColor: `${base}22`,
     color: base,

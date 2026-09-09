@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { buildCanvasSnapshot } from "@/lib/canvasSnapshot";
-import {
-  buildTranscriptImportPlaygroundSnapshot,
-  transcriptImportPlaygroundContentCenter,
-} from "@/lib/buildTranscriptImportPlaygroundSnapshot";
-import { enrichPlaygroundWebsiteArtifacts } from "@/lib/transcriptImport/enrichPlaygroundWebsites";
+import { getTranscriptImportCanvas } from "@/lib/buildTranscriptImportPlaygroundSnapshot";
 import {
   beginTranscriptImportPlaygroundSession,
   endTranscriptImportPlaygroundSession,
@@ -22,6 +18,7 @@ import { useCanvasStore } from "@/lib/store";
 
 function fitViewportToImport(
   container: HTMLElement,
+  canvasId: string,
   padding = 200,
 ): void {
   const state = useCanvasStore.getState();
@@ -44,7 +41,7 @@ function fitViewportToImport(
 
   const { width, height } = container.getBoundingClientRect();
   if (rects.length === 0) {
-    const center = transcriptImportPlaygroundContentCenter();
+    const center = getTranscriptImportCanvas(canvasId).contentCenter();
     state.setViewport(
       viewportCenteredOnWorldPoint(center.x, center.y, width, height, 0.55),
     );
@@ -77,6 +74,7 @@ function fitViewportToImport(
 
 export function useTranscriptImportPlaygroundCanvas(
   containerRef: React.RefObject<HTMLElement | null>,
+  canvasId: string,
 ) {
   const persistenceReady = usePersistenceReady();
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
@@ -85,39 +83,45 @@ export function useTranscriptImportPlaygroundCanvas(
   const fitContent = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    fitViewportToImport(el);
-  }, [containerRef]);
+    fitViewportToImport(el, canvasId);
+  }, [containerRef, canvasId]);
 
+  // The user's real canvas is stashed once for the whole visit and restored on
+  // the way out — switching between imported canvases must not touch it.
   useEffect(() => {
-    if (!persistenceReady || sessionStartedRef.current) return;
-    sessionStartedRef.current = true;
-
+    if (!persistenceReady) return;
     beginTranscriptImportPlaygroundSession(
       useCanvasStore.getState().getCanvasSnapshotSource(),
     );
-    resetViewportBootstrap();
-    hydrateFromSnapshot(buildTranscriptImportPlaygroundSnapshot(), {
-      applyViewport: false,
-      canvasReveal: false,
-    });
-
-    requestAnimationFrame(() => {
-      if (containerRef.current) fitViewportToImport(containerRef.current);
-      enrichPlaygroundWebsiteArtifacts();
-    });
+    sessionStartedRef.current = true;
 
     return () => {
-      const restore = endTranscriptImportPlaygroundSession();
+      if (!sessionStartedRef.current) return;
       sessionStartedRef.current = false;
-      if (restore) {
+      endTranscriptImportPlaygroundSession((restore) => {
         resetViewportBootstrap();
         hydrateFromSnapshot(buildCanvasSnapshot(restore), {
           applyViewport: true,
           canvasReveal: false,
         });
-      }
+      });
     };
-  }, [persistenceReady, hydrateFromSnapshot, containerRef]);
+  }, [persistenceReady, hydrateFromSnapshot]);
+
+  useEffect(() => {
+    if (!persistenceReady) return;
+    resetViewportBootstrap();
+    hydrateFromSnapshot(
+      getTranscriptImportCanvas(canvasId).buildSnapshot(),
+      { applyViewport: false, canvasReveal: false },
+    );
+
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        fitViewportToImport(containerRef.current, canvasId);
+      }
+    });
+  }, [persistenceReady, canvasId, hydrateFromSnapshot, containerRef]);
 
   return { fitContent };
 }

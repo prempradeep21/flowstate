@@ -1,8 +1,6 @@
-import { CARD_WIDTH } from "@/lib/canvasNodeBounds";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import { layoutChapters } from "@/lib/transcriptImport/chapterLayout";
 import {
-  ARTIFACT_OFFSET_X,
-  CARD_STEP_X,
   conn,
   convCard,
   spawnPayload,
@@ -11,15 +9,25 @@ import {
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import { HUBERMAN_NEUROPLASTICITY_SOURCE_URL } from "@/lib/transcriptImport/hubermanNeuroplasticity";
+import {
+  claimPayload,
+  definitionPayload,
+  episodePayload,
+  linkGroupPayload,
+  mechanismPayload,
+  quotePayload,
+  statPayload,
+} from "@/lib/transcriptArtifacts";
 import type {
-  BranchGroup,
   CanvasArtifactNode,
   Card,
   Connection,
   Thread,
 } from "@/lib/store";
 
-export const TIP_GROUP_ID_HUB = "tip-import-group-hub";
+/** The only voice in this episode — a solo Huberman Lab Essentials. */
+const SPEAKER = "Andrew Huberman";
+
 export const TIP_THREAD_HUB_MAIN = "tip-thread-hub-main";
 export const TIP_THREAD_HUB_SENSORY = "tip-thread-hub-sensory";
 export const TIP_THREAD_HUB_AWARE = "tip-thread-hub-aware";
@@ -27,22 +35,6 @@ export const TIP_THREAD_HUB_ATTENTION = "tip-thread-hub-attention";
 export const TIP_THREAD_HUB_CHEM = "tip-thread-hub-chem";
 export const TIP_THREAD_HUB_PROTOCOL = "tip-thread-hub-protocol";
 export const TIP_THREAD_HUB_SLEEP = "tip-thread-hub-sleep";
-
-/**
- * Placed to the RIGHT of the design-tools + YC stack so the three imported
- * conversations read side by side across a wide canvas. Clears the widest
- * design-tools artifacts (~x=6500).
- */
-export const HUB_ORIGIN_X = 7200;
-
-const HUB_ABOVE_Y = 80;
-const HUB_MAIN_Y = 720;
-const HUB_PROTOCOL_Y = 1320;
-const HUB_ATTENTION_Y = 1900;
-const HUB_CHEM_Y = 2480;
-const HUB_SLEEP_Y = 3060;
-
-const colX = (i: number) => HUB_ORIGIN_X + CARD_STEP_X * i;
 
 /** Andrew Huberman neuroplasticity conversation graph for the playground. */
 export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
@@ -71,78 +63,69 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
   const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
   const canvasArtifactOrder: string[] = [];
 
-  // ---- Main spine ---------------------------------------------------------
+  // ---- Chapter heads (the main spine) -------------------------------------
   const mainDefs = [
     {
       id: "tip-c-hub-main-1",
       title: "Neuroplasticity, defined",
       summary:
         "The nervous system's ability to change in response to experience — arguably the most important feature of our biology.",
-      x: colX(0),
     },
     {
       id: "tip-c-hub-main-2",
       title: "Born to change",
       summary:
         "Babies are wired crudely; through experience the nervous system becomes customized to each person's unique life.",
-      x: colX(1),
     },
     {
       id: "tip-c-hub-main-3",
       title: "Plastic vs hardwired",
       summary:
         "Sensory maps are highly plastic; heartbeat, breathing, and digestion circuits are fixed — and thank goodness they are.",
-      x: colX(2),
     },
     {
       id: "tip-c-hub-main-4",
       title: "After 25, plasticity is gated",
       summary:
         "No more passive learning — you must deliberately shift your internal state to open the window for change.",
-      x: colX(3),
     },
     {
       id: "tip-c-hub-main-5",
       title: "The recipe for change",
       summary:
         "Epinephrine (alertness) + acetylcholine from two sources. Get all three and the nervous system doesn't just change — it must.",
-      x: colX(4),
     },
     {
       id: "tip-c-hub-main-6",
       title: "Change happens in sleep",
       summary:
         "Plasticity is not consolidated while awake — the highlighted circuits are rewired during deep sleep and NSDR.",
-      x: colX(5),
     },
   ];
 
   for (const def of mainDefs) {
-    cards[def.id] = convCard(def.id, TIP_THREAD_HUB_MAIN, def.title, def.summary, {
-      x: def.x,
-      y: HUB_MAIN_Y,
-    });
+    cards[def.id] = convCard(
+      def.id,
+      TIP_THREAD_HUB_MAIN,
+      def.title,
+      def.summary,
+    );
     cardOrder.push(def.id);
   }
-  for (let i = 0; i < mainDefs.length - 1; i++) {
-    connections.push(conn(mainDefs[i]!.id, mainDefs[i + 1]!.id, "right", "left"));
-  }
 
-  // ---- Sensory substitution (above main-2) --------------------------------
+  // ---- Sensory substitution (chapter 2) -----------------------------------
   const sensoryDefs = [
     {
       id: "tip-c-hub-sensory-1",
       title: "Blindness rewires the cortex",
       summary:
         "In people blind from birth, the visual cortex is overtaken by hearing and Braille touch.",
-      x: colX(1),
     },
     {
       id: "tip-c-hub-sensory-2",
       title: "Sharper hearing & touch",
       summary:
         "The result is heightened auditory and touch acuity — and a much higher incidence of perfect pitch.",
-      x: colX(2),
     },
   ];
   for (const def of sensoryDefs) {
@@ -151,29 +134,26 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_SENSORY,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_ABOVE_Y },
       "tip-c-hub-main-2",
     );
     cardOrder.push(def.id);
   }
-  connections.push(conn("tip-c-hub-main-2", "tip-c-hub-sensory-1", "top", "bottom"));
+  connections.push(conn("tip-c-hub-main-2", "tip-c-hub-sensory-1", "bottom", "top"));
   connections.push(conn("tip-c-hub-sensory-1", "tip-c-hub-sensory-2", "right", "left"));
 
-  // ---- Awareness is step one (above main-4) -------------------------------
+  // ---- Awareness is step one (chapter 4) ----------------------------------
   const awareDefs = [
     {
       id: "tip-c-hub-aware-1",
       title: "Recognition comes first",
       summary:
         "Naming what you want to change — even just an uncomfortable reaction — is the actual first step in plasticity.",
-      x: colX(3),
     },
     {
       id: "tip-c-hub-aware-2",
       title: "Prefrontal flags 'attend'",
       summary:
         "The forebrain signals the rest of the nervous system that what's coming is worth paying attention to.",
-      x: colX(4),
     },
   ];
   for (const def of awareDefs) {
@@ -182,36 +162,32 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_AWARE,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_ABOVE_Y },
       "tip-c-hub-main-4",
     );
     cardOrder.push(def.id);
   }
-  connections.push(conn("tip-c-hub-main-4", "tip-c-hub-aware-1", "top", "bottom"));
+  connections.push(conn("tip-c-hub-main-4", "tip-c-hub-aware-1", "bottom", "top"));
   connections.push(conn("tip-c-hub-aware-1", "tip-c-hub-aware-2", "right", "left"));
 
-  // ---- Protocols (below main-4) -------------------------------------------
+  // ---- Protocols (chapter 4) ----------------------------------------------
   const protocolDefs = [
     {
       id: "tip-c-hub-proto-1",
       title: "Get alert on purpose",
       summary:
         "Sleep + caffeine set the baseline; accountability, love, or fear all raise epinephrine — the brain doesn't care which.",
-      x: colX(2),
     },
     {
       id: "tip-c-hub-proto-2",
       title: "Mental focus follows visual focus",
       summary:
         "Narrow your gaze to a small window for 60–120s to trigger acetylcholine and epinephrine at the plasticity sites.",
-      x: colX(3),
     },
     {
       id: "tip-c-hub-proto-3",
       title: "90-minute ultradian bouts",
       summary:
         "One focused bout, distractions off. Expect flicker at the edges, and re-anchor drifting attention with your eyes.",
-      x: colX(4),
     },
   ];
   for (const def of protocolDefs) {
@@ -220,37 +196,33 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_PROTOCOL,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_PROTOCOL_Y },
       "tip-c-hub-main-4",
     );
     cardOrder.push(def.id);
   }
-  connections.push(conn("tip-c-hub-main-4", "tip-c-hub-proto-2", "bottom", "top"));
+  connections.push(conn("tip-c-hub-main-4", "tip-c-hub-proto-1", "bottom", "top"));
   connections.push(conn("tip-c-hub-proto-1", "tip-c-hub-proto-2", "right", "left"));
   connections.push(conn("tip-c-hub-proto-2", "tip-c-hub-proto-3", "right", "left"));
 
-  // ---- Attention gates plasticity — Merzenich (below main-5) --------------
+  // ---- Attention gates plasticity — Merzenich (chapter 5) -----------------
   const attentionDefs = [
     {
       id: "tip-c-hub-att-1",
       title: "Merzenich's spinning drum",
       summary:
         "Adults felt bumps of varying spacing; attending to the distance drove rapid plasticity in the finger maps.",
-      x: colX(3),
     },
     {
       id: "tip-c-hub-att-2",
       title: "Attention, not exposure",
       summary:
         "Same touch, but attend the tone → auditory plasticity; attend the bumps → touch plasticity. Attention decides.",
-      x: colX(4),
     },
     {
       id: "tip-c-hub-att-3",
       title: "Not every experience changes you",
       summary:
         "The 'everything rewires your brain' claim is false — only what you deeply attend to opens plasticity.",
-      x: colX(5),
     },
   ];
   for (const def of attentionDefs) {
@@ -259,7 +231,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_ATTENTION,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_ATTENTION_Y },
       "tip-c-hub-main-5",
     );
     cardOrder.push(def.id);
@@ -268,28 +239,25 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
   connections.push(conn("tip-c-hub-att-1", "tip-c-hub-att-2", "right", "left"));
   connections.push(conn("tip-c-hub-att-2", "tip-c-hub-att-3", "right", "left"));
 
-  // ---- Neurochemistry (below attention) -----------------------------------
+  // ---- Neurochemistry (chapter 5) -----------------------------------------
   const chemDefs = [
     {
       id: "tip-c-hub-chem-1",
       title: "Epinephrine = alertness",
       summary:
         "Released from the locus coeruleus in the brainstem — the same molecule as adrenaline from the adrenal glands.",
-      x: colX(3),
     },
     {
       id: "tip-c-hub-chem-2",
       title: "Acetylcholine = spotlight",
       summary:
         "A brainstem source raises signal-to-noise, letting one input cut through the sensory bombardment at the thalamus.",
-      x: colX(4),
     },
     {
       id: "tip-c-hub-chem-3",
       title: "Nucleus basalis seals it",
       summary:
         "A third source — nucleus basalis of Meynert. Epinephrine + both acetylcholine sources = change is obligatory.",
-      x: colX(5),
     },
   ];
   for (const def of chemDefs) {
@@ -298,7 +266,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_CHEM,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_CHEM_Y },
       "tip-c-hub-main-5",
     );
     cardOrder.push(def.id);
@@ -307,21 +274,19 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
   connections.push(conn("tip-c-hub-chem-1", "tip-c-hub-chem-2", "right", "left"));
   connections.push(conn("tip-c-hub-chem-2", "tip-c-hub-chem-3", "right", "left"));
 
-  // ---- Sleep & NSDR (below main-6) ----------------------------------------
+  // ---- Sleep & NSDR (chapter 6) -------------------------------------------
   const sleepDefs = [
     {
       id: "tip-c-hub-sleep-1",
       title: "Sleep locks in learning",
       summary:
         "Acetylcholine stamps the active synapses; over the next nights of deep sleep those circuits strengthen and others fade.",
-      x: colX(4),
     },
     {
       id: "tip-c-hub-sleep-2",
       title: "NSDR & naps accelerate it",
       summary:
         "A 20-minute NSDR or shallow nap right after a hard task beat a full night's sleep in a Cell Reports study.",
-      x: colX(5),
     },
   ];
   for (const def of sleepDefs) {
@@ -330,7 +295,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       TIP_THREAD_HUB_SLEEP,
       def.title,
       def.summary,
-      { x: def.x, y: HUB_SLEEP_Y },
       "tip-c-hub-main-6",
     );
     cardOrder.push(def.id);
@@ -338,15 +302,12 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
   connections.push(conn("tip-c-hub-main-6", "tip-c-hub-sleep-1", "bottom", "top"));
   connections.push(conn("tip-c-hub-sleep-1", "tip-c-hub-sleep-2", "right", "left"));
 
-  // ---- Artifacts (far-right lane, clear of every card) --------------------
-  const artX = colX(5) + CARD_WIDTH + ARTIFACT_OFFSET_X;
-
+  // ---- Artifacts — each lands in the chapter of its source card -----------
   spawnWebsite(
     "hub-hubermanlab",
     HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
     "Huberman Lab",
     "tip-c-hub-main-1",
-    { x: artX, y: HUB_MAIN_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -356,7 +317,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
     "https://en.wikipedia.org/wiki/Neuroplasticity",
     "Neuroplasticity — Wikipedia",
     "tip-c-hub-main-1",
-    { x: artX, y: HUB_MAIN_Y + 560 },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -366,7 +326,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
     "https://en.wikipedia.org/wiki/Michael_Merzenich",
     "Michael Merzenich — Wikipedia",
     "tip-c-hub-att-1",
-    { x: artX, y: HUB_ATTENTION_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -392,7 +351,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-hub-main-3",
-    { x: artX, y: HUB_CHEM_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -415,7 +373,6 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-hub-main-6",
-    { x: artX, y: HUB_SLEEP_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -432,31 +389,369 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-hub-proto-2",
-    { x: artX, y: HUB_SLEEP_Y + 560 },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
   );
 
-  const groups: Record<string, BranchGroup> = {
-    [TIP_GROUP_ID_HUB]: {
-      id: TIP_GROUP_ID_HUB,
-      label: "Neuroplasticity (Huberman) import",
-      familyRootThreadIds: [TIP_THREAD_HUB_MAIN],
-      summaryMarkdown: null,
+
+  /*
+   * Extracted artifacts, chapter by chapter, per the transcript-artifacts skill.
+   * Every string below is a verbatim lift from HUBERMAN_NEUROPLASTICITY_TRANSCRIPT.
+   * The transcript carries no timestamps, so no artifact claims one.
+   */
+
+  // Chapter 1 — G definition, H quote.
+  spawnPayload(
+    "tip-art-hub-def-plasticity",
+    definitionPayload("Neuroplasticity", {
+      term: "Neuroplasticity",
+      gloss:
+        "this incredible feature of our nervous system's that allows it to change in response to experience",
+      speaker: SPEAKER,
+    }),
+    "tip-c-hub-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-quote-promise",
+    quotePayload("The promise of plasticity", {
+      text:
+        "It holds the promise for each and all of us to think differently, to learn new things, to forget painful experiences, and to essentially adapt to anything that life brings us by becoming better.",
+      speaker: SPEAKER,
+      context: "Opening definition of why neuroplasticity matters",
+    }),
+    "tip-c-hub-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  // Chapter 2 — E mechanism (sensory substitution), H quote.
+  spawnPayload(
+    "tip-art-hub-mech-blind",
+    mechanismPayload("How blindness remaps the cortex", {
+      steps: [
+        { id: "blind", label: "Blind from birth" },
+        { id: "occipital", label: "Occipital cortex", note: "The visual cortex in the back" },
+        { id: "respond", label: "Neurons respond to sound and Braille touch" },
+        { id: "acuity", label: "Greater auditory and touch acuity", note: "Higher incidence of perfect pitch" },
+      ],
+      edges: [
+        { from: "blind", to: "occipital", label: "overtaken by hearing" },
+        { from: "occipital", to: "respond" },
+        { from: "respond", to: "acuity" },
+      ],
+    }),
+    "tip-c-hub-sensory-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-quote-map",
+    quotePayload("The cortex is a map of your life", {
+      text:
+        "That tells us that the neocortex is really designed to be a map of our own individual experience.",
+      speaker: SPEAKER,
+      context: "On what sensory substitution reveals",
+    }),
+    "tip-c-hub-sensory-2",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  // Chapter 3 — B table (already above), H quote.
+  spawnPayload(
+    "tip-art-hub-quote-reliable",
+    quotePayload("Why some circuits must not change", {
+      text:
+        "And thank goodness those circuits were set up that way, because you want them to be extremely reliable.",
+      speaker: SPEAKER,
+      context: "On the hardwired circuits for heartbeat, breathing and digestion",
+    }),
+    "tip-c-hub-main-3",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  // Chapter 4 — D' stat x2, H quote, I todo.
+  spawnPayload(
+    "tip-art-hub-stat-25",
+    statPayload("When passive learning ends", {
+      value: "25",
+      unit: "years",
+      label:
+        "After this age, changing the superhighways of connectivity requires very specific processes",
+      speaker: SPEAKER,
+    }),
+    "tip-c-hub-main-4",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-stat-focus",
+    statPayload("The visual focus window", {
+      value: "60–120",
+      unit: "seconds",
+      label:
+        "Focusing visual attention on a small window raises visual acuity and activity in the areas gathering information from that location",
+      speaker: SPEAKER,
+    }),
+    "tip-c-hub-proto-2",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-quote-recognition",
+    quotePayload("Recognition is step one", {
+      text:
+        "What this says is that the recognition of something — whether an emotional thing or a desire to learn something — is actually the first step in neuroplasticity.",
+      speaker: SPEAKER,
+      context: "After the story of the listener who found his voice hard to hear",
+    }),
+    "tip-c-hub-aware-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-todo",
+    {
+      type: "todo",
+      title: "Protocol for opening a plasticity window",
+      data: {
+        items: [
+          { id: "hub-t1", label: "Master your sleep schedule", checked: false },
+          {
+            id: "hub-t2",
+            label:
+              "Identify a kit of reasons, several reasons, fear-based and love-based",
+            checked: false,
+          },
+          { id: "hub-t3", label: "Practice visual focus", checked: false },
+          {
+            id: "hub-t4",
+            label: "Turn off the Wi-Fi, put your phone in the other room",
+            checked: false,
+          },
+          {
+            id: "hub-t5",
+            label: "Run a 90-minute bout with a 5-to-10-minute warm-up",
+            checked: false,
+          },
+        ],
+      },
     },
-  };
+    "tip-c-hub-proto-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  // Chapter 5 — B table (the three ingredients), F claim, H quote.
+  spawnPayload(
+    "tip-art-hub-chem-table",
+    {
+      type: "table",
+      title: "The three ingredients for change",
+      data: {
+        columns: [
+          { key: "chemical", label: "Neurochemical" },
+          { key: "source", label: "Released from" },
+          { key: "role", label: "Role" },
+        ],
+        rows: [
+          {
+            chemical: "Epinephrine",
+            source: "Locus coeruleus (brainstem)",
+            role: "Alertness",
+          },
+          {
+            chemical: "Acetylcholine",
+            source: "Brainstem",
+            role: "Spotlight — raises signal to noise",
+          },
+          {
+            chemical: "Acetylcholine",
+            source: "Nucleus basalis of Meynert (forebrain)",
+            role: "The third component that seals it",
+          },
+        ],
+      },
+    },
+    "tip-c-hub-chem-3",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-claim-experience",
+    claimPayload("Does every experience change your brain?", {
+      topic: "Whether every experience you have changes your brain",
+      proposition: {
+        speaker: "Commonly claimed",
+        text: "Every experience you have changes your brain.",
+      },
+      counter: {
+        speaker: SPEAKER,
+        text:
+          "That's absolutely not true. The nervous system changes when certain neurochemicals are released and allow whatever neurons are active in that period to strengthen or weaken their connections.",
+      },
+    }),
+    "tip-c-hub-att-3",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-quote-must",
+    quotePayload("Change becomes obligatory", {
+      text: "Not only will the nervous system change, it has to change.",
+      speaker: SPEAKER,
+      context: "When all three neurochemical conditions are met",
+    }),
+    "tip-c-hub-chem-3",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  // Chapter 6 — C timeline (already above), E mechanism, D' stat, H quote.
+  spawnPayload(
+    "tip-art-hub-mech-sleep",
+    mechanismPayload("Where the rewiring actually happens", {
+      steps: [
+        { id: "focus", label: "~90 minutes of hard focus" },
+        { id: "stamp", label: "Acetylcholine stamps the active synapses", note: "Marks them as biased to change" },
+        { id: "sleep", label: "Deep sleep, that night and the following nights" },
+        { id: "strengthen", label: "Those circuits strengthen, others are lost" },
+      ],
+      edges: [
+        { from: "focus", to: "stamp" },
+        { from: "stamp", to: "sleep" },
+        { from: "sleep", to: "strengthen", label: "consolidates" },
+      ],
+    }),
+    "tip-c-hub-sleep-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-stat-nsdr",
+    statPayload("NSDR beat a full night alone", {
+      value: "20",
+      unit: "minutes",
+      label:
+        "NSDR or a shallow nap immediately after a difficult spatial-memory task produced significantly higher rates of learning than a good night's sleep alone",
+      source: "Cell Reports",
+      speaker: SPEAKER,
+    }),
+    "tip-c-hub-sleep-2",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-quote-secret",
+    quotePayload("The real secret", {
+      text:
+        "But the real secret is that neuroplasticity doesn't occur during wakefulness — it occurs during sleep.",
+      speaker: SPEAKER,
+      context: "The turn into the chapter on sleep and NSDR",
+    }),
+    "tip-c-hub-main-6",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  /*
+   * The masthead. This source is a podcast episode with no video, so there is
+   * no thumbnail, duration or watch URL to show — the artifact carries the
+   * chapter index and the show link and nothing it cannot support. The
+   * description is the show's own framing, verbatim from the transcript.
+   */
+  const MASTHEAD_NODE_IDS = ["tip-art-hub-episode", "tip-art-hub-links"];
+
+  spawnPayload(
+    "tip-art-hub-episode",
+    episodePayload("The episode", {
+      videoTitle: "Huberman Lab Essentials — neuroplasticity",
+      channel: "Huberman Lab",
+      url: HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
+      description:
+        "where we revisit past episodes for the most potent and actionable science-based tools for mental health, physical health, and performance",
+      chapters: mainDefs.map((def, index) => ({
+        label: def.title,
+        groupId: `tip-hub-chapter-${index + 1}`,
+      })),
+    }),
+    "tip-c-hub-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-hub-links",
+    linkGroupPayload("Affiliated links", {
+      sections: [
+        {
+          label: "The show",
+          links: [
+            { label: "Huberman Lab", url: HUBERMAN_NEUROPLASTICITY_SOURCE_URL },
+          ],
+        },
+        {
+          label: "Referenced",
+          links: [
+            {
+              label: "Neuroplasticity",
+              url: "https://en.wikipedia.org/wiki/Neuroplasticity",
+            },
+            {
+              label: "Michael Merzenich",
+              url: "https://en.wikipedia.org/wiki/Michael_Merzenich",
+            },
+          ],
+        },
+      ],
+    }),
+    "tip-c-hub-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  const layout = layoutChapters({
+    mainCardIds: mainDefs.map((def) => def.id),
+    cards,
+    cardOrder,
+    connections,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+    sessionArtifacts,
+    mastheadNodeIds: MASTHEAD_NODE_IDS,
+    idPrefix: "tip-hub",
+  });
 
   return {
     cards,
     cardOrder,
-    connections,
+    connections: layout.connections,
     threads,
     threadOrder,
-    groups,
+    groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
-    contentCenter: { x: HUB_ORIGIN_X + CARD_STEP_X * 2.5, y: HUB_MAIN_Y },
+    contentCenter: layout.contentCenter,
   };
 }

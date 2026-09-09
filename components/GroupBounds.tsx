@@ -2,6 +2,11 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import {
+  GROUP_BOUNDS_PADDING,
+  GROUP_HEADING_FONT_SIZE,
+  GROUP_HEADING_LINE_HEIGHT,
+} from "@/lib/groupBounds";
 import { useGroupBounds } from "@/lib/useGroupBounds";
 import { groupGestureRefs } from "@/lib/groupMembership";
 import { plugAnchorAt } from "@/lib/plugConnector";
@@ -16,10 +21,11 @@ interface GroupBoundsProps {
 }
 
 const SCREEN_STROKE = 1.5;
-const CORNER_RADIUS = 10;
+const CORNER_RADIUS = 30;
 
 /** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
+
 
 /**
  * Figma-section-style group container: translucent fill behind the members,
@@ -137,7 +143,47 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
           }
           strokeWidth={isActive ? stroke * 1.5 : stroke}
         />
+        {/*
+          Hairline between the group's conversation cards and its artifacts.
+          Inset by the frame padding so it starts and ends on the same gutter
+          the tiles inside line up to, and translucent enough to read as a
+          separation rather than a border of its own.
+        */}
+        {group.dividerY !== undefined ? (
+          <line
+            x1={GROUP_BOUNDS_PADDING}
+            x2={Math.max(GROUP_BOUNDS_PADDING, bounds.w - GROUP_BOUNDS_PADDING)}
+            y1={group.dividerY - bounds.y}
+            y2={group.dividerY - bounds.y}
+            stroke="rgb(var(--canvas-ink))"
+            strokeOpacity={0.18}
+            strokeWidth={stroke}
+          />
+        ) : null}
       </svg>
+
+      {/*
+        Chapter title in the band computeGroupBounds reserved for it at the top
+        of the frame, on the same gutter the tiles inside line up to. Unlike the
+        label chip it is not counter-scaled, so it reads as a title over the
+        district at any zoom and stays the most legible thing on screen when the
+        whole canvas is in view.
+      */}
+      {group.headingText ? (
+        <div
+          className="pointer-events-none absolute truncate font-semibold text-canvas-ink/70"
+          style={{
+            left: GROUP_BOUNDS_PADDING,
+            top: GROUP_BOUNDS_PADDING,
+            width: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
+            maxWidth: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
+            fontSize: GROUP_HEADING_FONT_SIZE,
+            lineHeight: GROUP_HEADING_LINE_HEIGHT,
+          }}
+        >
+          {group.headingText}
+        </div>
+      ) : null}
 
       {/* Name label above the top-left corner (Figma section header). */}
       <div

@@ -24,10 +24,13 @@ import {
   clampArtifactSize,
   clampTableArtifactSize,
   getArtifactBounds,
+  getArtifactClampOpts,
   getDefaultArtifactSize,
-  MAX_TIMELINE_ARTIFACT_WIDTH,
-  MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
+import {
+  MASTHEAD_ARTIFACT_KINDS,
+  MASTHEAD_ARTIFACT_SCALE,
+} from "@/lib/transcriptArtifacts";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
@@ -181,7 +184,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
       const st = useCanvasStore.getState();
       const current = st.canvasArtifactNodes[node.id];
-      if (!current || current.userSetSize) return;
+      if (!current || current.userSetSize || current.layoutSetSize) return;
       const artForBounds = current.artifactId
         ? st.sessionArtifacts[current.artifactId]
         : undefined;
@@ -192,12 +195,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       const defaultSize = artForBounds
         ? getDefaultArtifactSize(artForBounds.kind, latestPayload)
         : null;
-      const clampOpts =
-        artForBounds?.kind === "timeline"
-          ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-          : artForBounds?.kind === "audio"
-            ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
-            : undefined;
+      const clampOpts = getArtifactClampOpts(artForBounds?.kind);
 
       let areaW = contentArea.w;
       let areaH = contentArea.h;
@@ -349,11 +347,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
             : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
-              art?.kind === "timeline"
-                ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-                : art?.kind === "audio"
-                  ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
-                  : undefined,
+              getArtifactClampOpts(art?.kind),
             );
       setCanvasArtifactSize(node.id, next, { userSet: true });
       // Keep the corner opposite the grip anchored in place.
@@ -466,6 +460,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
       data-artifact-kind={art?.kind ?? preview?.kind}
+      data-artifact-category={artifactCategoryOf(
+        (art?.kind ?? preview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
+      )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -561,6 +558,19 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
             sourceCard={sourceCard}
           />
         ) : art ? (
+          <div
+            className="flex min-h-0 w-full flex-1 flex-col"
+            /*
+             * The masthead pair is drawn at 2.5× — node box and everything in
+             * it, header chrome included, so the blow-up is uniform. Zoom (not
+             * transform) so layout inside still resolves against the node box.
+             */
+            style={
+              MASTHEAD_ARTIFACT_KINDS.has(art.kind)
+                ? { zoom: MASTHEAD_ARTIFACT_SCALE }
+                : undefined
+            }
+          >
           <ArtifactShell
             layout="canvas"
             sessionArtifact={art}
@@ -584,6 +594,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
                 : undefined
             }
           />
+          </div>
         ) : null}
       </CanvasSharpContent>
 

@@ -64,7 +64,8 @@ export const IMAGE_ASSET_MAX_BYTES = 10 * 1024 * 1024;
 export const DOCUMENT_ASSET_MAX_BYTES = 10 * 1024 * 1024;
 export const CODE_ASSET_MAX_BYTES = 2 * 1024 * 1024;
 
-const IMAGE_TYPES = new Set([
+/** MIME types the asset pipeline accepts for images. */
+export const IMAGE_ASSET_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/gif",
@@ -192,7 +193,7 @@ function mimeFromExtension(ext: string): string {
 export function assetKindForFile(file: File): CanvasAssetKind | null {
   const ext = extensionForName(file.name);
   const type = file.type || "";
-  if (IMAGE_TYPES.has(type)) return "image";
+  if (IMAGE_ASSET_MIME_TYPES.has(type)) return "image";
   const officeFromMime = type ? officeKindForMime(type) : null;
   if (officeFromMime) return officeFromMime;
   const officeFromExt = officeKindForExtension(ext);
@@ -227,7 +228,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function uploadCategoryForMime(mime: string): UploadCategory | null {
-  if (IMAGE_TYPES.has(mime)) return "images";
+  if (IMAGE_ASSET_MIME_TYPES.has(mime)) return "images";
   if (
     DOCUMENT_TYPES.has(mime) ||
     SPREADSHEET_TYPES.has(mime) ||
@@ -491,7 +492,7 @@ function getImageDimensions(file: File): Promise<{
   });
 }
 
-function safeStorageName(name: string): string {
+export function safeStorageName(name: string): string {
   const ext = extensionForName(name);
   const stem = name
     .replace(/\.[^.]+$/, "")

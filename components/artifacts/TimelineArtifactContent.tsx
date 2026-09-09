@@ -10,6 +10,7 @@ import { TimelineAxis } from "@/components/timeline/TimelineAxis";
 import { TimelineEventNode } from "@/components/timeline/TimelineEventNode";
 import type { ArtifactPayload, TimelineEvent, TimelineScale } from "@/lib/artifactTypes";
 import { TIMELINE_ARTIFACT_BODY_MIN_HEIGHT, TIMELINE_ARTIFACT_STAGE_WIDTH } from "@/lib/canvasNodeBounds";
+import { useTimelinePalette } from "@/hooks/useTimelinePalette";
 import { useTimelineViewport } from "@/hooks/useTimelineViewport";
 import {
   createTimelineEvent,
@@ -141,17 +142,18 @@ export function TimelineArtifactContent({
     [centerMs, scale, viewportWidth, zoom],
   );
 
+  const timelinePalette = useTimelinePalette();
   const eventPoints = useMemo(
     () =>
       displayEvents.map((event, index) => ({
         index,
         x: eventScreenX(event.at),
-        color: eventColor(index),
+        color: eventColor(index, timelinePalette),
         side: eventSide(index, event.side),
         highlight: event.highlight,
         width: estimateLabelWidth(event.label),
       })),
-    [displayEvents, eventScreenX],
+    [displayEvents, eventScreenX, timelinePalette],
   );
 
   // Colour-segmented axis, computed from every event (even off-screen ones) so

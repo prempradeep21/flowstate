@@ -143,7 +143,7 @@ export function ChartArtifactContent({
           </p>
         ) : null}
         {payload.description ? (
-          <p className="shrink-0 border-t border-canvas-border px-3 py-2 text-canvas-compact text-canvas-muted">
+          <p className="artifact-chart-footer shrink-0 border-t border-canvas-border px-3 py-2 text-canvas-compact text-canvas-muted">
             {payload.description}
           </p>
         ) : null}

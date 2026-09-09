@@ -78,6 +78,8 @@
   --artifact-cat-dev-fg: 84 95 110;
   --artifact-cat-planning-bg: 249 226 236;
   --artifact-cat-planning-fg: 152 42 91;
+  --artifact-cat-discourse-bg: 237 228 252;
+  --artifact-cat-discourse-fg: 91 44 168;
   /* Elevation — UI chrome (panels, toolbar, popovers) is flat; only
      canvas-level elements (artifact windows, cards) carry shadows. */
   --canvas-card-shadow: none;
@@ -181,6 +183,8 @@ html[data-theme="dark"],
   --artifact-cat-dev-fg: 185 192 202;
   --artifact-cat-planning-bg: 69 33 49;
   --artifact-cat-planning-fg: 231 157 190;
+  --artifact-cat-discourse-bg: 46 36 71;
+  --artifact-cat-discourse-fg: 196 169 245;
   --canvas-scrollbar-thumb: rgb(var(--canvas-muted) / 0.48);
   --canvas-scrollbar-thumb-hover: rgb(var(--canvas-muted) / 0.68);
   --canvas-scrollbar-thumb-active: rgb(var(--canvas-muted) / 0.82);

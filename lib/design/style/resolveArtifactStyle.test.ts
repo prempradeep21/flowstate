@@ -116,13 +116,90 @@ describe("resolveArtifactStyle", () => {
     );
   });
 
-  it("registers packs in picker order with liquid glass last", () => {
+  it("registers packs in picker order with the color-led packs last", () => {
     expect(ARTIFACT_STYLE_PACKS.map((pack) => pack.id)).toEqual([
       "vanilla",
       "neo",
       "neobrutalism",
       "liquid-glass",
+      "bento",
+      "riso",
     ]);
+  });
+
+  it("emits the full category tone set for the color-led packs", () => {
+    const roles = [
+      "solid",
+      "on-solid",
+      "on-solid-muted",
+      "pale",
+      "ink",
+      "muted",
+      "vivid",
+      "line",
+      "stage",
+      "solid-line",
+      "solid-stage",
+    ];
+    const categories = [
+      "data",
+      "viz",
+      "geo",
+      "media",
+      "docs",
+      "dev",
+      "planning",
+      "discourse",
+    ];
+    for (const id of ["bento", "riso"]) {
+      const resolved = resolveArtifactStyle(id);
+      expect(resolved.isDefault).toBe(false);
+      for (const category of categories) {
+        for (const role of roles) {
+          const name = `--art-cat-${category}-${role}`;
+          expect(resolved.lightVars[name], `${id} light ${name}`).toMatch(
+            /^\d+ \d+ \d+$/,
+          );
+          expect(resolved.darkVars[name], `${id} dark ${name}`).toMatch(
+            /^\d+ \d+ \d+$/,
+          );
+        }
+      }
+      // Display typography rides on the structure block.
+      for (const name of [
+        "--canvas-artifact-display-family",
+        "--canvas-artifact-display-weight",
+        "--canvas-artifact-display-tracking",
+        "--canvas-artifact-display-size",
+        "--canvas-artifact-quote-size",
+        "--canvas-artifact-eyebrow-family",
+        "--canvas-artifact-eyebrow-tracking",
+      ]) {
+        expect(resolved.lightVars[name], `${id} ${name}`).toBeTruthy();
+      }
+      // Both packs recolor the canvas backdrop.
+      expect(resolved.lightVars["--canvas-bg"]).toBeTruthy();
+      expect(resolved.darkVars["--canvas-bg"]).toBeTruthy();
+    }
+  });
+
+  it("re-declares the neutral ink inside riso but not bento", () => {
+    const riso = resolveArtifactStyle("riso");
+    expect(riso.lightVars["--canvas-ink"]).toBe("30 27 22");
+    expect(riso.darkVars["--canvas-ink"]).toBe("237 230 214");
+    expect(riso.lightVars["--canvas-card"]).toBe("255 253 247");
+    // Bento binds ink per node (category-scoped), never at the scope level.
+    const bento = resolveArtifactStyle("bento");
+    expect(bento.lightVars["--canvas-ink"]).toBeUndefined();
+  });
+
+  it("keeps the category tones and typography off the existing packs", () => {
+    for (const id of ["neo", "neobrutalism", "liquid-glass"]) {
+      const resolved = resolveArtifactStyle(id);
+      expect(resolved.lightVars["--art-cat-data-solid"]).toBeUndefined();
+      expect(resolved.lightVars["--canvas-artifact-display-size"]).toBeUndefined();
+      expect(resolved.lightVars["--canvas-ink"]).toBeUndefined();
+    }
   });
 
   it("emits the glass material tokens for liquid glass", () => {

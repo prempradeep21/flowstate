@@ -1,5 +1,6 @@
 "use client";
 
+import { setActiveCanvasContext } from "@/lib/activeCanvasContext";
 import {
   createContext,
   useCallback,
@@ -159,6 +160,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCollaborationActorUserId(user?.id ?? null);
   }, [setCollaborationActorUserId, user?.id]);
+
+  // Mirrored so non-component code (the paste path in createUrlArtifact) can
+  // tell where to store an image it pulls into the canvas.
+  useEffect(() => {
+    setActiveCanvasContext(
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null,
+    );
+  }, [activeCanvasId, user]);
 
   useEffect(() => {
     if (!supabaseConfigured) {

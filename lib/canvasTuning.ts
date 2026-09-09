@@ -86,7 +86,7 @@ export const DEFAULT_CANVAS_TUNING: CanvasTuning = {
 
   artifactSpawnGapX: 24,
 
-  groupBoundsPadding: 24,
+  groupBoundsPadding: 48,
 
   linkBranchCardWidth: true,
 

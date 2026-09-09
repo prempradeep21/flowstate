@@ -119,6 +119,18 @@ Style packs are defined in [`lib/design/style/stylePacks.ts`](../../lib/design/s
 
 In Neo the `1.6px` ink frame stroke (`--canvas-artifact-stroke-w`) is applied uniformly across all input + output artifacts and chat surfaces (`.chat-casing`).
 
+### Color-led pack variables (optional — Bento, Riso)
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--art-cat-<category>-solid / -on-solid / -on-solid-muted / -pale / -ink / -muted / -vivid` | `categories[<category>]` (RGB channels, per mode) | Tonal palette per artifact category |
+| `--art-cat-<category>-line / -stage / -solid-line / -solid-stage` | derived (`mixHex`) | In-family hairline + raised stage for the pale and solid surfaces |
+| `--art-solid`, `--art-pale`, `--art-ink`, … | bound per node from `data-artifact-category` | What the pack rules actually read |
+| `--canvas-card / --canvas-ink / --canvas-muted / --canvas-border / --canvas-connector` (scope) | `surfaceCard / surfaceInk / surfaceMuted / surfaceBorder / canvasConnector` | Neutral re-declarations inside the scope (Riso) |
+| `--canvas-artifact-display-family / -weight / -tracking / -size`, `--canvas-artifact-quote-size`, `--canvas-artifact-eyebrow-family / -tracking` | `typography` | Headline typography for stat / quote / definition |
+
+The `chart` and `timeline` fields are not emitted as CSS — `getChartPalette(isDark, pack[mode].chart)` and `useTimelinePalette()` read them in JS.
+
 ### Glass variables (optional — emitted only when a pack opts in)
 
 | Variable | Source field | Use |

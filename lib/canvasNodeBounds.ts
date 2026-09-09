@@ -18,8 +18,26 @@ import {
 } from "@/lib/audioArtifact";
 import { streetViewArtifactHeightForWidth } from "@/lib/streetViewArtifact";
 import {
+  CLAIM_ARTIFACT_HEIGHT,
+  CLAIM_ARTIFACT_WIDTH,
+  DEFINITION_ARTIFACT_HEIGHT,
+  DEFINITION_ARTIFACT_WIDTH,
+  EPISODE_ARTIFACT_HEIGHT,
+  EPISODE_ARTIFACT_WIDTH,
+  LINK_GROUP_ARTIFACT_HEIGHT,
+  LINK_GROUP_ARTIFACT_WIDTH,
+  MECHANISM_ARTIFACT_HEIGHT,
+  MECHANISM_ARTIFACT_WIDTH,
+  QUOTE_ARTIFACT_HEIGHT,
+  QUOTE_ARTIFACT_WIDTH,
+  STAT_ARTIFACT_HEIGHT,
+  STAT_ARTIFACT_WIDTH,
+} from "@/lib/transcriptArtifacts";
+import {
   STICKY_NOTE_ARTIFACT_HEIGHT,
   STICKY_NOTE_ARTIFACT_WIDTH,
+  STICKY_NOTE_MAX_HEIGHT,
+  STICKY_NOTE_MAX_WIDTH,
   clampStickyNoteArtifactSize,
   stickyNoteContentFloors,
 } from "@/lib/stickyNoteArtifact";
@@ -147,6 +165,13 @@ export const MIN_ARTIFACT_WIDTH = 280;
 export const MAX_ARTIFACT_WIDTH = 1200;
 export const MIN_ARTIFACT_HEIGHT = 160;
 export const MAX_ARTIFACT_HEIGHT = 1170;
+/**
+ * The episode/link masthead pair spawns larger than the generic ceiling, so it
+ * gets its own — otherwise the auto-measure and corner-resize clamps would drag
+ * it back down to 1200×1170 the moment it rendered.
+ */
+export const MAX_MASTHEAD_ARTIFACT_WIDTH = EPISODE_ARTIFACT_WIDTH;
+export const MAX_MASTHEAD_ARTIFACT_HEIGHT = EPISODE_ARTIFACT_HEIGHT;
 
 export function clampArtifactSize(
   w: number,
@@ -264,6 +289,30 @@ export function getDefaultArtifactSize(
         return getDefaultAudioArtifactSize(payload);
       }
       return { w: MIN_ARTIFACT_WIDTH, h: AUDIO_ARTIFACT_HEIGHT };
+    case "episode":
+      return { w: EPISODE_ARTIFACT_WIDTH, h: EPISODE_ARTIFACT_HEIGHT };
+    case "linkgroup":
+      return { w: LINK_GROUP_ARTIFACT_WIDTH, h: LINK_GROUP_ARTIFACT_HEIGHT };
+    case "quote":
+      return { w: QUOTE_ARTIFACT_WIDTH, h: QUOTE_ARTIFACT_HEIGHT };
+    case "stat":
+      return { w: STAT_ARTIFACT_WIDTH, h: STAT_ARTIFACT_HEIGHT };
+    case "definition":
+      return { w: DEFINITION_ARTIFACT_WIDTH, h: DEFINITION_ARTIFACT_HEIGHT };
+    case "claim":
+      return { w: CLAIM_ARTIFACT_WIDTH, h: CLAIM_ARTIFACT_HEIGHT };
+    case "mechanism": {
+      // One row of steps: width grows with the step count (each step needs
+      // ~170px to hold a label without shredding it), clamped to the canvas
+      // maximum; the row itself is short.
+      const steps =
+        payload?.type === "mechanism" ? payload.data.steps.length : 0;
+      const rowWidth = steps > 0 ? steps * 170 + (steps - 1) * 36 + 48 : 0;
+      return {
+        w: Math.min(MAX_ARTIFACT_WIDTH, Math.max(MECHANISM_ARTIFACT_WIDTH, rowWidth)),
+        h: MECHANISM_ARTIFACT_HEIGHT,
+      };
+    }
     case "stickynote":
       return clampStickyNoteArtifactSize(
         STICKY_NOTE_ARTIFACT_WIDTH,
@@ -294,4 +343,76 @@ export function emptyCardSize(
   tuning: ResolvedCanvasTuning = DEFAULT_TUNING,
 ): { w: number; h: number } {
   return { w: tuning.cardWidth, h: tuning.emptyCardHeight };
+}
+
+/*
+ * Layout-space sizing helpers.
+ *
+ * getArtifactContentFloors above returns STAGE-space minimums (the drawable area
+ * inside the chrome). A layout engine places NODES, so it needs those floors
+ * converted to node space, and it needs to know how far a kind may be stretched.
+ * Kept here beside the other bounds helpers so there is one source of truth for
+ * what a given artifact kind can survive being resized to.
+ */
+
+/**
+ * Smallest node box that shows a kind's content without clipping. The artifact
+ * stage is `overflow-hidden`, not scrollable, so undersizing truncates content
+ * rather than making it reachable — these are correctness floors, not taste.
+ *
+ * Never returns less than the kind's default size on width: a narrower node
+ * re-wraps text unpredictably at canvas zoom.
+ */
+export function getArtifactLayoutFloors(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  const natural = getDefaultArtifactSize(kind, payload);
+  const floors = getArtifactContentFloors(kind, payload);
+  if (!floors) {
+    return { w: natural.w, h: MIN_ARTIFACT_HEIGHT };
+  }
+  // ARTIFACT_CANVAS_CHROME_HEIGHT_PX is already the whole vertical overhead
+  // (44px header + 14px padding twice) — the same conversion the per-kind stage
+  // heights use, e.g. TABLE_ARTIFACT_STAGE_HEIGHT.
+  return {
+    w: Math.max(floors.minWidth + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX, natural.w),
+    h: floors.minHeight + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
+  };
+}
+
+/**
+ * Per-kind overrides for {@link clampArtifactSize} — the one place the free
+ * resize path and the auto-measure path read their ceilings from, so the two
+ * cannot drift apart.
+ */
+export function getArtifactClampOpts(
+  kind: ArtifactKind | undefined,
+): { maxW?: number; maxH?: number } | undefined {
+  switch (kind) {
+    case "timeline":
+      return { maxW: MAX_TIMELINE_ARTIFACT_WIDTH };
+    case "audio":
+      return { maxW: MAX_AUDIO_ARTIFACT_WIDTH };
+    case "episode":
+    case "linkgroup":
+      return {
+        maxW: MAX_MASTHEAD_ARTIFACT_WIDTH,
+        maxH: MAX_MASTHEAD_ARTIFACT_HEIGHT,
+      };
+    default:
+      return undefined;
+  }
+}
+
+/** Largest node box a kind may be stretched to, mirroring the runtime clamps. */
+export function getArtifactMaxSize(kind: ArtifactKind): { w: number; h: number } {
+  if (kind === "stickynote") {
+    return { w: STICKY_NOTE_MAX_WIDTH, h: STICKY_NOTE_MAX_HEIGHT };
+  }
+  const opts = getArtifactClampOpts(kind);
+  return {
+    w: opts?.maxW ?? MAX_ARTIFACT_WIDTH,
+    h: opts?.maxH ?? MAX_ARTIFACT_HEIGHT,
+  };
 }

@@ -4,19 +4,26 @@ import {
   AppWindow,
   AudioLines,
   BarChart3,
+  BookOpen,
   Box,
   Calendar,
+  Clapperboard,
   Code,
   GitCommitHorizontal,
   Globe,
   Image,
   LayoutGrid,
+  Link2,
   MapPin,
   PersonStanding,
+  Quote,
+  Scale,
+  Sigma,
   SquareCheckBig,
   StickyNote,
   Table2,
   type LucideIcon,
+  Workflow,
 } from "lucide-react";
 import { ICON_STROKE_WIDTH } from "@/components/ui/Icon";
 import type { ArtifactKind } from "@/lib/artifactTypes";
@@ -43,6 +50,13 @@ const KIND_ICONS: Partial<Record<ArtifactKind | "video", LucideIcon>> = {
   chart: BarChart3,
   audio: AudioLines,
   stickynote: StickyNote,
+  quote: Quote,
+  stat: Sigma,
+  definition: BookOpen,
+  claim: Scale,
+  mechanism: Workflow,
+  episode: Clapperboard,
+  linkgroup: Link2,
 };
 
 function GoogleWorkspaceKindIcon({
