@@ -3,6 +3,7 @@
 // one lambda/dev-server instance reuse the session. Never assume the pool
 // survives across requests — cold instances just reconnect.
 
+import os from "node:os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import {
@@ -114,7 +115,21 @@ export async function connectMcpServer(
     const transport = new StdioClientTransport({
       command: row.stdio_command,
       args,
-      env: { ...getDefaultEnvironment(), ...env },
+      // Order matters: the SDK's whitelist supplies a PATH copied from this
+      // process, FLOWSTATE_LOGIN_PATH (set by electron/main.js) replaces it
+      // with the user's real login-shell PATH, and the user's own stdio_env
+      // still wins last so a deliberate override is respected.
+      env: {
+        ...getDefaultEnvironment(),
+        ...(process.env.FLOWSTATE_LOGIN_PATH
+          ? { PATH: process.env.FLOWSTATE_LOGIN_PATH }
+          : {}),
+        ...env,
+      },
+      // Without this the child inherits the server's cwd — in a packaged app
+      // that is Resources/standalone, which has its own package.json and
+      // node_modules, so relative paths and npx resolution surprise people.
+      cwd: os.homedir(),
       // Piped, not ignored: when a server dies during handshake its stderr is
       // the only explanation, and discarding it made every stdio failure look
       // like the same undiagnosable timeout.
@@ -140,10 +155,19 @@ export async function connectMcpServer(
       void transport.close().catch(() => {});
       const base = err instanceof Error ? err.message : String(err);
       const detail = stderrTail.trim();
+      // ENOENT is instant and means the binary was not found — nothing to do
+      // with a slow download, which is what the generic message implies.
+      const notFound = /ENOENT|not found/i.test(base);
+      const pathHead = (process.env.FLOWSTATE_LOGIN_PATH ?? process.env.PATH ?? "")
+        .split(":")
+        .slice(0, 4)
+        .join(":");
       throw new Error(
-        detail
-          ? `${base} — the command reported: ${detail}`
-          : `${base}. Nothing was reported by the command, which usually means a first-run package download did not finish in time. Try running \`${[row.stdio_command, ...args].join(" ")}\` once in a terminal to cache it, then Refresh.`,
+        notFound
+          ? `"${row.stdio_command}" was not found on PATH (searched: ${pathHead}…). Install it, or enter an absolute path such as /opt/homebrew/bin/npx as the command.`
+          : detail
+            ? `${base} — the command reported: ${detail}`
+            : `${base}. Nothing was reported by the command, which usually means a first-run package download did not finish in time. Try running \`${[row.stdio_command, ...args].join(" ")}\` once in a terminal to cache it, then Refresh.`,
       );
     }
     if (!options.fresh) pool.set(row.id, { client, lastUsed: Date.now() });
