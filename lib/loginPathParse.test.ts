@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-// Plain CommonJS module shared with the Electron main process, which cannot
-// import from lib/. Required rather than imported for the same reason.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// CommonJS on purpose: electron/main.js requires this module, and the Electron
+// main process cannot import from lib/. `require` keeps tsc happy (an ESM
+// import of an untyped .js needs a declaration file); no lint directive is
+// needed because this project's config does not enable the TS require rules.
 const {
   BEGIN,
   END,
