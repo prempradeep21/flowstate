@@ -24,6 +24,13 @@ export function McpSection() {
   const [servers, setServers] = useState<McpServerSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Local (stdio) servers spawn a process on the user's machine, so they only
+  // run in the Mac app. Resolved after mount because the check reads navigator,
+  // which the server render cannot see.
+  const [desktopRuntime, setDesktopRuntime] = useState(false);
+  useEffect(() => {
+    setDesktopRuntime(isDesktopRuntime());
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -106,7 +113,12 @@ export function McpSection() {
       ) : (
         <div className="flex flex-col gap-3">
           {servers.map((server) => (
-            <McpServerRow key={server.id} server={server} onChanged={() => void refresh()} />
+            <McpServerRow
+              key={server.id}
+              server={server}
+              desktopRuntime={desktopRuntime}
+              onChanged={() => void refresh()}
+            />
           ))}
         </div>
       )}
@@ -116,13 +128,19 @@ export function McpSection() {
 
 function McpServerRow({
   server,
+  desktopRuntime,
   onChanged,
 }: {
   server: McpServerSummary;
+  desktopRuntime: boolean;
   onChanged: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Shown but inert on the web: the row stays visible so the user knows the
+  // server exists and where to reach it, rather than silently disappearing.
+  const localOnly = server.transport === "stdio" && !desktopRuntime;
 
   const statusDot =
     server.lastStatus === "connected"
@@ -199,9 +217,15 @@ function McpServerRow({
   };
 
   return (
-    <div className="rounded-canvas border border-canvas-border bg-canvas-card p-3">
+    <div
+      className={`rounded-canvas border border-canvas-border bg-canvas-card p-3 ${
+        localOnly ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot}`} />
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${localOnly ? "bg-canvas-muted/40" : statusDot}`}
+        />
         <button
           type="button"
           className="btn min-w-0 flex-1 truncate text-left text-sm font-medium text-canvas-ink"
@@ -216,15 +240,19 @@ function McpServerRow({
         <label className="flex cursor-pointer items-center gap-1 text-xs text-canvas-muted">
           <input
             type="checkbox"
-            checked={server.enabled}
-            disabled={busy}
+            checked={localOnly ? false : server.enabled}
+            disabled={busy || localOnly}
             onChange={(e) => void patch({ enabled: e.target.checked })}
           />
           On
         </label>
       </div>
 
-      {server.lastStatus === "needs-auth" ? (
+      {localOnly ? (
+        <p className="mt-2 text-xs text-canvas-muted">
+          Local server — runs a command on your machine. Available in the Flowstate Mac app.
+        </p>
+      ) : server.lastStatus === "needs-auth" ? (
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
           <p className="min-w-0 flex-1 text-xs text-canvas-muted">
             {server.oauthConnected ? "Session expired — reconnect." : "This server requires sign-in."}
@@ -249,7 +277,8 @@ function McpServerRow({
             <div className="flex gap-2">
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || localOnly}
+                title={localOnly ? "Local servers can only connect in the Mac app." : undefined}
                 className="btn text-xs text-canvas-accent disabled:opacity-50"
                 onClick={() => void refreshTools()}
               >
