@@ -1,6 +1,9 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useRef, useState } from "react";
+import { showAppErrorToast } from "@/lib/appToastStore";
+import { downloadCanvasAsset } from "@/lib/assetDownload";
 import {
   groupCanvasAssets,
   uploadAssetFiles,
@@ -14,7 +17,16 @@ import { useAuth } from "@/components/AuthProvider";
 
 function DraggableAssetRow({ id }: { id: string }) {
   const asset = useCanvasStore((s) => s.canvasAssets[id]);
+  const [downloading, setDownloading] = useState(false);
   if (!asset) return null;
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    const result = await downloadCanvasAsset(asset);
+    setDownloading(false);
+    if (!result.ok) showAppErrorToast(result.error ?? "Could not download file.");
+  };
 
   return (
     <div className="flex w-full items-center gap-1 rounded-canvas px-1 py-0.5 hover:bg-canvas-bg">
@@ -38,6 +50,18 @@ function DraggableAssetRow({ id }: { id: string }) {
           </span>
         </span>
       </div>
+      <button
+        type="button"
+        disabled={downloading}
+        aria-label={`Download ${asset.name}`}
+        title={`Download ${asset.name}`}
+        onClick={() => {
+          void handleDownload();
+        }}
+        className="shrink-0 px-1 text-canvas-muted hover:text-canvas-ink disabled:opacity-50"
+      >
+        <Download className="h-3.5 w-3.5" aria-hidden />
+      </button>
       <button
         type="button"
         aria-label={`Remove ${asset.name}`}
