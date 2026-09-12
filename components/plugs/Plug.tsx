@@ -1,8 +1,6 @@
 "use client";
 
 import { PointerEvent as ReactPointerEvent } from "react";
-import { useCanvasStore } from "@/lib/store";
-import { counterScaleFactor } from "@/lib/zoomDisplay";
 
 export function Plug({
   side,
@@ -19,14 +17,16 @@ export function Plug({
   onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => void;
   onClick?: (e: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
   const isLeft = side === "left";
 
   return (
     <div
       className={`pointer-events-none absolute top-1/2 z-30 ${isLeft ? "left-0" : "right-0"}`}
       style={{
-        transform: `translate(${isLeft ? "-50%" : "50%"}, -50%) scale(${counterScaleFactor(scale)})`,
+        // Counter-scale via the --vp-scale CSS var (written at settle by
+        // CanvasViewport). Two plugs per visible card — a React subscription
+        // here multiplied the post-zoom settle re-render across the canvas.
+        transform: `translate(${isLeft ? "-50%" : "50%"}, -50%) scale(calc(1 / min(var(--vp-scale, 1), 1)))`,
         transformOrigin: "center",
       }}
     >

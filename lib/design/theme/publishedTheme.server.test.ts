@@ -76,6 +76,7 @@ describe("updatePublishedTheme", () => {
         docs: "#FFCA28",
         dev: "#78909C",
         planning: "#EC407A",
+        discourse: "#7C3AED",
       },
     };
 
@@ -115,6 +116,7 @@ describe("updatePublishedTheme", () => {
         docs: "#F59E0B",
         dev: "#64748B",
         planning: "#EC4899",
+        discourse: "#7C3AED",
       },
     };
 
@@ -148,6 +150,7 @@ describe("updatePublishedTheme", () => {
         docs: "#F59E0B",
         dev: "#64748B",
         planning: "#F472B6",
+        discourse: "#7C3AED",
       },
     };
 
@@ -181,7 +184,7 @@ describe("updatePublishedTheme", () => {
 
   it("never touches the built-in Flowstate preset", () => {
     const flowstate = getThemePreset("flowstate");
-    expect(flowstate.primary).toBe("#6B4EFF");
+    expect(flowstate.primary).toBe("#2066EB");
     expect(flowstate.name).toBe("Flowstate");
   });
 });

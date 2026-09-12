@@ -1,27 +1,90 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
 import {
   isVideoArtifactPayload,
   type ArtifactPayload,
   type ImagesMediaItem,
 } from "@/lib/artifactTypes";
-import { youtubeEmbedUrl } from "@/lib/youtube";
+import { parseYoutubeId, youtubeThumbUrl } from "@/lib/youtube";
+import { useVideoPipStore } from "@/lib/videoPipStore";
+
+/**
+ * YouTube cell — a poster with a play button. Playback is owned by the
+ * canvas-wide {@link CanvasVideoPlayerLayer}: hitting play starts a PiP session
+ * and the layer positions its single persistent iframe over this cell (marked
+ * with `data-video-pip-active`) while it is in view, snapping the player to a
+ * floating corner widget when the node scrolls out. This keeps playback
+ * seamless (the iframe is never reparented) and avoids a second audio source.
+ */
+function YoutubePosterCell({
+  item,
+  videoId,
+  allowInteraction,
+  artifactId,
+}: {
+  item: Extract<ImagesMediaItem, { kind: "youtube" }>;
+  videoId: string;
+  allowInteraction: boolean;
+  artifactId?: string;
+}) {
+  const sessionId = useId();
+  const isActive = useVideoPipStore((s) => s.active?.sessionId === sessionId);
+  const play = useVideoPipStore((s) => s.play);
+  const thumb = item.thumb || youtubeThumbUrl(videoId);
+  return (
+    <div
+      className="relative h-full w-full bg-black"
+      data-video-pip-active={isActive ? "" : undefined}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={thumb}
+        alt={item.title ?? "Video"}
+        className="h-full w-full object-cover"
+      />
+      {!isActive ? (
+        <button
+          type="button"
+          disabled={!allowInteraction}
+          onClick={() =>
+            play({
+              sessionId,
+              videoId,
+              title: item.title ?? "YouTube video",
+              artifactId,
+            })
+          }
+          className="group absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25 disabled:cursor-default"
+          aria-label={`Play ${item.title ?? "video"}`}
+        >
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/65 shadow-lg transition-transform group-hover:scale-105 group-disabled:scale-100">
+            <svg viewBox="0 0 24 24" className="ml-0.5 h-7 w-7" aria-hidden>
+              <path d="M8 5v14l11-7L8 5Z" fill="#fff" />
+            </svg>
+          </span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 function MediaCell({
   item,
   allowInteraction = false,
   natural = false,
+  artifactId,
 }: {
   item: ImagesMediaItem;
   allowInteraction?: boolean;
   /** Render the image at its intrinsic aspect ratio (no cropping). */
   natural?: boolean;
+  artifactId?: string;
 }) {
   if (item.kind === "youtube") {
-    const embed = youtubeEmbedUrl(item.url);
-    if (!embed) {
+    const videoId = parseYoutubeId(item.url);
+    if (!videoId) {
       return (
         <a
           href={item.url}
@@ -34,12 +97,11 @@ function MediaCell({
       );
     }
     return (
-      <iframe
-        src={embed}
-        title={item.title ?? "Video"}
-        className={`h-full w-full border-0 ${allowInteraction ? "pointer-events-auto" : "pointer-events-none"}`}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
+      <YoutubePosterCell
+        item={item}
+        videoId={videoId}
+        allowInteraction={allowInteraction}
+        artifactId={artifactId}
       />
     );
   }
@@ -136,7 +198,11 @@ export function ImagesArtifactContent({
     >
       {items.map((item, i) => (
         <div key={i} className="aspect-video overflow-hidden rounded-canvas-sm">
-          <MediaCell item={item} allowInteraction={allowMediaInteraction} />
+          <MediaCell
+            item={item}
+            allowInteraction={allowMediaInteraction}
+            artifactId={artifactId}
+          />
         </div>
       ))}
     </div>

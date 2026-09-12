@@ -46,6 +46,13 @@ const ARTIFACT_MINIMAP_COLORS: Record<ArtifactKind, string> = {
   chart: "rgb(var(--canvas-accent) / 0.38)",
   audio: "rgb(var(--canvas-warning) / 0.36)",
   stickynote: "rgb(var(--canvas-warning) / 0.44)",
+  quote: "rgb(var(--canvas-secondary) / 0.42)",
+  claim: "rgb(var(--canvas-secondary) / 0.34)",
+  definition: "rgb(var(--canvas-secondary) / 0.28)",
+  stat: "rgb(var(--canvas-accent) / 0.34)",
+  mechanism: "rgb(var(--canvas-accent) / 0.30)",
+  episode: "rgb(var(--canvas-warning) / 0.40)",
+  linkgroup: "rgb(var(--canvas-accent) / 0.28)",
 };
 
 const ARTIFACT_MINIMAP_FALLBACK = "rgb(var(--canvas-ink) / 0.25)";

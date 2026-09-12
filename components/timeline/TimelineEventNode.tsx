@@ -11,6 +11,7 @@ import {
   eventTextColor,
   formatEventDate,
 } from "@/lib/timelineLayout";
+import { useTimelinePalette } from "@/hooks/useTimelinePalette";
 import { dropVariants } from "@/lib/motion/variants";
 import { formatRichTextForDisplay } from "@/lib/richTextDisplay";
 
@@ -92,9 +93,10 @@ export function TimelineEventNode({
   showLabel?: boolean;
 }) {
   const reduced = useReducedMotion();
+  const palette = useTimelinePalette();
   const side = eventSide(index, event.side);
-  const color = eventColor(index);
-  const textColor = eventTextColor(index);
+  const color = eventColor(index, palette);
+  const textColor = eventTextColor(index, palette);
   const dotSize = event.highlight ? 15 : 11;
   const dotRadius = dotSize / 2;
 

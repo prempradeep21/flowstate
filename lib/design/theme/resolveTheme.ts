@@ -1,4 +1,5 @@
 import { canvasRadiusBasePx, hexToRgbChannels } from "@/lib/design/tokens";
+import { contrastRatio } from "@/lib/design/contrast";
 import {
   deriveCategoryFill,
   deriveDarkAccent,
@@ -34,6 +35,14 @@ export function isDefaultThemeState(state: ThemeState): boolean {
   );
 }
 
+/**
+ * Text/icon color on solid accent fills: white where it clears AA, otherwise
+ * the warm near-black surface tone (lightened dark-mode accents need it).
+ */
+function onAccentFor(accentHex: string): string {
+  return contrastRatio("#FFFFFF", accentHex) >= 4.5 ? "#FFFFFF" : "#181715";
+}
+
 function cssBlock(selector: string, vars: Record<string, string>): string {
   const lines = Object.entries(vars).map(
     ([name, value]) => `  ${name}: ${value};`,
@@ -60,22 +69,27 @@ export function resolveTheme(
   const radiusBase =
     overrides.radiusBase ?? preset.radiusBase ?? canvasRadiusBasePx;
 
+  const darkPrimary = deriveDarkAccent(primary);
   const lightVars: Record<string, string> = {
     "--canvas-radius-base": `${radiusBase}px`,
     "--canvas-accent": hexToRgbChannels(primary),
+    "--canvas-on-accent": hexToRgbChannels(onAccentFor(primary)),
     "--canvas-map-primary": hexToRgbChannels(primary),
     "--canvas-secondary": hexToRgbChannels(secondary),
     "--canvas-tertiary": hexToRgbChannels(tertiary),
-    // Accent-soft chip fill follows primary so badges stay on-theme.
+    // Accent-soft fills (selected rows/toggles, chips) follow primary.
+    "--canvas-accent-soft": hexToRgbChannels(withLightness(primary, 0.93, 0.9)),
     "--canvas-artifact-icon-bg": hexToRgbChannels(
       withLightness(primary, 0.93, 0.9),
     ),
   };
   const darkVars: Record<string, string> = {
-    "--canvas-accent": hexToRgbChannels(deriveDarkAccent(primary)),
-    "--canvas-map-primary": hexToRgbChannels(deriveDarkAccent(primary)),
+    "--canvas-accent": hexToRgbChannels(darkPrimary),
+    "--canvas-on-accent": hexToRgbChannels(onAccentFor(darkPrimary)),
+    "--canvas-map-primary": hexToRgbChannels(darkPrimary),
     "--canvas-secondary": hexToRgbChannels(deriveDarkAccent(secondary)),
     "--canvas-tertiary": hexToRgbChannels(deriveDarkAccent(tertiary)),
+    "--canvas-accent-soft": hexToRgbChannels(withLightness(primary, 0.2, 0.5)),
     "--canvas-artifact-icon-bg": hexToRgbChannels(
       withLightness(primary, 0.2, 0.5),
     ),

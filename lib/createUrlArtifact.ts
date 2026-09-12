@@ -1,3 +1,5 @@
+import { getActiveCanvasContext } from "@/lib/activeCanvasContext";
+import type { CanvasAsset } from "@/lib/store";
 import {
   CANVAS_ARTIFACT_WIDTH,
   DEFAULT_ARTIFACT_HEIGHT,
@@ -68,6 +70,49 @@ export async function fetchEmbedClient(
   }
 }
 
+/**
+ * Pull a resolved preview image into the canvas as an asset.
+ *
+ * A preview URL points at someone else's origin, so the browser re-fetches it on
+ * every render and it rots when that origin moves, 403s a hotlink, or rate-limits.
+ * Copying the bytes in once makes the image the canvas's own. Best-effort: if the
+ * user is signed out, no canvas is open, or the source refuses us, the artifact
+ * keeps the remote URL and simply behaves as it did before.
+ */
+async function persistPreviewImage(
+  artifactId: string,
+  previewImageUrl: string,
+): Promise<void> {
+  const context = getActiveCanvasContext();
+  if (!context) return;
+  // Already ours — a re-enrichment pass must not copy the copy.
+  if (previewImageUrl.startsWith("/")) return;
+  try {
+    const res = await fetch("/api/assets/import-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: previewImageUrl,
+        canvasId: context.canvasId,
+      }),
+    });
+    if (!res.ok) return;
+    const { asset } = (await res.json()) as { asset?: CanvasAsset };
+    if (!asset) return;
+    const store = useCanvasStore.getState();
+    const current = store.sessionArtifacts[artifactId];
+    if (!current) return;
+    store.addCanvasAsset(asset);
+    store.patchWebsiteArtifactTitle(artifactId, {
+      title: current.title,
+      previewImageUrl: asset.publicUrl,
+      previewAssetId: asset.id,
+    });
+  } catch {
+    // Keeping the remote URL is a strictly better outcome than losing the card.
+  }
+}
+
 function enrichWebsiteTitle(artifactId: string, url: string): void {
   const applyPreview = (preview: LinkPreviewClientResult | null): boolean => {
     if (!preview?.title) return false;
@@ -77,6 +122,9 @@ function enrichWebsiteTitle(artifactId: string, url: string): void {
       previewImageUrl: preview.previewImageUrl,
       embeddable: preview.embeddable ?? false,
     });
+    if (preview.previewImageUrl) {
+      void persistPreviewImage(artifactId, preview.previewImageUrl);
+    }
     return true;
   };
 

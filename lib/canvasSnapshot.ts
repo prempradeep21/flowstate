@@ -3,6 +3,11 @@ import { repairLoadedArtifactState } from "@/lib/materializeCardArtifact";
 import { resolveBackgroundForTheme } from "@/lib/canvasBackgroundTheme";
 import { isKnownModel } from "@/lib/models";
 import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type { ArtifactStyleId } from "@/lib/design/style/types";
+import {
   DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   normalizeCanvasBackgroundImageId,
 } from "@/lib/canvasBackgroundImages";
@@ -27,6 +32,7 @@ import type {
   Connection,
   ConnectorStyle,
   Thread,
+  ThreadGist,
   UploadedAttachment,
   Viewport,
 } from "@/lib/store";
@@ -41,11 +47,13 @@ export interface CanvasSnapshot {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  threadGists?: Record<string, ThreadGist>;
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
+  canvasArtifactStyle?: ArtifactStyleId;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -76,11 +84,13 @@ export interface CanvasSnapshotSource {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  threadGists?: Record<string, ThreadGist>;
   groups: Record<string, BranchGroup>;
   connectorStyle: ConnectorStyle;
   canvasBackgroundStyle: CanvasBackgroundStyle;
   canvasBackgroundImageId?: string;
   canvasTheme: CanvasTheme;
+  canvasArtifactStyle?: ArtifactStyleId;
   selectedModel: ClaudeModel;
   viewMode: AppViewMode;
   sessionArtifacts: Record<string, SessionArtifact>;
@@ -142,6 +152,8 @@ function normalizeCardForPersist(card: Card): Card {
     status: normalizeCardStatus(card),
     thinkingLabel: undefined,
     pendingFiles: undefined,
+    // Transient turn state, like pendingFiles — not canvas content.
+    customUiSource: undefined,
     quotedSelection: undefined,
     answerExplains: normalizeAnswerExplains(card.answerExplains),
   };
@@ -179,11 +191,13 @@ export function buildCanvasSnapshot(source: CanvasSnapshotSource): CanvasSnapsho
     connections,
     threads: { ...source.threads },
     threadOrder: [...source.threadOrder],
+    threadGists: normalizeThreadGists(source.threadGists, source.threads),
     groups: { ...source.groups },
     connectorStyle: source.connectorStyle,
     canvasBackgroundStyle: source.canvasBackgroundStyle,
     canvasBackgroundImageId: source.canvasBackgroundImageId,
     canvasTheme: source.canvasTheme,
+    canvasArtifactStyle: normalizeArtifactStyleId(source.canvasArtifactStyle),
     selectedModel: source.selectedModel,
     viewMode: source.viewMode,
     sessionArtifacts,
@@ -235,6 +249,47 @@ function mergeRecordPreferLocal<T extends Record<string, unknown>>(
   return { ...remote, ...local };
 }
 
+/** Per-thread newest-wins merge so a stale collaborator save can't clobber a fresher gist. */
+function mergeThreadGists(
+  remote: Record<string, ThreadGist>,
+  local: Record<string, ThreadGist>,
+): Record<string, ThreadGist> {
+  const merged = { ...remote };
+  for (const [threadId, gist] of Object.entries(local)) {
+    const existing = merged[threadId];
+    if (!existing || gist.updatedAt >= existing.updatedAt) {
+      merged[threadId] = gist;
+    }
+  }
+  return merged;
+}
+
+/** Drop malformed entries and gists for threads that no longer exist. */
+function normalizeThreadGists(
+  raw: unknown,
+  threads: Record<string, Thread>,
+): Record<string, ThreadGist> {
+  const input = normalizeRecord<ThreadGist>(raw);
+  const out: Record<string, ThreadGist> = {};
+  for (const [threadId, entry] of Object.entries(input)) {
+    if (!threads[threadId]) continue;
+    if (!entry || typeof entry !== "object") continue;
+    if (typeof entry.gist !== "string" || !entry.gist.trim()) continue;
+    out[threadId] = {
+      gist: entry.gist,
+      updatedAt:
+        typeof entry.updatedAt === "number" && Number.isFinite(entry.updatedAt)
+          ? entry.updatedAt
+          : 0,
+      turnCount:
+        typeof entry.turnCount === "number" && Number.isFinite(entry.turnCount)
+          ? entry.turnCount
+          : 0,
+    };
+  }
+  return out;
+}
+
 function mergeOrder(remote: string[], local: string[]): string[] {
   const seen = new Set<string>();
   const merged: string[] = [];
@@ -277,6 +332,10 @@ export function mergeCanvasSnapshots(
     connections,
     threads: mergeRecordPreferLocal(remote.threads, local.threads),
     threadOrder: mergeOrder(remote.threadOrder, local.threadOrder),
+    threadGists: mergeThreadGists(
+      remote.threadGists ?? {},
+      local.threadGists ?? {},
+    ),
     groups: mergeRecordPreferLocal(remote.groups, local.groups),
     sessionArtifacts: mergeRecordPreferLocal(
       remote.sessionArtifacts,
@@ -358,6 +417,7 @@ export function mergeCanvasSnapshots(
     collaborationHasEdits:
       remote.collaborationHasEdits || local.collaborationHasEdits,
     connectorStyle: local.connectorStyle,
+    canvasArtifactStyle: local.canvasArtifactStyle,
     canvasBackgroundStyle: local.canvasBackgroundStyle,
     canvasBackgroundImageId: local.canvasBackgroundImageId,
     canvasTheme: local.canvasTheme,
@@ -377,11 +437,13 @@ export function buildEmptyCanvasSnapshot(
     connections: [],
     threads: {},
     threadOrder: [],
+    threadGists: {},
     groups: {},
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
     canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: "dark",
+    canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
     selectedModel,
     viewMode: "canvas",
     sessionArtifacts: {},
@@ -420,6 +482,13 @@ function normalizeCanvasBackgroundStyle(
     VALID_BACKGROUND_STYLES.has(raw as CanvasBackgroundStyle)
     ? (raw as CanvasBackgroundStyle)
     : fallback;
+}
+
+/** Validate a persisted style id against the registry; fall back to vanilla. */
+function normalizeArtifactStyleId(raw: unknown): ArtifactStyleId {
+  return typeof raw === "string"
+    ? getArtifactStylePack(raw).id
+    : DEFAULT_ARTIFACT_STYLE_ID;
 }
 
 const VALID_THEMES = new Set<CanvasTheme>(["light", "dark"]);
@@ -518,6 +587,10 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       : [],
     threads: normalizeRecord<Thread>(snapshot.threads),
     threadOrder: normalizeStringArray(snapshot.threadOrder),
+    threadGists: normalizeThreadGists(
+      snapshot.threadGists,
+      normalizeRecord<Thread>(snapshot.threads),
+    ),
     groups: normalizeRecord<BranchGroup>(snapshot.groups),
     connectorStyle:
       snapshot.connectorStyle === "curvy" ||
@@ -537,6 +610,7 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       base.canvasBackgroundImageId,
     ),
     canvasTheme: normalizeCanvasTheme(snapshot.canvasTheme, base.canvasTheme),
+    canvasArtifactStyle: normalizeArtifactStyleId(snapshot.canvasArtifactStyle),
     selectedModel:
       snapshot.selectedModel && isKnownModel(snapshot.selectedModel)
         ? snapshot.selectedModel

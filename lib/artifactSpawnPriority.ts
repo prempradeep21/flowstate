@@ -3,10 +3,17 @@ import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
 /** Lower number = higher priority (spawns first without permission). */
 const SPAWN_PRIORITY: Record<string, number> = {
+  episode: 5,
+  linkgroup: 8,
   todo: 10,
   calendar: 15,
+  mechanism: 17,
   timeline: 18,
+  claim: 19,
   table: 20,
+  stat: 21,
+  quote: 22,
+  definition: 25,
   map: 30,
   streetview: 40,
   custom: 50,

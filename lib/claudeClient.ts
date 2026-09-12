@@ -8,7 +8,9 @@ import {
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
 import { collectAskAttachments } from "@/lib/askAttachments";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
+import { collectSiblingGists } from "@/lib/memory/canvasMemory";
 import { resolveEditingPayloadForApi } from "@/lib/artifactGeneration";
+import { sanitizeCustomUiSource } from "@/lib/customUiSource";
 import {
   CALENDAR_THINKING_LABEL,
   CHART_THINKING_LABEL,
@@ -62,6 +64,7 @@ export function askClaude(
   const controller = new AbortController();
   let responseType: ResponseType = "text";
   let receivedContent = false;
+  let handoffSeen = false;
   let hardTimeoutId: ReturnType<typeof setTimeout> | undefined;
 
   const clearHardTimeout = () => {
@@ -74,10 +77,12 @@ export function askClaude(
   const run = async () => {
     if (cancelled) return;
     const editingArtifact = resolveEditingPayloadForApi(cardId);
-    const customWork = isCustomUiWork(
-      question,
-      editingArtifact?.payload as { type?: string } | null,
-    );
+    const handoffSource = useCanvasStore.getState().cards[cardId]?.customUiSource;
+    // A handoff is custom-UI work by construction — force it so this turn gets
+    // the /api/custom-ui route and its 5-minute budget regardless of wording.
+    const customWork =
+      Boolean(handoffSource) ||
+      isCustomUiWork(question, editingArtifact?.payload as { type?: string } | null);
     const turnTimeoutMs = getActiveTurnTimeoutMs(customWork);
     if (QA_TURN_TIMEOUT_ENABLED && turnTimeoutMs > 0) {
       hardTimeoutId = setTimeout(() => {
@@ -109,10 +114,24 @@ export function askClaude(
           canvasAssets: state.canvasAssets,
           canvasSkills: state.canvasSkills,
           sessionArtifacts: state.sessionArtifacts,
+          // Group joint-context: membership + every member node collection.
+          groups: state.groups,
+          cardOrder: state.cardOrder,
+          threads: state.threads,
+          threadOrder: state.threadOrder,
+          canvasArtifactNodes: state.canvasArtifactNodes,
+          canvasAssetNodes: state.canvasAssetNodes,
+          canvasGifNodes: state.canvasGifNodes,
+          canvas3DNodes: state.canvas3DNodes,
+          canvasTextLabels: state.canvasTextLabels,
         },
       );
 
       if (cancelled) return;
+
+      // Faint awareness of sibling branches — ranked against the raw question,
+      // never the branches' full context.
+      const canvasMemory = collectSiblingGists(cardId, question);
 
       await registerConversation(cardId, parentConversationId);
 
@@ -130,6 +149,7 @@ export function askClaude(
           question: questionWithContext,
           model,
           history,
+          canvasMemory: canvasMemory.length > 0 ? canvasMemory : undefined,
           files: files?.length
             ? files.map((f) => ({
                 name: f.name,
@@ -139,6 +159,7 @@ export function askClaude(
               }))
             : undefined,
           editingArtifact,
+          sourceData: handoffSource,
         }),
         signal: controller.signal,
       });
@@ -237,6 +258,43 @@ export function askClaude(
               cb.onThinking?.("Preparing map…");
             } else if (parsed.pendingArtifact?.type === "chart") {
               cb.onThinking?.(CHART_THINKING_LABEL);
+            } else if (parsed.mcpApproval) {
+              const approval = parsed.mcpApproval as {
+                requestId?: string;
+                serverId?: string;
+                serverName?: string;
+                toolName?: string;
+                description?: string;
+                inputPreview?: Record<string, unknown>;
+              };
+              if (approval.requestId && approval.toolName) {
+                cb.onMcpApproval?.({
+                  requestId: approval.requestId,
+                  serverId: approval.serverId ?? "",
+                  serverName: approval.serverName ?? "MCP server",
+                  toolName: approval.toolName,
+                  description: approval.description ?? "",
+                  inputPreview: approval.inputPreview ?? {},
+                });
+              }
+            } else if (parsed.mcpApprovalResolved) {
+              const resolved = parsed.mcpApprovalResolved as { requestId?: string };
+              if (resolved.requestId) {
+                cb.onMcpApprovalResolved?.(resolved.requestId);
+              }
+            } else if (parsed.customUiHandoff) {
+              if (!handoffSeen) {
+                const raw = parsed.customUiHandoff as {
+                  title?: unknown;
+                  source?: unknown;
+                };
+                const source = sanitizeCustomUiSource(raw.source);
+                const title = typeof raw.title === "string" ? raw.title.trim() : "";
+                if (source && title) {
+                  handoffSeen = true;
+                  cb.onCustomUiHandoff?.({ title, source });
+                }
+              }
             } else if (parsed.thinking || parsed.sdkBuildStages) {
               if (typeof parsed.thinking === "string" && parsed.thinking) {
                 cb.onThinking(parsed.thinking);

@@ -13,7 +13,12 @@ import {
 import { resolvePrimaryArtifactKind } from "@/lib/artifactIntent";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { AskHandle } from "@/lib/dummyLLM";
+import { notifyExchangeComplete } from "@/lib/memory/canvasMemory";
 import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
+import {
+  buildCustomUiHandoffFollowUp,
+  type CustomUiHandoff,
+} from "@/lib/customUiHandoffSpawn";
 import { useCanvasStore } from "@/lib/store";
 
 const CUSTOM_UI_THINKING =
@@ -27,12 +32,17 @@ export function useCardAsk(cardId: string, enabled: boolean) {
   const askHandleRef = useRef<AskHandle | null>(null);
   const askGenerationRef = useRef(0);
   const startedForRef = useRef<string | null>(null);
+  // Held until the turn ends: spawning on receipt would read the parent's DOM
+  // box before it settles, and would leave a stray card behind if the user
+  // cancels mid-stream.
+  const pendingHandoffRef = useRef<CustomUiHandoff | null>(null);
 
   const restartAsk = useCallback(() => {
     askHandleRef.current?.cancel();
     askHandleRef.current = null;
     askGenerationRef.current += 1;
     startedForRef.current = null;
+    pendingHandoffRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -41,7 +51,12 @@ export function useCardAsk(cardId: string, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled || !card || card.status !== "thinking") {
-      if (!card || card.status !== "thinking") {
+      // Only forget the started question once the turn has actually ended.
+      // Mid-stream the status flips thinking → streaming → thinking (artifact
+      // progress labels go through onThinking); resetting on "streaming" made
+      // each flip back to "thinking" cancel the live stream and re-issue the
+      // whole /api/chat request in a loop until the turn watchdog expired it.
+      if (!card || card.status === "done" || card.status === "empty") {
         startedForRef.current = null;
       }
       return;
@@ -130,8 +145,20 @@ export function useCardAsk(cardId: string, enabled: boolean) {
           if (generation !== askGenerationRef.current) return;
           handleStreamArtifact(cardId, artifact);
         },
+        onMcpApproval: (approval) => {
+          if (generation !== askGenerationRef.current) return;
+          useCanvasStore.getState().addMcpApproval({ ...approval, cardId });
+        },
+        onMcpApprovalResolved: (requestId) => {
+          useCanvasStore.getState().resolveMcpApproval(requestId);
+        },
+        onCustomUiHandoff: (handoff) => {
+          if (generation !== askGenerationRef.current) return;
+          pendingHandoffRef.current = handoff;
+        },
         onDone: ({ responseType }) => {
           endCardAsk(cardId, askToken);
+          useCanvasStore.getState().clearMcpApprovalsForCard(cardId);
           if (generation === askGenerationRef.current) {
             finalizeCardResponse(cardId, {
               responseType:
@@ -139,6 +166,7 @@ export function useCardAsk(cardId: string, enabled: boolean) {
                 useCanvasStore.getState().cards[cardId]?.responseType ??
                 "text",
             });
+            notifyExchangeComplete(cardId);
           }
           requestAnimationFrame(() => {
             const state = useCanvasStore.getState();
@@ -149,6 +177,13 @@ export function useCardAsk(cardId: string, enabled: boolean) {
             );
             if (hasBottomChild) {
               state.relayoutFollowUpChainFromParent(cardId);
+            }
+
+            const handoff = pendingHandoffRef.current;
+            pendingHandoffRef.current = null;
+            if (handoff && generation === askGenerationRef.current) {
+              const { question, options } = buildCustomUiHandoffFollowUp(handoff);
+              state.createFollowUp(cardId, question, options);
             }
           });
         },
@@ -173,6 +208,7 @@ export function useCardAsk(cardId: string, enabled: boolean) {
       // for good (the re-run effect skips identical questions).
       askGenerationRef.current += 1;
       startedForRef.current = null;
+      pendingHandoffRef.current = null;
     };
   }, [cardId]);
 

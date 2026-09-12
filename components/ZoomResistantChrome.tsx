@@ -2,7 +2,6 @@
 
 import { CSSProperties, PropsWithChildren } from "react";
 import { useCanvasStore } from "@/lib/store";
-import { counterScaleFactor } from "@/lib/zoomDisplay";
 
 interface ZoomResistantChromeProps extends PropsWithChildren {
   transformOrigin?: CSSProperties["transformOrigin"];
@@ -15,8 +14,12 @@ export function ZoomResistantChrome({
   transformOrigin = "top left",
   className,
 }: ZoomResistantChromeProps) {
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
-  if (scale >= 1) {
+  // Crossing-only subscription: the branch flips at scale 1; the actual
+  // counter-scale factor below 1 comes from the --vp-scale CSS var (written
+  // at settle by CanvasViewport), so settled-scale changes within a branch
+  // never re-render this wrapper.
+  const zoomedIn = useCanvasStore((s) => s.viewportSettledScale >= 1);
+  if (zoomedIn) {
     return className ? <div className={className}>{children}</div> : <>{children}</>;
   }
 
@@ -24,7 +27,7 @@ export function ZoomResistantChrome({
     <div
       className={className}
       style={{
-        transform: `scale(${counterScaleFactor(scale)})`,
+        transform: "scale(calc(1 / min(var(--vp-scale, 1), 1)))",
         transformOrigin,
       }}
     >

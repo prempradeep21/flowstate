@@ -40,7 +40,7 @@ export function CodeCardBody({ card, isStreaming }: CodeCardBodyProps) {
                 onClick={() => setActiveIdx(i)}
                 className={`rounded px-2 py-1 text-canvas-compact ${
                   i === activeIdx
-                    ? "bg-canvas-ink text-canvas-card"
+                    ? "bg-canvas-accent text-canvas-onAccent"
                     : "text-canvas-muted hover:bg-canvas-bg"
                 }`}
               >

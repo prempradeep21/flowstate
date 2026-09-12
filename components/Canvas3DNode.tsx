@@ -17,6 +17,12 @@ import {
 } from "@/lib/canvas3dBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
@@ -37,6 +43,9 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
       s.selectedCanvas3DId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "3d", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const moveCanvas3D = useCanvasStore((s) => s.moveCanvas3D);
   const selectCanvas3D = useCanvasStore((s) => s.selectCanvas3D);
@@ -46,12 +55,20 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const { w: width, h: height } = getCanvas3DBounds(node);
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const nodeRef = useRef<HTMLDivElement | null>(null);
   // Imperative drag via the shared gesture layer — one store commit on drop.
   const nodeDrag = useCanvasNodeDrag({
     kind: "3d",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvas3D(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("3d", targetId, dx, dy)) {
+        moveCanvas3D(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("3d", targetId) ?? [{ kind: "3d", id: targetId }],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvas3DNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -160,8 +177,36 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
     };
   };
 
+  // Gesture-time stand-in: 3D nodes host WebGL viewers — the heaviest
+  // possible mid-gesture mount. Hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-3d
+        data-canvas-node-id={node.id}
+        data-3d-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {node.title}
+        </div>
+      </div>
+    );
+  }
+
   const borderClass = isSelected
-    ? "ring-2 ring-canvas-ink/40"
+    ? "ring-2 ring-canvas-accent"
     : "ring-1 ring-transparent hover:ring-canvas-border/60";
 
   return (
@@ -219,7 +264,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && (
+        {!canvasReadOnly && !isSelectionMember && (
           <NodeCornerResizeHandles
             ariaLabel="Resize 3D object"
             visibilityClass={

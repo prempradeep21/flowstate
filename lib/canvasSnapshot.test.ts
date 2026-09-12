@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCanvasSnapshot,
   buildEmptyCanvasSnapshot,
   normalizeCanvasSnapshot,
   parseCanvasSnapshot,
@@ -25,6 +26,22 @@ describe("normalizeCanvasSnapshot", () => {
   it("defaults canvasBackgroundStyle to grid for legacy snapshots", () => {
     const snapshot = normalizeCanvasSnapshot({ version: 1 });
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
+  });
+
+  it("defaults canvasArtifactStyle to vanilla for legacy snapshots", () => {
+    const snapshot = normalizeCanvasSnapshot({ version: 1 });
+    expect(snapshot.canvasArtifactStyle).toBe("vanilla");
+  });
+
+  it("preserves a registered canvasArtifactStyle and drops unknown ones", () => {
+    expect(
+      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "neo" })
+        .canvasArtifactStyle,
+    ).toBe("neo");
+    expect(
+      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "bogus" })
+        .canvasArtifactStyle,
+    ).toBe("vanilla");
   });
 
   it("preserves valid canvasBackgroundStyle values", () => {
@@ -111,5 +128,36 @@ describe("normalizeCanvasSnapshot", () => {
     });
 
     expect(snapshot.sessionArtifacts).toEqual({});
+  });
+});
+
+describe("buildCanvasSnapshot card normalization", () => {
+  // Turn-scoped MCP payload; persisting it would bloat the snapshot and
+  // resurrect a stale build on reload.
+  it("drops customUiSource", () => {
+    const snapshot = buildCanvasSnapshot({
+      ...buildEmptyCanvasSnapshot(),
+      cards: {
+        c1: {
+          id: "c1",
+          threadId: "t1",
+          question: "Build an interactive explorer from the memory results",
+          answer: "",
+          status: "done",
+          parentCardId: null,
+          parentConversationId: null,
+          position: { x: 0, y: 0 },
+          customUiSource: {
+            serverName: "memory",
+            toolName: "read_graph",
+            brief: "explore",
+            text: '{"entities":[]}',
+          },
+        },
+      },
+      cardOrder: ["c1"],
+    } as never);
+
+    expect(snapshot.cards.c1!.customUiSource).toBeUndefined();
   });
 });

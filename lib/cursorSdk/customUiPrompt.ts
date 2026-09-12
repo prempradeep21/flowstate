@@ -3,10 +3,17 @@ export interface CustomUiHistoryMessage {
   answer: string;
 }
 
+import {
+  formatCustomUiSourceBlock,
+  type CustomUiSourceData,
+} from "@/lib/customUiSource";
+
 export interface CustomUiPromptInput {
   question: string;
   history: CustomUiHistoryMessage[];
   editingPayload?: { type?: string; title?: string; data?: unknown } | null;
+  /** MCP output handed over by build_custom_ui. */
+  sourceData?: CustomUiSourceData | null;
 }
 
 const ARTIFACT_RULES = `
@@ -48,6 +55,12 @@ export function buildCustomUiPrompt(input: CustomUiPromptInput): string {
       "The user is editing an existing custom UI artifact. Apply their request surgically.",
       `Current artifact JSON:\n${JSON.stringify(input.editingPayload, null, 2)}`,
     );
+  }
+
+  // Before the user request: the builder should read the data as context for
+  // the ask, and the block's own framing marks it as data, not instructions.
+  if (input.sourceData) {
+    parts.push(formatCustomUiSourceBlock(input.sourceData));
   }
 
   parts.push(`User request:\n${input.question}`);

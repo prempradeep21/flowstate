@@ -5,6 +5,7 @@ import { getFamilyCardIds } from "@/lib/chatThreads";
 import { isMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 import {
   CanvasSpatialIndexManager,
+  quantizedVisibleRect,
   shouldEnableViewportCulling,
   visibleNodesEqual,
   type AlwaysVisibleSets,
@@ -144,6 +145,14 @@ export function useViewportCulling(
     const manager = new CanvasSpatialIndexManager();
     let raf = 0;
     let lastVisible: VisibleNodes | null = null;
+    // Viewport-only fast path: reasons accumulate between rAFs; when ONLY
+    // the viewport moved AND the quantized query rect + tree epoch match the
+    // last query, the previous result still holds — skip the RBush search
+    // (and the alwaysVisible set-building) entirely. During a steady pan
+    // this turns the per-commit-frame query into a key comparison.
+    let pendingOther = false; // geometry / overlay / resize / first run
+    let lastRectKey = "";
+    let lastVersion = -1;
 
     const update = () => {
       cancelAnimationFrame(raf);
@@ -153,6 +162,19 @@ export function useViewportCulling(
 
         const state = useCanvasStore.getState();
         const rect = container.getBoundingClientRect();
+        const containerSize = { width: rect.width, height: rect.height };
+        const qRect = quantizedVisibleRect(state.viewport, containerSize);
+        const rectKey = `${qRect.minX},${qRect.minY},${qRect.maxX},${qRect.maxY},${containerSize.width}x${containerSize.height}`;
+        if (
+          !pendingOther &&
+          rectKey === lastRectKey &&
+          manager.version === lastVersion
+        ) {
+          return;
+        }
+        pendingOther = false;
+        lastRectKey = rectKey;
+        lastVersion = manager.version;
         const next = manager.query(
           {
             viewport: state.viewport,
@@ -174,7 +196,7 @@ export function useViewportCulling(
             canvasTextLabelOrder: state.canvasTextLabelOrder,
             sessionArtifacts: state.sessionArtifacts,
           },
-          { width: rect.width, height: rect.height },
+          containerSize,
           computeAlwaysVisible(state, landingCardId),
         );
         if (visibleNodesEqual(lastVisible, next)) return;
@@ -183,21 +205,23 @@ export function useViewportCulling(
       });
     };
 
+    pendingOther = true; // first run always queries
     update();
 
     const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
       const geom = geometryChanged(state, prevState);
       if (geom) manager.markDirty();
-      if (
-        geom ||
-        state.viewport !== prevState.viewport ||
-        overlayChanged(state, prevState)
-      ) {
+      const overlay = overlayChanged(state, prevState);
+      if (geom || overlay) pendingOther = true;
+      if (geom || overlay || state.viewport !== prevState.viewport) {
         update();
       }
     });
 
-    const ro = new ResizeObserver(update);
+    const ro = new ResizeObserver(() => {
+      pendingOther = true;
+      update();
+    });
     if (containerRef.current) {
       ro.observe(containerRef.current);
     }

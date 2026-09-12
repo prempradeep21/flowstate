@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_MAX_TOOL_TURNS,
+  toolTurnLimitMessage,
   type LLMProvider,
   type NeutralMessage,
   type RunArgs,
@@ -116,6 +117,9 @@ export const anthropicProvider: LLMProvider = {
     let webSearchBlocks = 0;
     let searchThinkingEmitted = false;
     let errorMessage: string | null = null;
+    // Distinguishes "model finished" from "ran out of tool turns" — the latter
+    // otherwise falls out of the loop having emitted no final text at all.
+    let stoppedNaturally = false;
 
     for (let turn = 0; turn < maxTurns; turn++) {
       const stream = anthropic.messages.stream(
@@ -174,6 +178,7 @@ export const anthropicProvider: LLMProvider = {
       }
 
       if (msg.stop_reason !== "tool_use" && msg.stop_reason !== "pause_turn") {
+        stoppedNaturally = true;
         break;
       }
 
@@ -213,6 +218,11 @@ export const anthropicProvider: LLMProvider = {
         { role: "assistant", content: msg.content },
         { role: "user", content: toolResults },
       ];
+    }
+
+    if (!stoppedNaturally && !errorMessage) {
+      errorMessage = toolTurnLimitMessage(maxTurns);
+      emit({ error: errorMessage });
     }
 
     return { usage, toolTurns, pauseTurns, webSearchBlocks, errorMessage };

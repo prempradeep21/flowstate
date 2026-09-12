@@ -65,6 +65,49 @@ describe("wheelZoomDelta", () => {
     ).toBe(-10);
   });
 
+  it("passes fast continuous pinch deltas through unclamped", () => {
+    // Fractional pixel-mode deltas = trackpad pinch (continuous). Fast
+    // pinches emit 30–120px/event; clamping them was a velocity ceiling.
+    for (const dy of [80.5, 120.25, -96.75]) {
+      expect(
+        wheelZoomDelta({
+          ctrlKey: true,
+          metaKey: false,
+          altKey: false,
+          shiftKey: false,
+          deltaX: 0,
+          deltaY: dy,
+          deltaMode: PIXEL,
+        }),
+      ).toBe(dy);
+    }
+  });
+
+  it("guards continuous pinch deltas against garbage input at ±240", () => {
+    expect(
+      wheelZoomDelta({
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        deltaX: 0,
+        deltaY: 500.5,
+        deltaMode: PIXEL,
+      }),
+    ).toBe(240);
+    expect(
+      wheelZoomDelta({
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        deltaX: 0,
+        deltaY: -500.5,
+        deltaMode: PIXEL,
+      }),
+    ).toBe(-240);
+  });
+
   it("normalizes line-mode plain wheel deltas without clamping", () => {
     expect(
       wheelZoomDelta({

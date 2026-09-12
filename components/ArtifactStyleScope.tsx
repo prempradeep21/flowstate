@@ -1,0 +1,87 @@
+"use client";
+
+import { createContext, useContext, useMemo } from "react";
+import dynamic from "next/dynamic";
+import { resolveArtifactStyle } from "@/lib/design/style/resolveArtifactStyle";
+import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type {
+  ArtifactStyleId,
+  ArtifactStylePreset,
+  ResolvedArtifactStyle,
+} from "@/lib/design/style/types";
+
+/**
+ * TEMPORARY dev tool. Lazy so it never reaches a production bundle: it only
+ * loads when the Bento pack is live in a dev build.
+ */
+const BentoColorLab = dynamic(
+  () => import("@/components/dev/BentoColorLab").then((m) => m.BentoColorLab),
+  { ssr: false },
+);
+
+const DEFAULT_RESOLVED: ResolvedArtifactStyle = {
+  css: "",
+  lightVars: {},
+  darkVars: {},
+  isDefault: true,
+};
+
+/**
+ * Resolved style pack for the enclosing scope — the JS-side seam for
+ * renderers CSS can't reach (ECharts canvas palettes, map tiles).
+ */
+const ArtifactStyleContext = createContext<{
+  styleId: ArtifactStyleId;
+  resolved: ResolvedArtifactStyle;
+  /** The active pack definition — JS renderers read `pack[mode].chart` etc. */
+  pack: ArtifactStylePreset;
+}>({
+  styleId: DEFAULT_ARTIFACT_STYLE_ID,
+  resolved: DEFAULT_RESOLVED,
+  pack: getArtifactStylePack(DEFAULT_ARTIFACT_STYLE_ID),
+});
+
+export function useArtifactStyle() {
+  return useContext(ArtifactStyleContext);
+}
+
+/**
+ * Scopes an artifact style pack to a subtree. Vanilla (the default pack)
+ * renders children bare — no wrapper, no stylesheet — so the factory look is
+ * a structural no-op. Non-default packs set `data-artifact-style` (the hook
+ * for app/styles/artifact-styles.css) and inject the pack's CSS variables via
+ * a declarative <style> tag (StrictMode/unmount safe). `display: contents`
+ * keeps layout untouched while custom properties still inherit through.
+ */
+export function ArtifactStyleScope({
+  styleId,
+  children,
+}: {
+  styleId: ArtifactStyleId;
+  children: React.ReactNode;
+}) {
+  const resolved = useMemo(() => resolveArtifactStyle(styleId), [styleId]);
+  const value = useMemo(
+    () => ({ styleId, resolved, pack: getArtifactStylePack(styleId) }),
+    [styleId, resolved],
+  );
+
+  if (resolved.isDefault) {
+    return <>{children}</>;
+  }
+
+  return (
+    <ArtifactStyleContext.Provider value={value}>
+      <div data-artifact-style={styleId} className="contents">
+        <style>{resolved.css}</style>
+        {children}
+        {process.env.NODE_ENV !== "production" && styleId === "bento" ? (
+          <BentoColorLab />
+        ) : null}
+      </div>
+    </ArtifactStyleContext.Provider>
+  );
+}

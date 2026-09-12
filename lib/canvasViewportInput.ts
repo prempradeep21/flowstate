@@ -10,13 +10,15 @@ const DOM_DELTA_PIXEL = 0;
 /**
  * Max wheel delta per tick before the zoom exponent.
  *
- * Pixel-mode input (macOS trackpad pinch) gets a HIGH ceiling: fast pinches
- * emit deltas of 30–80px per event, and the old ±10 clamp threw the surplus
- * away — a velocity ceiling that made vigorous zooms finish long after the
- * fingers stopped ("lags behind my fingers"). Non-pixel (notched wheel)
- * input keeps a tight clamp; its steps are smoothed separately.
+ * Continuous (trackpad-pinch) input is NOT velocity-clamped: any per-event
+ * cap throws away pinch surplus and makes vigorous zooms finish after the
+ * fingers stop ("lags behind my fingers"). The only guard is a garbage
+ * ceiling far above anything fingers produce (±240px ⇒ ×e^3 per event),
+ * catching broken OS/driver events. Final scale is still bounded by
+ * clampScale + rubber-band in lib/viewportGesture. Notched wheel input
+ * keeps a tight clamp; its steps are smoothed separately.
  */
-const WHEEL_ZOOM_DELTA_CLAMP_PIXEL = 60;
+const WHEEL_ZOOM_DELTA_GUARD_CONTINUOUS = 240;
 const WHEEL_ZOOM_DELTA_CLAMP_NOTCHED = 10;
 
 /** Pinch / modifier+scroll zoom sensitivity. */
@@ -75,7 +77,7 @@ export function wheelZoomDelta(e: WheelZoomInput): number {
     return clampWheelZoomDelta(
       delta,
       isContinuousZoomInput(e)
-        ? WHEEL_ZOOM_DELTA_CLAMP_PIXEL
+        ? WHEEL_ZOOM_DELTA_GUARD_CONTINUOUS
         : WHEEL_ZOOM_DELTA_CLAMP_NOTCHED,
     );
   }

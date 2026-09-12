@@ -1,0 +1,272 @@
+// Server-only MCP client connections. Streamable HTTP with SSE fallback,
+// SSRF-guarded fetch, and a per-process warm pool so repeated tool calls in
+// one lambda/dev-server instance reuse the session. Never assume the pool
+// survives across requests — cold instances just reconnect.
+
+import os from "node:os";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import {
+  getDefaultEnvironment,
+  StdioClientTransport,
+} from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
+import { isStdioMcpAllowed } from "@/lib/supabase/environment";
+import { SupabaseOAuthClientProvider } from "@/lib/mcp/oauthProvider";
+import { decryptHeaderMap } from "@/lib/mcp/secrets";
+import { assertSafeMcpUrl, guardedFetch } from "@/lib/mcp/urlGuard";
+
+export type McpServerRow = Database["public"]["Tables"]["mcp_servers"]["Row"];
+
+/** Context for building an OAuth provider for oauth-type servers. */
+export interface McpAuthContext {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  /** App origin used for the OAuth redirect URL; falls back to env/localhost. */
+  origin?: string;
+}
+
+export function resolveAppOrigin(origin?: string): string {
+  return (
+    origin ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+  );
+}
+
+const CONNECT_TIMEOUT_MS = 8_000;
+// Cold `npx`/`uvx` starts download the package first. Measured: 53MB / ~34s
+// for @modelcontextprotocol/server-everything on a fast link, and `npx -y`
+// re-downloads whenever a new version is published — so 60s left no headroom
+// on a slower connection.
+const STDIO_CONNECT_TIMEOUT_MS = 180_000;
+const POOL_IDLE_MS = 5 * 60 * 1000;
+
+interface PooledClient {
+  client: Client;
+  lastUsed: number;
+}
+
+const pool = new Map<string, PooledClient>();
+
+function sweepPool(): void {
+  const now = Date.now();
+  for (const [key, entry] of pool) {
+    if (now - entry.lastUsed > POOL_IDLE_MS) {
+      pool.delete(key);
+      void entry.client.close().catch(() => {});
+    }
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+export interface ConnectOptions {
+  authProvider?: OAuthClientProvider;
+  /** Builds an OAuth provider automatically for auth_type "oauth" servers. */
+  authCtx?: McpAuthContext;
+  /** Skip the warm pool (used by one-shot flows like OAuth finish). */
+  fresh?: boolean;
+}
+
+/**
+ * Connect to a remote MCP server (or reuse a pooled session). Tries
+ * Streamable HTTP first, falls back to SSE on 4xx — the documented pattern
+ * for supporting older servers.
+ */
+export async function connectMcpServer(
+  row: McpServerRow,
+  options: ConnectOptions = {},
+): Promise<Client> {
+  sweepPool();
+
+  if (!options.fresh) {
+    const pooled = pool.get(row.id);
+    if (pooled) {
+      pooled.lastUsed = Date.now();
+      return pooled.client;
+    }
+  }
+
+  // Local (stdio) servers spawn a process — desktop/dev only, never on a
+  // hosted web build (defense in depth: also rejected at CRUD + query layers).
+  if (row.transport === "stdio") {
+    if (!isStdioMcpAllowed()) {
+      throw new Error("Local (stdio) MCP servers only run in the desktop app.");
+    }
+    if (!row.stdio_command) {
+      throw new Error("This local MCP server has no command configured.");
+    }
+    const env = decryptHeaderMap(row.stdio_env_encrypted);
+    const args = Array.isArray(row.stdio_args)
+      ? (row.stdio_args as unknown[]).filter((a): a is string => typeof a === "string")
+      : [];
+    const client = new Client({ name: "flowstate", version: "1.0.0" }, { capabilities: {} });
+    const transport = new StdioClientTransport({
+      command: row.stdio_command,
+      args,
+      // Order matters: the SDK's whitelist supplies a PATH copied from this
+      // process, FLOWSTATE_LOGIN_PATH (set by electron/main.js) replaces it
+      // with the user's real login-shell PATH, and the user's own stdio_env
+      // still wins last so a deliberate override is respected.
+      env: {
+        ...getDefaultEnvironment(),
+        ...(process.env.FLOWSTATE_LOGIN_PATH
+          ? { PATH: process.env.FLOWSTATE_LOGIN_PATH }
+          : {}),
+        ...env,
+      },
+      // Without this the child inherits the server's cwd — in a packaged app
+      // that is Resources/standalone, which has its own package.json and
+      // node_modules, so relative paths and npx resolution surprise people.
+      cwd: os.homedir(),
+      // Piped, not ignored: when a server dies during handshake its stderr is
+      // the only explanation, and discarding it made every stdio failure look
+      // like the same undiagnosable timeout.
+      stderr: "pipe",
+    });
+    // Drain from the start. An unread pipe fills its buffer and BLOCKS the
+    // child — attaching this only after connect() would deadlock a chatty
+    // server during the very handshake we are waiting on.
+    let stderrTail = "";
+    transport.stderr?.on("data", (chunk: Buffer) => {
+      stderrTail = (stderrTail + chunk.toString("utf8")).slice(-500);
+    });
+    try {
+      // The SDK applies its own DEFAULT_REQUEST_TIMEOUT_MSEC (60s) to the
+      // `initialize` request, so raising our wrapper alone changes nothing —
+      // the inner timeout fires first. Pass the budget through to it.
+      await withTimeout(
+        client.connect(transport, { timeout: STDIO_CONNECT_TIMEOUT_MS }),
+        STDIO_CONNECT_TIMEOUT_MS,
+        "MCP connect (stdio)",
+      );
+    } catch (err) {
+      void transport.close().catch(() => {});
+      const base = err instanceof Error ? err.message : String(err);
+      const detail = stderrTail.trim();
+      // ENOENT is instant and means the binary was not found — nothing to do
+      // with a slow download, which is what the generic message implies.
+      const notFound = /ENOENT|not found/i.test(base);
+      const pathHead = (process.env.FLOWSTATE_LOGIN_PATH ?? process.env.PATH ?? "")
+        .split(":")
+        .slice(0, 4)
+        .join(":");
+      throw new Error(
+        notFound
+          ? `"${row.stdio_command}" was not found on PATH (searched: ${pathHead}…). Install it, or enter an absolute path such as /opt/homebrew/bin/npx as the command.`
+          : detail
+            ? `${base} — the command reported: ${detail}`
+            : `${base}. Nothing was reported by the command, which usually means a first-run package download did not finish in time. Try running \`${[row.stdio_command, ...args].join(" ")}\` once in a terminal to cache it, then Refresh.`,
+      );
+    }
+    if (!options.fresh) pool.set(row.id, { client, lastUsed: Date.now() });
+    return client;
+  }
+
+  if (row.transport !== "http" || !row.url) {
+    throw new Error("Only remote (http) MCP servers are supported.");
+  }
+  const url = await assertSafeMcpUrl(row.url);
+  const headers = decryptHeaderMap(row.headers_encrypted);
+  const requestInit: RequestInit | undefined =
+    Object.keys(headers).length > 0 ? { headers } : undefined;
+
+  let authProvider = options.authProvider;
+  if (!authProvider && row.auth_type === "oauth" && options.authCtx) {
+    authProvider = new SupabaseOAuthClientProvider(
+      options.authCtx.supabase,
+      options.authCtx.userId,
+      row.id,
+      resolveAppOrigin(options.authCtx.origin),
+    );
+  }
+
+  const makeClient = () =>
+    new Client({ name: "flowstate", version: "1.0.0" }, { capabilities: {} });
+
+  let client = makeClient();
+  try {
+    const transport = new StreamableHTTPClientTransport(url, {
+      fetch: guardedFetch,
+      requestInit,
+      authProvider,
+    });
+    await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, "MCP connect");
+  } catch (err) {
+    // Auth-required failures must bubble up untouched so callers can flag
+    // the server as needs-auth / start the OAuth flow — an SSE retry against
+    // a 401 is pointless and masks the real cause.
+    if (isAuthRequiredError(err)) throw err;
+    const status = extractHttpStatus(err);
+    if (status !== null && status >= 400 && status < 500) {
+      client = makeClient();
+      const sseTransport = new SSEClientTransport(url, {
+        fetch: guardedFetch,
+        requestInit,
+        authProvider,
+      });
+      await withTimeout(client.connect(sseTransport), CONNECT_TIMEOUT_MS, "MCP connect (SSE)");
+    } else {
+      throw err;
+    }
+  }
+
+  if (!options.fresh) {
+    pool.set(row.id, { client, lastUsed: Date.now() });
+  }
+  return client;
+}
+
+function extractHttpStatus(err: unknown): number | null {
+  if (!err || typeof err !== "object") return null;
+  // Prefer a structured status field — the SDK's transport errors carry the
+  // real HTTP status here (StreamableHTTPError.code, etc.).
+  for (const key of ["status", "statusCode", "code"] as const) {
+    const value = (err as Record<string, unknown>)[key];
+    if (typeof value === "number" && value >= 100 && value <= 599) return value;
+  }
+  // Fall back to the message ONLY when it names an HTTP status explicitly
+  // ("HTTP 401", "status 403", "status code 401", "401 Unauthorized") — never
+  // a bare number, so a "401" buried in unrelated tool-error prose can't flip
+  // a working server to needs-auth.
+  if (err instanceof Error) {
+    const m = err.message.match(
+      /(?:\bhttp\b|\bstatus(?:\s+code)?\b)\D{0,4}(\d{3})|\b(\d{3})\s+(?:unauthorized|forbidden|bad request|not found)/i,
+    );
+    const status = m ? Number(m[1] ?? m[2]) : null;
+    if (status && status >= 100 && status <= 599) return status;
+  }
+  return null;
+}
+
+/**
+ * True when a connect/call failure means "this server wants authentication"
+ * — either the SDK's typed UnauthorizedError (authProvider path) or a plain
+ * HTTP 401/403 from a server whose auth hasn't been configured yet.
+ */
+export function isAuthRequiredError(err: unknown): boolean {
+  if (err instanceof Error && err.name === "UnauthorizedError") return true;
+  const status = extractHttpStatus(err);
+  if (status === 401 || status === 403) return true;
+  return err instanceof Error && /\bunauthorized\b/i.test(err.message);
+}
+
+/** Drop a server's pooled session (after config/auth changes or errors). */
+export function evictPooledClient(serverId: string): void {
+  const pooled = pool.get(serverId);
+  if (pooled) {
+    pool.delete(serverId);
+    void pooled.client.close().catch(() => {});
+  }
+}

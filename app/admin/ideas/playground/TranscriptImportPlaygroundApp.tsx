@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Canvas } from "@/components/Canvas";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { ThemeApplier } from "@/components/ThemeApplier";
+import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { AdminActionIcon } from "@/app/admin/icons/AdminIcons";
-import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
-  YC_INTERVIEW_TIPS_TRANSCRIPT,
-  YC_INTERVIEW_TIPS_VIDEO_URL,
-} from "@/lib/transcriptImport/ycInterviewTips";
+  DEFAULT_TRANSCRIPT_IMPORT_CANVAS_ID,
+  getTranscriptImportCanvas,
+  TRANSCRIPT_IMPORT_CANVASES,
+} from "@/lib/buildTranscriptImportPlaygroundSnapshot";
+import { useCanvasStore } from "@/lib/store";
 import { useTranscriptImportPlaygroundCanvas } from "./useTranscriptImportPlaygroundCanvas";
 
 export function TranscriptImportPlaygroundApp({
@@ -24,7 +26,17 @@ export function TranscriptImportPlaygroundApp({
   immersive?: boolean;
 }) {
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
-  const { fitContent } = useTranscriptImportPlaygroundCanvas(canvasContainerRef);
+  const [activeCanvasId, setActiveCanvasId] = useState(
+    DEFAULT_TRANSCRIPT_IMPORT_CANVAS_ID,
+  );
+  const { fitContent } = useTranscriptImportPlaygroundCanvas(
+    canvasContainerRef,
+    activeCanvasId,
+  );
+  const canvasArtifactStyle = useCanvasStore((st) => st.canvasArtifactStyle);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+
+  const activeCanvas = getTranscriptImportCanvas(activeCanvasId);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas-bg">
@@ -69,73 +81,115 @@ export function TranscriptImportPlaygroundApp({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
-          <section
-            className="shrink-0 border-b border-canvas-border bg-canvas-bg/80 px-4 py-3 sm:px-5"
-            aria-label="Source transcripts"
-          >
-            <h3 className="mb-3 flex items-center gap-1.5 text-canvas-body-sm font-semibold text-canvas-ink">
-              <AdminActionIcon name="transcript" />
-              Transcripts
-            </h3>
-            <div className="flex max-h-[28vh] flex-col gap-3 overflow-y-auto">
-              <div className="rounded-canvas border border-canvas-border/80 bg-canvas-card/60 px-3 py-2.5">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <p className="text-canvas-body-sm font-medium text-canvas-ink">
-                    Design tools history
-                  </p>
-                  <span className="text-canvas-micro text-canvas-muted">
-                    Pasted text · demo
-                  </span>
-                </div>
-                <p className="max-h-[10vh] overflow-y-auto whitespace-pre-wrap text-canvas-body-sm leading-relaxed text-canvas-muted">
-                  {DESIGN_TOOLS_HISTORY_TRANSCRIPT}
-                </p>
-              </div>
-              <div className="rounded-canvas border border-canvas-border/80 bg-canvas-card/60 px-3 py-2.5">
-                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-canvas-body-sm font-medium text-canvas-ink">
-                    YC interview tips
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={YC_INTERVIEW_TIPS_VIDEO_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-canvas-micro text-canvas-accent hover:underline"
-                    >
-                      <AdminActionIcon name="link" className="h-3 w-3" />
-                      Source video
-                    </a>
-                    <span className="text-canvas-micro text-canvas-muted">
-                      Pasted text · demo
-                    </span>
-                  </div>
-                </div>
-                <p className="max-h-[10vh] overflow-y-auto whitespace-pre-wrap text-canvas-body-sm leading-relaxed text-canvas-muted">
-                  {YC_INTERVIEW_TIPS_TRANSCRIPT}
-                </p>
-              </div>
-            </div>
-          </section>
+      {/* Each transcript is its own canvas — the chips switch between them,
+          and the transcript text itself lives behind one disclosure. */}
+      <section
+        className="relative z-10 shrink-0 border-b border-canvas-border bg-canvas-bg/80 px-3 py-1.5 sm:px-4"
+        aria-label="Imported canvases"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">
+            <AdminActionIcon name="transcript" className="h-3.5 w-3.5" />
+            Canvases
+          </span>
+          {TRANSCRIPT_IMPORT_CANVASES.map((canvas) => {
+            const active = canvas.id === activeCanvasId;
+            return (
+              <button
+                key={canvas.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setActiveCanvasId(canvas.id);
+                  setTranscriptOpen(false);
+                }}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-canvas-micro font-medium transition-colors ${
+                  active
+                    ? "border-canvas-accent bg-canvas-accent/10 text-canvas-accent"
+                    : "border-canvas-border/80 bg-canvas-card/60 text-canvas-muted hover:bg-canvas-card hover:text-canvas-ink"
+                }`}
+              >
+                {canvas.title}
+              </button>
+            );
+          })}
 
-          <div className="relative min-h-0 flex-1 bg-canvas-bg">
-            <ThemeApplier />
-            <div
-              ref={canvasContainerRef}
-              className="absolute inset-0"
-              data-transcript-import-playground
-            >
-              <Canvas containerRef={canvasContainerRef} />
-            </div>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
-              <CanvasBottomToolbar />
-            </div>
-            <CardAskOrchestrator />
-          </div>
+          <button
+            type="button"
+            aria-expanded={transcriptOpen}
+            onClick={() => setTranscriptOpen((prev) => !prev)}
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-canvas-border/80 bg-canvas-card/60 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-muted transition-colors hover:bg-canvas-card hover:text-canvas-ink"
+          >
+            Transcript
+            <AdminActionIcon
+              name={transcriptOpen ? "chevron-up" : "chevron-down"}
+              className="h-3 w-3"
+            />
+          </button>
         </div>
-      </div>
+
+        {transcriptOpen ? (
+          <div className="absolute inset-x-3 top-full z-20 mt-1 rounded-canvas border border-canvas-border bg-canvas-card px-3 py-2.5 shadow-card sm:inset-x-4">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="text-canvas-body-sm font-medium text-canvas-ink">
+                {activeCanvas.title}
+              </p>
+              <div className="flex items-center gap-2">
+                {activeCanvas.sourceUrl ? (
+                  <a
+                    href={activeCanvas.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-canvas-micro text-canvas-accent hover:underline"
+                  >
+                    <AdminActionIcon name="link" className="h-3 w-3" />
+                    Source
+                  </a>
+                ) : null}
+                <span className="text-canvas-micro text-canvas-muted">
+                  Pasted text · demo
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTranscriptOpen(false)}
+                  className="text-canvas-micro text-canvas-muted hover:text-canvas-ink"
+                  aria-label="Close transcript"
+                >
+                  <AdminActionIcon name="chevron-up" className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <p className="max-h-[26vh] overflow-y-auto whitespace-pre-wrap text-canvas-body-sm leading-relaxed text-canvas-muted">
+              {activeCanvas.transcript}
+            </p>
+          </div>
+        ) : null}
+      </section>
+
+      {/*
+        The pack has to be scoped here as well as named on the snapshot.
+        canvasArtifactStyle only records which pack is active; nothing renders
+        the [data-artifact-style] hook that app/styles/artifact-styles.css keys
+        off unless a subtree opts in, which app/page.tsx does around the
+        workspace and this page previously did not. Read from the store rather
+        than the snapshot so the toolbar's style switcher still works here.
+      */}
+      <ArtifactStyleScope styleId={canvasArtifactStyle}>
+        <div className="relative min-h-0 flex-1 bg-canvas-bg">
+          <ThemeApplier />
+          <div
+            ref={canvasContainerRef}
+            className="absolute inset-0"
+            data-transcript-import-playground
+          >
+            <Canvas containerRef={canvasContainerRef} />
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
+            <CanvasBottomToolbar />
+          </div>
+          <CardAskOrchestrator />
+        </div>
+      </ArtifactStyleScope>
     </div>
   );
 }

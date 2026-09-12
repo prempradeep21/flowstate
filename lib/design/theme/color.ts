@@ -66,6 +66,22 @@ export function withLightness(
   });
 }
 
+/** Linear sRGB-channel mix of two hexes: t=0 -> a, t=1 -> b. */
+export function mixHex(a: string, b: string, t: number): string {
+  const parse = (hex: string) => {
+    const h = hex.replace("#", "");
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  };
+  const A = parse(a);
+  const B = parse(b);
+  const k = clamp01(t);
+  const toHex = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, v)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${A.map((v, i) => toHex(v * (1 - k) + B[i]! * k)).join("")}`.toUpperCase();
+}
+
 /** Shift lightness relative to the current value. */
 export function shiftLightness(hex: string, delta: number): string {
   const hsl = hexToHsl(hex);

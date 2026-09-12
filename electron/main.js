@@ -4,6 +4,7 @@ const net = require("node:net");
 const http = require("node:http");
 const path = require("node:path");
 const fs = require("node:fs");
+const { resolveLoginPath } = require("./loginPath.js");
 
 // Fixed ports so OAuth redirect URIs are stable (registered in Supabase + Google).
 const CANDIDATE_PORTS = [38591, 38592, 38593];
@@ -15,6 +16,10 @@ let mainWindow = null;
 let settingsWindow = null;
 let serverChild = null;
 let serverOrigin = null;
+// The user's real PATH, read from their login shell. A Finder-launched app
+// only inherits launchd's /usr/bin:/bin:/usr/sbin:/sbin, so without this the
+// embedded server cannot spawn npx/uvx for local MCP servers.
+let loginPath = null;
 
 // ---------------------------------------------------------------------------
 // Secret storage — Anthropic key encrypted at rest via macOS Keychain.
@@ -123,6 +128,10 @@ async function startServer() {
       ...process.env,
       // Run the standalone server with Electron's bundled Node.
       ELECTRON_RUN_AS_NODE: "1",
+      // Both: PATH is what actually makes spawning work (the MCP SDK copies it
+      // verbatim), FLOWSTATE_LOGIN_PATH makes that dependency greppable from
+      // lib/mcp/client.ts, which would otherwise look like it works by magic.
+      ...(loginPath ? { PATH: loginPath, FLOWSTATE_LOGIN_PATH: loginPath } : {}),
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME,
@@ -245,6 +254,9 @@ ipcMain.handle("settings:save", async (_event, { anthropicKey, openrouterKey }) 
 // ---------------------------------------------------------------------------
 async function boot() {
   const hasKey = Boolean(readSecrets().ANTHROPIC_API_KEY);
+
+  // Before startServer(): the fork below captures env at spawn time.
+  loginPath = await resolveLoginPath(app);
 
   if (isDev) {
     // `concurrently` runs `next dev`; `wait-on` ensures it is up before we load.

@@ -18,17 +18,128 @@ const PRIMARY_PIN_ICON = L.divIcon({
   </svg>`,
   iconSize: [28, 36],
   iconAnchor: [14, 36],
+  tooltipAnchor: [0, -26],
 });
 
-const SAVED_PIN_ICON = L.divIcon({
-  className: "",
-  html: `<svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M12 0C5.37 0 0 5.37 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.37 18.63 0 12 0z" fill="${canvasColors.mapSaved}"/>
+/**
+ * Distinct, map-legible pin hues. Chosen to read clearly over OpenStreetMap
+ * tiles in both light and dark app themes (tiles stay light either way).
+ * Violet is omitted so saved pins never blend into the primary pin.
+ */
+const MAP_PIN_PALETTE = [
+  "#E11D48", // rose
+  "#0EA5E9", // sky
+  "#16A34A", // green
+  "#D97706", // amber
+  "#DB2777", // pink
+  "#0D9488", // teal
+  "#EA580C", // orange
+  "#4F46E5", // indigo
+  "#65A30D", // lime
+  "#0891B2", // cyan
+] as const;
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Pins created together for one reason share a `group`; pins in the same
+ * `type` share a category; otherwise each pin is coloured on its own id so
+ * distinct pins stay visually distinct.
+ */
+function pinColor(place: MapSavedPlace): string {
+  const key = (place.group?.trim() || place.type?.trim() || place.id).toLowerCase();
+  return MAP_PIN_PALETTE[hashString(key) % MAP_PIN_PALETTE.length]!;
+}
+
+const savedIconCache = new Map<string, L.DivIcon>();
+
+function savedPinIcon(color: string): L.DivIcon {
+  let icon = savedIconCache.get(color);
+  if (!icon) {
+    icon = L.divIcon({
+      className: "",
+      html: `<svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.37 18.63 0 12 0z" fill="${color}"/>
     <circle cx="12" cy="11" r="4" fill="white"/>
   </svg>`,
-  iconSize: [24, 32],
-  iconAnchor: [12, 32],
-});
+      iconSize: [24, 32],
+      iconAnchor: [12, 32],
+      tooltipAnchor: [0, -24],
+    });
+    savedIconCache.set(color, icon);
+  }
+  return icon;
+}
+
+/** Permanent pill tooltip anchored above a pin, tinted to match it. */
+function attachPinTooltip(
+  marker: L.Marker,
+  label: string,
+  color: string,
+  extraClass = "",
+): void {
+  marker.bindTooltip(
+    `<span class="map-pin-tt__dot"></span><span class="map-pin-tt__label">${escapeHtml(
+      label,
+    )}</span>`,
+    {
+      permanent: true,
+      direction: "top",
+      opacity: 1,
+      className: `map-pin-tooltip ${extraClass}`.trim(),
+    },
+  );
+  const el = marker.getTooltip()?.getElement();
+  if (el) el.style.setProperty("--pin-color", color);
+}
+
+/** MapTiler key — overridable per deploy; falls back to the shared vector key. */
+const MAPTILER_KEY =
+  process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "pOpgqLqHOd3YbPg0d2oy";
+
+interface MapStyleDef {
+  id: string;
+  label: string;
+  url: string;
+  attribution: string;
+  maxZoom: number;
+}
+
+/**
+ * Selectable basemap styles. The first entry is the default. MapTiler styles
+ * use the raster endpoint (server-rendered from the vector style) so they drop
+ * straight into Leaflet without a MapLibre GL runtime.
+ */
+const MAP_STYLES: MapStyleDef[] = [
+  {
+    id: "standard",
+    label: "Standard",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  },
+  {
+    id: "landscape",
+    label: "Landscape",
+    url: `https://api.maptiler.com/maps/landscape-v4/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`,
+    attribution:
+      '<a href="https://www.maptiler.com/copyright/">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap contributors</a>',
+    maxZoom: 22,
+  },
+];
+
+const DEFAULT_MAP_STYLE_ID = MAP_STYLES[0]!.id;
+
+function resolveMapStyle(id: string | undefined): MapStyleDef {
+  return MAP_STYLES.find((s) => s.id === id) ?? MAP_STYLES[0]!;
+}
 
 function escapeHtml(text: string): string {
   return text
@@ -156,7 +267,7 @@ function MapSearchBar({
     <div
       ref={rootRef}
       data-no-drag
-      className="absolute right-2 top-2 z-[500] flex max-w-[calc(100%-1rem)] flex-col items-end gap-1"
+      className="flex min-w-0 flex-col items-end gap-1"
     >
       {!open ? (
         <button
@@ -282,39 +393,200 @@ function AddPinButton({
   saving: boolean;
   onToggle: () => void;
 }) {
+  const label = saving ? "Saving…" : active ? "Click map to drop" : "Add pin";
   return (
     <button
       type="button"
       data-no-drag
-      aria-label={active ? "Cancel add pin" : "Add pin to map"}
+      title={
+        saving
+          ? "Saving pin…"
+          : active
+            ? "Click anywhere on the map to drop a pin — click here to cancel"
+            : "Drop a pin on the map"
+      }
+      aria-label={active ? "Cancel adding pin" : "Add pin to map"}
       aria-pressed={active}
       disabled={saving}
       onClick={onToggle}
-      className={`flex h-8 items-center gap-1.5 rounded-canvas-sm border px-2.5 text-canvas-caption font-medium shadow-md backdrop-blur-sm transition ${
+      className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-canvas-sm border px-2.5 text-canvas-caption font-medium shadow-md backdrop-blur-sm transition ${
         active
           ? "border-canvas-warning bg-canvas-warningSoft text-canvas-warningText"
           : "border-black/10 bg-white/95 text-canvas-ink hover:bg-white"
-      } ${saving ? "opacity-60" : ""}`}
+      } ${saving ? "cursor-wait opacity-70" : "cursor-pointer"}`}
     >
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
-        {active ? (
+      {saving ? (
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 animate-spin" aria-hidden>
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.25"
+            strokeWidth="2"
+          />
           <path
-            d="M8 1v4M8 11v4M1 8h4M11 8h4M8 8m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"
+            d="M8 2a6 6 0 0 1 6 6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : active ? (
+        <svg
+          viewBox="0 0 16 16"
+          className="h-3.5 w-3.5 motion-safe:animate-pulse"
+          aria-hidden
+        >
+          <path
+            d="M8 1v3.5M8 11.5V15M1 8h3.5M11.5 8H15"
             stroke="currentColor"
             strokeWidth="1.3"
             strokeLinecap="round"
           />
-        ) : (
+          <circle cx="8" cy="8" r="2.25" fill="currentColor" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
           <path
-            d="M8 1.5v3M8 11.5v3M5 8H2M14 8h-3M8 5.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5"
+            d="M8 14.5s5-4.6 5-8.5a5 5 0 1 0-10 0c0 3.9 5 8.5 5 8.5Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M8 4v4M6 6h4"
             stroke="currentColor"
             strokeWidth="1.3"
             strokeLinecap="round"
           />
-        )}
-      </svg>
-      {saving ? "Saving…" : active ? "Click map" : "Add pin"}
+        </svg>
+      )}
+      {label}
     </button>
+  );
+}
+
+function MapStylePicker({
+  styleId,
+  onSelect,
+}: {
+  styleId: string;
+  onSelect: (id: string) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const current = resolveMapStyle(styleId);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} data-no-drag className="relative shrink-0">
+      <button
+        type="button"
+        aria-label="Change map style"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Map style"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-canvas-sm border px-2.5 text-canvas-caption font-medium shadow-md backdrop-blur-sm transition ${
+          open
+            ? "border-canvas-accent bg-white text-canvas-ink"
+            : "border-black/10 bg-white/95 text-canvas-ink hover:bg-white"
+        }`}
+      >
+        <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
+          <path
+            d="M8 2 2 5l6 3 6-3-6-3Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M2.5 8.5 8 11l5.5-2.5M2.5 11 8 13.5 13.5 11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+        </svg>
+        {current.label}
+        <svg
+          viewBox="0 0 16 16"
+          className={`h-3 w-3 text-canvas-muted transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+          aria-hidden
+        >
+          <path
+            d="M4 6l4 4 4-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Map style"
+          className="absolute right-0 top-full z-[510] mt-1 min-w-[9rem] overflow-hidden rounded-canvas-sm border border-black/10 bg-white/95 py-1 shadow-lg backdrop-blur-sm"
+        >
+          {MAP_STYLES.map((style) => {
+            const active = style.id === current.id;
+            return (
+              <li key={style.id} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(style.id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-canvas-compact ${
+                    active
+                      ? "bg-violet-50 text-canvas-ink"
+                      : "text-canvas-ink hover:bg-black/[0.04]"
+                  }`}
+                >
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                    {active && (
+                      <svg
+                        viewBox="0 0 16 16"
+                        className="h-3.5 w-3.5 text-canvas-accent"
+                        aria-hidden
+                      >
+                        <path
+                          d="M3 8.5 6.5 12 13 4.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </span>
+                  {style.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -326,6 +598,8 @@ function MapView({
   savedPlaces,
   canEdit,
   onSavePlaces,
+  mapStyleId,
+  onSetMapStyle,
   showLabel = true,
 }: {
   primaryLat: number;
@@ -335,16 +609,26 @@ function MapView({
   savedPlaces: MapSavedPlace[];
   canEdit: boolean;
   onSavePlaces: (places: MapSavedPlace[]) => void;
+  mapStyleId: string;
+  onSetMapStyle: (id: string) => void;
   showLabel?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const mapStyleIdRef = useRef(mapStyleId);
+  // Tracks which style the live tile layer actually renders (init applies the
+  // mount-time style; the swap effect keeps this in sync).
+  const appliedStyleIdRef = useRef(resolveMapStyle(mapStyleId).id);
   const savedLayerRef = useRef<L.LayerGroup | null>(null);
   const addPinModeRef = useRef(false);
   const canEditRef = useRef(canEdit);
   const savedPlacesRef = useRef(savedPlaces);
   const onSavePlacesRef = useRef(onSavePlaces);
   const onRemoveRef = useRef<(id: string) => void>(() => {});
+  // Name pills clutter the tiny sidebar thumbnail; only show them where the
+  // map is a real viewing surface (canvas/panel pass `showLabel`).
+  const showTooltipsRef = useRef(showLabel);
   const [addPinMode, setAddPinMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewingLabel, setViewingLabel] = useState<string | null>(null);
@@ -353,6 +637,8 @@ function MapView({
   canEditRef.current = canEdit;
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
+  showTooltipsRef.current = showLabel;
+  mapStyleIdRef.current = mapStyleId;
 
   // Stable identity key: `savedPlaces` is often a fresh `[]` each render
   // (from `?? []` in the parent), so effects must key on this, not the ref.
@@ -373,20 +659,18 @@ function MapView({
     (map: L.Map, layer: L.LayerGroup, places: MapSavedPlace[]) => {
       layer.clearLayers();
       for (const place of places) {
+        const color = pinColor(place);
         const marker = L.marker([place.lat, place.lng], {
-          icon: SAVED_PIN_ICON,
-        });
-        marker.bindTooltip(place.label, {
-          direction: "top",
-          opacity: 0.95,
-          sticky: true,
-          className: "map-saved-tooltip",
+          icon: savedPinIcon(color),
         });
         marker.bindPopup(popupHtml(place, canEditRef.current), {
           maxWidth: 240,
           closeButton: true,
         });
         marker.addTo(layer);
+        if (showTooltipsRef.current) {
+          attachPinTooltip(marker, place.label, color);
+        }
       }
     },
     [],
@@ -403,12 +687,23 @@ function MapView({
       attributionControl: false,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    const initialStyle = resolveMapStyle(mapStyleIdRef.current);
+    tileLayerRef.current = L.tileLayer(initialStyle.url, {
+      attribution: initialStyle.attribution,
+      maxZoom: initialStyle.maxZoom,
     }).addTo(map);
 
-    L.marker([primaryLat, primaryLng], { icon: PRIMARY_PIN_ICON }).addTo(map);
+    const primaryMarker = L.marker([primaryLat, primaryLng], {
+      icon: PRIMARY_PIN_ICON,
+    }).addTo(map);
+    if (showTooltipsRef.current) {
+      attachPinTooltip(
+        primaryMarker,
+        primaryLabel,
+        canvasColors.mapPrimary,
+        "map-pin-tooltip--primary",
+      );
+    }
 
     const savedLayer = L.layerGroup().addTo(map);
     savedLayerRef.current = savedLayer;
@@ -468,9 +763,29 @@ function MapView({
       map.remove();
       mapRef.current = null;
       savedLayerRef.current = null;
+      tileLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap the basemap tiles when the selected style changes. The init effect
+  // already created the layer for the mount-time style, so this only runs on
+  // an actual change (add the new layer before removing the old to avoid a
+  // blank-map flash).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const style = resolveMapStyle(mapStyleId);
+    if (style.id === appliedStyleIdRef.current && tileLayerRef.current) return;
+    const previous = tileLayerRef.current;
+    const next = L.tileLayer(style.url, {
+      attribution: style.attribution,
+      maxZoom: style.maxZoom,
+    }).addTo(map);
+    if (previous) map.removeLayer(previous);
+    tileLayerRef.current = next;
+    appliedStyleIdRef.current = style.id;
+  }, [mapStyleId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -504,19 +819,22 @@ function MapView({
   return (
     <div className="relative h-full w-full min-h-0 cursor-default">
       <div ref={containerRef} data-no-drag className="h-full w-full" />
-      <MapSearchBar onSelect={handleSearchSelect} />
-      {canEdit && (
-        <div
-          data-no-drag
-          className="absolute right-80 top-2 z-[500]"
-        >
+      <div
+        data-no-drag
+        className="absolute right-2 top-2 z-[500] flex max-w-[calc(100%-1rem)] flex-wrap items-start justify-end gap-2"
+      >
+        {canEdit && (
+          <MapStylePicker styleId={mapStyleId} onSelect={onSetMapStyle} />
+        )}
+        {canEdit && (
           <AddPinButton
             active={addPinMode}
             saving={saving}
             onToggle={() => setAddPinMode((v) => !v)}
           />
-        </div>
-      )}
+        )}
+        <MapSearchBar onSelect={handleSearchSelect} />
+      </div>
       {showLabel && (
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-3 py-2">
           {viewingLabel && viewingLabel !== primaryLabel && (
@@ -555,6 +873,7 @@ export function MapArtifactContent({
   const lng = place.lng;
   const label = place.label ?? place.name;
   const savedPlaces = payload.data.savedPlaces ?? [];
+  const mapStyleId = resolveMapStyle(payload.data.mapStyle).id;
 
   const handleSavePlaces = useCallback(
     (places: MapSavedPlace[]) => {
@@ -564,6 +883,20 @@ export function MapArtifactContent({
         data: {
           ...payload.data,
           savedPlaces: places,
+        },
+      });
+    },
+    [artifactId, payload, saveMapArtifactVersion],
+  );
+
+  const handleSetMapStyle = useCallback(
+    (styleId: string) => {
+      if (!artifactId) return;
+      saveMapArtifactVersion(artifactId, {
+        ...payload,
+        data: {
+          ...payload.data,
+          mapStyle: styleId === DEFAULT_MAP_STYLE_ID ? undefined : styleId,
         },
       });
     },
@@ -602,6 +935,8 @@ export function MapArtifactContent({
           savedPlaces={savedPlaces}
           canEdit={false}
           onSavePlaces={handleSavePlaces}
+          mapStyleId={mapStyleId}
+          onSetMapStyle={handleSetMapStyle}
           showLabel={false}
         />
       </div>
@@ -627,6 +962,8 @@ export function MapArtifactContent({
           savedPlaces={savedPlaces}
           canEdit={canEdit}
           onSavePlaces={handleSavePlaces}
+          mapStyleId={mapStyleId}
+          onSetMapStyle={handleSetMapStyle}
         />
       </div>
     </ArtifactContentStage>

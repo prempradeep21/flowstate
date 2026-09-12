@@ -13,6 +13,7 @@ import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { preloadAllCanvasGoogleFonts } from "@/hooks/useCanvasFontLoader";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import { canvasColors, darkCanvasColors } from "@/lib/design/tokens";
+import { ARTIFACT_STYLE_PACKS } from "@/lib/design/style/stylePacks";
 import {
   CANVAS_STATIC_BACKGROUND_IMAGES,
   getCanvasBackgroundImageById,
@@ -49,6 +50,10 @@ export function CanvasSettingsPopover({
   );
   const canvasTheme = useCanvasStore((s) => s.canvasTheme);
   const setCanvasTheme = useCanvasStore((s) => s.setCanvasTheme);
+  const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
+  const setCanvasArtifactStyle = useCanvasStore(
+    (s) => s.setCanvasArtifactStyle,
+  );
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
   const canvasBackgroundImageId = useCanvasStore((s) => s.canvasBackgroundImageId);
   const setCanvasBackgroundStyle = useCanvasStore(
@@ -117,7 +122,7 @@ export function CanvasSettingsPopover({
               onClick={() => setCanvasTheme(option.id)}
               className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
-                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >
@@ -163,6 +168,135 @@ export function CanvasSettingsPopover({
       </div>
 
       <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
+        Styles
+      </h3>
+      <div className="grid grid-cols-2 gap-2">
+        {ARTIFACT_STYLE_PACKS.map((pack) => {
+          const selected = canvasArtifactStyle === pack.id;
+          const tokens = pack.light;
+          const accent = pack.accent ?? "rgb(var(--canvas-accent))";
+          // Glass packs preview as translucent frosted chips — solid fill
+          // would hide the one thing the pack is about.
+          const isGlass = Boolean(pack.backdropFilter);
+          // Color-led packs preview as three tone chips — the palette is
+          // the one thing those packs are about.
+          const swatches = pack.previewSwatches;
+          return (
+            <button
+              key={pack.id}
+              type="button"
+              aria-pressed={selected}
+              title={pack.description}
+              onClick={() => setCanvasArtifactStyle(pack.id)}
+              className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
+                selected
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
+                  : "border-canvas-border hover:border-canvas-muted"
+              }`}
+            >
+              <div
+                className="relative flex h-12 w-full items-center justify-center bg-canvas-bg px-2.5"
+                style={
+                  swatches && tokens.canvasBg
+                    ? { backgroundColor: tokens.canvasBg }
+                    : undefined
+                }
+              >
+                {swatches ? (
+                  <span
+                    className="relative flex h-8 w-full items-stretch gap-1.5"
+                    aria-hidden
+                  >
+                    {swatches.map((hex, i) => (
+                      <span
+                        key={`${hex}-${i}`}
+                        className={i === 0 ? "flex-[1.4]" : "flex-1"}
+                        style={{
+                          backgroundColor: hex,
+                          borderRadius: `calc(${pack.radius} * 0.4)`,
+                          border:
+                            pack.strokeWidth !== "0px"
+                              ? `${pack.strokeWidth} solid ${tokens.stroke}`
+                              : undefined,
+                          boxShadow:
+                            tokens.hardShadow !== "none"
+                              ? tokens.hardShadow.replace(/\b3px\b/g, "2px")
+                              : undefined,
+                        }}
+                      />
+                    ))}
+                  </span>
+                ) : null}
+                {!swatches && isGlass && (
+                  <span className="pointer-events-none absolute inset-0" aria-hidden>
+                    <span
+                      className="absolute left-3 top-1 h-5 w-5 rounded-full opacity-50"
+                      style={{ backgroundColor: accent }}
+                    />
+                    <span
+                      className="absolute bottom-1 right-4 h-4 w-4 rounded-full bg-canvas-ink opacity-30"
+                    />
+                  </span>
+                )}
+                {!swatches && (
+                <span
+                  className="relative flex h-8 w-full items-center gap-1.5 px-1.5"
+                  style={{
+                    backgroundColor: isGlass
+                      ? `color-mix(in srgb, ${tokens.cardFill} 55%, transparent)`
+                      : tokens.cardFill,
+                    border: `${pack.strokeWidth} solid ${
+                      isGlass
+                        ? `color-mix(in srgb, ${tokens.stroke} 55%, transparent)`
+                        : tokens.stroke
+                    }`,
+                    borderRadius: pack.radius,
+                    ...(isGlass
+                      ? {
+                          backdropFilter: "blur(3px)",
+                          WebkitBackdropFilter: "blur(3px)",
+                        }
+                      : {}),
+                    boxShadow: isGlass
+                      ? tokens.innerHighlight
+                      : tokens.hardShadow !== "none"
+                        ? tokens.hardShadow
+                        : tokens.chinShadow === "none"
+                          ? undefined
+                          : tokens.chinShadow,
+                  }}
+                  aria-hidden
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: accent }}
+                  />
+                  <span
+                    className="h-1 flex-1 rounded-full"
+                    style={{ backgroundColor: tokens.stroke, opacity: 0.25 }}
+                  />
+                </span>
+                )}
+              </div>
+              <div className="px-2 py-1.5">
+                <span className="text-canvas-compact font-medium text-canvas-ink">
+                  {pack.name}
+                </span>
+              </div>
+              {selected && (
+                <span
+                  className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-canvas-ink text-canvas-micro text-canvas-card"
+                  aria-hidden
+                >
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <h3 className="mb-2 mt-3 text-canvas-body-sm font-semibold text-canvas-ink">
         Background
       </h3>
       <div className="grid grid-cols-2 gap-2">
@@ -178,7 +312,7 @@ export function CanvasSettingsPopover({
               onClick={() => setCanvasBackgroundStyle(option.id)}
               className={`group relative overflow-hidden rounded-canvas border text-left transition-colors ${
                 selected
-                  ? "border-canvas-ink ring-1 ring-canvas-ink"
+                  ? "border-canvas-accent ring-1 ring-canvas-accent"
                   : "border-canvas-border hover:border-canvas-muted"
               }`}
             >

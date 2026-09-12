@@ -34,6 +34,7 @@ export function seedCustomUiTurnState(
   inheritedArtifactId: string | undefined,
   attachedArtifacts: AttachedArtifactRef[] | undefined,
   sessionArtifacts: Record<string, SessionArtifact>,
+  options?: { force?: boolean },
 ): { sdkBuildStages: SdkBuildStage[]; thinkingLabel: string } | null {
   if (!CUSTOM_UI_SDK_ENABLED) return null;
 
@@ -42,7 +43,9 @@ export function seedCustomUiTurnState(
     attachedArtifacts,
     sessionArtifacts,
   );
-  if (!isCustomUiWork(question, editingPayload)) return null;
+  // A build_custom_ui handoff is known to be custom-UI work regardless of how
+  // the machine-authored question reads, so it skips the keyword check.
+  if (!options?.force && !isCustomUiWork(question, editingPayload)) return null;
 
   const isEdit = editingPayload?.type === "custom";
   return {

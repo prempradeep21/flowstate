@@ -26,11 +26,11 @@ import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
+// Shared .btn state layer (globals.css) supplies hover/press/disabled physics.
 const toolbarBtn =
-  "flex items-center gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
+  "btn gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink";
 
-const iconToggleBtn =
-  "flex h-9 w-9 items-center justify-center rounded-canvas transition-colors";
+const iconToggleBtn = "btn h-9 w-9 rounded-canvas";
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
@@ -290,7 +290,7 @@ export function CanvasBottomToolbar() {
             disabled={!canEdit}
             className={`${toolbarBtn} ${
               addMenuOpen || gifPickerOpen || activeCanvasPlacement === "text"
-                ? "bg-canvas-bg text-canvas-ink"
+                ? "bg-canvas-accentSoft text-canvas-accent"
                 : ""
             }`}
             aria-expanded={addMenuOpen || gifPickerOpen}
@@ -315,7 +315,7 @@ export function CanvasBottomToolbar() {
             disabled={!canEdit}
             className={`${toolbarBtn} ${
               artifactMenuOpen || artefactPlacementActive
-                ? "bg-canvas-bg text-canvas-ink"
+                ? "bg-canvas-accentSoft text-canvas-accent"
                 : ""
             }`}
             aria-pressed={artifactMenuOpen || artefactPlacementActive}
@@ -340,7 +340,7 @@ export function CanvasBottomToolbar() {
             disabled={!canEdit}
             className={`${iconToggleBtn} ${
               pencilOpen || pencilToolActive
-                ? "bg-canvas-bg text-canvas-ink"
+                ? "bg-canvas-accentSoft text-canvas-accent"
                 : "text-canvas-muted hover:text-canvas-ink"
             }`}
             aria-label="Pencil tool"
@@ -396,7 +396,7 @@ export function CanvasBottomToolbar() {
           <button
             type="button"
             className={`${toolbarBtn} ${
-              chatsGloballyHidden ? "bg-canvas-bg text-canvas-ink" : ""
+              chatsGloballyHidden ? "bg-canvas-accentSoft text-canvas-accent" : ""
             }`}
             aria-pressed={chatsGloballyHidden}
             aria-label={chatsGloballyHidden ? "Show chats" : "Hide chats"}
@@ -417,7 +417,7 @@ export function CanvasBottomToolbar() {
             type="button"
             className={`${iconToggleBtn} ${
               settingsOpen
-                ? "bg-canvas-bg text-canvas-ink"
+                ? "bg-canvas-accentSoft text-canvas-accent"
                 : "text-canvas-muted hover:text-canvas-ink"
             }`}
             aria-label="Canvas controls"
@@ -442,7 +442,7 @@ export function CanvasBottomToolbar() {
               type="button"
               className={`${iconToggleBtn} ${
                 viewMode === "canvas"
-                  ? "bg-canvas-ink text-canvas-card shadow-card"
+                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                   : "text-canvas-muted hover:text-canvas-ink"
               }`}
               aria-label="Canvas view"
@@ -455,7 +455,7 @@ export function CanvasBottomToolbar() {
               type="button"
               className={`${iconToggleBtn} ${
                 viewMode === "focus"
-                  ? "bg-canvas-ink text-canvas-card shadow-card"
+                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                   : "text-canvas-muted hover:text-canvas-ink"
               }`}
               aria-label="Focus view"
@@ -468,7 +468,7 @@ export function CanvasBottomToolbar() {
               type="button"
               className={`${iconToggleBtn} ${
                 viewMode === "chat"
-                  ? "bg-canvas-ink text-canvas-card shadow-card"
+                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                   : "text-canvas-muted hover:text-canvas-ink"
               }`}
               aria-label="Chat view"

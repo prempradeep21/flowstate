@@ -37,9 +37,27 @@ export function CanvasViewport({ children }: PropsWithChildren) {
       applyTransform();
     });
 
+    // --vp-scale: the settled scale as a CSS custom property on the canvas
+    // container. Scalar zoom compensations (border widths, counter-scaled
+    // chrome, plug sizing) consume it via calc() so they track settle
+    // WITHOUT a React subscription — the post-zoom settle no longer
+    // re-renders every visible node just to restyle a few pixels.
+    const container =
+      el.closest<HTMLElement>("[data-canvas-container]") ?? el;
+    const applySettledScale = (scale: number) => {
+      container.style.setProperty("--vp-scale", String(scale));
+    };
+    applySettledScale(useCanvasStore.getState().viewportSettledScale);
+    const unsubSettled = useCanvasStore.subscribe((state, prevState) => {
+      if (state.viewportSettledScale !== prevState.viewportSettledScale) {
+        applySettledScale(state.viewportSettledScale);
+      }
+    });
+
     return () => {
       registerViewportElement(null);
       unsubscribe();
+      unsubSettled();
     };
   }, []);
 

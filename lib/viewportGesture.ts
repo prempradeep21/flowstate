@@ -75,6 +75,60 @@ export function isViewportGestureOwned(): boolean {
 }
 
 /**
+ * True from the first input of a viewport gesture until the data-gesturing
+ * attribute clears (~260ms after the last input). Deliberately WIDER than
+ * ownership: nodes mounting during the post-gesture settle restyle should
+ * still treat themselves as gesture-time mounts and defer hydration.
+ */
+export function isViewportGestureActive(): boolean {
+  return transient !== null || idleTimer !== null || attrTimer !== null;
+}
+
+// ---------------------------------------------------------------------------
+// Settle hydration: nodes that mount mid-gesture render a cheap provisional
+// stand-in and register here to swap in their full content AFTER the gesture
+// fully settles — time-sliced so a zoom-out that revealed dozens of nodes
+// hydrates over several frames instead of one settle-frame spike.
+// ---------------------------------------------------------------------------
+
+const HYDRATE_FRAME_BUDGET_MS = 4;
+
+const hydrateQueue: Array<() => void> = [];
+let hydrateRaf = 0;
+
+/**
+ * Queue a hydration callback for the next gesture settle (or the next frame
+ * when no gesture is active). Returns an unsubscribe for unmount safety.
+ */
+export function onGestureSettleHydrate(cb: () => void): () => void {
+  hydrateQueue.push(cb);
+  if (!isViewportGestureActive()) scheduleHydrateDrain();
+  return () => {
+    const i = hydrateQueue.indexOf(cb);
+    if (i !== -1) hydrateQueue.splice(i, 1);
+  };
+}
+
+function scheduleHydrateDrain(): void {
+  if (hydrateRaf || hydrateQueue.length === 0) return;
+  hydrateRaf = requestAnimationFrame(drainHydrateQueue);
+}
+
+function drainHydrateQueue(): void {
+  hydrateRaf = 0;
+  // A new gesture started since scheduling: pause (queue survives); the
+  // next settle re-schedules the drain.
+  if (isViewportGestureActive()) return;
+  const start = performance.now();
+  while (hydrateQueue.length > 0) {
+    const cb = hydrateQueue.shift()!;
+    cb();
+    if (performance.now() - start >= HYDRATE_FRAME_BUDGET_MS) break;
+  }
+  scheduleHydrateDrain();
+}
+
+/**
  * Called by CanvasViewport's store subscriber for writes arriving while a
  * gesture is active. Our own per-frame commits echo the transient value —
  * skip them (the DOM is already ahead). A DIFFERENT value means an external
@@ -97,12 +151,24 @@ export function shouldApplyStoreViewport(v: {
   return true;
 }
 
-function setGesturingAttr(on: boolean): void {
+/**
+ * Gesture mode carried in the data-gesturing attribute value:
+ * - "pan"  — viewport pan only; transitions suppressed, shadows kept (pans
+ *   composite the existing raster, shadows cost nothing per frame).
+ * - "zoom" — the gesture has zoomed at least once; shadows are also
+ *   flattened via CSS (every zoom frame re-rasters, blurred shadows are the
+ *   dominant raster cost). A pan that turns into a pinch upgrades and stays.
+ * Node drags (lib/gesture/gestureLayer.ts) use "drag" on the same attribute.
+ */
+type ViewportGestureMode = "pan" | "zoom";
+let gestureMode: ViewportGestureMode = "pan";
+
+function setGesturingAttr(mode: ViewportGestureMode | null): void {
   const container = document.querySelector<HTMLElement>(
     "[data-canvas-container]",
   );
   if (!container) return;
-  if (on) container.setAttribute("data-gesturing", "true");
+  if (mode) container.setAttribute("data-gesturing", mode);
   // Never clear here if a node drag holds the attr — the drag gestureLayer
   // manages its own lifecycle; we only remove what we set while no drag is
   // active. Node drags and viewport gestures don't overlap in practice
@@ -157,7 +223,10 @@ function endGesture(): void {
   if (attrTimer) clearTimeout(attrTimer);
   attrTimer = setTimeout(() => {
     attrTimer = null;
-    setGesturingAttr(false);
+    setGesturingAttr(null);
+    // Gesture fully settled (attr cleared → transitions re-enabled next
+    // frame, settle restyle already landed): drain deferred hydrations.
+    scheduleHydrateDrain();
   }, GESTURING_ATTR_CLEAR_MS - GESTURE_IDLE_END_MS);
 }
 
@@ -195,7 +264,8 @@ function touchGesture(): void {
   if (!transient) {
     const v = useCanvasStore.getState().viewport;
     transient = { x: v.x, y: v.y, scale: v.scale };
-    setGesturingAttr(true);
+    gestureMode = "pan";
+    setGesturingAttr(gestureMode);
     if (attrTimer) {
       clearTimeout(attrTimer);
       attrTimer = null;
@@ -247,6 +317,10 @@ function applyZoomInternal(
   pivotY: number,
 ): void {
   touchGesture();
+  if (gestureMode !== "zoom") {
+    gestureMode = "zoom";
+    setGesturingAttr(gestureMode);
+  }
   const t = transient!;
   const rawNext = t.scale * factor;
   const clamped = clampScale(rawNext);
@@ -362,5 +436,7 @@ export function cancelViewportGesture(): void {
   transient = null;
   if (attrTimer) clearTimeout(attrTimer);
   attrTimer = null;
-  setGesturingAttr(false);
+  setGesturingAttr(null);
+  // Aborted gestures still settle: provisional nodes must not stay stuck.
+  scheduleHydrateDrain();
 }

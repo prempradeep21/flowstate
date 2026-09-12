@@ -13,7 +13,14 @@ import { validateChartEmit, normalizeChartArtifactData } from "@/lib/chartArtifa
 import { normalizeStreetViewArtifactData } from "@/lib/streetViewArtifact";
 import { normalizeTodoArtifactData } from "@/lib/todoArtifact";
 import { callMcpTool } from "@/lib/mcpManager";
+import {
+  sanitizeCustomUiSource,
+  type CustomUiSourceData,
+} from "@/lib/customUiSource";
 import type { McpToolsResult, McpImage } from "@/lib/mcpManager";
+import { isAuthRequiredError } from "@/lib/mcp/client";
+import { resolveApproval } from "@/lib/mcp/approval";
+import type { ApprovalContext } from "@/lib/mcp/approval";
 import type { EmitFn, NeutralToolDef, ToolCall, ToolExecutor } from "@/lib/llm/provider";
 
 // --- Built-in tool definitions (provider-neutral) ----------------------------
@@ -76,6 +83,40 @@ export const EMIT_ARTIFACT_TOOL: NeutralToolDef = {
       },
     },
     required: ["type", "title", "data"],
+  },
+};
+
+export const BUILD_CUSTOM_UI_TOOL: NeutralToolDef = {
+  name: "build_custom_ui",
+  description:
+    "Hand the result of a connected MCP tool to the custom UI builder, which produces a bespoke interactive component on a new follow-up card below this one. " +
+    "Use it when an MCP tool has already returned data in this turn AND that data needs interaction to be useful — filtering or sorting across many rows, " +
+    "drilling into a graph or nested structure, stepping through a sequence, comparing entities side by side — and no emit_artifact type " +
+    "(table, chart, calendar, timeline, todo, map) fits the shape of the data. " +
+    "Do not use it for: a handful of rows or a plain list (use emit_artifact table or todo), a single value or short answer (just say it in your reply), " +
+    "an error message, or output that already rendered as a card. " +
+    "The build runs after this turn finishes, on its own card, and takes about a minute. Call it at most once per turn, " +
+    "and still write your normal short text reply — the user reads that while the component builds.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: 'Short component title shown on the card, e.g. "Knowledge graph explorer".',
+      },
+      request: {
+        type: "string",
+        description:
+          "One or two sentences telling the builder what to build and what the user should be able to do with it. " +
+          "Written for a builder that cannot see this conversation. Describe the interaction, not the data — the data is attached automatically.",
+      },
+      sourceTool: {
+        type: "string",
+        description:
+          "Name of the MCP tool whose result to hand over. Omit to use the most recent MCP result from this turn.",
+      },
+    },
+    required: ["title", "request"],
   },
 };
 
@@ -165,6 +206,8 @@ export function mcpImages(imgs: McpImage[]) {
 export interface ToolExecContext {
   emit: EmitFn;
   mcp: McpToolsResult;
+  /** Present when MCP tools are available (signed-in user with servers). */
+  mcpCtx?: Omit<ApprovalContext, "emit"> & { origin?: string };
 }
 
 /**
@@ -172,7 +215,14 @@ export interface ToolExecContext {
  * geocoding / normalization business logic, emits artifact/image/thinking SSE
  * events, and returns the tool-result text the provider feeds back to the model.
  */
-export function createToolExecutor({ emit, mcp }: ToolExecContext): ToolExecutor {
+export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): ToolExecutor {
+  // Per-turn buffer of MCP results, so build_custom_ui can hand one to the UI
+  // builder without the model re-emitting up to 16k chars it already sent.
+  // Ring of 4 bounds worst-case memory; only the recent ones are plausible
+  // handoff candidates anyway.
+  const mcpResults: CustomUiSourceData[] = [];
+  let handoffCount = 0;
+
   return async function executeTool(call: ToolCall): Promise<string> {
     const input = call.input ?? {};
     try {
@@ -264,13 +314,120 @@ export function createToolExecutor({ emit, mcp }: ToolExecContext): ToolExecutor
         return `Emitted ${type} artifact "${title}" for the canvas card.`;
       }
 
+      if (call.name === "build_custom_ui") {
+        if (mcpResults.length === 0) {
+          return (
+            "No MCP tool result is available to hand over. Call the relevant MCP tool first, " +
+            "then call build_custom_ui — or just answer directly."
+          );
+        }
+        if (handoffCount >= 1) {
+          return (
+            "An interactive component is already queued for this turn. " +
+            "Do not call build_custom_ui again; finish your text reply."
+          );
+        }
+        const title = typeof input.title === "string" ? input.title.trim() : "";
+        if (!title) {
+          return "build_custom_ui requires a non-empty title.";
+        }
+        const wanted = typeof input.sourceTool === "string" ? input.sourceTool.trim() : "";
+        const picked =
+          (wanted
+            ? [...mcpResults].reverse().find(
+                (r) => r.toolName === wanted || wanted.endsWith(r.toolName),
+              )
+            : undefined) ?? mcpResults[mcpResults.length - 1]!;
+
+        const source = sanitizeCustomUiSource({
+          ...picked,
+          brief: typeof input.request === "string" ? input.request : "",
+        });
+        if (!source) {
+          return "The MCP result could not be prepared for the UI builder. Summarize it for the user instead.";
+        }
+
+        handoffCount += 1;
+        // Two separate frames: the client SSE handler is an else-if chain, so a
+        // combined object would only match whichever key it tests first.
+        emit({ customUiHandoff: { title, source } });
+        emit({ thinking: `Queuing interactive build: ${title}…` });
+
+        return (
+          `Queued an interactive component ("${title}") built from the ${source.toolName} result. ` +
+          "It builds on a new card below this one after your reply. " +
+          "Do not call build_custom_ui again this turn and do not emit the same data as another artifact. " +
+          "Finish with one or two sentences telling the user the component is building below."
+        );
+      }
+
       if (mcp.registry.has(call.name)) {
-        const server = mcp.registry.get(call.name)!;
-        emit({ thinking: `Calling ${server.name}: ${call.name}…` });
-        const mcpResult = await callMcpTool(server, call.name, input);
+        const handle = mcp.registry.get(call.name)!;
+        if (!mcpCtx) {
+          return "MCP tools require a signed-in session.";
+        }
+
+        const toolDef = mcp.tools.find((t) => t.name === call.name);
+        emit({ thinking: `Waiting for permission: ${handle.originalName}…` });
+        const approval = await resolveApproval(
+          { ...mcpCtx, emit },
+          handle,
+          input,
+          toolDef?.description ?? "",
+        );
+        if (!approval.allowed) {
+          if (approval.reason === "aborted") {
+            return "The request was cancelled.";
+          }
+          return approval.reason === "timeout"
+            ? `The user did not respond to the approval prompt for ${handle.originalName}. Do not call this tool again this turn; continue without it.`
+            : `The user declined the ${handle.originalName} call. Continue without it and do not retry it this turn.`;
+        }
+
+        emit({ thinking: `Calling ${handle.serverName}: ${handle.originalName}…` });
+        let mcpResult;
+        try {
+          mcpResult = await callMcpTool(mcpCtx.supabase, handle, input, mcpCtx.origin);
+        } catch (err) {
+          if (isAuthRequiredError(err)) {
+            emit({
+              mcpAuth: { serverId: handle.serverId, serverName: handle.serverName },
+            });
+            return `The ${handle.serverName} server requires authentication. Tell the user to open the MCP tab in the right panel and click Connect for "${handle.serverName}", then ask again.`;
+          }
+          throw err;
+        }
         if (mcpResult.images.length > 0) {
           emit({ images: mcpImages(mcpResult.images) });
           emit({ responseType: "image" });
+        }
+        if (mcpResult.html) {
+          const normalized = normalizeCustomArtifactData({ html: mcpResult.html });
+          if (
+            normalized?.html &&
+            customArtifactByteSize(normalized) <= CUSTOM_ARTIFACT_MAX_BYTES
+          ) {
+            emit({ pendingArtifact: { type: "custom" } });
+            emit({
+              artifact: {
+                type: "custom",
+                title: `${handle.serverName}: ${handle.originalName}`,
+                description: `Output from the ${handle.serverName} MCP tool`,
+                data: normalized as unknown as Record<string, unknown>,
+              },
+            });
+            return `Rendered the ${handle.originalName} result as an interactive card on the canvas. Summarize it briefly for the user.`;
+          }
+        }
+        const source = sanitizeCustomUiSource({
+          serverName: handle.serverName,
+          toolName: handle.originalName,
+          brief: "",
+          text: mcpResult.text,
+        });
+        if (source) {
+          mcpResults.push(source);
+          if (mcpResults.length > 4) mcpResults.shift();
         }
         return mcpResult.text;
       }

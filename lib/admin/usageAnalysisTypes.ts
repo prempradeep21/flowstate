@@ -25,8 +25,34 @@ export type UsageAnalysisSnapshot = {
   topCanvases: UsageAnalysisCanvas[];
   signupsByDay: Array<{ date: string; count: number }>;
   activityByDay: Array<{ date: string; canvasUpdates: number }>;
+  /**
+   * Anonymous (non-logged-in) visitor analytics from `visitor_events`. Optional
+   * so snapshots taken before this shipped still deserialize cleanly.
+   */
+  visitors?: VisitorAnalytics | null;
   insights: string[];
   limitations: string[];
+};
+
+export type VisitorAnalytics = {
+  /** Lookback window in days used for every figure below. */
+  windowDays: number;
+  /** Distinct visitor cookies seen (logged-out only). */
+  uniqueVisitors: number;
+  /** Total anonymous page views in the window. */
+  pageViews: number;
+  /** Unique visitors seen in the trailing 24h. */
+  uniqueVisitorsToday: number;
+  topCountry: { name: string; count: number } | null;
+  topSource: { name: string; count: number } | null;
+  /** Unique visitors grouped by ISO country, most first. */
+  byCountry: Array<{ code: string; name: string; count: number }>;
+  /** Unique visitors grouped by coarse world region. */
+  byWorldRegion: Array<{ region: string; count: number }>;
+  /** Unique visitors grouped by first-touch source, most first. */
+  bySource: Array<{ source: string; count: number }>;
+  /** Per-day unique visitors + page views across the window. */
+  byDay: Array<{ date: string; visitors: number; pageViews: number }>;
 };
 
 export type UsageAnalysisAccount = {
@@ -85,4 +111,5 @@ export const USAGE_ANALYSIS_LIMITATIONS = [
   "Per-day token trends are unavailable; cards do not store usage timestamps.",
   "Cache read/write tokens only exist for turns generated after prompt caching shipped — older turns show zero cache activity.",
   "Last active is the latest canvas save or profile update — not sign-in time or live presence.",
+  "Anonymous visitor geo comes from Vercel edge headers (production only) and unique counts approximate people via a first-party cookie, so clearing cookies or blocking them undercounts.",
 ] as const;

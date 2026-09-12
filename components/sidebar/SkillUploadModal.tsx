@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MotionBackdrop, MotionOverlayModal } from "@/components/motion";
+import { Button } from "@/components/ui/Button";
 import { defaultSkillTitle } from "@/lib/skills";
 
 interface SkillUploadModalProps {
@@ -96,22 +97,17 @@ export function SkillUploadModal({
               )}
 
               <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={onCancel}
-                  className="rounded-canvas border border-canvas-border px-4 py-2 text-canvas-body font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-40"
-                >
+                <Button variant="ghost" disabled={busy} onClick={onCancel}>
                   Cancel
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="primary"
                   disabled={!canConfirm}
+                  loading={busy}
                   onClick={() => onConfirm(title.trim())}
-                  className="rounded-canvas bg-canvas-ink px-4 py-2 text-canvas-body font-medium text-canvas-card hover:opacity-90 disabled:opacity-40"
                 >
                   {busy ? "Uploading…" : "Add skill"}
-                </button>
+                </Button>
               </div>
             </div>
           </MotionOverlayModal>

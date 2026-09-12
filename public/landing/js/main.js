@@ -958,6 +958,26 @@
         }, T_SHATTER + 0.5);
       },
 
+      powerusers(tl, sc) {
+        const q = (s) => sc.querySelectorAll(s);
+        const chars = splitChars(sc.querySelector("h2"));
+        rise(tl, q(".eyebrow"), 0, { y: 24, dur: 1 });
+        charsIn(tl, chars, 0.25, { each: 0.035 });
+        rise(tl, q(".playground-hint"), 1.2, { y: 18, dur: 1 });
+        rise(tl, q(".pu-tabs"), 1.5, { y: 20, dur: 0.9 });
+        // the video card opens like an iris (echoes the playground canvas reveal)
+        tl.fromTo(q(".pu-card"),
+          { opacity: 0, clipPath: "inset(46% 38% 46% 38%)", y: 30 },
+          { opacity: 1, clipPath: "inset(0% 0% 0% 0%)", y: 0, duration: 1.8, ease: "power3.inOut" }, 1.7);
+        // shatter: the card dives past, tabs lift off, headline breaks apart
+        tl.to(q(".pu-card"), { scale: 1.18, opacity: 0, y: -80, duration: 2, ease: "power2.in" }, T_SHATTER + 1.2);
+        tl.to(q(".pu-tabs"), { opacity: 0, y: -40, duration: 1.4, ease: "power2.in" }, T_SHATTER + 0.6);
+        charsOut(tl, chars, 0.4);
+        tl.to([q(".eyebrow"), q(".playground-hint")], {
+          opacity: 0, y: -40, duration: 1.4, ease: "power2.in",
+        }, T_SHATTER + 0.5);
+      },
+
       chatflow(tl, sc) {
         const q = (s) => sc.querySelectorAll(s);
         const win = sc.querySelector(".cf-window");

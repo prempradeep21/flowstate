@@ -25,7 +25,7 @@ function ThreadTreeItem({
         onClick={() => onSelect(node.threadId)}
         className={`flex w-full items-start gap-2 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm transition-colors ${
           isActive
-            ? "bg-canvas-ink/8 text-canvas-ink"
+            ? "bg-canvas-accentSoft text-canvas-accent"
             : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
         }`}
         style={{ paddingLeft: 10 + depth * 14 }}

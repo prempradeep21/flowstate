@@ -12,10 +12,12 @@ All values defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts). Tail
 | `ink` | `#2C2A26` | `text-canvas-ink` |
 | `muted` | `#6F6B63` | `text-canvas-muted` (AA on bg + card) |
 | `dot` | `#8B8A86` | `--canvas-dot` in CSS |
-| ccent | #6B4EFF | 	ext-canvas-accent, g-canvas-accent — themable primary |
-| secondary | #5B7FD6 | 	ext-canvas-secondary — themable secondary |
-| 	ertiary | #D97706 | 	ext-canvas-tertiary — themable accent |
-| `artifactIconBg` | `#EDE9FE` | `bg-canvas-artifactIconBg` |
+| `accent` | `#2066EB` | `text-canvas-accent`, `bg-canvas-accent` — themable primary (brand blue; dark `#2066EB`) |
+| `accentSoft` | `#E0E9FA` | `bg-canvas-accentSoft` — soft selected-state fill (dark `#1F2D47`) |
+| `onAccent` | `#FFFFFF` | `text-canvas-onAccent` — text/icons on solid accent fills (dark `#FFFFFF`) |
+| `secondary` | `#5B7FD6` | `text-canvas-secondary` — themable secondary |
+| `tertiary` | `#D97706` | `text-canvas-tertiary` — themable accent |
+| `artifactIconBg` | `#E0E9FA` | `bg-canvas-artifactIconBg` |
 | `artifactStage` | `#F3F2EF` | `bg-canvas-artifactStage` |
 | `connector` | `#B8B5AE` | stroke fallback (`CANVAS_CONNECTOR`) |
 | `plugFill` | `#F7F6F3` | plug SVG fill |
@@ -91,3 +93,59 @@ Defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts) and [`app/global
 ```
 
 Motion variables remain separate; see motion design language.
+
+## Artifact style packs
+
+Style packs are defined in [`lib/design/style/stylePacks.ts`](../../lib/design/style/stylePacks.ts) and resolved into scoped CSS variables by [`lib/design/style/resolveArtifactStyle.ts`](../../lib/design/style/resolveArtifactStyle.ts) (injected by `<ArtifactStyleScope>`). Consumed by the `[data-artifact-style="<pack>"]` rules in [`app/styles/artifact-styles.css`](../../app/styles/artifact-styles.css). See the [design language](design-language.md#artifact-style-packs) for the concept.
+
+### Stroke variables
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--canvas-artifact-stroke-w` | `strokeWidth` | Frame stroke on `.artifact-casing` and `.chat-casing` |
+| `--canvas-artifact-stroke` | `stroke` (RGB channels) | Ink stroke color |
+| `--canvas-artifact-control-stroke-w` | `controlStrokeWidth` | In-card controls (pills, calendar chips) |
+| `--canvas-artifact-checkbox-stroke-w` | `checkboxStrokeWidth` | Todo checkboxes |
+
+### Neo values
+
+| Field | Value |
+|-------|-------|
+| `strokeWidth` | `1.6px` |
+| `controlStrokeWidth` | `1.3px` |
+| `checkboxStrokeWidth` | `1.4px` |
+| `stroke` (light) | `#232323` |
+| `stroke` (dark) | `#ECEAE3` |
+
+In Neo the `1.6px` ink frame stroke (`--canvas-artifact-stroke-w`) is applied uniformly across all input + output artifacts and chat surfaces (`.chat-casing`).
+
+### Color-led pack variables (optional — Bento, Riso)
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--art-cat-<category>-solid / -on-solid / -on-solid-muted / -pale / -ink / -muted / -vivid` | `categories[<category>]` (RGB channels, per mode) | Tonal palette per artifact category |
+| `--art-cat-<category>-line / -stage / -solid-line / -solid-stage` | derived (`mixHex`) | In-family hairline + raised stage for the pale and solid surfaces |
+| `--art-solid`, `--art-pale`, `--art-ink`, … | bound per node from `data-artifact-category` | What the pack rules actually read |
+| `--canvas-card / --canvas-ink / --canvas-muted / --canvas-border / --canvas-connector` (scope) | `surfaceCard / surfaceInk / surfaceMuted / surfaceBorder / canvasConnector` | Neutral re-declarations inside the scope (Riso) |
+| `--canvas-artifact-display-family / -weight / -tracking / -size`, `--canvas-artifact-quote-size`, `--canvas-artifact-eyebrow-family / -tracking` | `typography` | Headline typography for stat / quote / definition |
+
+The `chart` and `timeline` fields are not emitted as CSS — `getChartPalette(isDark, pack[mode].chart)` and `useTimelinePalette()` read them in JS.
+
+### Glass variables (optional — emitted only when a pack opts in)
+
+| Variable | Source field | Use |
+|----------|--------------|-----|
+| `--canvas-artifact-backdrop-filter` | `backdropFilter` (preset-level, mode-independent) | Backdrop blur/saturation on `.artifact-casing` / `.chat-casing`; flattened to `none` during zoom gestures |
+| `--canvas-artifact-card-alpha` | `cardFillAlpha` (per mode) | Fill translucency, composed as `rgb(var(--canvas-artifact-card-fill) / alpha)`; CSS falls back to `1` |
+| `--canvas-artifact-inner-highlight` | `innerHighlight` (per mode) | Specular inset edge, composed into shadow lists; falls back to `0 0 #0000` |
+
+### Liquid Glass values
+
+| Field | Value |
+|-------|-------|
+| `backdropFilter` | `blur(20px) saturate(1.7)` |
+| `radius` | `24px` |
+| `cardFill` / `cardFillAlpha` (light) | `#F7FAFF` / `0.55` |
+| `cardFill` / `cardFillAlpha` (dark) | `#232A36` / `0.5` |
+| `stroke` (light / dark) | `#FFFFFF` / `#8A93A6` — consumed at 55% alpha as a luminous rim |
+| `canvasBg` (light / dark) | `#DDE5EF` / `#101319` — tinted backdrop so the blur has content to refract |

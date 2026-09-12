@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildCanvasSpatialIndex,
   CanvasSpatialIndexManager,
+  CULLING_QUANTIZE,
+  CULLING_VIEWPORT_PADDING,
   getVisibleWorldRect,
+  quantizedVisibleRect,
   queryVisibleNodes,
   shouldEnableViewportCulling,
   visibleNodesEqual,
@@ -152,6 +155,41 @@ describe("CanvasSpatialIndexManager", () => {
     manager.markDirty();
     const fresh = manager.query(moved, { width: 800, height: 600 });
     expect(fresh.cards.has("a")).toBe(false);
+  });
+
+  it("bumps version on markDirty (geometry epoch for query-skip callers)", () => {
+    const manager = new CanvasSpatialIndexManager();
+    const v0 = manager.version;
+    manager.markDirty();
+    expect(manager.version).toBe(v0 + 1);
+    manager.markDirty();
+    expect(manager.version).toBe(v0 + 2);
+  });
+});
+
+describe("quantizedVisibleRect", () => {
+  const size = { width: 800, height: 600 };
+
+  it("is stable across small pans within a quantize band", () => {
+    const a = quantizedVisibleRect({ x: 0, y: 0, scale: 1 }, size);
+    const b = quantizedVisibleRect({ x: -30, y: -30, scale: 1 }, size);
+    expect(b).toEqual(a);
+  });
+
+  it("changes when the viewport crosses a band edge", () => {
+    const a = quantizedVisibleRect({ x: 0, y: 0, scale: 1 }, size);
+    const b = quantizedVisibleRect({ x: -500, y: 0, scale: 1 }, size);
+    expect(b).not.toEqual(a);
+  });
+
+  it("matches the rect searchVisibleNodes queries (grid-aligned, padded)", () => {
+    const rect = quantizedVisibleRect({ x: 0, y: 0, scale: 1 }, size);
+    expect(Math.abs(rect.minX % CULLING_QUANTIZE)).toBe(0);
+    expect(Math.abs(rect.minY % CULLING_QUANTIZE)).toBe(0);
+    expect(Math.abs(rect.maxX % CULLING_QUANTIZE)).toBe(0);
+    expect(Math.abs(rect.maxY % CULLING_QUANTIZE)).toBe(0);
+    expect(rect.minX).toBeLessThanOrEqual(-CULLING_VIEWPORT_PADDING);
+    expect(rect.maxX).toBeGreaterThanOrEqual(800 + CULLING_VIEWPORT_PADDING);
   });
 });
 

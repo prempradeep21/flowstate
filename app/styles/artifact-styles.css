@@ -1,0 +1,1792 @@
+/**
+ * Artifact style packs — structural rules.
+ *
+ * Every selector is prefixed with [data-artifact-style="<pack>"], so nothing
+ * here applies unless a subtree opts in via <ArtifactStyleScope>. The pack's
+ * CSS variables (--canvas-artifact-*) are injected by the scope component
+ * (see lib/design/style/resolveArtifactStyle.ts); this file only consumes
+ * them. Vanilla has no block — it is the absence of a scope.
+ *
+ * !important is deliberate on contested properties: vanilla's chrome is
+ * hover-revealed via Tailwind group-variants whose selectors out-rank a
+ * two-class scope selector, and the resting container fill is forced
+ * transparent with !important in globals.css. The overrides stay contained
+ * to the scoped subtree.
+ */
+
+/* ---------------------------------------------------------------------- */
+/* Neo — landing-page language: ink wire, solid chin, cream card, cobalt. */
+/* ---------------------------------------------------------------------- */
+
+/* Casing: always-on stroke + ambient shadow + solid no-blur chin. */
+[data-artifact-style="neo"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-chin-shadow) !important;
+}
+
+/* Solid card fill at rest. Specificity must beat globals.css's
+   `.group\/artifact:not(...)x3 .artifact-canvas-container-fill` transparent
+   !important rule — hence the attribute-stacked selector. */
+[data-artifact-style="neo"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+
+/* Selected: accent stroke, soft focus ring, accent chin (replaces the
+   Tailwind ring, which is box-shadow based, in a single declaration). */
+[data-artifact-style="neo"] [data-canvas-artifact][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent)) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+
+/* Naked kinds (images/video, embeds, street view, 3d, sticky notes…) keep the
+   shared ink wire + chin so every artifact carries the same stroke, but stay
+   transparent behind it so their own media/content shows through (the card-fill
+   rule above already excludes naked kinds). */
+[data-artifact-style="neo"] [data-canvas-artifact][data-naked-artifact] .artifact-casing {
+  background: transparent !important;
+}
+
+/* Inner surface fill follows the pack's card tone. */
+[data-artifact-style="neo"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+}
+
+/* Chat surfaces (on-canvas Q&A cards + the chat-panel thread) carry the same
+   ink wire as artifacts so conversations read as part of one system.
+   !important beats the Tailwind `border-canvas-border` utility and the inline
+   zoom-compensated border-width on these cards. */
+[data-artifact-style="neo"] .chat-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+}
+
+/* Header: translucent top bar with an ink rule, landing-style. */
+[data-artifact-style="neo"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* Lowercase kind label, pinned right; fades out when hover chrome (version /
+   menu controls) needs the same corner. */
+[data-artifact-style="neo"] .artifact-panel-header::after {
+  content: attr(data-artifact-kind);
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: rgb(var(--canvas-accent));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="neo"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="neo"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="neo"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: cobalt wash instead of ink wash. */
+[data-artifact-style="neo"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-accent) / 0.1) !important;
+}
+
+/* Highlighted dates: soft cobalt rounded square (landing "cal-on"). The
+   Tailwind ring (box-shadow) is replaced by a crisp accent inset stroke. */
+[data-artifact-style="neo"] .artifact-cal-day--highlighted {
+  border-radius: 7px;
+  background-color: rgb(var(--canvas-accent) / 0.14);
+  color: rgb(var(--canvas-accent-deep));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-accent) / 0.55) !important;
+}
+
+/* Today: solid cobalt day chip (landing "cal-hot"). */
+[data-artifact-style="neo"] .artifact-cal-day--today {
+  border-radius: 7px;
+  background-color: rgb(var(--canvas-accent));
+  color: #fff;
+}
+[data-artifact-style="neo"] .artifact-cal-day--today > span {
+  background-color: #fff !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="neo"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 4px !important;
+}
+[data-artifact-style="neo"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neo"] .artifact-todo-checkbox[aria-checked="true"] {
+  border-color: rgb(var(--canvas-accent-deep)) !important;
+}
+
+/* Stroked pills (todo priority tags etc.) — replaces the Tailwind ring. */
+[data-artifact-style="neo"] .artifact-pill {
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Ink rules instead of per-instance accent rules. !important also overrides
+   the inline `borderColor: var(--table-accent-border)` on the header row. */
+[data-artifact-style="neo"] table thead tr {
+  border-bottom-width: 1px;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.25) !important;
+}
+[data-artifact-style="neo"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.12) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Neobrutalism ("Brut") — thick ink borders, hard zero-blur offset        */
+/* shadows, flat opaque fills, sticker headers, tilted cards, acid canvas. */
+/* ---------------------------------------------------------------------- */
+
+/* Canvas backdrop: the pack re-declares --canvas-bg and --canvas-dot
+   (resolver), and GridBackground resolves both inside the scope — the grid
+   keeps drawing its own zoom-scaled dots, so no pattern override here. */
+
+/* Casing: bold border + THE hard shadow + resting tilt. Even-numbered nodes
+   tilt the other way for a scattered-sticker canvas. */
+[data-artifact-style="neobrutalism"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+  transform: rotate(var(--canvas-artifact-tilt));
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact]:nth-of-type(even)
+  .artifact-casing {
+  transform: rotate(calc(var(--canvas-artifact-tilt) * -1));
+}
+
+/* Physical feedback: hover lifts against the shadow, press pushes into it. */
+[data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-casing {
+  transform: translate(var(--canvas-artifact-hover-lift))
+    rotate(var(--canvas-artifact-tilt));
+}
+[data-artifact-style="neobrutalism"] .group\/artifact:active .artifact-casing {
+  transform: translate(var(--canvas-artifact-press-push)) rotate(0deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="neobrutalism"] .artifact-casing,
+  [data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-casing,
+  [data-artifact-style="neobrutalism"] .group\/artifact:active .artifact-casing {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Solid opaque card fill at rest (see the neo block for the specificity
+   rationale — same contested transparent !important rule in globals.css). */
+[data-artifact-style="neobrutalism"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+
+/* Selected: accent outline ring + the shadow flips to the deep accent. */
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact][data-selected]
+  .artifact-casing {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  box-shadow: var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+
+/* Naked kinds (images, embeds, street view, sticky notes…) keep their own
+   surface, but Brut still frames them: every node gets a thick ink stroke and
+   the hard offset shadow. Content stays transparent-filled; tilt is dropped to
+   avoid corner clipping on media. */
+[data-artifact-style="neobrutalism"]
+  [data-canvas-artifact][data-naked-artifact]
+  .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+  background: transparent !important;
+  transform: none;
+}
+
+/* Inner surface fill follows the pack's card tone. */
+[data-artifact-style="neobrutalism"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+}
+
+/* Per-category sticker palette — loud flat colors keyed by artifact category
+   (data-artifact-category on the header). Light fills take black ink text
+   (theme --canvas-ink); dark fills are deep/muted so bone-white text reads.
+   Local to this stylesheet — no global tokens. */
+[data-artifact-style="neobrutalism"] {
+  --brut-cat-data: 61 165 245; /* blue */
+  --brut-cat-viz: 255 159 64; /* orange */
+  --brut-cat-geo: 61 220 132; /* green */
+  --brut-cat-media: 255 64 129; /* pink (brutPop) */
+  --brut-cat-docs: 255 235 59; /* yellow (brutSun) */
+  --brut-cat-dev: 176 133 245; /* purple */
+  --brut-cat-planning: 255 107 107; /* coral */
+}
+html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
+  --brut-cat-data: 30 58 95;
+  --brut-cat-viz: 90 58 30;
+  --brut-cat-geo: 30 70 52;
+  --brut-cat-media: 90 37 64;
+  --brut-cat-docs: 74 63 30;
+  --brut-cat-dev: 58 47 85;
+  --brut-cat-planning: 90 37 48;
+}
+
+/* Header: solid sticker bar under a thick ink rule. The base fill is the
+   pack default; per-category selectors below repaint it. */
+[data-artifact-style="neobrutalism"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* Per-category header fills — the extra attribute selector out-ranks the base
+   header rule, so no !important needed. */
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="data"] {
+  background: rgb(var(--brut-cat-data));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="viz"] {
+  background: rgb(var(--brut-cat-viz));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="geo"] {
+  background: rgb(var(--brut-cat-geo));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="media"] {
+  background: rgb(var(--brut-cat-media));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="docs"] {
+  background: rgb(var(--brut-cat-docs));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="dev"] {
+  background: rgb(var(--brut-cat-dev));
+}
+[data-artifact-style="neobrutalism"] .artifact-panel-header[data-artifact-category="planning"] {
+  background: rgb(var(--brut-cat-planning));
+}
+
+/* Header icon circle: a flat card-fill sticker chip with an ink frame, so it
+   reads on any loud header (overrides the inline themed category fill). */
+[data-artifact-style="neobrutalism"] .artifact-header-icon {
+  background-color: rgb(var(--canvas-artifact-card-fill)) !important;
+  color: rgb(var(--canvas-artifact-stroke)) !important;
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  border-radius: 4px;
+}
+
+/* Kind label as a rotated sticker chip — bold, uppercase, hard mini-shadow.
+   Fades out when hover chrome needs the corner (same dance as neo). */
+[data-artifact-style="neobrutalism"] .artifact-panel-header::after {
+  content: attr(data-artifact-kind);
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(2deg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--canvas-artifact-stroke));
+  background: rgb(var(--canvas-artifact-card-fill));
+  border: 2px solid rgb(var(--canvas-artifact-stroke));
+  border-radius: 2px;
+  padding: 1px 6px;
+  box-shadow: 2px 2px 0 rgb(var(--canvas-artifact-stroke));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="neobrutalism"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="neobrutalism"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="neobrutalism"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: flat sun-yellow wash — loud, not translucent-subtle. */
+[data-artifact-style="neobrutalism"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-brut-sun)) !important;
+}
+
+/* Highlighted dates: sharp ink-inset square on a sun fill. */
+[data-artifact-style="neobrutalism"] .artifact-cal-day--highlighted {
+  border-radius: 4px;
+  background-color: rgb(var(--canvas-brut-sun));
+  color: rgb(var(--canvas-artifact-stroke));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-artifact-stroke)) !important;
+}
+
+/* Today: solid accent block with an ink frame and its own tiny hard shadow. */
+[data-artifact-style="neobrutalism"] .artifact-cal-day--today {
+  border-radius: 4px;
+  background-color: rgb(var(--canvas-accent));
+  color: rgb(var(--canvas-on-accent));
+  box-shadow: inset 0 0 0 2px rgb(var(--canvas-artifact-stroke)),
+    2px 2px 0 rgb(var(--canvas-artifact-stroke));
+}
+[data-artifact-style="neobrutalism"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--canvas-on-accent)) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+/* Sharp square checkboxes, thick ink stroke, flat accent when checked. */
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 2px !important;
+}
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neobrutalism"] .artifact-todo-checkbox[aria-checked="true"] {
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  background-color: rgb(var(--canvas-accent)) !important;
+}
+
+/* Pills: near-square, full ink stroke, their own mini hard shadow. */
+[data-artifact-style="neobrutalism"] .artifact-pill {
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+      rgb(var(--canvas-artifact-stroke)),
+    2px 2px 0 rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Full-strength ink rules — no half-opacity hedging. */
+[data-artifact-style="neobrutalism"] table thead tr {
+  border-bottom-width: 2px;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="neobrutalism"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.35) !important;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+/* Chat cards render outside the .artifact-casing system (Card.tsx uses theme
+   border tokens), so hook them into the Brut stroke here — inputs get the same
+   thick ink border + hard offset shadow as artifacts. Targets the main Q&A
+   frame, the LOD placeholder, and the empty composer shell. !important beats
+   the inline per-scale borderWidth on the inner frame. The outer .group/card
+   of a normal chat has no border of its own, so it is left untouched to avoid a
+   double frame. */
+[data-artifact-style="neobrutalism"] [data-canvas-card] .group\/inner,
+[data-artifact-style="neobrutalism"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="neobrutalism"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-style: solid !important;
+  border-width: var(--canvas-artifact-stroke-w) !important;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Liquid Glass — Apple-style translucent material: backdrop blur +        */
+/* saturation, specular edge highlights, continuous corners. Cardinal      */
+/* rule: backdrop-filter on exactly ONE element per node (.artifact-casing */
+/* / .chat-casing) — nested blurs multiply raster cost and double-frost.   */
+/* Light/dark differences flow entirely through resolver vars.             */
+/* ---------------------------------------------------------------------- */
+
+/* Casing: hairline luminous rim + ambient depth + specular inner edge +
+   the glass blur itself. */
+[data-artifact-style="liquid-glass"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+  -webkit-backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+  backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+}
+
+/* Translucent glass fill at rest (see the neo block for the specificity
+   rationale — same contested transparent !important rule in globals.css). */
+[data-artifact-style="liquid-glass"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(
+    var(--canvas-artifact-card-fill) / var(--canvas-artifact-card-alpha, 1)
+  ) !important;
+}
+
+/* Selected: the rim brightens to the accent under a soft accent halo. */
+[data-artifact-style="liquid-glass"]
+  [data-canvas-artifact][data-selected]
+  .artifact-casing {
+  border-color: rgb(var(--canvas-accent) / 0.8) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}
+
+/* Naked kinds (images, embeds, street view, sticky notes…) supply their own
+   surface: keep the glass rim + depth so every node reads as one material,
+   but drop the fill and the blur (nothing translucent to frost). */
+[data-artifact-style="liquid-glass"]
+  [data-canvas-artifact][data-naked-artifact]
+  .artifact-casing {
+  background: transparent !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Inner surface fill: a lighter wash of the glass tone — translucent so the
+   casing's blurred backdrop glows through. No second blur. */
+[data-artifact-style="liquid-glass"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.35);
+}
+
+/* Header: brighter glass band under a luminous hairline. No kind label —
+   glass stays quiet. */
+[data-artifact-style="liquid-glass"] .artifact-panel-header {
+  position: relative;
+  background: var(--canvas-artifact-header-bg);
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+/* Range selection: soft accent wash through the glass. */
+[data-artifact-style="liquid-glass"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--canvas-accent) / 0.14) !important;
+}
+
+/* Highlighted dates: rounded frosted accent chip with a soft inset ring. */
+[data-artifact-style="liquid-glass"] .artifact-cal-day--highlighted {
+  border-radius: 10px;
+  background-color: rgb(var(--canvas-accent) / 0.16);
+  color: rgb(var(--canvas-accent-deep));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+    rgb(var(--canvas-accent) / 0.4) !important;
+}
+
+/* Today: solid accent lens. */
+[data-artifact-style="liquid-glass"] .artifact-cal-day--today {
+  border-radius: 10px;
+  background-color: rgb(var(--canvas-accent));
+  color: rgb(var(--canvas-on-accent));
+}
+[data-artifact-style="liquid-glass"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--canvas-on-accent)) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="liquid-glass"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 7px !important;
+}
+[data-artifact-style="liquid-glass"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.7) !important;
+}
+
+/* Frosted pill chips: translucent glass fill, luminous inset ring, tiny
+   specular top edge. */
+[data-artifact-style="liquid-glass"] .artifact-pill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.5) !important;
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w)
+      rgb(var(--canvas-artifact-stroke) / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.35) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Luminous hairline rules. */
+[data-artifact-style="liquid-glass"] table thead tr {
+  border-bottom-width: 1px;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
+}
+[data-artifact-style="liquid-glass"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.18) !important;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+/* Chat surfaces become the same glass material as artifacts: the on-canvas
+   Q&A frame + chat-panel thread (.chat-casing), the LOD placeholder and the
+   empty composer shell (same selector set as the Brut chat block). This is
+   the blur element for chat nodes — nothing inside it blurs again.
+   !important beats the Tailwind border utilities, bg-transparent, and the
+   inline per-scale borderWidth on the inner frame. */
+[data-artifact-style="liquid-glass"] .chat-casing,
+[data-artifact-style="liquid-glass"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="liquid-glass"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-style: solid !important;
+  border-width: var(--canvas-artifact-stroke-w) !important;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.55) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  background: rgb(
+    var(--canvas-artifact-card-fill) / var(--canvas-artifact-card-alpha, 1)
+  ) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+  -webkit-backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+  backdrop-filter: var(--canvas-artifact-backdrop-filter, none);
+}
+
+/* Q&A answer body: a light wash of the glass tone instead of the near-opaque
+   default — the casing behind it already frosts the canvas. Scope specificity
+   (0,2,0) beats the (0,1,0) globals.css rule without !important. */
+[data-artifact-style="liquid-glass"] .canvas-translucent-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.2);
+  background-image: none;
+}
+
+/* Follow-up footer: slightly denser glass band under a luminous rule. */
+[data-artifact-style="liquid-glass"] [data-follow-up-footer] {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.35) !important;
+  border-top-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
+}
+
+/* Composer shell (canvas card footer + chat panel): translucent glass, but
+   NO backdrop-filter — on canvas it nests inside the blurred .chat-casing. */
+[data-artifact-style="liquid-glass"] .chat-composer-casing {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.45) !important;
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.5) !important;
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}
+
+/* Chat threads sidebar: frosted panel edge. */
+[data-artifact-style="liquid-glass"] .chat-thread-panel {
+  background-color: rgb(var(--canvas-artifact-card-fill) / 0.45) !important;
+  border-right-color: rgb(var(--canvas-artifact-stroke) / 0.4) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Document input artifacts (canvas assets: PDFs, office, code, text…).    */
+/* They share the .artifact-casing stroke/shadow so their frame adapts to  */
+/* each pack, and .artifact-panel-header so their header adapts too — the  */
+/* same treatment a YouTube/embed artifact gets. Assets are always naked   */
+/* (their preview fills the card) and deliberately do NOT carry            */
+/* [data-canvas-artifact] (it would confuse context-menu hit-testing), so  */
+/* the pack rules keyed off that attribute don't reach them. The two hooks */
+/* below restore the parts that matter: the selected ring and the header   */
+/* kind tag.                                                               */
+/* ---------------------------------------------------------------------- */
+
+/* Selected ring — mirrors each pack's [data-canvas-artifact][data-selected]
+   casing rule, re-scoped to [data-canvas-asset]. */
+[data-artifact-style="neo"] [data-canvas-asset][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent)) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+[data-artifact-style="neobrutalism"] [data-canvas-asset][data-selected] .artifact-casing {
+  box-shadow: var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-selected-chin) !important;
+}
+[data-artifact-style="liquid-glass"] [data-canvas-asset][data-selected] .artifact-casing {
+  border-color: rgb(var(--canvas-accent) / 0.8) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    var(--canvas-artifact-selected-ring),
+    var(--canvas-artifact-inner-highlight, 0 0 #0000) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Color-led packs (Bento, Riso) — shared category binding.                */
+/* The resolver emits --art-cat-<category>-<role> channels for every       */
+/* category; each node binds its own category's set to the generic         */
+/* --art-<role> vars via data-artifact-category (set on the artifact node   */
+/* root and on chat cards). Every rule below reads only --art-*, so the     */
+/* per-kind CSS is category-agnostic.                                      */
+/* ---------------------------------------------------------------------- */
+
+[data-artifact-style="bento"] [data-artifact-category="data"],
+[data-artifact-style="riso"] [data-artifact-category="data"] {
+  --art-solid: var(--art-cat-data-solid);
+  --art-on-solid: var(--art-cat-data-on-solid);
+  --art-on-solid-muted: var(--art-cat-data-on-solid-muted);
+  --art-pale: var(--art-cat-data-pale);
+  --art-ink: var(--art-cat-data-ink);
+  --art-muted: var(--art-cat-data-muted);
+  --art-vivid: var(--art-cat-data-vivid);
+  --art-line: var(--art-cat-data-line);
+  --art-stage: var(--art-cat-data-stage);
+  --art-solid-line: var(--art-cat-data-solid-line);
+  --art-solid-stage: var(--art-cat-data-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="viz"],
+[data-artifact-style="riso"] [data-artifact-category="viz"] {
+  --art-solid: var(--art-cat-viz-solid);
+  --art-on-solid: var(--art-cat-viz-on-solid);
+  --art-on-solid-muted: var(--art-cat-viz-on-solid-muted);
+  --art-pale: var(--art-cat-viz-pale);
+  --art-ink: var(--art-cat-viz-ink);
+  --art-muted: var(--art-cat-viz-muted);
+  --art-vivid: var(--art-cat-viz-vivid);
+  --art-line: var(--art-cat-viz-line);
+  --art-stage: var(--art-cat-viz-stage);
+  --art-solid-line: var(--art-cat-viz-solid-line);
+  --art-solid-stage: var(--art-cat-viz-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="geo"],
+[data-artifact-style="riso"] [data-artifact-category="geo"] {
+  --art-solid: var(--art-cat-geo-solid);
+  --art-on-solid: var(--art-cat-geo-on-solid);
+  --art-on-solid-muted: var(--art-cat-geo-on-solid-muted);
+  --art-pale: var(--art-cat-geo-pale);
+  --art-ink: var(--art-cat-geo-ink);
+  --art-muted: var(--art-cat-geo-muted);
+  --art-vivid: var(--art-cat-geo-vivid);
+  --art-line: var(--art-cat-geo-line);
+  --art-stage: var(--art-cat-geo-stage);
+  --art-solid-line: var(--art-cat-geo-solid-line);
+  --art-solid-stage: var(--art-cat-geo-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="media"],
+[data-artifact-style="riso"] [data-artifact-category="media"] {
+  --art-solid: var(--art-cat-media-solid);
+  --art-on-solid: var(--art-cat-media-on-solid);
+  --art-on-solid-muted: var(--art-cat-media-on-solid-muted);
+  --art-pale: var(--art-cat-media-pale);
+  --art-ink: var(--art-cat-media-ink);
+  --art-muted: var(--art-cat-media-muted);
+  --art-vivid: var(--art-cat-media-vivid);
+  --art-line: var(--art-cat-media-line);
+  --art-stage: var(--art-cat-media-stage);
+  --art-solid-line: var(--art-cat-media-solid-line);
+  --art-solid-stage: var(--art-cat-media-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="docs"],
+[data-artifact-style="riso"] [data-artifact-category="docs"] {
+  --art-solid: var(--art-cat-docs-solid);
+  --art-on-solid: var(--art-cat-docs-on-solid);
+  --art-on-solid-muted: var(--art-cat-docs-on-solid-muted);
+  --art-pale: var(--art-cat-docs-pale);
+  --art-ink: var(--art-cat-docs-ink);
+  --art-muted: var(--art-cat-docs-muted);
+  --art-vivid: var(--art-cat-docs-vivid);
+  --art-line: var(--art-cat-docs-line);
+  --art-stage: var(--art-cat-docs-stage);
+  --art-solid-line: var(--art-cat-docs-solid-line);
+  --art-solid-stage: var(--art-cat-docs-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="dev"],
+[data-artifact-style="riso"] [data-artifact-category="dev"] {
+  --art-solid: var(--art-cat-dev-solid);
+  --art-on-solid: var(--art-cat-dev-on-solid);
+  --art-on-solid-muted: var(--art-cat-dev-on-solid-muted);
+  --art-pale: var(--art-cat-dev-pale);
+  --art-ink: var(--art-cat-dev-ink);
+  --art-muted: var(--art-cat-dev-muted);
+  --art-vivid: var(--art-cat-dev-vivid);
+  --art-line: var(--art-cat-dev-line);
+  --art-stage: var(--art-cat-dev-stage);
+  --art-solid-line: var(--art-cat-dev-solid-line);
+  --art-solid-stage: var(--art-cat-dev-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="planning"],
+[data-artifact-style="riso"] [data-artifact-category="planning"] {
+  --art-solid: var(--art-cat-planning-solid);
+  --art-on-solid: var(--art-cat-planning-on-solid);
+  --art-on-solid-muted: var(--art-cat-planning-on-solid-muted);
+  --art-pale: var(--art-cat-planning-pale);
+  --art-ink: var(--art-cat-planning-ink);
+  --art-muted: var(--art-cat-planning-muted);
+  --art-vivid: var(--art-cat-planning-vivid);
+  --art-line: var(--art-cat-planning-line);
+  --art-stage: var(--art-cat-planning-stage);
+  --art-solid-line: var(--art-cat-planning-solid-line);
+  --art-solid-stage: var(--art-cat-planning-solid-stage);
+}
+
+[data-artifact-style="bento"] [data-artifact-category="discourse"],
+[data-artifact-style="riso"] [data-artifact-category="discourse"] {
+  --art-solid: var(--art-cat-discourse-solid);
+  --art-on-solid: var(--art-cat-discourse-on-solid);
+  --art-on-solid-muted: var(--art-cat-discourse-on-solid-muted);
+  --art-pale: var(--art-cat-discourse-pale);
+  --art-ink: var(--art-cat-discourse-ink);
+  --art-muted: var(--art-cat-discourse-muted);
+  --art-vivid: var(--art-cat-discourse-vivid);
+  --art-line: var(--art-cat-discourse-line);
+  --art-stage: var(--art-cat-discourse-stage);
+  --art-solid-line: var(--art-cat-discourse-solid-line);
+  --art-solid-stage: var(--art-cat-discourse-solid-stage);
+}
+
+/* Responsive display type: canvas nodes have explicit widths, so inline-size
+   containment on the stage is safe there (sidebar / panel layouts keep their
+   fixed sizes and never get cqi units). */
+[data-artifact-style="bento"] [data-canvas-artifact] .artifact-content-stage,
+[data-artifact-style="riso"] [data-canvas-artifact] .artifact-content-stage {
+  container-type: inline-size;
+}
+/* Hero kinds (stat, quote) scale their type with BOTH card dimensions, so
+   their stage contains in both axes. The stage's height is assigned by the
+   node's flex column, so containment never collapses it. */
+[data-artifact-style="bento"] [data-canvas-artifact][data-artifact-kind="stat"] .artifact-content-stage,
+[data-artifact-style="bento"] [data-canvas-artifact][data-artifact-kind="quote"] .artifact-content-stage,
+[data-artifact-style="riso"] [data-canvas-artifact][data-artifact-kind="stat"] .artifact-content-stage,
+[data-artifact-style="riso"] [data-canvas-artifact][data-artifact-kind="quote"] .artifact-content-stage {
+  container-type: size;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Bento — the SOLID tonal system. Every card IS its category color: one   */
+/* saturated fill edge to edge (header included), light ink on top, huge   */
+/* display type. No pale/tint role, no strokes; depth comes from the tone  */
+/* contrast against the canvas plus one soft tinted shadow. Anything drawn */
+/* ON a card (chips, rules, table head, step blocks) paints in --art-accent */
+/* (the on-fill tone) with --art-on-accent text, so it stays legible on a  */
+/* saturated ground. Neutral tokens are re-declared per node so every      */
+/* canvas-* utility inside recolors itself.                               */
+/* ---------------------------------------------------------------------- */
+
+/* Every node, every kind: the solid role. `--art-fill` / `--art-on-fill`
+   are the card's own pair; `--art-accent` / `--art-on-accent` are the
+   inverse pair for anything painted on top of it. */
+[data-artifact-style="bento"] [data-artifact-category] {
+  --art-fill: var(--art-solid);
+  --art-on-fill: var(--art-on-solid);
+  --art-accent: var(--art-on-solid);
+  --art-on-accent: var(--art-solid);
+
+  --canvas-ink: var(--art-on-solid);
+  --canvas-muted: var(--art-on-solid-muted);
+  /* Every neutral that can carry text has to travel with the fill, or a
+     remapped hue leaves stale ink behind on the card. */
+  --canvas-secondary: var(--art-on-solid);
+  --canvas-tertiary: var(--art-on-solid-muted);
+  --canvas-connector: var(--art-on-solid-muted);
+  --canvas-syntax-comment: var(--art-on-solid-muted);
+  --canvas-syntax-string: var(--art-on-solid);
+  --canvas-syntax-keyword: var(--art-on-solid);
+  --canvas-card: var(--art-solid);
+  --canvas-border: var(--art-solid-line);
+  --canvas-artifact-stage: var(--art-solid-stage);
+  --canvas-code-bg: var(--art-solid-stage);
+  --canvas-plug-fill: var(--art-solid);
+  --canvas-accent: var(--art-on-solid);
+  --canvas-on-accent: var(--art-solid);
+  --canvas-accent-soft: var(--art-solid-line);
+  --canvas-artifact-icon-bg: var(--art-on-solid);
+  --canvas-map-primary: var(--art-on-solid);
+}
+
+/* Casing: no stroke, pack corners, one soft tinted shadow, category fill.
+   Applies to naked kinds too (their media fills edge-to-edge, so the tint
+   shows in the header band) — one treatment for every node. */
+[data-artifact-style="bento"] .artifact-casing {
+  border: 0 !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow) !important;
+  background: rgb(var(--canvas-card)) !important;
+  transition:
+    transform 160ms var(--motion-ease-light),
+    box-shadow 160ms var(--motion-ease-light);
+}
+/* The container fill is hover-gated in globals.css (transparent at rest), which
+   left the header band showing raw canvas while the stage below carried the
+   category tone. Bento is a one-color-per-card system, so the fill is always
+   on: header and body read as a single block, like a YouTube card. Stacked
+   attributes beat the `:not([data-chrome-*])` transparent !important rules. */
+[data-artifact-style="bento"]
+  .group\/artifact[data-canvas-artifact][data-artifact-kind][data-artifact-category]
+  .artifact-casing.artifact-canvas-container-fill {
+  background: rgb(var(--canvas-card)) !important;
+}
+
+[data-artifact-style="bento"] .group\/artifact:hover .artifact-casing {
+  transform: translate(var(--canvas-artifact-hover-lift));
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="bento"] .group\/artifact:hover .artifact-casing {
+    transform: none;
+  }
+}
+
+/* Selected: a soft halo of the node's own solid tone. No border change. */
+[data-artifact-style="bento"] [data-canvas-artifact][data-selected] .artifact-casing,
+[data-artifact-style="bento"] [data-canvas-asset][data-selected] .artifact-casing {
+  box-shadow: var(--canvas-artifact-ambient-shadow),
+    0 0 0 3px rgb(var(--art-fill) / 0.45) !important;
+}
+
+/* Inner surfaces follow the node's card tone (stage carries bg-canvas-card
+   via the re-bound token; the explicit surface-fill class needs the hook). */
+[data-artifact-style="bento"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-card));
+}
+[data-artifact-style="bento"] .artifact-content-stage {
+  border-radius: 0 0 var(--canvas-artifact-radius) var(--canvas-artifact-radius);
+}
+
+/* Header: quiet band, solid icon chip, kind label as a small pill. */
+[data-artifact-style="bento"] .artifact-panel-header {
+  position: relative;
+  padding-right: 14px;
+  background: transparent;
+  border-bottom: 0;
+}
+[data-artifact-style="bento"] .artifact-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background-color: rgb(var(--canvas-artifact-icon-bg)) !important;
+  color: rgb(var(--canvas-on-accent)) !important;
+}
+[data-artifact-style="bento"] .artifact-header-icon > span {
+  background: transparent !important;
+  border-radius: inherit;
+}
+[data-artifact-style="bento"] .artifact-header-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+[data-artifact-style="bento"] .artifact-panel-header::after {
+  content: attr(data-artifact-kind);
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  text-transform: uppercase;
+  color: rgb(var(--canvas-on-accent));
+  background: rgb(var(--canvas-accent));
+  border-radius: 999px;
+  padding: 5px 9px;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="bento"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="bento"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="bento"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* --------------------------------- Stat -------------------------------- */
+
+/* The number is the whole design. Eyebrow label pinned top, attribution
+   pinned bottom, and the numeral fills whatever is left — it scales with
+   BOTH card dimensions (cqw / cqh on the size-contained stage), so a tall
+   card gets a taller figure and a narrow one never overflows. */
+[data-artifact-style="bento"] .artifact-stat {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 22px;
+}
+[data-artifact-style="bento"] .artifact-stat-label {
+  order: -1;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  text-transform: uppercase;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="bento"] .artifact-stat-figure {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  align-content: center;
+  gap: 0.14em;
+}
+[data-artifact-style="bento"] .artifact-stat-value {
+  font-family: var(--canvas-artifact-display-family);
+  font-weight: var(--canvas-artifact-display-weight);
+  letter-spacing: var(--canvas-artifact-display-tracking);
+  font-size: 44px;
+  line-height: 0.92;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="bento"] [data-canvas-artifact] .artifact-stat-value {
+  font-size: clamp(40px, min(20cqw, 34cqh), var(--canvas-artifact-display-size));
+}
+[data-artifact-style="bento"] .artifact-stat-unit {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="bento"] [data-canvas-artifact] .artifact-stat-unit {
+  font-size: clamp(14px, min(5cqw, 8.5cqh), 34px);
+}
+[data-artifact-style="bento"] .artifact-stat-delta {
+  font-size: 12px;
+  margin: 0;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="bento"] .artifact-stat-delta > span:last-child {
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="bento"] .artifact-stat-attribution {
+  font-size: 11.5px;
+  opacity: 1;
+  margin: 0;
+  color: rgb(var(--canvas-muted));
+}
+
+/* -------------------------------- Quote -------------------------------- */
+
+/* A hanging opening mark on the first line, the line itself set heavy and
+   balanced, attribution behind a dash. The mark is inline (line-height 0)
+   so the text never has to clear a floating glyph — spacing stays even at
+   every card size. */
+[data-artifact-style="bento"] .artifact-quote {
+  gap: 12px;
+  padding: 20px 22px 18px;
+}
+[data-artifact-style="bento"] .artifact-quote-rule {
+  display: none;
+}
+[data-artifact-style="bento"] .artifact-quote-body {
+  padding: 0;
+  font-family: var(--canvas-artifact-display-family);
+  font-size: 22px;
+  line-height: 1.22;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+[data-artifact-style="bento"] [data-canvas-artifact] .artifact-quote-body {
+  font-size: clamp(17px, min(6cqw, 13cqh), var(--canvas-artifact-quote-size));
+}
+[data-artifact-style="bento"] .artifact-quote-body::before {
+  content: "\201C";
+  display: inline-block;
+  font-size: 1.9em;
+  line-height: 0;
+  vertical-align: -0.42em;
+  margin-right: 0.06em;
+  font-weight: 800;
+  color: rgb(var(--canvas-ink) / 0.55);
+}
+[data-artifact-style="bento"] .artifact-quote-body::after {
+  content: none;
+}
+[data-artifact-style="bento"] .artifact-quote-caption {
+  padding-left: 0;
+  font-size: 12px;
+  gap: 4px 10px;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="bento"] .artifact-quote-speaker {
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="bento"] .artifact-quote-speaker::before {
+  content: "\2014\00A0";
+}
+
+/* ----------------------------- Definition ------------------------------ */
+
+[data-artifact-style="bento"] .artifact-def {
+  gap: 10px;
+  padding: 22px 24px 20px;
+}
+[data-artifact-style="bento"] .artifact-def-term {
+  font-family: var(--canvas-artifact-display-family);
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+[data-artifact-style="bento"] [data-canvas-artifact] .artifact-def-term {
+  font-size: clamp(19px, 5.2cqi, 28px);
+}
+[data-artifact-style="bento"] .artifact-def-gloss {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(var(--canvas-ink) / 0.92);
+}
+[data-artifact-style="bento"] .artifact-def-example {
+  border-left: 2px solid rgb(var(--canvas-ink) / 0.4);
+  padding-left: 12px;
+  color: rgb(var(--canvas-muted));
+}
+
+/* -------------------------------- Claim -------------------------------- */
+
+/* Two same-hue blocks (no second hue — one family); the proposition gets a
+   full-strength top bar, the counter a quieter one. */
+[data-artifact-style="bento"] .artifact-claim {
+  padding: 20px 22px;
+}
+[data-artifact-style="bento"] .artifact-claim-side {
+  position: relative;
+  border-left: 0 !important;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  background: rgb(var(--art-accent) / 0.08);
+  overflow: hidden;
+}
+[data-artifact-style="bento"] .artifact-claim-side::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  background: rgb(var(--art-accent));
+}
+[data-artifact-style="bento"] .artifact-claim-side[data-claim-side="counter"]::before {
+  opacity: 0.45;
+}
+[data-artifact-style="bento"] .artifact-claim-role {
+  font-size: 11px;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  color: rgb(var(--art-accent));
+}
+
+/* ------------------------------ Mechanism ------------------------------ */
+
+/* Always ONE row. Every step takes an equal share of the card width, arrows
+   are a fixed 32px column, and the last step keeps a phantom arrow column so
+   all steps stay the same width. The node's default width follows the step
+   count (lib/canvasNodeBounds.ts) so the row fits without shredding labels. */
+[data-artifact-style="bento"] .artifact-mech {
+  justify-content: center;
+  padding: 18px 20px;
+}
+[data-artifact-style="bento"] .artifact-mech > ol {
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+}
+[data-artifact-style="bento"] .artifact-mech > ol > li {
+  flex: 1 1 0;
+  min-width: 0;
+}
+[data-artifact-style="bento"] .artifact-mech > ol > li:last-child .artifact-mech-step {
+  margin-right: 32px;
+}
+[data-artifact-style="bento"] .artifact-mech-step {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 0;
+  background: rgb(var(--art-accent));
+  color: rgb(var(--art-on-accent));
+}
+[data-artifact-style="bento"] .artifact-mech-step > span {
+  color: inherit;
+}
+[data-artifact-style="bento"] .artifact-mech-step > span + span {
+  opacity: 0.8;
+}
+[data-artifact-style="bento"] .artifact-mech-step > span {
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="bento"] .artifact-mech-arrow {
+  flex: 0 0 auto;
+  min-width: 32px;
+  max-width: 88px;
+  padding: 0 3px;
+}
+[data-artifact-style="bento"] .artifact-mech-link {
+  max-width: 76px;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="bento"] .artifact-mech-glyph {
+  color: rgb(var(--art-accent));
+  opacity: 1;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+/* Solid head band in the node's tone; hairline rows; the per-instance hash
+   hue is overruled (inline --table-accent) so tables join the category
+   system. */
+[data-artifact-style="bento"] .table-artifact-head {
+  background: rgb(var(--art-accent)) !important;
+  border-bottom-width: 0;
+  border-color: transparent !important;
+  backdrop-filter: none;
+}
+[data-artifact-style="bento"] .table-artifact-th {
+  color: rgb(var(--art-on-accent)) !important;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+[data-artifact-style="bento"] .table-artifact-row {
+  border-color: rgb(var(--art-accent) / 0.12) !important;
+}
+[data-artifact-style="bento"] .table-artifact-row:hover {
+  background-color: rgb(var(--art-accent) / 0.06) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="bento"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 999px !important;
+  border-color: rgb(var(--art-accent)) !important;
+}
+[data-artifact-style="bento"] .artifact-todo-checkbox[aria-checked="true"] {
+  background-color: rgb(var(--art-accent)) !important;
+}
+[data-artifact-style="bento"] .artifact-todo-checkbox[aria-checked="true"] svg {
+  color: rgb(var(--art-on-accent));
+}
+[data-artifact-style="bento"] .artifact-pill {
+  background-color: rgb(var(--art-accent) / 0.12) !important;
+  color: rgb(var(--art-on-fill)) !important;
+  box-shadow: none !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+[data-artifact-style="bento"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--art-accent) / 0.1) !important;
+}
+[data-artifact-style="bento"] .artifact-cal-day--highlighted {
+  border-radius: 999px;
+  background-color: rgb(var(--art-accent) / 0.16);
+  color: rgb(var(--art-on-fill));
+  box-shadow: none !important;
+}
+[data-artifact-style="bento"] .artifact-cal-day--today {
+  border-radius: 999px;
+  background-color: rgb(var(--art-accent));
+  color: rgb(var(--art-on-accent));
+}
+[data-artifact-style="bento"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--art-on-accent)) !important;
+}
+[data-artifact-style="bento"] .artifact-cal-chip {
+  color: rgb(var(--art-on-fill)) !important;
+}
+
+/* -------------------------------- Chart -------------------------------- */
+
+[data-artifact-style="bento"] .artifact-chart-footer {
+  border-top-color: rgb(var(--art-accent) / 0.14) !important;
+}
+
+/* ------------------------------- Sticky -------------------------------- */
+
+/* The pack owns color: sticky notes become solid docs-tone cards (the
+   yellow card of the references); the per-note swatch picker is hidden. */
+[data-artifact-style="bento"] .artifact-sticky-surface {
+  background-color: rgb(var(--art-fill)) !important;
+  color: rgb(var(--art-on-fill)) !important;
+  box-shadow: none !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+}
+[data-artifact-style="bento"] .artifact-sticky-surface textarea,
+[data-artifact-style="bento"] .artifact-sticky-surface [data-selectable-text] {
+  color: inherit !important;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 500;
+  padding: 20px 22px;
+}
+[data-artifact-style="bento"] .artifact-sticky-swatches {
+  display: none;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+/* Q&A cards are paper, not a tinted artifact: plain white (deep neutral in
+   dark) so the conversation reads as the neutral ground the colored artifacts
+   sit against. The card root re-binds the tonal vars, so every surface inside
+   (stage, composer, follow-up footer, plugs) follows the paper instead of the
+   discourse tint. Ink and accents stay discourse-toned. */
+[data-artifact-style="bento"] {
+  --art-paper: 255 255 255;
+  --art-paper-stage: 245 244 250;
+  --art-paper-line: 226 223 236;
+  --art-paper-ink: 26 25 34;
+  --art-paper-muted: 90 88 102;
+}
+html[data-theme="dark"] [data-artifact-style="bento"] {
+  --art-paper: 26 25 34;
+  --art-paper-stage: 34 33 44;
+  --art-paper-line: 51 49 64;
+  --art-paper-ink: 237 236 242;
+  --art-paper-muted: 166 163 180;
+}
+
+/* Paper role: the card is neutral, so the pairs flip back — ink is the dark
+   neutral and the category tone becomes the accent painted on it. */
+[data-artifact-style="bento"] [data-canvas-card][data-artifact-category] {
+  --art-fill: var(--art-paper);
+  --art-on-fill: var(--art-paper-ink);
+  --art-accent: var(--art-solid);
+  --art-on-accent: var(--art-paper);
+  --art-stage: var(--art-paper-stage);
+  --art-line: var(--art-paper-line);
+  --canvas-ink: var(--art-paper-ink);
+  --canvas-muted: var(--art-paper-muted);
+  --canvas-secondary: var(--art-paper-ink);
+  --canvas-tertiary: var(--art-paper-muted);
+  --canvas-card: var(--art-paper);
+  --canvas-artifact-stage: var(--art-paper-stage);
+  --canvas-code-bg: var(--art-paper-stage);
+  --canvas-border: var(--art-paper-line);
+  --canvas-plug-fill: var(--art-paper);
+  --canvas-accent: var(--art-solid);
+  --canvas-on-accent: var(--art-paper);
+  --canvas-accent-soft: var(--art-paper-line);
+  --canvas-artifact-icon-bg: var(--art-solid);
+}
+
+[data-artifact-style="bento"] .chat-casing,
+[data-artifact-style="bento"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="bento"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-width: 0 !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  background: rgb(var(--art-paper)) !important;
+  box-shadow: var(--canvas-artifact-ambient-shadow) !important;
+}
+[data-artifact-style="bento"] .canvas-translucent-fill {
+  background-color: transparent;
+  background-image: none;
+}
+[data-artifact-style="bento"] .chat-composer-casing {
+  background-color: rgb(var(--art-stage)) !important;
+  border-color: rgb(var(--art-line)) !important;
+}
+[data-artifact-style="bento"] [data-follow-up-footer] {
+  background-color: rgb(var(--art-stage)) !important;
+  border-top-color: rgb(var(--art-line)) !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Riso — paper, ink and printed color. Every card is the same warm paper  */
+/* with a UNIFORM 1.5px ink outline and a 3px hard offset shadow (zero     */
+/* blur). Color is printed onto the paper: a vivid category ink for glyphs */
+/* and chips, a text-safe deep tone for numerals and category text, and a  */
+/* pastel tint for fills and pill nodes. Heavy grotesque display type plus */
+/* bracketed mono eyebrows. Dark mode = the same print on charcoal paper.  */
+/* ---------------------------------------------------------------------- */
+
+/* Per-node token binding: neutral ink stays neutral (scope-level), the
+   accent role becomes the text-safe category tone, stages become the tint. */
+[data-artifact-style="riso"] [data-artifact-category] {
+  --canvas-accent: var(--art-ink);
+  --canvas-on-accent: var(--canvas-card);
+  --canvas-accent-soft: var(--art-pale);
+  --canvas-artifact-stage: var(--art-pale);
+  --canvas-code-bg: var(--art-pale);
+  --canvas-artifact-icon-bg: var(--art-vivid);
+  --canvas-map-primary: var(--art-vivid);
+  --canvas-secondary: var(--art-ink);
+  --canvas-tertiary: var(--art-ink);
+}
+
+/* Casing — one stroke, one shadow, every kind (naked included). */
+[data-artifact-style="riso"] .artifact-casing {
+  border: var(--canvas-artifact-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    border-color 120ms ease;
+}
+[data-artifact-style="riso"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+[data-artifact-style="riso"] [data-canvas-artifact][data-naked-artifact] .artifact-casing {
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+}
+[data-artifact-style="riso"] .group\/artifact:hover .artifact-casing {
+  transform: translate(var(--canvas-artifact-hover-lift));
+}
+[data-artifact-style="riso"] .group\/artifact:active .artifact-casing {
+  transform: translate(var(--canvas-artifact-press-push));
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="riso"] .artifact-casing,
+  [data-artifact-style="riso"] .group\/artifact:hover .artifact-casing,
+  [data-artifact-style="riso"] .group\/artifact:active .artifact-casing {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Selected: the print misregisters into the category ink. */
+[data-artifact-style="riso"] [data-canvas-artifact][data-selected] .artifact-casing,
+[data-artifact-style="riso"] [data-canvas-asset][data-selected] .artifact-casing {
+  border-color: rgb(var(--art-vivid)) !important;
+  box-shadow: 3px 3px 0 rgb(var(--art-vivid)) !important;
+}
+
+/* Inner surfaces are paper. */
+[data-artifact-style="riso"] .artifact-canvas-surface-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+}
+[data-artifact-style="riso"] .artifact-content-stage {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+  border-radius: 0 0 calc(var(--canvas-artifact-radius) - 1.5px)
+    calc(var(--canvas-artifact-radius) - 1.5px);
+}
+
+/* Header: the category "tab" — tint band under an ink rule, square vivid
+   icon chip with its own mini hard shadow, bracketed mono kind label. */
+[data-artifact-style="riso"] .artifact-panel-header {
+  position: relative;
+  padding-right: 14px;
+  background: rgb(var(--art-pale));
+  border-bottom: var(--canvas-artifact-header-rule);
+}
+[data-artifact-style="riso"] .artifact-header-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: rgb(var(--art-vivid)) !important;
+  color: rgb(var(--art-on-solid)) !important;
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  box-shadow: 2px 2px 0 rgb(var(--canvas-artifact-stroke));
+}
+[data-artifact-style="riso"] .artifact-header-icon > span {
+  background: transparent !important;
+  border-radius: inherit;
+}
+[data-artifact-style="riso"] .artifact-header-title {
+  font-family: var(--canvas-artifact-display-family);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+[data-artifact-style="riso"] .artifact-panel-header::after {
+  content: "[ " attr(data-artifact-kind) " ]";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  text-transform: uppercase;
+  color: rgb(var(--canvas-muted));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+[data-artifact-style="riso"] .group\/artifact:hover .artifact-panel-header::after,
+[data-artifact-style="riso"] .group\/artifact[data-chrome-hover] .artifact-panel-header::after,
+[data-artifact-style="riso"] .group\/artifact[data-chrome-reveal] .artifact-panel-header::after {
+  opacity: 0;
+}
+
+/* --------------------------------- Stat -------------------------------- */
+
+/* The number is the whole design. Eyebrow label pinned top, attribution
+   pinned bottom, and the numeral fills whatever is left — it scales with
+   BOTH card dimensions (cqw / cqh on the size-contained stage), so a tall
+   card gets a taller figure and a narrow one never overflows. */
+[data-artifact-style="riso"] .artifact-stat {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 22px;
+}
+[data-artifact-style="riso"] .artifact-stat-label {
+  order: -1;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  text-transform: uppercase;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="riso"] .artifact-stat-figure {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  align-content: center;
+  gap: 0.14em;
+}
+[data-artifact-style="riso"] .artifact-stat-value {
+  color: rgb(var(--art-ink));
+  font-family: var(--canvas-artifact-display-family);
+  font-weight: var(--canvas-artifact-display-weight);
+  letter-spacing: var(--canvas-artifact-display-tracking);
+  font-size: 44px;
+  line-height: 0.92;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="riso"] [data-canvas-artifact] .artifact-stat-value {
+  font-size: clamp(40px, min(20cqw, 34cqh), var(--canvas-artifact-display-size));
+}
+[data-artifact-style="riso"] .artifact-stat-unit {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgb(var(--art-ink));
+}
+[data-artifact-style="riso"] [data-canvas-artifact] .artifact-stat-unit {
+  font-size: clamp(14px, min(5cqw, 8.5cqh), 34px);
+}
+[data-artifact-style="riso"] .artifact-stat-delta {
+  font-size: 12px;
+  margin: 0;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="riso"] .artifact-stat-delta > span:last-child {
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="riso"] .artifact-stat-attribution {
+  font-size: 11.5px;
+  opacity: 1;
+  margin: 0;
+  padding-top: 8px;
+  border-top: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke) / 0.5);
+  color: rgb(var(--canvas-muted));
+}
+
+/* -------------------------------- Quote -------------------------------- */
+
+/* A hanging opening mark on the first line, the line itself set heavy and
+   balanced, attribution behind a dash. The mark is inline (line-height 0)
+   so the text never has to clear a floating glyph — spacing stays even at
+   every card size. */
+[data-artifact-style="riso"] .artifact-quote {
+  gap: 12px;
+  padding: 20px 22px 18px;
+}
+[data-artifact-style="riso"] .artifact-quote-rule {
+  display: none;
+}
+[data-artifact-style="riso"] .artifact-quote-body {
+  padding: 0;
+  font-family: var(--canvas-artifact-display-family);
+  font-size: 22px;
+  line-height: 1.22;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+[data-artifact-style="riso"] [data-canvas-artifact] .artifact-quote-body {
+  font-size: clamp(17px, min(6cqw, 13cqh), var(--canvas-artifact-quote-size));
+}
+[data-artifact-style="riso"] .artifact-quote-body::before {
+  content: "\201C";
+  display: inline-block;
+  font-size: 1.9em;
+  line-height: 0;
+  vertical-align: -0.42em;
+  margin-right: 0.06em;
+  font-weight: 800;
+  color: rgb(var(--art-vivid));
+}
+[data-artifact-style="riso"] .artifact-quote-body::after {
+  content: none;
+}
+[data-artifact-style="riso"] .artifact-quote-caption {
+  padding-left: 0;
+  font-size: 12px;
+  gap: 4px 10px;
+  color: rgb(var(--canvas-muted));
+}
+[data-artifact-style="riso"] .artifact-quote-speaker {
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="riso"] .artifact-quote-speaker::before {
+  content: "\2014\00A0";
+}
+
+/* ----------------------------- Definition ------------------------------ */
+
+/* Highlighter bar under the term (the "Design is how it works" mark). */
+[data-artifact-style="riso"] .artifact-def {
+  gap: 10px;
+  padding: 22px 24px 20px;
+}
+[data-artifact-style="riso"] .artifact-def-term {
+  align-self: flex-start;
+  font-family: var(--canvas-artifact-display-family);
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  padding: 0 4px;
+  background-image: linear-gradient(transparent 58%, rgb(var(--art-vivid) / 0.55) 58%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+[data-artifact-style="riso"] [data-canvas-artifact] .artifact-def-term {
+  font-size: clamp(18px, 5cqi, 26px);
+}
+[data-artifact-style="riso"] .artifact-def-gloss {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="riso"] .artifact-def-example {
+  border-left: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 12px;
+  font-style: normal;
+  background: rgb(var(--art-pale));
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  color: rgb(var(--canvas-ink));
+}
+[data-artifact-style="riso"] .artifact-def-speaker {
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 11px;
+  opacity: 1;
+}
+
+/* -------------------------------- Claim -------------------------------- */
+
+[data-artifact-style="riso"] .artifact-claim {
+  padding: 20px 22px;
+}
+[data-artifact-style="riso"] .artifact-claim-side {
+  border-left: 0 !important;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  box-shadow: 2px 2px 0 rgb(var(--canvas-artifact-stroke));
+  background: rgb(var(--canvas-artifact-card-fill));
+}
+[data-artifact-style="riso"] .artifact-claim-side[data-claim-side="proposition"] {
+  background: rgb(var(--art-pale));
+}
+[data-artifact-style="riso"] .artifact-claim-role {
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 10.5px;
+  letter-spacing: var(--canvas-artifact-eyebrow-tracking);
+  color: rgb(var(--art-ink));
+}
+[data-artifact-style="riso"] .artifact-claim-role::before {
+  content: "[ ";
+}
+[data-artifact-style="riso"] .artifact-claim-role::after {
+  content: " ]";
+}
+
+/* ------------------------------ Mechanism ------------------------------ */
+
+/* Always ONE row. Every step takes an equal share of the card width, arrows
+   are a fixed 32px column, and the last step keeps a phantom arrow column so
+   all steps stay the same width. The node's default width follows the step
+   count (lib/canvasNodeBounds.ts) so the row fits without shredding labels. */
+[data-artifact-style="riso"] .artifact-mech {
+  justify-content: center;
+  padding: 18px 20px;
+}
+[data-artifact-style="riso"] .artifact-mech > ol {
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+}
+[data-artifact-style="riso"] .artifact-mech > ol > li {
+  flex: 1 1 0;
+  min-width: 0;
+}
+[data-artifact-style="riso"] .artifact-mech > ol > li:last-child .artifact-mech-step {
+  margin-right: 32px;
+}
+[data-artifact-style="riso"] .artifact-mech-step {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke));
+  background: rgb(var(--art-pale));
+  box-shadow: 2px 2px 0 rgb(var(--canvas-artifact-stroke));
+}
+[data-artifact-style="riso"] .artifact-mech-step > span:first-child {
+  font-weight: 700;
+}
+[data-artifact-style="riso"] .artifact-mech-step > span {
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="riso"] .artifact-mech-arrow {
+  flex: 0 0 auto;
+  min-width: 32px;
+  max-width: 88px;
+  padding: 0 3px;
+}
+[data-artifact-style="riso"] .artifact-mech-link {
+  max-width: 76px;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+[data-artifact-style="riso"] .artifact-mech-glyph {
+  color: rgb(var(--canvas-ink));
+  opacity: 1;
+  font-weight: 700;
+  font-size: 18px;
+}
+[data-artifact-style="riso"] .artifact-mech-link {
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgb(var(--canvas-artifact-stroke) / 0.6);
+  color: rgb(var(--canvas-ink));
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+[data-artifact-style="riso"] .table-artifact-head {
+  background: rgb(var(--art-pale)) !important;
+  border-bottom-width: var(--canvas-artifact-control-stroke-w);
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  backdrop-filter: none;
+}
+[data-artifact-style="riso"] .table-artifact-th {
+  color: rgb(var(--art-ink)) !important;
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+[data-artifact-style="riso"] .table-artifact-row {
+  border-color: rgb(var(--canvas-artifact-stroke) / 0.18) !important;
+}
+[data-artifact-style="riso"] .table-artifact-row:last-child {
+  border-bottom: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke)) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="riso"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 4px !important;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="riso"] .artifact-todo-checkbox[aria-checked="true"] {
+  background-color: rgb(var(--art-vivid)) !important;
+}
+[data-artifact-style="riso"] .artifact-todo-checkbox[aria-checked="true"] svg {
+  color: rgb(var(--art-on-solid));
+}
+[data-artifact-style="riso"] .artifact-pill {
+  background-color: rgb(var(--art-pale)) !important;
+  color: rgb(var(--canvas-ink)) !important;
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w) rgb(var(--canvas-artifact-stroke)),
+    1px 1px 0 rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+  font-family: var(--canvas-artifact-eyebrow-family);
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+[data-artifact-style="riso"] .artifact-cal-cell--selected {
+  background-color: rgb(var(--art-pale) / 0.6) !important;
+}
+[data-artifact-style="riso"] .artifact-cal-day--highlighted {
+  border-radius: 6px;
+  background-color: rgb(var(--art-pale));
+  color: rgb(var(--canvas-ink));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w) rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="riso"] .artifact-cal-day--today {
+  border-radius: 6px;
+  background-color: rgb(var(--art-vivid));
+  color: rgb(var(--art-on-solid));
+  box-shadow: inset 0 0 0 var(--canvas-artifact-control-stroke-w) rgb(var(--canvas-artifact-stroke)),
+    2px 2px 0 rgb(var(--canvas-artifact-stroke));
+}
+[data-artifact-style="riso"] .artifact-cal-day--today > span {
+  background-color: rgb(var(--art-on-solid)) !important;
+}
+[data-artifact-style="riso"] .artifact-cal-chip {
+  color: rgb(var(--canvas-ink)) !important;
+  box-shadow: inset 0 0 0 1px rgb(var(--canvas-artifact-stroke) / 0.5);
+}
+
+/* -------------------------------- Chart -------------------------------- */
+
+[data-artifact-style="riso"] .artifact-chart-footer {
+  border-top: var(--canvas-artifact-control-stroke-w) solid rgb(var(--canvas-artifact-stroke) / 0.5) !important;
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 11px;
+}
+
+/* ------------------------------- Sticky -------------------------------- */
+
+/* A tint-of-category note (docs → yellow) on paper; the casing already
+   supplies the ink outline and shadow, so the note drops its own. */
+[data-artifact-style="riso"] .artifact-sticky-surface {
+  background-color: rgb(var(--art-pale)) !important;
+  color: rgb(var(--canvas-ink)) !important;
+  box-shadow: none !important;
+  border-radius: calc(var(--canvas-artifact-radius) - 1.5px) !important;
+}
+[data-artifact-style="riso"] .artifact-sticky-surface textarea,
+[data-artifact-style="riso"] .artifact-sticky-surface [data-selectable-text] {
+  color: inherit !important;
+  font-family: var(--canvas-artifact-eyebrow-family);
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 18px 20px;
+}
+[data-artifact-style="riso"] .artifact-sticky-swatches {
+  display: none;
+}
+
+/* --------------------------------- Chat -------------------------------- */
+
+[data-artifact-style="riso"] .chat-casing,
+[data-artifact-style="riso"] [data-canvas-card][data-card-lod="placeholder"],
+[data-artifact-style="riso"] [data-canvas-card].group\/card:has([data-coach-target="ask-composer"]) {
+  border-style: solid !important;
+  border-width: var(--canvas-artifact-stroke-w) !important;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  background: rgb(var(--canvas-artifact-card-fill)) !important;
+  box-shadow: var(--canvas-artifact-hard-shadow) !important;
+}
+[data-artifact-style="riso"] .canvas-translucent-fill {
+  background-color: rgb(var(--canvas-artifact-card-fill));
+  background-image: none;
+}
+[data-artifact-style="riso"] .chat-composer-casing {
+  background-color: rgb(var(--art-pale) / 0.45) !important;
+  border-color: rgb(var(--canvas-artifact-stroke)) !important;
+}
+[data-artifact-style="riso"] [data-follow-up-footer] {
+  background-color: rgb(var(--art-pale) / 0.35) !important;
+  border-top-color: rgb(var(--canvas-artifact-stroke) / 0.5) !important;
+}

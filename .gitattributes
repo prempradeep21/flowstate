@@ -1,0 +1,14 @@
+# Store every text file with LF line endings regardless of the platform the
+# working tree came from. Without this, a tree carried over from Windows shows
+# up as an all-files diff on macOS/Linux.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary

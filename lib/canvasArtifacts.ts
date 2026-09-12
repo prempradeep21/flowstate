@@ -18,8 +18,7 @@ import {
   type Card,
 } from "@/lib/store";
 import { requestCanvasFocus } from "@/lib/canvasViewportGuard";
-import { animateViewportTo } from "@/lib/motion/animateViewport";
-import { viewportFramedOnWorldRect } from "@/lib/viewport";
+import { focusCanvasWorldRect } from "@/lib/canvasFocus";
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 
@@ -232,27 +231,7 @@ function panToWorldRect(
     state.selectCanvasArtifact(selectNodeId);
   }
 
-  const container = document.querySelector("[data-canvas-container]");
-  const domRect = container?.getBoundingClientRect();
-  if (!domRect) return true;
-
-  const vp = viewportFramedOnWorldRect(
-    rect,
-    domRect.width,
-    domRect.height,
-    { minScale: 0.1, maxScale: 3 },
-  );
-  const reduced =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  animateViewportTo(vp, { reducedMotion: reduced });
-
-  if (typeof window !== "undefined") {
-    void import("@/lib/sounds/engine").then(({ playSound }) => {
-      void playSound("artifact-focus");
-    });
-  }
-
+  focusCanvasWorldRect(rect, { sound: true });
   return true;
 }
 

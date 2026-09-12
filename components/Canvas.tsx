@@ -3,6 +3,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   MutableRefObject,
+  ReactNode,
   RefObject,
   useEffect,
   useLayoutEffect,
@@ -85,6 +86,7 @@ import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
 import { SkillPlugConnections } from "@/components/plugs/SkillPlugConnections";
+import { GroupPlugConnections } from "@/components/plugs/GroupPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
 import { useCanvasFontLoader } from "@/hooks/useCanvasFontLoader";
 import { usePlugDragSession } from "@/hooks/usePlugDragSession";
@@ -103,6 +105,7 @@ import {
   resolveImageFileFromDataTransfer,
 } from "@/lib/canvasImageImport";
 import { focusCanvasCard } from "@/lib/canvasFocus";
+import { isCanvasHotkeyBlockedByTarget } from "@/lib/canvasHotkeys";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { landingStackViewportCenter } from "@/lib/canvasOrigin";
 import {
@@ -154,6 +157,43 @@ interface ArtifactPlacementState extends PlacementState {
   artifactType: ManualArtifactType;
 }
 
+/**
+ * Mount-once keep-alive for culled STATEFUL nodes (artifacts, assets, gifs,
+ * 3D). Culling used to UNMOUNT offscreen nodes; every 240px band round-trip
+ * destroyed and recreated the subtree — iframes (website/embed/google-doc)
+ * reloaded from the network, WebGL contexts rebuilt, media playback reset,
+ * and content visibly "re-rendered" on pan/zoom. Now such a node mounts the
+ * first time it becomes visible and is thereafter only hidden with
+ * display:none — zero raster/layout cost while offscreen, but DOM (and
+ * iframe/player state) survives, so revisiting a region shows content
+ * instantly, exactly as it was.
+ * `display: contents` keeps the wrapper layout-transparent while visible
+ * (children are absolutely positioned against the viewport).
+ *
+ * Deliberately NOT used for cards/skills/labels: they are plain DOM with no
+ * external state, remount cheaply through the gesture-time placeholder
+ * policy, and keeping hundreds of them resident measurably regressed
+ * pan/zoom at 300 nodes (every hydration wave re-mounted full markdown).
+ *
+ * While culling is enabled but the first visible set hasn't computed yet
+ * (one frame at load), callers pass visible=false — a null-window render
+ * would otherwise pin the ENTIRE canvas in the DOM forever.
+ */
+function CulledKeepAlive({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const seenRef = useRef(false);
+  if (visible) seenRef.current = true;
+  if (!seenRef.current) return null;
+  return (
+    <div style={{ display: visible ? "contents" : "none" }}>{children}</div>
+  );
+}
+
 export function Canvas({
   containerRef: externalContainerRef,
 }: {
@@ -164,6 +204,8 @@ export function Canvas({
     user,
     authLoading,
     activeCanvasId,
+    canvases,
+    setCanvasThumbnail,
     presenceChannelRef,
     presenceChannelReady,
     onlineUserIds,
@@ -1016,15 +1058,7 @@ export function Canvas({
       if (pieStateRef.current) closePie();
 
       const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") {
-          const field = target as HTMLInputElement | HTMLTextAreaElement;
-          if (field.value.trim().length > 0) return;
-        } else if (target.isContentEditable) {
-          return;
-        }
-      }
+      if (isCanvasHotkeyBlockedByTarget(target)) return;
 
       if (
         placementRef.current ||
@@ -1668,11 +1702,29 @@ export function Canvas({
         applyContextMenuSelection(st, hit);
       }
       const next = useCanvasStore.getState();
+      // Offer "Set as thumbnail" when the right-clicked node is an image asset.
+      let thumbnailImageUrl: string | undefined;
+      let isCurrentThumbnail = false;
+      if (hit.kind === "asset") {
+        const assetNode = next.canvasAssetNodes[hit.id];
+        const asset = assetNode
+          ? next.canvasAssets[assetNode.assetId]
+          : undefined;
+        if (asset?.kind === "image" && asset.publicUrl) {
+          thumbnailImageUrl = asset.publicUrl;
+          const currentThumbnail = canvases.find(
+            (c) => c.id === activeCanvasId,
+          )?.thumbnailUrl;
+          isCurrentThumbnail = currentThumbnail === asset.publicUrl;
+        }
+      }
       setContextMenu({
         screenX: e.clientX,
         screenY: e.clientY,
         showDelete: canRemoveCanvasSelection(next),
         showCopy: canCopyCanvasSelection(next),
+        thumbnailImageUrl,
+        isCurrentThumbnail,
       });
       return;
     }
@@ -1774,7 +1826,8 @@ export function Canvas({
     !target.closest("[data-canvas-gif]") &&
     !target.closest("[data-canvas-text-label]") &&
     !target.closest("[data-canvas-landing]") &&
-    !target.closest("[data-group-summary-icon]");
+    !target.closest("[data-group-summary-icon]") &&
+    !target.closest("[data-selection-toolbar]");
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     // While the pie is held open the gesture owns the pointer — no pan,
@@ -1964,10 +2017,10 @@ export function Canvas({
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
         <SkillPlugConnections />
-        {!chatsGloballyHidden &&
-          groupList.map((group) => (
-            <GroupBounds key={group.id} group={group} />
-          ))}
+        <GroupPlugConnections />
+        {groupList.map((group) => (
+          <GroupBounds key={group.id} group={group} />
+        ))}
         {SVG_CONNECTIONS && connectionsBehindCards && <Connections />}
         {cardOrder.map((id) => {
           const card = cards[id];
@@ -1981,38 +2034,58 @@ export function Canvas({
         {canvasArtifactOrder.map((id) => {
           const node = canvasArtifactNodes[id];
           if (!node) return null;
-          if (
-            cullingEnabled &&
-            visibleNodes &&
-            !visibleNodes.artifacts.has(id)
-          ) {
-            return null;
-          }
-          return <CanvasArtifactNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
+              }
+            >
+              <CanvasArtifactNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasAssetOrder.map((id) => {
           const node = canvasAssetNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.assets.has(id)) {
-            return null;
-          }
-          return <CanvasAssetNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
+              }
+            >
+              <CanvasAssetNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasGifOrder.map((id) => {
           const node = canvasGifNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.gifs.has(id)) {
-            return null;
-          }
-          return <CanvasGifNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
+              }
+            >
+              <CanvasGifNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvas3DOrder.map((id) => {
           const node = canvas3DNodes[id];
           if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.threeD.has(id)) {
-            return null;
-          }
-          return <Canvas3DNode key={id} node={node} />;
+          return (
+            <CulledKeepAlive
+              key={id}
+              visible={
+                !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
+              }
+            >
+              <Canvas3DNode node={node} />
+            </CulledKeepAlive>
+          );
         })}
         {canvasSkillOrder.map((id) => {
           const node = canvasSkillNodes[id];
@@ -2083,6 +2156,12 @@ export function Canvas({
           onAddText={handleAddTextAtContextMenu}
           onCopy={handleCopyAtContextMenu}
           onDelete={() => removeSelectedFromCanvas()}
+          onSetThumbnail={(url) => {
+            if (activeCanvasId) void setCanvasThumbnail(activeCanvasId, url);
+          }}
+          onRemoveThumbnail={() => {
+            if (activeCanvasId) void setCanvasThumbnail(activeCanvasId, null);
+          }}
         />
       )}
       <CollaboratorCursors

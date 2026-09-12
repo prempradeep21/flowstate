@@ -34,7 +34,14 @@ export type ResponseType =
   | "timeline"
   | "chart"
   | "audio"
-  | "stickynote";
+  | "stickynote"
+  | "quote"
+  | "stat"
+  | "definition"
+  | "claim"
+  | "mechanism"
+  | "episode"
+  | "linkgroup";
 
 /** UI routing for drawer / preview chrome */
 export type ArtifactKind =
@@ -54,13 +61,137 @@ export type ArtifactKind =
   | "timeline"
   | "chart"
   | "audio"
-  | "stickynote";
+  | "stickynote"
+  | "quote"
+  | "stat"
+  | "definition"
+  | "claim"
+  | "mechanism"
+  | "episode"
+  | "linkgroup";
 
 export type StickyNoteColorId = "turbo" | "violet" | "haiti" | "chalk";
 
 export interface StickyNoteArtifactData {
   text: string;
   colorId: StickyNoteColorId;
+}
+
+/*
+ * Transcript artifacts. Authored by the transcript-import builders only — see
+ * lib/transcriptArtifacts.ts for normalizers and .claude/skills/transcript-artifacts
+ * for the rules that decide when each one is warranted. Every field is a
+ * verbatim lift from the source; none of these is reachable from emit_artifact.
+ */
+
+/** A line worth keeping, in the speaker's own words. */
+export interface QuoteArtifactData {
+  text: string;
+  speaker: string;
+  /** Position in the source, e.g. "01:23:45". */
+  timestamp?: string;
+  /** One line on what was being discussed, so the quote survives out of context. */
+  context?: string;
+}
+
+/** A single spoken figure. One or two numbers — three or more is a chart. */
+export interface StatArtifactData {
+  /** Kept as a string: spoken figures are "about a third" as often as "31". */
+  value: string;
+  label: string;
+  unit?: string;
+  /** Both ends or neither — half a comparison is just the value again. */
+  delta?: { from: string; to: string };
+  source?: string;
+  speaker?: string;
+}
+
+/** Jargon and the gloss that followed it. */
+export interface DefinitionArtifactData {
+  term: string;
+  gloss: string;
+  example?: string;
+  speaker?: string;
+}
+
+export interface ClaimSide {
+  speaker: string;
+  text: string;
+  timestamp?: string;
+}
+
+/**
+ * A proposition and the pushback it drew. Deliberately holds no verdict — who
+ * won is a judgement, and this artifact only carries what was said.
+ */
+export interface ClaimArtifactData {
+  topic: string;
+  proposition: ClaimSide;
+  counter: ClaimSide;
+}
+
+export interface MechanismStep {
+  id: string;
+  label: string;
+  note?: string;
+}
+
+export interface MechanismEdge {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+/** A described chain of cause: A leads to B leads to C. */
+export interface MechanismArtifactData {
+  steps: MechanismStep[];
+  edges: MechanismEdge[];
+}
+
+/** One entry in an episode's chapter index. */
+export interface EpisodeChapterRef {
+  label: string;
+  /** "13:03" — where the chapter starts in the source. */
+  start?: string;
+  /**
+   * BranchGroup id this chapter maps to on the canvas. Present makes the row
+   * clickable; absent leaves it as a readable index entry.
+   */
+  groupId?: string;
+}
+
+/**
+ * The masthead for an imported video: what it is, and a clickable index of its
+ * chapters. One per canvas — this is the thing you read before the spine.
+ */
+export interface EpisodeArtifactData {
+  videoTitle: string;
+  description?: string;
+  channel?: string;
+  url?: string;
+  thumb?: string;
+  duration?: string;
+  chapters: EpisodeChapterRef[];
+}
+
+export interface LinkGroupLink {
+  label: string;
+  url: string;
+  /** Falls back to the domain's favicon when absent. */
+  iconUrl?: string;
+}
+
+export interface LinkGroupSection {
+  label: string;
+  links: LinkGroupLink[];
+}
+
+/**
+ * A directory of links grouped under headings — the shape a video description
+ * takes when it carries socials, products and related videos.
+ */
+export interface LinkGroupArtifactData {
+  sections: LinkGroupSection[];
 }
 
 export type TodoPriority = "low" | "medium" | "high";
@@ -169,19 +300,31 @@ export interface MapSavedPlace {
   lat: number;
   lng: number;
   type?: string;
+  /**
+   * Optional grouping key. Pins sharing a `group` (a batch created together
+   * for one reason) are tinted the same colour; otherwise pins are coloured by
+   * `type`, falling back to a per-pin colour.
+   */
+  group?: string;
 }
 
 export interface MapArtifactData {
   place: MapPlace;
   zoom: number;
   savedPlaces?: MapSavedPlace[];
+  /** Basemap style id (see MAP_STYLES in MapArtifactContent). Omitted = default. */
+  mapStyle?: string;
 }
+
+/** Frame shape for a Street View artifact: wide rectangle (default) or sphere. */
+export type StreetViewMode = "rectangle" | "circle";
 
 export interface StreetViewArtifactData {
   place: MapPlace;
   heading?: number;
   pitch?: number;
   fov?: number;
+  viewMode?: StreetViewMode;
 }
 
 export interface WebsiteArtifactData {
@@ -190,6 +333,13 @@ export interface WebsiteArtifactData {
   domainLabel: string;
   faviconUrl?: string;
   previewImageUrl?: string;
+  /**
+   * Canvas asset holding the preview image's bytes, once it has been brought
+   * into the canvas. Its signed URL expires, so previewImageUrl alone is not
+   * enough — this is what lets the card re-mint one from the asset's
+   * storagePath instead of dead-ending on a stale link.
+   */
+  previewAssetId?: string;
   /**
    * Whether the site allows being embedded in a cross-origin iframe. Undefined
    * until the link-preview check resolves; true → render a live interactive
@@ -311,6 +461,33 @@ export type ArtifactPayload =
       title: string;
       description?: string;
       data: StickyNoteArtifactData;
+    }
+  | { type: "quote"; title: string; description?: string; data: QuoteArtifactData }
+  | { type: "stat"; title: string; description?: string; data: StatArtifactData }
+  | {
+      type: "definition";
+      title: string;
+      description?: string;
+      data: DefinitionArtifactData;
+    }
+  | { type: "claim"; title: string; description?: string; data: ClaimArtifactData }
+  | {
+      type: "mechanism";
+      title: string;
+      description?: string;
+      data: MechanismArtifactData;
+    }
+  | {
+      type: "episode";
+      title: string;
+      description?: string;
+      data: EpisodeArtifactData;
+    }
+  | {
+      type: "linkgroup";
+      title: string;
+      description?: string;
+      data: LinkGroupArtifactData;
     };
 
 /** Payload emitted over SSE from emit_artifact tool. */

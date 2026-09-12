@@ -4,13 +4,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
 import { useAuth } from "@/components/AuthProvider";
 import { FlowstateBrand } from "@/components/FlowstateBrand";
-import { HomeButton } from "@/components/home/HomeButton";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
-import { ModelPicker } from "@/components/ModelPicker";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 import { ArtifactUpdateCenter } from "@/components/ArtifactUpdateCenter";
+import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
 import {
   LEFT_PANEL_SECTIONS,
@@ -47,10 +46,11 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
   }, [lineStaggerActive, staggerKey]);
 
   return (
-    <div className="pointer-events-none absolute left-3 top-3 z-40 flex max-w-[min(20rem,40vw)] flex-col items-start gap-5">
+    <div className="pointer-events-none absolute left-3 top-3 z-40 flex flex-col items-start gap-5">
+      <div className="flex items-start gap-2">
       <aside
         className={[
-          "pointer-events-auto flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
+          "pointer-events-auto flex max-w-[min(20rem,40vw)] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
           collapsed ? "w-auto" : "w-[315px]",
         ].join(" ")}
         style={collapsed ? undefined : { height: "calc(100vh - 24px)" }}
@@ -63,8 +63,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
             data-coach-target="left-sidebar-entry"
             className="flex min-w-0 items-center gap-2"
           >
-            {onGoHome && <HomeButton onClick={onGoHome} />}
-            <FlowstateBrand compact />
+            <FlowstateBrand compact onLogoClick={onGoHome} />
             <span
               className="min-w-0 max-w-[min(12rem,28vw)] truncate text-canvas-body-sm font-medium text-canvas-ink"
               title={activeCanvasTitle}
@@ -75,7 +74,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
               type="button"
               onClick={toggleLeftPanel}
               aria-label="Open sidebar"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+              className="btn h-7 w-7 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
             >
               <PanelChevronIcon direction="right" className="h-4 w-4" />
             </button>
@@ -91,14 +90,13 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
               className="flex items-center justify-between gap-2 border-b border-canvas-border px-3 py-3"
             >
               <div className="flex min-w-0 items-center gap-1">
-                {onGoHome && <HomeButton onClick={onGoHome} />}
-                <FlowstateBrand />
+                <FlowstateBrand onLogoClick={onGoHome} />
               </div>
               <button
                 type="button"
                 onClick={toggleLeftPanel}
                 aria-label="Collapse sidebar"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
               >
                 <PanelChevronIcon direction="left" />
               </button>
@@ -117,18 +115,11 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
                 item={0}
                 staggerActive={lineStaggerActive}
               >
-                <ModelPicker />
-              </MotionPanelLine>
-              <MotionPanelLine
-                section={LEFT_PANEL_SECTIONS.footer}
-                item={1}
-                staggerActive={lineStaggerActive}
-              >
                 <SaveStatusBadge size="panel" />
               </MotionPanelLine>
               <MotionPanelLine
                 section={LEFT_PANEL_SECTIONS.footer}
-                item={2}
+                item={1}
                 staggerActive={lineStaggerActive}
               >
                 <AuthButton size="panel" />
@@ -138,6 +129,8 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
         }
       />
       </aside>
+        {viewMode === "canvas" ? <CanvasSearch /> : null}
+      </div>
       {collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
     </div>
   );

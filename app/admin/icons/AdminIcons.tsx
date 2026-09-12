@@ -34,6 +34,7 @@ export type AdminIconName =
   | "design-system"
   | "models"
   | "ideas"
+  | "sample-canvases"
   | "shipping-log"
   | "philosophy"
   | "feedback"
@@ -111,6 +112,14 @@ const ICONS: Record<AdminIconName, ReactNode> = {
     <path d="M10 2.5a4.5 4.5 0 0 0-2.5 8.2V13h5v-2.3A4.5 4.5 0 0 0 10 2.5Z" />
     <path d="M8.5 15.5h3" />
     <path d="M9 17.5h2" />
+  </>
+  ),
+  "sample-canvases": (
+  <>
+    <rect x="3" y="3.5" width="14" height="13" rx="1.5" />
+    <circle cx="7" cy="8" r="1.4" />
+    <rect x="10.5" y="6.5" width="4" height="3" rx="0.8" />
+    <path d="M6.5 13h7" />
   </>
   ),
   "shipping-log": (

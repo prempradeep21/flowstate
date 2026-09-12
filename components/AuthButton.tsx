@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
+import { buttonClasses } from "@/components/ui/Button";
 
 type AuthButtonSize = "default" | "panel";
 
@@ -14,6 +15,7 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
     user,
     authLoading,
     supabaseConfigured,
+    activeCanvasId,
     signInWithGoogle,
     signOut,
   } = useAuth();
@@ -81,15 +83,19 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
               setBusy(false);
             }
           }}
-          className={`shrink-0 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-muted transition hover:text-canvas-ink disabled:opacity-50`}
+          className={buttonClasses({
+            shape: "pill",
+            size: "sm",
+            className: "pointer-events-auto shrink-0",
+          })}
         >
-          Sign out
+          <span>Sign out</span>
         </button>
       </div>
     );
   }
 
-  return (
+  const signInButton = (
     <button
       type="button"
       disabled={busy}
@@ -101,12 +107,30 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
           setBusy(false);
         }
       }}
-      className={`pointer-events-auto flex items-center gap-2 rounded-full border border-canvas-border/60 bg-canvas-card/90 px-2.5 py-1 ${textSize} text-canvas-ink transition hover:border-canvas-accent/40 disabled:opacity-50`}
+      className={buttonClasses({
+        shape: "pill",
+        size: "sm",
+        className: "pointer-events-auto",
+      })}
     >
       <GoogleIcon />
-      Sign in with Google
+      <span>{activeCanvasId ? "Sign in to save" : "Sign in with Google"}</span>
     </button>
   );
+
+  // Guest with a live canvas: make it clear their work is an unsaved draft.
+  if (activeCanvasId) {
+    return (
+      <div className="pointer-events-auto flex flex-col gap-1.5">
+        <span className={`${textSize} text-canvas-muted`}>
+          Guest draft — not saved yet
+        </span>
+        {signInButton}
+      </div>
+    );
+  }
+
+  return signInButton;
 }
 
 function GoogleIcon() {

@@ -1,4 +1,5 @@
 import { getAdminAllowedEmails } from "@/lib/adminAccess";
+import { countryName, worldRegionForCountry } from "@/lib/analytics/visitorSource";
 import { createServiceRoleClient } from "@/lib/supabase/serviceRole";
 import type {
   LikelyRegion,
@@ -6,6 +7,7 @@ import type {
   UsageAnalysisCanvas,
   UsageAnalysisSnapshot,
   UsageAnalysisSnapshotRow,
+  VisitorAnalytics,
 } from "@/lib/admin/usageAnalysisTypes";
 import {
   CACHE_READ_COST_MULTIPLIER,
@@ -185,9 +187,21 @@ function buildInsights(input: {
   accounts: UsageAnalysisAccount[];
   topCanvases: UsageAnalysisCanvas[];
   summary: UsageAnalysisSnapshot["summary"];
+  visitors: VisitorAnalytics | null;
 }): string[] {
   const insights: string[] = [];
-  const { accounts, topCanvases, summary } = input;
+  const { accounts, topCanvases, summary, visitors } = input;
+
+  if (visitors && visitors.uniqueVisitors > 0) {
+    const parts: string[] = [
+      `${visitors.uniqueVisitors.toLocaleString()} unique logged-out visitor${
+        visitors.uniqueVisitors === 1 ? "" : "s"
+      } in the last ${visitors.windowDays} days`,
+    ];
+    if (visitors.topSource) parts.push(`top source ${visitors.topSource.name}`);
+    if (visitors.topCountry) parts.push(`most from ${visitors.topCountry.name}`);
+    insights.push(`${parts.join(" · ")}.`);
+  }
 
   if (accounts.length >= 2 && summary.topTwoAccountsSharePct >= 50) {
     const topTwo = accounts.slice(0, 2).map((a) => a.email.split("@")[0]);
@@ -229,6 +243,139 @@ function buildInsights(input: {
   return insights.slice(0, 5);
 }
 
+type VisitorEventRow = {
+  created_at: string;
+  visitor_id: string;
+  source: string | null;
+  country: string | null;
+  world_region: string | null;
+};
+
+/**
+ * Aggregate anonymous (logged-out) visitor telemetry from `visitor_events` over
+ * a trailing window. Unique counts dedupe on the first-party cookie id; source
+ * is attributed first-touch (the earliest event per visitor).
+ */
+export async function computeVisitorAnalytics(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  windowDays = 30,
+): Promise<VisitorAnalytics | null> {
+  const since = new Date(
+    Date.now() - windowDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("visitor_events")
+    .select("created_at, visitor_id, source, country, world_region")
+    .eq("is_authenticated", false)
+    .gte("created_at", since)
+    .order("created_at", { ascending: true })
+    .limit(100000);
+
+  // A missing table (migration not applied yet) should not break the snapshot.
+  if (error) return null;
+
+  const rows = (data ?? []) as VisitorEventRow[];
+  if (rows.length === 0) {
+    return {
+      windowDays,
+      uniqueVisitors: 0,
+      pageViews: 0,
+      uniqueVisitorsToday: 0,
+      topCountry: null,
+      topSource: null,
+      byCountry: [],
+      byWorldRegion: [],
+      bySource: [],
+      byDay: buildEmptyVisitorDays(windowDays),
+    };
+  }
+
+  // First event per visitor drives first-touch source + geo; later events still
+  // count toward page views.
+  const firstByVisitor = new Map<string, VisitorEventRow>();
+  const dayVisitors = new Map<string, Set<string>>();
+  const dayPageViews = new Map<string, number>();
+  const todayKey = dayKey(new Date().toISOString());
+  const todayVisitors = new Set<string>();
+
+  for (const row of rows) {
+    if (!firstByVisitor.has(row.visitor_id)) {
+      firstByVisitor.set(row.visitor_id, row);
+    }
+    const key = dayKey(row.created_at);
+    if (!dayVisitors.has(key)) dayVisitors.set(key, new Set());
+    dayVisitors.get(key)!.add(row.visitor_id);
+    dayPageViews.set(key, (dayPageViews.get(key) ?? 0) + 1);
+    if (key === todayKey) todayVisitors.add(row.visitor_id);
+  }
+
+  const countryCounts = new Map<string, number>();
+  const regionCounts = new Map<string, number>();
+  const sourceCounts = new Map<string, number>();
+
+  for (const first of firstByVisitor.values()) {
+    const country = first.country?.toUpperCase() ?? null;
+    if (country) countryCounts.set(country, (countryCounts.get(country) ?? 0) + 1);
+    const region = first.world_region ?? worldRegionForCountry(country);
+    regionCounts.set(region, (regionCounts.get(region) ?? 0) + 1);
+    const source = first.source?.trim() || "Direct";
+    sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+  }
+
+  const byCountry = [...countryCounts.entries()]
+    .map(([code, count]) => ({ code, name: countryName(code), count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+
+  const byWorldRegion = [...regionCounts.entries()]
+    .map(([region, count]) => ({ region, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const bySource = [...sourceCounts.entries()]
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const byDay = buildEmptyVisitorDays(windowDays).map(({ date }) => ({
+    date,
+    visitors: dayVisitors.get(date)?.size ?? 0,
+    pageViews: dayPageViews.get(date) ?? 0,
+  }));
+
+  return {
+    windowDays,
+    uniqueVisitors: firstByVisitor.size,
+    pageViews: rows.length,
+    uniqueVisitorsToday: todayVisitors.size,
+    topCountry: byCountry[0]
+      ? { name: byCountry[0].name, count: byCountry[0].count }
+      : null,
+    topSource: bySource[0]
+      ? { name: bySource[0].source, count: bySource[0].count }
+      : null,
+    byCountry,
+    byWorldRegion,
+    bySource,
+    byDay,
+  };
+}
+
+function buildEmptyVisitorDays(
+  days: number,
+): Array<{ date: string; visitors: number; pageViews: number }> {
+  const out: Array<{ date: string; visitors: number; pageViews: number }> = [];
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  for (let i = 0; i < days; i += 1) {
+    const d = new Date(start);
+    d.setUTCDate(start.getUTCDate() + i);
+    out.push({ date: dayKey(d.toISOString()), visitors: 0, pageViews: 0 });
+  }
+  return out;
+}
+
 export async function computeUsageAnalysisSnapshot(): Promise<{
   payload: UsageAnalysisSnapshot;
   stats: { total_tokens: number; user_count: number; duration_ms: number };
@@ -240,12 +387,14 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
     { data: canvases, error: canvasError },
     { data: profiles, error: profileError },
     { data: authData, error: authError },
+    visitors,
   ] = await Promise.all([
     supabase
       .from("canvases")
       .select("id, owner_id, title, updated_at, content_edited_at, state"),
     supabase.from("profiles").select("id, display_name, updated_at"),
     supabase.auth.admin.listUsers({ perPage: 1000 }),
+    computeVisitorAnalytics(supabase),
   ]);
 
   if (canvasError) throw new Error(canvasError.message);
@@ -425,7 +574,8 @@ export async function computeUsageAnalysisSnapshot(): Promise<{
     topCanvases: topCanvases.slice(0, 15),
     signupsByDay: buildSignupsByDay(users),
     activityByDay: buildActivityByDay(canvasRows),
-    insights: buildInsights({ accounts, topCanvases, summary }),
+    visitors,
+    insights: buildInsights({ accounts, topCanvases, summary, visitors }),
     limitations: [...USAGE_ANALYSIS_LIMITATIONS],
   };
 

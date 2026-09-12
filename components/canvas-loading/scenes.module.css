@@ -1,0 +1,569 @@
+/*
+ * Keyframes + animation classes for the canvas-loading scenes.
+ *
+ * Convention: every scene has ONE master loop duration and each element's
+ * keyframes span that full duration (percentage-based), so the whole scene
+ * wraps in lockstep with no orphaned mid-animation elements. Elements are
+ * authored with their RESTING composition as base styles; keyframes (fill
+ * mode: both) take over while animating. Stripping animations (reduced
+ * motion) therefore yields a sensible static composition for free.
+ */
+
+.scene {
+  position: absolute;
+  inset: 0;
+}
+
+/* Reduced motion: freeze every scene into its static composition. */
+.rmStatic,
+.rmStatic * {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .scene * {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Shared bits                                                       */
+/* ---------------------------------------------------------------- */
+
+.wire {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.dot {
+  animation: dotPulse 1s var(--motion-ease-medium) infinite both;
+}
+
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.lineIn {
+  animation: lineIn 250ms var(--motion-ease-medium) both;
+}
+
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Scene 1 — Ask + follow up (4200ms)                                */
+/* ---------------------------------------------------------------- */
+
+.askChip {
+  animation: askChip 4200ms var(--motion-ease-medium) infinite both;
+}
+@keyframes askChip {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  6%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.askWire1 {
+  animation: askWire1 4200ms ease-in-out infinite both;
+}
+@keyframes askWire1 {
+  0%,
+  8% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  22%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  97%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.askCard {
+  animation: askCard 4200ms var(--motion-ease-medium) infinite both;
+}
+@keyframes askCard {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+  26% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1);
+  }
+  72% {
+    transform: translateY(1px) scale(1);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.askWire2 {
+  animation: askWire2 4200ms ease-in-out infinite both;
+}
+@keyframes askWire2 {
+  0%,
+  34% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  38% {
+    opacity: 1;
+  }
+  48%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  97%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.askChip2 {
+  animation: askChip2 4200ms var(--motion-ease-medium) infinite both;
+}
+@keyframes askChip2 {
+  0%,
+  44% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  52%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Scene 2 — Branch (4600ms)                                         */
+/* ---------------------------------------------------------------- */
+
+.brParent {
+  animation: brParent 4600ms var(--motion-ease-medium) infinite both;
+}
+@keyframes brParent {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  6%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Staggered via inline animation-delay (0/180/360ms). */
+.brWire {
+  animation: brWire 4600ms ease-in-out infinite both;
+}
+@keyframes brWire {
+  0%,
+  8% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  22%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* Staggered via inline animation-delay (0/140/280ms). */
+.brCard {
+  animation: brCard 4600ms var(--motion-ease-medium) infinite both;
+}
+@keyframes brCard {
+  0%,
+  18% {
+    opacity: 0;
+    transform: scale(0.85) translateX(0);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+  55% {
+    transform: scale(1) translateY(-2px);
+  }
+  75% {
+    transform: scale(1) translateY(1px);
+  }
+  88% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0.94) translateX(-12px);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Scene 3 — Sources + citations (5000ms)                            */
+/* ---------------------------------------------------------------- */
+
+/* Staggered via inline animation-delay (0/250ms). */
+.srcDoc {
+  animation: srcDoc 5000ms var(--motion-ease-medium) infinite both;
+}
+@keyframes srcDoc {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  8% {
+    opacity: 1;
+    transform: translateY(3px);
+  }
+  13%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+.srcScan {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 4px;
+  height: 2px;
+  border-radius: 999px;
+  opacity: 0;
+  animation: srcScan 5000ms ease-in-out infinite both;
+}
+@keyframes srcScan {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  22% {
+    opacity: 0.9;
+  }
+  40% {
+    opacity: 0.9;
+    transform: translateY(44px);
+  }
+  45%,
+  100% {
+    opacity: 0;
+    transform: translateY(44px);
+  }
+}
+
+/* Staggered via inline animation-delay (0/160/320ms). */
+.srcChip {
+  animation: srcChip 5000ms var(--motion-ease-medium) infinite both;
+}
+@keyframes srcChip {
+  0%,
+  42% {
+    opacity: 0;
+    transform: scale(0.7) translateX(-8px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+  68% {
+    transform: scale(1) translateY(-2px);
+  }
+  84% {
+    transform: scale(1) translateY(0);
+  }
+  90% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(1) translateX(0);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Scene 4 — Artifact morph (5200ms)                                 */
+/* ---------------------------------------------------------------- */
+
+.artBox {
+  animation: artBox 5200ms var(--motion-ease-medium) infinite both;
+}
+@keyframes artBox {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  7%,
+  14% {
+    opacity: 1;
+    transform: scale(0.58);
+  }
+  26%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.artSkel {
+  opacity: 0;
+  animation: artSkel 5200ms ease-in-out infinite both;
+}
+@keyframes artSkel {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  28%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.artGrid {
+  opacity: 0;
+  animation: artGrid 5200ms ease-in-out infinite both;
+}
+@keyframes artGrid {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  30%,
+  44% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.artChart {
+  animation: artChart 5200ms ease-in-out infinite both;
+}
+@keyframes artChart {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  58%,
+  92% {
+    opacity: 1;
+  }
+  98%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Staggered via inline animation-delay (0/100/200/300ms). */
+.artBar {
+  transform-origin: bottom;
+  animation: artBar 5200ms var(--motion-ease-medium) infinite both;
+}
+@keyframes artBar {
+  0%,
+  50% {
+    transform: scaleY(0);
+  }
+  64% {
+    transform: scaleY(1);
+  }
+  74% {
+    transform: scaleY(0.96);
+  }
+  84%,
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.artDot {
+  opacity: 0;
+  animation: artDot 5200ms ease-in-out infinite both;
+}
+@keyframes artDot {
+  0%,
+  60% {
+    opacity: 0;
+    transform: translate(-30px, -4px);
+  }
+  66% {
+    opacity: 1;
+  }
+  74% {
+    transform: translate(0px, -18px);
+  }
+  82% {
+    opacity: 1;
+    transform: translate(28px, -8px);
+  }
+  88%,
+  100% {
+    opacity: 0;
+    transform: translate(30px, -4px);
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Scene 5 — Share + live cursors (4800ms, seamless)                 */
+/* ---------------------------------------------------------------- */
+
+/* One-shot entrance; elements then rest for the life of the scene. */
+.shIn {
+  animation: shIn 500ms var(--motion-ease-medium) both;
+}
+@keyframes shIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.shRing {
+  opacity: 0;
+  animation: shRing 2400ms ease-out infinite both;
+}
+@keyframes shRing {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* Cursors glide one full circuit per loop → invisible wrap. */
+.shCursorA {
+  animation: shCursorA 4800ms ease-in-out infinite both;
+}
+@keyframes shCursorA {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(140px, 60px);
+  }
+  50% {
+    transform: translate(60px, 150px);
+  }
+  75% {
+    transform: translate(-60px, 80px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.shCursorB {
+  animation: shCursorB 4800ms ease-in-out infinite both;
+}
+@keyframes shCursorB {
+  0% {
+    transform: translate(0, 0);
+  }
+  30% {
+    transform: translate(-120px, -40px);
+  }
+  55% {
+    transform: translate(40px, -120px);
+  }
+  80% {
+    transform: translate(110px, -20px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}

@@ -13,6 +13,7 @@ import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
+import { McpSection } from "@/components/sidebar/McpSection";
 
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
 import { SkillsSection } from "@/components/sidebar/SkillsSection";
@@ -30,12 +31,13 @@ export function AppRightPanel() {
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
 
   const [activeTab, setActiveTab] = useState<
-    "artifacts" | "assets" | "skills"
+    "artifacts" | "assets" | "skills" | "mcp"
   >("artifacts");
   const tabLabels: Record<typeof activeTab, string> = {
     artifacts: "Artifacts",
     assets: "Assets",
     skills: "Skills",
+    mcp: "MCP",
   };
   const [tileStaggerActive, setTileStaggerActive] = useState(false);
   const [staggerKey, setStaggerKey] = useState(0);
@@ -74,9 +76,11 @@ export function AppRightPanel() {
 
       <aside
         className={[
-          "flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
+          "flex flex-col overflow-hidden rounded-canvas border shadow-card transition-[width,height] duration-panel ease-panel",
 
-          collapsed ? "w-auto" : "w-[462px]",
+          collapsed
+            ? "w-auto border-canvas-accent bg-canvas-accent"
+            : "w-[462px] border-canvas-border bg-canvas-card",
 
         ].join(" ")}
 
@@ -101,13 +105,13 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="flex items-center gap-2 rounded-canvas text-canvas-ink transition-colors hover:bg-canvas-bg/80"
+            className="btn gap-2 rounded-canvas text-canvas-onAccent"
 
           >
 
-            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-accent" />
+            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-onAccent" />
 
-            <span className="text-canvas-body-sm font-medium text-canvas-ink">
+            <span className="text-canvas-body-sm font-medium text-canvas-onAccent">
               {tabLabels[activeTab]}
             </span>
 
@@ -130,7 +134,7 @@ export function AppRightPanel() {
                   role="group"
                   aria-label="Right panel view"
                 >
-                  {(["artifacts", "assets", "skills"] as const).map((tab) => {
+                  {(["artifacts", "assets", "skills", "mcp"] as const).map((tab) => {
                     const active = activeTab === tab;
                     return (
                       <button
@@ -138,9 +142,11 @@ export function AppRightPanel() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => setActiveTab(tab)}
-                        className={`rounded-canvas px-3 py-1 text-canvas-body-sm font-medium capitalize transition-colors ${
+                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium ${
+                          tab === "mcp" ? "uppercase" : "capitalize"
+                        } ${
                           active
-                            ? "bg-canvas-ink text-canvas-card shadow-card"
+                            ? "bg-canvas-accent text-canvas-onAccent shadow-card"
                             : "text-canvas-muted hover:text-canvas-ink"
                         }`}
                       >
@@ -161,7 +167,7 @@ export function AppRightPanel() {
 
                 aria-label="Collapse artifacts panel"
 
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+                className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
 
               >
 
@@ -182,8 +188,10 @@ export function AppRightPanel() {
                 />
               ) : activeTab === "assets" ? (
                 <AttachmentsSection />
-              ) : (
+              ) : activeTab === "skills" ? (
                 <SkillsSection />
+              ) : (
+                <McpSection />
               )}
 
             </div>

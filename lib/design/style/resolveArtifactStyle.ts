@@ -1,0 +1,191 @@
+import { hexToRgbChannels } from "@/lib/design/tokens";
+import {
+  deriveDarkAccent,
+  hexToHsl,
+  mixHex,
+  withLightness,
+} from "@/lib/design/theme/color";
+import {
+  DEFAULT_ARTIFACT_STYLE_ID,
+  getArtifactStylePack,
+} from "@/lib/design/style/stylePacks";
+import type {
+  ArtifactStyleId,
+  ArtifactStylePreset,
+  ArtifactStyleSurfaceTokens,
+  ResolvedArtifactStyle,
+} from "@/lib/design/style/types";
+import { ARTIFACT_CATEGORY_IDS } from "@/lib/design/theme/types";
+
+function cssBlock(selector: string, vars: Record<string, string>): string {
+  const lines = Object.entries(vars).map(
+    ([name, value]) => `  ${name}: ${value};`,
+  );
+  return `${selector} {\n${lines.join("\n")}\n}`;
+}
+
+/**
+ * Deeper companion to an accent — used for chins and active borders. The
+ * ratio matches the landing pair (#0f4fc7 -> #0c3f9e), derived rather than
+ * hardcoded so it tracks any accent hex.
+ */
+function deriveDeepAccent(hex: string): string {
+  const hsl = hexToHsl(hex);
+  return withLightness(hex, hsl.l * 0.79);
+}
+
+/** Accent re-declarations mirroring resolveTheme's role derivations. */
+function accentVars(
+  primary: string,
+  mode: "light" | "dark",
+): Record<string, string> {
+  const accent = mode === "light" ? primary : deriveDarkAccent(primary);
+  return {
+    "--canvas-accent": hexToRgbChannels(accent),
+    "--canvas-map-primary": hexToRgbChannels(accent),
+    "--canvas-artifact-icon-bg": hexToRgbChannels(
+      mode === "light"
+        ? withLightness(primary, 0.93, 0.9)
+        : withLightness(primary, 0.2, 0.5),
+    ),
+    "--canvas-accent-deep": hexToRgbChannels(deriveDeepAccent(accent)),
+  };
+}
+
+function surfaceVars(tokens: ArtifactStyleSurfaceTokens): Record<string, string> {
+  const vars: Record<string, string> = {
+    "--canvas-artifact-card-fill": hexToRgbChannels(tokens.cardFill),
+    "--canvas-artifact-stroke": hexToRgbChannels(tokens.stroke),
+    "--canvas-artifact-ambient-shadow": tokens.ambientShadow,
+    "--canvas-artifact-chin-shadow": tokens.chinShadow,
+    "--canvas-artifact-header-bg": tokens.headerBg,
+    "--canvas-artifact-header-rule": tokens.headerRule,
+    "--canvas-artifact-hard-shadow": tokens.hardShadow,
+  };
+  // Canvas backdrop override — the grid/gradient backgrounds resolve
+  // rgb(var(--canvas-bg)) / rgb(var(--canvas-dot)) inside the scope, so
+  // re-declaring here recolors the whole canvas without touching the
+  // body/theme layer. The grid still draws its own zoom-scaled dots.
+  if (tokens.canvasBg) {
+    vars["--canvas-bg"] = hexToRgbChannels(tokens.canvasBg);
+    vars["--canvas-artifact-stage"] = hexToRgbChannels(tokens.canvasBg);
+  }
+  if (tokens.canvasDot) {
+    vars["--canvas-dot"] = hexToRgbChannels(tokens.canvasDot);
+  }
+  // Glass tokens — emitted only when a pack opts in, so opaque packs keep
+  // their var payload unchanged and the stylesheet fallbacks (alpha 1, empty
+  // shadow) hold everywhere else.
+  if (tokens.cardFillAlpha != null) {
+    vars["--canvas-artifact-card-alpha"] = String(tokens.cardFillAlpha);
+  }
+  if (tokens.innerHighlight) {
+    vars["--canvas-artifact-inner-highlight"] = tokens.innerHighlight;
+  }
+  // Neutral token re-declarations — every Tailwind `canvas-*` utility in the
+  // scope resolves through these, so a pack recolors all artifact text /
+  // rules / connectors in one move without per-component rules.
+  if (tokens.surfaceCard) {
+    vars["--canvas-card"] = hexToRgbChannels(tokens.surfaceCard);
+  }
+  if (tokens.surfaceInk) {
+    vars["--canvas-ink"] = hexToRgbChannels(tokens.surfaceInk);
+  }
+  if (tokens.surfaceMuted) {
+    vars["--canvas-muted"] = hexToRgbChannels(tokens.surfaceMuted);
+  }
+  if (tokens.surfaceBorder) {
+    vars["--canvas-border"] = hexToRgbChannels(tokens.surfaceBorder);
+  }
+  if (tokens.canvasConnector) {
+    vars["--canvas-connector"] = hexToRgbChannels(tokens.canvasConnector);
+  }
+  // Per-category tonal palette — emitted as `--art-cat-<category>-<role>`
+  // channels; the pack stylesheet binds the active category's set to the
+  // generic `--art-<role>` vars on each node via [data-artifact-category].
+  if (tokens.categories) {
+    for (const category of ARTIFACT_CATEGORY_IDS) {
+      const tones = tokens.categories[category];
+      const prefix = `--art-cat-${category}`;
+      vars[`${prefix}-solid`] = hexToRgbChannels(tones.solid);
+      vars[`${prefix}-on-solid`] = hexToRgbChannels(tones.onSolid);
+      vars[`${prefix}-on-solid-muted`] = hexToRgbChannels(tones.onSolidMuted);
+      vars[`${prefix}-pale`] = hexToRgbChannels(tones.pale);
+      vars[`${prefix}-ink`] = hexToRgbChannels(tones.ink);
+      vars[`${prefix}-muted`] = hexToRgbChannels(tones.muted);
+      vars[`${prefix}-vivid`] = hexToRgbChannels(tones.vivid);
+      // Derived in-family neutrals so rules and stages on a tinted card never
+      // fall back to the theme's grey: a hairline and a raised stage for the
+      // pale surface, and the same pair for the solid surface.
+      vars[`${prefix}-line`] = hexToRgbChannels(mixHex(tones.pale, tones.solid, 0.18));
+      vars[`${prefix}-stage`] = hexToRgbChannels(mixHex(tones.pale, tones.solid, 0.06));
+      vars[`${prefix}-solid-line`] = hexToRgbChannels(mixHex(tones.solid, tones.onSolid, 0.28));
+      vars[`${prefix}-solid-stage`] = hexToRgbChannels(mixHex(tones.solid, tones.onSolid, 0.1));
+    }
+  }
+  return vars;
+}
+
+function structureVars(pack: ArtifactStylePreset): Record<string, string> {
+  return {
+    ...(pack.backdropFilter
+      ? { "--canvas-artifact-backdrop-filter": pack.backdropFilter }
+      : {}),
+    "--canvas-artifact-stroke-w": pack.strokeWidth,
+    "--canvas-artifact-radius": pack.radius,
+    "--canvas-artifact-control-stroke-w": pack.controlStrokeWidth,
+    "--canvas-artifact-checkbox-stroke-w": pack.checkboxStrokeWidth,
+    "--canvas-artifact-pill-radius": pack.pillRadius,
+    "--canvas-artifact-density": String(pack.density),
+    "--canvas-artifact-selected-ring": pack.selectedRing,
+    "--canvas-artifact-selected-chin": pack.selectedChin,
+    "--canvas-artifact-tilt": pack.tilt,
+    "--canvas-artifact-hover-lift": pack.hoverLift,
+    "--canvas-artifact-press-push": pack.pressPush,
+    ...(pack.typography
+      ? {
+          "--canvas-artifact-display-family": pack.typography.displayFamily,
+          "--canvas-artifact-display-weight": pack.typography.displayWeight,
+          "--canvas-artifact-display-tracking": pack.typography.displayTracking,
+          "--canvas-artifact-display-size": pack.typography.displaySize,
+          "--canvas-artifact-quote-size": pack.typography.quoteSize,
+          "--canvas-artifact-eyebrow-family": pack.typography.eyebrowFamily,
+          "--canvas-artifact-eyebrow-tracking": pack.typography.eyebrowTracking,
+        }
+      : {}),
+  };
+}
+
+/**
+ * Pure resolution: style pack id -> scoped CSS variable payload. Vanilla is
+ * the absence of styling (empty payload, isDefault) so the factory look is a
+ * no-op by construction. Non-default packs emit two blocks scoped under
+ * `[data-artifact-style="<id>"]`, with dark values selected by the existing
+ * `html[data-theme="dark"]` attribute (owned by ThemeApplier).
+ */
+export function resolveArtifactStyle(
+  styleId: ArtifactStyleId,
+): ResolvedArtifactStyle {
+  const pack = getArtifactStylePack(styleId);
+  if (pack.id === DEFAULT_ARTIFACT_STYLE_ID) {
+    return { css: "", lightVars: {}, darkVars: {}, isDefault: true };
+  }
+
+  const lightVars: Record<string, string> = {
+    ...structureVars(pack),
+    ...surfaceVars(pack.light),
+    ...(pack.accent ? accentVars(pack.accent, "light") : {}),
+  };
+  const darkVars: Record<string, string> = {
+    ...surfaceVars(pack.dark),
+    ...(pack.accent ? accentVars(pack.accent, "dark") : {}),
+  };
+
+  const scope = `[data-artifact-style="${pack.id}"]`;
+  const css =
+    cssBlock(scope, lightVars) +
+    "\n" +
+    cssBlock(`html[data-theme="dark"] ${scope}`, darkVars);
+
+  return { css, lightVars, darkVars, isDefault: false };
+}

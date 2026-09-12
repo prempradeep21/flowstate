@@ -23,7 +23,8 @@ export type ArtifactCategoryId =
   | "media"
   | "docs"
   | "dev"
-  | "planning";
+  | "planning"
+  | "discourse";
 
 export const ARTIFACT_CATEGORY_IDS: readonly ArtifactCategoryId[] = [
   "data",
@@ -33,6 +34,7 @@ export const ARTIFACT_CATEGORY_IDS: readonly ArtifactCategoryId[] = [
   "docs",
   "dev",
   "planning",
+  "discourse",
 ];
 
 /** Kinds ArtifactTypeIcon accepts beyond the persisted ArtifactKind union. */

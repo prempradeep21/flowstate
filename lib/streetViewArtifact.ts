@@ -1,12 +1,28 @@
-import type { StreetViewArtifactData } from "@/lib/artifactTypes";
+import type { StreetViewArtifactData, StreetViewMode } from "@/lib/artifactTypes";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 
-/** Canvas padding + header + controls bar above the square circle body. */
+/** Default frame shape for new/legacy Street View artifacts. */
+export const DEFAULT_STREET_VIEW_MODE: StreetViewMode = "rectangle";
+
+/** Canvas padding + header + controls bar above the Street View body. */
 export const STREET_VIEW_NODE_CHROME_PX = 104;
 
-/** Keep the content area square so the inscribed circle fills width and height. */
-export function streetViewArtifactHeightForWidth(nodeWidth: number): number {
-  return nodeWidth + STREET_VIEW_NODE_CHROME_PX;
+/** Wide-rectangle body aspect ratio (16:9). */
+const STREET_VIEW_RECTANGLE_ASPECT = 16 / 9;
+
+/**
+ * Body height for a node of the given width. Rectangle mode uses a 16:9 body;
+ * circle mode keeps the body square so the inscribed circle fills the frame.
+ */
+export function streetViewArtifactHeightForWidth(
+  nodeWidth: number,
+  viewMode: StreetViewMode = DEFAULT_STREET_VIEW_MODE,
+): number {
+  const body =
+    viewMode === "circle"
+      ? nodeWidth
+      : Math.round(nodeWidth / STREET_VIEW_RECTANGLE_ASPECT);
+  return body + STREET_VIEW_NODE_CHROME_PX;
 }
 
 export function normalizeStreetViewArtifactData(
@@ -51,6 +67,7 @@ export function normalizeStreetViewArtifactData(
     heading,
     pitch,
     fov,
+    viewMode: obj.viewMode === "circle" ? "circle" : DEFAULT_STREET_VIEW_MODE,
   };
 }
 

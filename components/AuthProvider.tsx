@@ -1,5 +1,6 @@
 "use client";
 
+import { setActiveCanvasContext } from "@/lib/activeCanvasContext";
 import {
   createContext,
   useCallback,
@@ -15,6 +16,8 @@ import { useCanvasPersistence } from "@/hooks/useCanvasPersistence";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
+import { buildCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { stashGuestCanvas } from "@/lib/guestCanvas";
 
 import type { CanvasMeta } from "@/lib/canvasPersistence";
 import type { CollaborationContextValue } from "@/hooks/useCollaboration";
@@ -34,6 +37,10 @@ interface AuthContextValue extends CollaborationContextValue {
   switchCanvas: (canvasId: string) => Promise<void>;
   createNewCanvas: () => Promise<string | null>;
   renameCanvas: (canvasId: string, title: string) => Promise<void>;
+  setCanvasThumbnail: (
+    canvasId: string,
+    thumbnailUrl: string | null,
+  ) => Promise<void>;
   deleteOwnedCanvas: (canvasId: string) => Promise<void>;
   duplicateCanvas: (canvasId: string) => Promise<string | null>;
   localReadOnly: boolean;
@@ -63,8 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeCanvasId,
     canvases,
     switchCanvas,
-    createNewCanvas,
+    createNewCanvas: createNewCanvasRaw,
     renameCanvas,
+    setCanvasThumbnail,
     deleteOwnedCanvas: deleteOwnedCanvasRaw,
     isSwitching: isSwitchingCanvas,
     switchingCanvasId,
@@ -130,6 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [activeCanvasId, collaboration.duplicateCanvasById, flushSave],
   );
 
+  const createNewCanvas = useCallback(async () => {
+    const id = await createNewCanvasRaw();
+    // The creator is always the DB owner (createCanvas inserts with
+    // owner_id: user.id) — seed accessInfo immediately instead of waiting
+    // for refreshActiveCanvasCollaboration's fetch, so the new canvas
+    // never renders read-only for its own creator. Local sessions skip the
+    // seed: their canvases have no DB row, and canEdit is granted directly
+    // by localReadOnly in useCollaboration.
+    // Guests have no DB owner row, so skip the access seed for them.
+    if (id && user && !localReadOnly) collaboration.seedOwnerAccessInfo();
+    return id;
+  }, [collaboration.seedOwnerAccessInfo, createNewCanvasRaw, localReadOnly, user]);
+
   useEffect(() => {
     const readOnly =
       Boolean(user && activeCanvasId) && !collaboration.canEdit;
@@ -139,6 +160,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCollaborationActorUserId(user?.id ?? null);
   }, [setCollaborationActorUserId, user?.id]);
+
+  // Mirrored so non-component code (the paste path in createUrlArtifact) can
+  // tell where to store an image it pulls into the canvas.
+  useEffect(() => {
+    setActiveCanvasContext(
+      user && activeCanvasId
+        ? { userId: user.id, canvasId: activeCanvasId }
+        : null,
+    );
+  }, [activeCanvasId, user]);
 
   useEffect(() => {
     if (!supabaseConfigured) {
@@ -182,6 +213,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     if (!supabaseConfigured) return;
 
+    // Guest save-on-signin: the OAuth redirect discards the in-memory canvas,
+    // so stash the active guest canvas now; it's adopted on return (see
+    // useCanvasPersistence.loadCanvasForUser).
+    if (!user) {
+      try {
+        const source = useCanvasStore.getState().getCanvasSnapshotSource();
+        const snapshot = buildCanvasSnapshot(source);
+        const title =
+          canvases.find((c) => c.id === activeCanvasId)?.title ?? "My canvas";
+        stashGuestCanvas(snapshot, title);
+      } catch {
+        // Best-effort — never block sign-in on a stash failure.
+      }
+    }
+
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback`;
 
@@ -191,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) throw error;
-  }, [supabaseConfigured]);
+  }, [activeCanvasId, canvases, supabaseConfigured, user]);
 
   const signOut = useCallback(async () => {
     if (!supabaseConfigured) return;
@@ -219,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchCanvas,
       createNewCanvas,
       renameCanvas,
+      setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
       localReadOnly,
@@ -238,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchingCanvasTitle,
       persistenceStatus,
       renameCanvas,
+      setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
       localReadOnly,

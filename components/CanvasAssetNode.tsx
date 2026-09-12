@@ -9,6 +9,7 @@ import { memo,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
 import { AssetContentPreview } from "@/components/canvas/AssetContentPreview";
+import { CanvasAssetHeader } from "@/components/canvas/CanvasAssetHeader";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -22,6 +23,11 @@ import {
 } from "@/lib/canvasAssetBounds";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import {
   CANVAS_CONTENT_INERT_CLASS,
@@ -32,8 +38,9 @@ import {
   useCanvasStore,
   type CanvasAssetNode as CanvasAssetNodeType,
 } from "@/lib/store";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
-import { isPreviewableAssetKind, previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
+import { previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { showAppErrorToast } from "@/lib/appToastStore";
 import { downloadCanvasAsset } from "@/lib/assetDownload";
@@ -49,12 +56,17 @@ const INTERACTIVE =
 
 function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const assets = useCanvasStore((s) => s.canvasAssets);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasAssetId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "asset", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasAsset = useCanvasStore((s) => s.moveCanvasAsset);
   const selectCanvasAsset = useCanvasStore((s) => s.selectCanvasAsset);
   const setCanvasAssetSize = useCanvasStore((s) => s.setCanvasAssetSize);
@@ -66,13 +78,13 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const [downloading, setDownloading] = useState(false);
 
   const asset = assets[node.assetId];
+  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
+  const provisionalMount = useGestureProvisionalMount();
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
-  const hasRichPreview = asset ? isPreviewableAssetKind(asset.kind) : false;
   const previewKind = asset ? resolvePreviewKind(asset) : null;
   const needsClickToInteract = previewKind
     ? previewRequiresClickToInteract(previewKind)
     : false;
-  const godView = isGodViewMode(scale);
 
   useEffect(() => {
     if (!isSelected) setContentInteractive(false);
@@ -82,7 +94,15 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "asset",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvasAsset(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("asset", targetId, dx, dy)) {
+        moveCanvasAsset(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("asset", targetId) ?? [
+        { kind: "asset", id: targetId },
+      ],
     makeCopy: (id) => useCanvasStore.getState().duplicateCanvasAssetNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
     recordUndo,
@@ -230,6 +250,33 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
     };
   };
 
+  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  if (provisionalMount && !isSelected) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-asset
+        data-canvas-node-id={node.id}
+        data-asset-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height,
+        }}
+      >
+        <div className="truncate px-4 pt-3 text-canvas-body-sm font-medium text-canvas-ink/70">
+          {asset.name}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <MotionCanvasNode
       targetId={node.id}
@@ -242,20 +289,13 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
         {...(isSelected ? { "data-chrome-hover": "" } : {})}
+        {...(isSelected ? { "data-selected": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className={`group/asset absolute rounded-canvas border transition-shadow ${
+        className={`group/asset group/artifact absolute ${
           isSelected ? "select-text" : ""
-        } ${
-          hasRichPreview
-            ? isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
-              : "border-canvas-border/60 bg-canvas-card shadow-artifact hover:shadow-artifactHover"
-            : isSelected
-              ? "border-canvas-ink bg-canvas-card shadow-artifactHover"
-              : "border-canvas-border bg-canvas-card shadow-artifact hover:shadow-artifactHover"
         }`}
         style={{
           left: node.position.x,
@@ -291,22 +331,39 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          <div className="h-full w-full overflow-hidden rounded-canvas">
-            <AssetContentPreview
-              asset={asset}
-              layout="canvas"
-              interactive={
-                needsClickToInteract
-                  ? contentInteractive && isSelected
-                  : isSelected
-              }
-              onActivate={
-                needsClickToInteract
-                  ? () => setContentInteractive(true)
-                  : undefined
-              }
-              noDrag={isSelected}
-            />
+          {/* `.artifact-casing` opts this frame into the artifact style packs,
+              so the stroke, radius, and shadow adapt to the active style
+              (Neo / Brut / Liquid Glass) instead of staying constant. Vanilla
+              falls back to the theme classes below. */}
+          <div
+            className={`artifact-casing flex h-full w-full flex-col overflow-hidden rounded-canvas border bg-canvas-card transition-shadow ${
+              isSelected
+                ? "border-canvas-accent ring-2 ring-canvas-accent/25 shadow-artifactHover"
+                : "border-canvas-border/60 shadow-artifact hover:shadow-artifactHover"
+            }`}
+          >
+            {/* Documents get a labelled header so they read as documents (and
+                which kind) rather than images; images stay a bare preview. */}
+            {previewKind && previewKind !== "image" ? (
+              <CanvasAssetHeader asset={asset} previewKind={previewKind} />
+            ) : null}
+            <div className="min-h-0 flex-1">
+              <AssetContentPreview
+                asset={asset}
+                layout="canvas"
+                interactive={
+                  needsClickToInteract
+                    ? contentInteractive && isSelected
+                    : isSelected
+                }
+                onActivate={
+                  needsClickToInteract
+                    ? () => setContentInteractive(true)
+                    : undefined
+                }
+                noDrag={isSelected}
+              />
+            </div>
           </div>
         </CanvasSharpContent>
 
@@ -350,7 +407,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             x
           </button>
         )}
-        {!canvasReadOnly && (
+        {!canvasReadOnly && !isSelectionMember && (
           <NodeCornerResizeHandles
             ariaLabel="Resize asset"
             visibilityClass={

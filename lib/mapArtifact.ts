@@ -27,6 +27,8 @@ export function normalizeSavedPlace(raw: unknown): MapSavedPlace | null {
     lat,
     lng,
     type: typeof o.type === "string" && o.type.trim() ? o.type.trim() : undefined,
+    group:
+      typeof o.group === "string" && o.group.trim() ? o.group.trim() : undefined,
   };
 }
 
@@ -64,10 +66,15 @@ export function normalizeMapArtifactData(data: unknown): MapArtifactData {
   const savedPlaces = savedRaw
     .map(normalizeSavedPlace)
     .filter((p): p is MapSavedPlace => p !== null);
+  const mapStyle =
+    typeof obj.mapStyle === "string" && obj.mapStyle.trim()
+      ? obj.mapStyle.trim()
+      : undefined;
   return {
     place: normalizePrimaryPlace(obj.place),
     zoom,
     savedPlaces,
+    mapStyle,
   };
 }
 
@@ -76,6 +83,7 @@ export function createMapSavedPlace(hit: {
   lat: number;
   lng: number;
   type?: string;
+  group?: string;
 }): MapSavedPlace {
   return {
     id: newSavedPlaceId(),
@@ -83,6 +91,7 @@ export function createMapSavedPlace(hit: {
     lat: hit.lat,
     lng: hit.lng,
     type: hit.type,
+    group: hit.group,
   };
 }
 

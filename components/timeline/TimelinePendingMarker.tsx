@@ -1,5 +1,6 @@
 "use client";
 
+import { useTimelinePalette } from "@/hooks/useTimelinePalette";
 import {
   STEM_LENGTH,
   eventColor,
@@ -15,8 +16,9 @@ export function TimelinePendingMarker({
   eventIndex: number;
   axisY: number;
 }) {
+  const palette = useTimelinePalette();
   const side = eventSide(eventIndex);
-  const color = eventColor(eventIndex);
+  const color = eventColor(eventIndex, palette);
   const dotSize = 14;
   const dotRadius = dotSize / 2;
 

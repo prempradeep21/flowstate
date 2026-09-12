@@ -15,7 +15,7 @@ import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useCanvasStore } from "@/lib/store";
 import { useAuth } from "@/components/AuthProvider";
 
-function DraggableAssetRow({ id }: { id: string }) {
+function DraggableAssetTile({ id }: { id: string }) {
   const asset = useCanvasStore((s) => s.canvasAssets[id]);
   const [downloading, setDownloading] = useState(false);
   if (!asset) return null;
@@ -29,27 +29,23 @@ function DraggableAssetRow({ id }: { id: string }) {
   };
 
   return (
-    <div className="flex w-full items-center gap-1 rounded-canvas px-1 py-0.5 hover:bg-canvas-bg">
+    <div className="group relative aspect-square overflow-hidden rounded-canvas border border-canvas-border bg-canvas-bg">
       <div
         draggable
+        title={asset.name}
         onDragStart={(e) => {
           setSidebarDragData(e.dataTransfer, {
             kind: "asset",
             assetId: id,
           });
         }}
-        className="flex min-w-0 flex-1 cursor-grab items-center gap-2 px-1 py-1 text-canvas-body text-canvas-ink active:cursor-grabbing"
+        className="flex h-full w-full cursor-grab items-center justify-center active:cursor-grabbing"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-canvas bg-canvas-bg">
-          <AssetContentPreview asset={asset} layout="sidebar" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate">{asset.name}</span>
-          <span className="block truncate text-canvas-body-sm text-canvas-muted">
-            {asset.mimeType}
-          </span>
-        </span>
+        <AssetContentPreview asset={asset} layout="sidebar" />
       </div>
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-canvas-body-sm text-white opacity-0 transition-opacity group-hover:opacity-100">
+        {asset.name}
+      </span>
       <button
         type="button"
         disabled={downloading}
@@ -58,9 +54,9 @@ function DraggableAssetRow({ id }: { id: string }) {
         onClick={() => {
           void handleDownload();
         }}
-        className="shrink-0 px-1 text-canvas-muted hover:text-canvas-ink disabled:opacity-50"
+        className="absolute right-7 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 disabled:opacity-50 group-hover:opacity-100"
       >
-        <Download className="h-3.5 w-3.5" aria-hidden />
+        <Download className="h-3 w-3" aria-hidden />
       </button>
       <button
         type="button"
@@ -68,7 +64,7 @@ function DraggableAssetRow({ id }: { id: string }) {
         onClick={() => {
           useCanvasStore.getState().removeCanvasAsset(id);
         }}
-        className="shrink-0 px-1 text-canvas-body-lg text-canvas-muted hover:text-canvas-ink"
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-canvas-body-sm text-white opacity-0 transition-opacity hover:bg-black/80 group-hover:opacity-100"
       >
         x
       </button>
@@ -108,7 +104,7 @@ export function AttachmentsSection() {
           type="button"
           disabled={uploading}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-canvas border border-canvas-border px-2 py-0.5 text-canvas-body-lg font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-50"
+          className="btn rounded-canvas border border-canvas-border px-2 py-0.5 text-canvas-body-lg font-medium text-canvas-ink"
         >
           {uploading ? "Uploading" : "Upload"}
         </button>
@@ -144,10 +140,10 @@ export function AttachmentsSection() {
                 None yet
               </p>
             ) : (
-              <ul className="space-y-0.5">
+              <ul className="grid grid-cols-3 gap-1.5">
                 {group.items.map((item) => (
                   <li key={item.id}>
-                    <DraggableAssetRow id={item.id} />
+                    <DraggableAssetTile id={item.id} />
                   </li>
                 ))}
               </ul>

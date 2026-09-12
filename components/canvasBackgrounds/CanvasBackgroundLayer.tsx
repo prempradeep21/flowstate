@@ -8,7 +8,10 @@ import {
   patternOffset,
   patternTileSize,
 } from "@/components/canvasBackgrounds/viewportSync";
-import { subscribeViewportPaint } from "@/lib/viewportGesture";
+import {
+  isViewportGestureOwned,
+  subscribeViewportPaint,
+} from "@/lib/viewportGesture";
 import { CANVAS_BG } from "@/lib/design/tokens";
 import { useCanvasStore } from "@/lib/store";
 
@@ -41,6 +44,9 @@ function ViewportSyncedGridBackground() {
 
     apply(useCanvasStore.getState().viewport);
     const unsubStore = useCanvasStore.subscribe((state, prev) => {
+      // While a gesture owns the viewport, the paint listener already applied
+      // this frame's value — the store echo would be a redundant style write.
+      if (isViewportGestureOwned()) return;
       if (state.viewport !== prev.viewport) apply(state.viewport);
     });
     const unsubPaint = subscribeViewportPaint(apply);

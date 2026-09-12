@@ -67,7 +67,7 @@ export function CodeArtifactContent({
                 onClick={() => selectFile(i)}
                 className={`rounded px-2 py-1 text-canvas-compact transition-colors ${
                   i === activeIdx
-                    ? "bg-canvas-ink text-canvas-card"
+                    ? "bg-canvas-accent text-canvas-onAccent"
                     : "text-canvas-muted hover:bg-white/60"
                 }`}
               >
@@ -78,7 +78,7 @@ export function CodeArtifactContent({
         )}
         <pre
           data-canvas-scroll
-          className="min-h-0 flex-1 overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
+          className="artifact-code-body min-h-0 flex-1 overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
         >
           <code dangerouslySetInnerHTML={{ __html: html }} />
         </pre>
@@ -100,7 +100,7 @@ export function CodeArtifactContent({
               onClick={() => selectFile(i)}
               className={`rounded px-2 py-1 text-canvas-compact transition-colors ${
                 i === activeIdx
-                  ? "bg-canvas-ink text-canvas-card"
+                  ? "bg-canvas-accent text-canvas-onAccent"
                   : "text-canvas-muted hover:bg-white/60"
               }`}
             >
@@ -111,7 +111,7 @@ export function CodeArtifactContent({
       )}
       <pre
         data-canvas-scroll
-        className="max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
+        className="artifact-code-body max-h-[min(480px,60vh)] overflow-auto p-4 font-mono text-canvas-body-sm leading-[1.55] text-canvas-ink"
       >
         <code dangerouslySetInnerHTML={{ __html: html }} />
       </pre>

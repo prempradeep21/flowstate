@@ -10,18 +10,19 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
   {
     id: "flowstate",
     name: "Flowstate",
-    description: "The original violet — calm, warm neutrals.",
-    primary: "#6B4EFF",
+    description: "The brand cobalt — calm, warm neutrals.",
+    primary: "#2066EB",
     secondary: "#5B7FD6",
     tertiary: "#D97706",
     categories: {
-      data: "#6B4EFF",
+      data: "#2066EB",
       viz: "#0284C7",
       geo: "#16A34A",
       media: "#DC2626",
       docs: "#D97706",
       dev: "#64748B",
       planning: "#DB2777",
+      discourse: "#7C3AED",
     },
   },
   {
@@ -39,6 +40,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#CA8A04",
       dev: "#78716C",
       planning: "#E11D48",
+      discourse: "#A21CAF",
     },
   },
   {
@@ -56,6 +58,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#0369A1",
       dev: "#64748B",
       planning: "#2563EB",
+      discourse: "#C026D3",
     },
   },
   {
@@ -73,6 +76,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#A16207",
       dev: "#57534E",
       planning: "#65A30D",
+      discourse: "#7E22CE",
     },
   },
   {
@@ -90,6 +94,7 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
       docs: "#A8A29A",
       dev: "#292524",
       planning: "#57534E",
+      discourse: "#6B6560",
     },
   },
 ];

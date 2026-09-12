@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
-import { ArtifactRemoteUpdateStroke } from "@/components/artifacts/ArtifactRemoteUpdateStroke";
+import { ArtifactRemoteUpdateGlow } from "@/components/artifacts/ArtifactRemoteUpdateGlow";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
 import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
@@ -22,17 +22,20 @@ import { Plug } from "@/components/plugs/Plug";
 import {
   CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
   clampArtifactSize,
-  clampStreetViewArtifactSize,
   clampTableArtifactSize,
   getArtifactBounds,
+  getArtifactClampOpts,
   getDefaultArtifactSize,
-  MAX_TIMELINE_ARTIFACT_WIDTH,
-  MAX_AUDIO_ARTIFACT_WIDTH,
 } from "@/lib/canvasNodeBounds";
+import {
+  MASTHEAD_ARTIFACT_KINDS,
+  MASTHEAD_ARTIFACT_SCALE,
+} from "@/lib/transcriptArtifacts";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
 import { CANVAS_NODE_INTERACTIVE_ATTR } from "@/lib/canvasNodeInteraction";
@@ -57,8 +60,14 @@ import {
 } from "@/lib/artifactRemoteUpdate";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
+import {
+  commitGroupMoveForItem,
+  groupRefsForItemDrag,
+} from "@/lib/groupMembership";
 import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 
 const DRAG_THRESHOLD_PX = 0;
@@ -74,12 +83,17 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
+  // Crossing-only subscription: re-renders when the god-view boolean flips,
+  // not on every settled-scale change (the post-zoom "settle storm").
+  const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasArtifactId === node.id ||
       isCanvasItemSelected(s.canvasSelection, "artifact", node.id),
   );
+  const selectionUnitCount = useCanvasSelectionUnitCount();
+  /** One member of a larger selection — the shared bounds box owns the grips. */
+  const isSelectionMember = isSelected && selectionUnitCount > 1;
   const moveCanvasArtifact = useCanvasStore((s) => s.moveCanvasArtifact);
   const selectCanvasArtifact = useCanvasStore((s) => s.selectCanvasArtifact);
   const setCanvasArtifactVersion = useCanvasStore(
@@ -109,7 +123,15 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const nodeDrag = useCanvasNodeDrag({
     kind: "artifact",
     nodeId: node.id,
-    commitMove: (targetId, dx, dy) => moveCanvasArtifact(targetId, dx, dy),
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForItem("artifact", targetId, dx, dy)) {
+        moveCanvasArtifact(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForItemDrag("artifact", targetId) ?? [
+        { kind: "artifact", id: targetId },
+      ],
     makeCopy: (id) =>
       useCanvasStore.getState().duplicateCanvasArtifactNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
@@ -151,7 +173,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     ? sessionArtifacts[node.artifactId]
     : undefined;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
-  const godView = isGodViewMode(scale);
+  // Mounted mid-gesture (culling reveal during zoom-out): render a cheap
+  // stand-in now, hydrate the full artifact after the gesture settles.
+  const provisionalMount = useGestureProvisionalMount();
 
   /** Font-scale / content growth wraps the node; never override a manual resize. */
   const handleArtifactContentAreaSize = useCallback(
@@ -160,7 +184,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
       const st = useCanvasStore.getState();
       const current = st.canvasArtifactNodes[node.id];
-      if (!current || current.userSetSize) return;
+      if (!current || current.userSetSize || current.layoutSetSize) return;
       const artForBounds = current.artifactId
         ? st.sessionArtifacts[current.artifactId]
         : undefined;
@@ -171,12 +195,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       const defaultSize = artForBounds
         ? getDefaultArtifactSize(artForBounds.kind, latestPayload)
         : null;
-      const clampOpts =
-        artForBounds?.kind === "timeline"
-          ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-          : artForBounds?.kind === "audio"
-            ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
-            : undefined;
+      const clampOpts = getArtifactClampOpts(artForBounds?.kind);
 
       let areaW = contentArea.w;
       let areaH = contentArea.h;
@@ -192,23 +211,29 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         areaH = Math.max(areaH, intrinsic.heightPx);
       }
 
-      // Fill-layout stages measure w-full / h-full children; never auto-shrink below spawn size.
+      // "Default state" floor: the stored node size — the last auto-measure
+      // (user resizes are guarded by userSetSize above) — is authoritative.
+      // Content that is still settling (web fonts, images, iframes loading
+      // after a reveal) measures SMALLER than its final layout; without the
+      // floor the node visibly shrank and re-grew on every reveal (shudder +
+      // geometry churn). Auto-measure may only GROW the node beyond the
+      // stored/spawn size.
       const targetW = Math.max(
         areaW + CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
         defaultSize?.w ?? 0,
+        current.size?.w ?? 0,
       );
       const targetH = Math.max(
         areaH + ARTIFACT_CANVAS_CHROME_HEIGHT_PX,
         defaultSize?.h ?? 0,
+        current.size?.h ?? 0,
       );
       const next =
-        artForBounds?.kind === "streetview"
-          ? clampStreetViewArtifactSize(targetW)
-          : artForBounds?.kind === "stickynote"
-            ? clampStickyNoteArtifactSize(targetW, targetH)
-            : artForBounds?.kind === "table"
-              ? clampTableArtifactSize(targetW, targetH)
-              : clampArtifactSize(targetW, targetH, clampOpts);
+        artForBounds?.kind === "stickynote"
+          ? clampStickyNoteArtifactSize(targetW, targetH)
+          : artForBounds?.kind === "table"
+            ? clampTableArtifactSize(targetW, targetH)
+            : clampArtifactSize(targetW, targetH, clampOpts);
       if (
         Math.abs(next.w - bounds.w) > 1 ||
         Math.abs(next.h - bounds.h) > 1
@@ -227,6 +252,11 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     (remoteUpdatingCard &&
       threads[remoteUpdatingCard.threadId]?.accentColour) ??
     plugAccent;
+  // Breathing update glow follows the artifact's category colour, not the
+  // source thread accent, so it reads as "this artifact is rebuilding".
+  const remoteUpdateGlowColour = art
+    ? `rgb(var(--artifact-cat-${artifactCategoryOf(art.kind)}-fg))`
+    : remoteUpdateAccent;
 
   const artifactPlugWorld = (side: "left" | "right") => {
     const anchor = plugAnchorAt(
@@ -304,28 +334,20 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       const vpScale = useCanvasStore.getState().viewport.scale;
       const { sx, sy } = cornerResizeSigns(rs.corner);
       const next =
-        art?.kind === "streetview"
-          ? clampStreetViewArtifactSize(
+        art?.kind === "stickynote"
+          ? clampStickyNoteArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
+              rs.startH + (sy * screenDy) / vpScale,
             )
-          : art?.kind === "stickynote"
-            ? clampStickyNoteArtifactSize(
+          : art?.kind === "table"
+            ? clampTableArtifactSize(
                 rs.startW + (sx * screenDx) / vpScale,
                 rs.startH + (sy * screenDy) / vpScale,
               )
-            : art?.kind === "table"
-              ? clampTableArtifactSize(
-                  rs.startW + (sx * screenDx) / vpScale,
-                  rs.startH + (sy * screenDy) / vpScale,
-                )
-              : clampArtifactSize(
+            : clampArtifactSize(
               rs.startW + (sx * screenDx) / vpScale,
               rs.startH + (sy * screenDy) / vpScale,
-              art?.kind === "timeline"
-                ? { maxW: MAX_TIMELINE_ARTIFACT_WIDTH }
-                : art?.kind === "audio"
-                  ? { maxW: MAX_AUDIO_ARTIFACT_WIDTH }
-                  : undefined,
+              getArtifactClampOpts(art?.kind),
             );
       setCanvasArtifactSize(node.id, next, { userSet: true });
       // Keep the corner opposite the grip anchored in place.
@@ -387,6 +409,35 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
   if (!preview && !art) return null;
 
+  // Gesture-time stand-in: bordered rect + title at exact node bounds (same
+  // helpers the culling index uses, so geometry never shifts on hydrate).
+  // Selection and permission previews are interaction targets — full DOM.
+  if (provisionalMount && !isSelected && !preview) {
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-artifact
+        data-canvas-node-id={node.id}
+        data-artifact-lod="placeholder"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute z-20 cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
+        style={{
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height: artifactHeight,
+        }}
+      >
+        <div className="truncate px-6 pt-4 text-[22px] font-medium text-canvas-ink/70">
+          {art?.title ?? ""}
+        </div>
+      </div>
+    );
+  }
+
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
   const usesContainerFill =
@@ -406,7 +457,12 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       {...(isPermissionPreview ? { "data-permission-preview": "" } : {})}
       {...(chromeReveal || isPermissionPreview ? { "data-chrome-reveal": "" } : {})}
       {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
+      {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
+      data-artifact-kind={art?.kind ?? preview?.kind}
+      data-artifact-category={artifactCategoryOf(
+        (art?.kind ?? preview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
+      )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -460,6 +516,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         </>
       )}
 
+      {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
+        <ArtifactRemoteUpdateGlow accentColour={remoteUpdateGlowColour} />
+      ) : null}
+
       <CanvasSharpContent
         worldWidth={width}
         className={
@@ -482,9 +542,6 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
                 }`
         }
       >
-        {remoteUpdatingCardId && !isPermissionPreview && !generatingPreview ? (
-          <ArtifactRemoteUpdateStroke accentColour={remoteUpdateAccent} />
-        ) : null}
         {isPermissionPreview && preview ? (
           <ArtifactPermissionPrompt
             kind={preview.kind}
@@ -501,6 +558,19 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
             sourceCard={sourceCard}
           />
         ) : art ? (
+          <div
+            className="flex min-h-0 w-full flex-1 flex-col"
+            /*
+             * The masthead pair is drawn at 2.5× — node box and everything in
+             * it, header chrome included, so the blow-up is uniform. Zoom (not
+             * transform) so layout inside still resolves against the node box.
+             */
+            style={
+              MASTHEAD_ARTIFACT_KINDS.has(art.kind)
+                ? { zoom: MASTHEAD_ARTIFACT_SCALE }
+                : undefined
+            }
+          >
           <ArtifactShell
             layout="canvas"
             sessionArtifact={art}
@@ -524,10 +594,11 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
                 : undefined
             }
           />
+          </div>
         ) : null}
       </CanvasSharpContent>
 
-      {!godView && !isPermissionPreview && (
+      {!godView && !isPermissionPreview && !isSelectionMember && (
         <NodeCornerResizeHandles
           ariaLabel="Resize artifact"
           zClass="z-[60]"

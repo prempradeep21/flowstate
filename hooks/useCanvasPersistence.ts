@@ -27,6 +27,7 @@ import {
 import { isCanvasSaveConflictError } from "@/lib/canvasSaveConflict";
 import {
   createCanvas,
+  createCanvasFromSnapshot,
   createDefaultCanvas,
   fetchCanvasById,
   fetchCanvasList,
@@ -35,12 +36,17 @@ import {
   resolveInitialCanvasId,
   saveCanvasState,
   sortCanvasesByContentEditedAt,
+  updateCanvasThumbnail,
   updateCanvasTitle,
   updateLastActiveCanvas,
   type CanvasMeta,
   type CanvasRow,
 } from "@/lib/canvasPersistence";
 import { isLocalReadOnlyClient } from "@/lib/supabase/localReadOnly";
+import {
+  clearGuestCanvasStash,
+  readGuestCanvasStash,
+} from "@/lib/guestCanvas";
 import {
   formatPersistenceError,
   isStatementTimeoutError,
@@ -63,6 +69,7 @@ import { isArtifactCatalogSessionActive } from "@/lib/artifactCatalogSession";
 import { isLandingCanvasSessionActive } from "@/lib/landingCanvasSession";
 import { isMobileSdlcSandboxSessionActive } from "@/lib/mobileSdlcSandboxSession";
 import { isPerfFixtureSessionActive } from "@/lib/perf/perfFixtureSession";
+import { isSampleCanvasPreviewSessionActive } from "@/lib/sampleCanvases/sampleCanvasPreviewSession";
 import { isTranscriptImportPlaygroundSessionActive } from "@/lib/transcriptImportPlaygroundSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
@@ -126,6 +133,13 @@ export function useCanvasPersistence({
   /** Pause viewport-only auto-save after DB statement timeout (large payload). */
   const viewportSaveBlockedUntilRef = useRef(0);
   const localReadOnlyRef = useRef(false);
+  /**
+   * Ephemeral (in-memory, no DB writes) mode: the localhost sandbox OR a
+   * logged-out guest browsing production. Guests can create + edit canvases
+   * that live only in `sessionSnapshotsRef`; nothing is persisted until they
+   * sign in, at which point the active canvas is adopted (see guestCanvas.ts).
+   */
+  const ephemeralRef = useRef(false);
   /** Row `updated_at` from the last successful load or save — optimistic lock token. */
   const canvasUpdatedAtRef = useRef<string | null>(null);
   /** In-memory canvas state for localhost read-only session (lost on reload). */
@@ -152,6 +166,14 @@ export function useCanvasPersistence({
     localReadOnlyRef.current = readOnly;
     setLocalReadOnly(readOnly);
   }, []);
+
+  // Keep the ephemeral flag in sync: localhost sandbox, or a signed-out guest
+  // once auth has resolved (avoid flipping to guest during the initial auth
+  // check, which would briefly treat a returning user as a guest).
+  useEffect(() => {
+    ephemeralRef.current =
+      localReadOnly || (supabaseConfigured && !authLoading && !user);
+  }, [authLoading, localReadOnly, supabaseConfigured, user]);
 
   const cacheActiveSessionSnapshot = useCallback(() => {
     const canvasId = canvasIdRef.current;
@@ -318,9 +340,9 @@ export function useCanvasPersistence({
   );
 
   const performSave = useCallback(async () => {
-    if (!user || !supabaseConfigured) return;
+    if (!supabaseConfigured) return;
 
-    if (localReadOnlyRef.current) {
+    if (ephemeralRef.current) {
       if (isDirtyRef.current) {
         cacheActiveSessionSnapshot();
       }
@@ -329,10 +351,13 @@ export function useCanvasPersistence({
       return;
     }
 
+    if (!user) return;
+
     if (
       isArtifactCatalogSessionActive() ||
       isLandingCanvasSessionActive() ||
       isMobileSdlcSandboxSessionActive() ||
+      isSampleCanvasPreviewSessionActive() ||
       isTranscriptImportPlaygroundSessionActive() ||
       useCanvasStore.getState().canvasReadOnly
     ) {
@@ -429,7 +454,7 @@ export function useCanvasPersistence({
   ]);
 
   const flushSave = useCallback(async () => {
-    if (localReadOnlyRef.current) {
+    if (ephemeralRef.current) {
       cacheActiveSessionSnapshot();
       isDirtyRef.current = false;
       contentEditDirtyRef.current = false;
@@ -500,6 +525,7 @@ export function useCanvasPersistence({
     ) => {
       const generation = options?.generation ?? loadGenerationRef.current;
       if (isStaleLoad(generation)) return;
+      const isEphemeralRow = ephemeralRef.current;
 
       isHydratingRef.current = true;
       resetViewportBootstrap();
@@ -525,6 +551,10 @@ export function useCanvasPersistence({
           "[canvas] restored newer local backup after reload",
           row.id,
         );
+      } else if (localBackup) {
+        // The DB row is authoritative — drop the stale backup so it can never
+        // win a later load via the richness heuristic.
+        clearCanvasLocalBackup(row.id);
       }
 
       hydrateFromSnapshot(state, {
@@ -547,7 +577,7 @@ export function useCanvasPersistence({
         void performSave();
       }
 
-      if (!localReadOnlyRef.current) {
+      if (!isEphemeralRow) {
         const supabase = createClient();
         const lastActive = updateLastActiveCanvas(supabase, userId, row.id);
         if (options?.awaitLastActive === false) {
@@ -603,6 +633,45 @@ export function useCanvasPersistence({
         if (isStaleLoad(generation)) return;
 
         setCanvases(list);
+
+        // Save-on-signin: a guest who just authenticated has their in-memory
+        // canvas stashed (across the OAuth redirect). Adopt it into a real,
+        // owned canvas and land them on it instead of their last canvas.
+        const guestStash = readGuestCanvasStash();
+        if (guestStash) {
+          clearGuestCanvasStash();
+          try {
+            const adopted = await createCanvasFromSnapshot(
+              supabase,
+              nextUser.id,
+              guestStash.title,
+              guestStash.snapshot,
+            );
+            if (isStaleLoad(generation)) return;
+            hydrateFromSnapshot(guestStash.snapshot, {
+              applyViewport: true,
+              canvasReveal: true,
+            });
+            canvasIdRef.current = adopted.id;
+            setActiveCanvasId(adopted.id);
+            canvasUpdatedAtRef.current = adopted.updatedAt;
+            isDirtyRef.current = false;
+            contentEditDirtyRef.current = false;
+            if (!isStaleLoad(generation)) {
+              initialHydrationCompleteRef.current = true;
+            }
+            await updateLastActiveCanvas(supabase, nextUser.id, adopted.id);
+            const refreshed = await fetchCanvasList(supabase, nextUser.id);
+            if (!isStaleLoad(generation)) {
+              setCanvases(refreshed);
+              setSaveStatus("saved");
+            }
+            return;
+          } catch {
+            // Adoption failed — fall through to the normal load so the user
+            // still lands on a working canvas.
+          }
+        }
 
         const allIds = [
           ...list.map((c) => c.id),
@@ -671,7 +740,7 @@ export function useCanvasPersistence({
 
   const switchCanvas = useCallback(
     async (canvasId: string) => {
-      if (!user || !supabaseConfigured) return;
+      if (!supabaseConfigured) return;
       if (canvasIdRef.current === canvasId) return;
 
       const title =
@@ -682,7 +751,7 @@ export function useCanvasPersistence({
       setIsSwitching(true);
 
       try {
-        if (localReadOnlyRef.current) {
+        if (ephemeralRef.current) {
           cacheActiveSessionSnapshot();
         } else {
           await flushSaveWithDeadline();
@@ -691,7 +760,7 @@ export function useCanvasPersistence({
         const targetMeta = canvases.find((c) => c.id === canvasId);
         const cached = sessionSnapshotsRef.current.get(canvasId);
 
-        if (targetMeta?.localOnly || (localReadOnlyRef.current && cached)) {
+        if (targetMeta?.localOnly || (ephemeralRef.current && cached)) {
           const state = cached ?? buildEmptyCanvasSnapshot();
           await applyCanvasRow(
             {
@@ -699,17 +768,18 @@ export function useCanvasPersistence({
               state,
               updatedAt: new Date().toISOString(),
             },
-            user.id,
+            user?.id ?? "",
             { awaitLastActive: false },
           );
         } else {
+          if (!user) throw new Error("Canvas not found");
           const supabase = createClient();
           const row = await fetchCanvasById(supabase, canvasId);
           if (!row) throw new Error("Canvas not found");
           await applyCanvasRow(row, user.id, { awaitLastActive: false });
         }
 
-        if (!localReadOnlyRef.current) {
+        if (!ephemeralRef.current) {
           setSaveStatus("saved");
         }
       } catch {
@@ -733,14 +803,17 @@ export function useCanvasPersistence({
   );
 
   const createNewCanvas = useCallback(async () => {
-    if (!user || !supabaseConfigured) return null;
+    if (!supabaseConfigured) return null;
+    // Guests (no user) get an in-memory canvas via the ephemeral branch below;
+    // only the persisted branch requires a signed-in owner.
+    if (!user && !ephemeralRef.current) return null;
 
     isSwitchingRef.current = true;
     setIsSwitching(true);
     setSwitchingCanvasTitle("New canvas");
 
     try {
-      if (localReadOnlyRef.current) {
+      if (ephemeralRef.current) {
         cacheActiveSessionSnapshot();
       } else {
         await flushSaveWithDeadline();
@@ -754,7 +827,7 @@ export function useCanvasPersistence({
       const title = generateUntitledCanvasTitle(canvases.map((c) => c.title));
       const empty = buildEmptyCanvasSnapshot();
 
-      if (localReadOnlyRef.current) {
+      if (ephemeralRef.current) {
         const now = new Date().toISOString();
         const id = crypto.randomUUID();
         sessionSnapshotsRef.current.set(id, empty);
@@ -783,6 +856,7 @@ export function useCanvasPersistence({
         return id;
       }
 
+      if (!user) return null;
       const supabase = createClient();
       const created = await createCanvas(supabase, user.id, title);
 
@@ -835,6 +909,22 @@ export function useCanvasPersistence({
 
       setCanvases((prev) =>
         prev.map((c) => (c.id === canvasId ? { ...c, title: trimmed } : c)),
+      );
+    },
+    [supabaseConfigured, user],
+  );
+
+  const setCanvasThumbnail = useCallback(
+    async (canvasId: string, thumbnailUrl: string | null) => {
+      if (!user || !supabaseConfigured) return;
+
+      if (!localReadOnlyRef.current) {
+        const supabase = createClient();
+        await updateCanvasThumbnail(supabase, canvasId, thumbnailUrl);
+      }
+
+      setCanvases((prev) =>
+        prev.map((c) => (c.id === canvasId ? { ...c, thumbnailUrl } : c)),
       );
     },
     [supabaseConfigured, user],
@@ -1034,6 +1124,7 @@ export function useCanvasPersistence({
         isLandingCanvasSessionActive() ||
         isMobileSdlcSandboxSessionActive() ||
         isPerfFixtureSessionActive() ||
+        isSampleCanvasPreviewSessionActive() ||
         isTranscriptImportPlaygroundSessionActive()
       )
         return;
@@ -1096,6 +1187,10 @@ export function useCanvasPersistence({
           idleBackupPendingRef.current = false;
           const activeId = canvasIdRef.current;
           if (!activeId) return;
+          // The idle callback can fire mid canvas-switch — the store may
+          // already hold another canvas's content. Pairing that content with
+          // activeId poisons the backup, so skip; the next edit reschedules.
+          if (isHydratingRef.current || isSwitchingRef.current) return;
           persistLocalBackup(
             activeId,
             buildCanvasSnapshot(
@@ -1207,6 +1302,7 @@ export function useCanvasPersistence({
     switchCanvas,
     createNewCanvas,
     renameCanvas,
+    setCanvasThumbnail,
     deleteOwnedCanvas,
     flushSave,
     isSwitching,

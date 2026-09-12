@@ -29,9 +29,6 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
-  const accent = useCanvasStore(
-    (s) => s.threads[card?.threadId ?? ""]?.accentColour,
-  );
   const { members, accessInfo, onlineUserIds } = useAuth();
   const contributorProfiles = useContributorProfiles(
     card?.contributorIds,
@@ -48,6 +45,8 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
     const attachedImages = card ? getQuestionAttachedImages(card) : [];
     createFollowUp(cardId, card.question, {
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
+      // See Card.tsx handleTryAgain: a handoff card needs its source to retry.
+      customUiSource: card.customUiSource,
     });
   }, [card, cardId, createFollowUp]);
 
@@ -67,7 +66,7 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
   return (
     <div className="relative border-t border-canvas-border/80 first:border-t-0">
       <QaTranslucentSurface>
-        <QaQuestionSection accentColour={accent} style={qaInsetStyle("chatPanel")}>
+        <QaQuestionSection style={qaInsetStyle("chatPanel")}>
           <QaQuestionHeaderRow
             collaborators={
               showContributors || showStatusBadge ? (
@@ -159,7 +158,7 @@ export function ChatThreadMessages({
       className={className ?? "flex-1 overflow-y-auto px-4 py-6 md:px-8"}
     >
       <div className="relative mx-auto max-w-3xl">
-        <div className="overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
+        <div className="chat-casing overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
           {visibleChain.map((cardId) => (
             <QnaTurnBlock key={cardId} cardId={cardId} />
           ))}

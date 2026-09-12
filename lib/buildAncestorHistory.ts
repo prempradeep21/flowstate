@@ -82,6 +82,31 @@ function artifactContextNote(payload: ArtifactPayload): string {
       return `[Card showed audio: "${payload.title}"]`;
     case "stickynote":
       return `[Card showed sticky note: "${payload.title}"]`;
+    case "quote":
+      return `[Card showed a quote from ${payload.data.speaker}: "${payload.data.text}"]`;
+    case "stat": {
+      const unit = payload.data.unit ? ` ${payload.data.unit}` : "";
+      return `[Card showed a figure: ${payload.data.value}${unit} — ${payload.data.label}]`;
+    }
+    case "definition":
+      return `[Card defined "${payload.data.term}": ${payload.data.gloss}]`;
+    case "claim":
+      return `[Card showed opposing claims on ${payload.data.topic}: ${payload.data.proposition.speaker} says "${payload.data.proposition.text}"; ${payload.data.counter.speaker} says "${payload.data.counter.text}"]`;
+    case "mechanism": {
+      const n = payload.data.steps?.length ?? 0;
+      return `[Card showed a mechanism: "${payload.title}" with ${n} step(s)]`;
+    }
+    case "episode": {
+      const n = payload.data.chapters?.length ?? 0;
+      return `[Card showed episode: "${payload.data.videoTitle}" with ${n} chapter(s)]`;
+    }
+    case "linkgroup": {
+      const n = payload.data.sections?.reduce(
+        (total, section) => total + (section.links?.length ?? 0),
+        0,
+      ) ?? 0;
+      return `[Card showed a link group: "${payload.title}" with ${n} link(s)]`;
+    }
   }
 }
 
@@ -134,6 +159,11 @@ export function formatQuestionForContext(
   }
   if (card.attachedSkills?.length) {
     notes.push(`[User attached ${card.attachedSkills.length} skill(s)]`);
+  }
+  if (card.attachedGroups?.length) {
+    notes.push(
+      `[User attached ${card.attachedGroups.length} canvas group(s) as joint context]`,
+    );
   }
   if (card.pendingFiles?.length) {
     notes.push(`[User attached ${card.pendingFiles.length} uploaded file(s)]`);

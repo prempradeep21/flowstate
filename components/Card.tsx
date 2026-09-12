@@ -29,6 +29,7 @@ import {
 } from "@/components/QaQuestionSection";
 import { useAnswerTextSelection } from "@/hooks/useAnswerTextSelection";
 import { useCardAsk } from "@/hooks/useCardAsk";
+import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { useLateralBranchesFromCard } from "@/hooks/useLateralBranchesFromCard";
 import {
   anchorYRelativeToCard,
@@ -42,6 +43,10 @@ import {
   subtreeGestureRefs,
   useCanvasNodeDrag,
 } from "@/hooks/useCanvasNodeDrag";
+import {
+  commitGroupMoveForCard,
+  groupRefsForCardDrag,
+} from "@/lib/groupMembership";
 import { CANVAS_ACCENT } from "@/lib/design/tokens";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
@@ -71,7 +76,7 @@ import {
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
 import { getCardBounds } from "@/lib/canvasNodeBounds";
-import { MIN_VIEWPORT_SCALE } from "@/lib/zoomDisplay";
+import { MIN_VIEWPORT_SCALE, conversationZoomDisplay } from "@/lib/zoomDisplay";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
@@ -90,7 +95,6 @@ import {
   newExplainId,
   useCanvasStore,
 } from "@/lib/store";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { QaStatusBadge } from "@/components/QaStatusBadge";
@@ -162,8 +166,24 @@ function CardInner({ card }: CardProps) {
         (c.fromSide === "bottom" || c.fromSide == null),
     ),
   );
-  const scale = useCanvasStore((s) => s.viewportSettledScale);
-  const cardBorderWidth = compensatedStrokeWidth(1, scale, 1);
+  // Crossing-only subscription: re-renders when the LOD boolean flips, not
+  // on every settled-scale change (the post-zoom "settle storm"). Scalar
+  // compensations (border/accent widths) track scale via the --vp-scale CSS
+  // custom property written by CanvasViewport — zero React involvement.
+  const lodPlaceholder = useCanvasStore(
+    (s) => s.viewportSettledScale < MIN_VIEWPORT_SCALE,
+  );
+  // Conversation cards are the exception: their title steps up through zoom
+  // tiers, so they DO track the settled scale. Collapsed to a constant for
+  // every other card so the settle storm still costs those nothing.
+  const conversationZoom = conversationZoomDisplay(
+    useCanvasStore((s) =>
+      card.cardKind === "conversation" ? s.viewportSettledScale : 1,
+    ),
+  );
+  // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
+  // placeholder now, hydrate to full content after the gesture settles.
+  const provisionalMount = useGestureProvisionalMount();
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -263,11 +283,17 @@ function CardInner({ card }: CardProps) {
 
   // Imperative drag: pointermoves transform the subtree's DOM once per frame
   // via the gesture layer; moveSubtree commits ONE store write on drop.
+  // Cards inside a group drag the whole group instead (locked positions).
   const nodeDrag = useCanvasNodeDrag({
     kind: "card",
     nodeId: card.id,
-    commitMove: (targetId, dx, dy) => moveSubtree(targetId, dx, dy),
-    resolveRefs: subtreeGestureRefs,
+    commitMove: (targetId, dx, dy) => {
+      if (!commitGroupMoveForCard(targetId, dx, dy)) {
+        moveSubtree(targetId, dx, dy);
+      }
+    },
+    resolveRefs: (targetId) =>
+      groupRefsForCardDrag(targetId) ?? subtreeGestureRefs(targetId),
     onDragStart: (targetId) => {
       clearSpawnMetaIfDragging(targetId);
       void playSoundThrottled("card-drag-start");
@@ -678,6 +704,9 @@ function CardInner({ card }: CardProps) {
             ? attachedFromPlug
             : undefined,
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
+      // Without this a retried build_custom_ui card loses its source data and
+      // /api/custom-ui rejects it.
+      customUiSource: card.customUiSource,
     });
   }, [canEdit, card, card.id, submitFollowUp]);
 
@@ -759,9 +788,12 @@ function CardInner({ card }: CardProps) {
   // every card still paid full markdown/DOM cost — the dominant mount cost
   // when zooming out on large canvases. Render a cheap fixed-size stand-in
   // instead (driven by SETTLED scale so the swap never happens mid-pinch).
-  // Selected cards and open composers keep full DOM (interaction targets).
+  // Nodes that MOUNT mid-gesture (provisionalMount) also stand in, then
+  // hydrate after settle — full-subtree mounts never happen while the
+  // fingers are moving. Selected cards and open composers keep full DOM
+  // (interaction targets).
   if (
-    scale < MIN_VIEWPORT_SCALE &&
+    (provisionalMount || lodPlaceholder) &&
     !isSelected &&
     !isEmptyComposer &&
     !hideForLanding
@@ -771,6 +803,7 @@ function CardInner({ card }: CardProps) {
       <div
         ref={cardRef}
         data-canvas-card={card.id}
+        data-artifact-category="discourse"
         data-card-lod="placeholder"
         onPointerDown={handleCardPointerDown}
         onPointerMove={handleDragPointerMove}
@@ -790,7 +823,22 @@ function CardInner({ card }: CardProps) {
           className="h-2 w-full"
           style={{ background: accent ?? CANVAS_ACCENT }}
         />
-        <div className="truncate px-6 pt-4 text-[28px] font-medium text-canvas-ink/80">
+        <div
+          className="overflow-hidden px-6 pt-4 font-medium text-canvas-ink/80"
+          style={
+            // Match the far-zoom conversation title so crossing the LOD
+            // threshold is not a visible jump in type size.
+            isConversation
+              ? {
+                  fontSize: conversationZoom.titleFontSize,
+                  lineHeight: conversationZoom.titleLineHeight,
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: conversationZoom.titleLineClamp,
+                }
+              : { fontSize: 28, whiteSpace: "nowrap", textOverflow: "ellipsis" }
+          }
+        >
           {card.question}
         </div>
       </div>
@@ -801,6 +849,7 @@ function CardInner({ card }: CardProps) {
     <div
       ref={cardRef}
       data-canvas-card={card.id}
+      data-artifact-category="discourse"
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       onPointerDown={handleCardPointerDown}
       onPointerMove={handleDragPointerMove}
@@ -817,7 +866,9 @@ function CardInner({ card }: CardProps) {
         left: card.position.x,
         top: card.position.y,
         width: cardWidth,
-        ...(isEmptyComposer ? { borderWidth: cardBorderWidth } : {}),
+        ...(isEmptyComposer
+          ? { borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))" }
+          : {}),
         ...(pendingMinHeight != null ? { minHeight: pendingMinHeight } : {}),
       }}
       aria-hidden={hideForLanding || undefined}
@@ -912,7 +963,7 @@ function CardInner({ card }: CardProps) {
                 !isLanding ? (
                   <CardQaMenu
                     cardId={card.id}
-                    viewportScale={scale}
+                    canvas
                     layout="embedded"
                   />
                 ) : undefined
@@ -922,13 +973,15 @@ function CardInner({ card }: CardProps) {
         </div>
       ) : (
       <div
-        className={`group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
+        className={`chat-casing group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
-            ? "border-canvas-ink ring-2 ring-canvas-ink/25"
+            ? "border-canvas-accent ring-2 ring-canvas-accent/25"
             : "border-canvas-border"
         } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{
-          borderWidth: cardBorderWidth,
+          // compensatedStrokeWidth(1, scale, 1) as CSS: 1px at scale ≥ 1,
+          // 1/scale below — tracks settle without a React re-render.
+          borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))",
           ...(isSelected && accent
             ? { boxShadow: `0 0 0 2px ${accent}40` }
             : {}),
@@ -946,13 +999,10 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface card={card} accent={accent} scale={scale} />
+              <ConversationCardSurface card={card} zoom={conversationZoom} />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection
-                accentColour={accent}
-                accentWidth={compensatedStrokeWidth(3, scale, 3)}
-                accentBandVariant={isChatCollapsed ? "compact" : "header"}
                 style={
                   isChatCollapsed
                     ? qaInsetStyle("questionCollapsed")
@@ -983,7 +1033,7 @@ function CardInner({ card }: CardProps) {
                       controls={
                         <CardQaMenu
                           cardId={card.id}
-                          viewportScale={scale}
+                          canvas
                           layout="embedded"
                         />
                       }
@@ -1018,7 +1068,7 @@ function CardInner({ card }: CardProps) {
                       controls={
                         <CardQaMenu
                           cardId={card.id}
-                          viewportScale={scale}
+                          canvas
                           layout="embedded"
                         />
                       }

@@ -9,6 +9,7 @@ import {
   buildCustomUiPrompt,
   type CustomUiHistoryMessage,
 } from "@/lib/cursorSdk/customUiPrompt";
+import type { CustomUiSourceData } from "@/lib/customUiSource";
 import { SdkBuildProgressTracker } from "@/lib/cursorSdk/sdkStageLabels";
 import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
 import { buildSdkUserMessage } from "@/lib/cursorSdk/sdkUserMessage";
@@ -65,6 +66,8 @@ export interface RunCustomUiGeneratorInput {
   history: CustomUiHistoryMessage[];
   files?: AskAttachmentFile[];
   editingArtifact?: { artifactId: string; payload: unknown } | null;
+  /** MCP output handed over by build_custom_ui. */
+  sourceData?: CustomUiSourceData | null;
   onProgress: (payload: {
     thinking: string;
     sdkBuildStages: SdkBuildStage[];
@@ -348,6 +351,7 @@ export async function runCustomUiGenerator(
     question: input.question,
     history: input.history,
     editingPayload,
+    sourceData: input.sourceData,
   });
   const userMessage = buildSdkUserMessage(prompt, input.files ?? []);
 

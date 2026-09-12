@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>How Flowstate works — from one question to a whole canvas</title>
 <meta name="description" content="A step-by-step tour of Flowstate: ask on the canvas, branch your thinking, add documents, build living artifacts, and share it all with one link." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23cfcec9'/%3E%3Ccircle cx='50' cy='50' r='26' fill='%230f4fc7'/%3E%3C/svg%3E" />
+<link rel="icon" type="image/svg+xml" href="/flowstate-logo.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/landing/css/style.css" />
 <link rel="stylesheet" href="/landing/css/how-it-works.css" />
+<link rel="stylesheet" href="/landing/css/power-users.css" />
 </head>
 <body>
 
@@ -26,7 +27,7 @@
 <!-- nav -->
 <header class="nav">
   <a class="nav-logo" href="/landing">
-    <span class="nav-logo-dot"></span>Flowstate
+    <img class="nav-logo-dot" src="/flowstate-logo.svg" alt="" />Flowstate
   </a>
   <nav class="nav-links" aria-label="Primary">
     <a class="nav-link" href="/landing">Home</a>
@@ -66,6 +67,30 @@
       <p class="hiw-hero-hint mono">scroll — story 01 is waiting ↓</p>
     </div>
   </header>
+
+  <!-- ============ BUILT FOR THE POWER USERS (demo videos) ============ -->
+  <section class="powerusers hiw-powerusers" id="power-users">
+    <div class="playground-head">
+      <p class="mono eyebrow">for the power users</p>
+      <h2>Built for the <em>power users.</em></h2>
+      <p class="mono playground-hint">pick a way to work · watch Flowstate do the whole thing</p>
+    </div>
+
+    <div class="pu-switch">
+      <div class="pu-tabs" id="puTabs" role="tablist" aria-label="Use cases">
+        <!-- tab buttons injected by /landing/js/power-users.js from PU_VIDEOS -->
+      </div>
+
+      <article class="art-card pu-card">
+        <header class="art-head">
+          <span class="art-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 12 21 8.8v6.4L15.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+          <span class="pu-title">Deep research</span>
+          <span class="art-kind">demo · loop</span>
+        </header>
+        <div class="pu-frame" id="puFrame"><!-- video / coming-soon injected by JS --></div>
+      </article>
+    </div>
+  </section>
 
   <!-- ============ STEP 01 — ASK ON THE CANVAS ============ -->
   <section class="hiw-step" id="step-1" data-step="01">
@@ -596,5 +621,6 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 <script src="/landing/js/how-it-works.js"></script>
+<script src="/landing/js/power-users.js"></script>
 </body>
 </html>

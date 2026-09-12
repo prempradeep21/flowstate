@@ -24,6 +24,10 @@ import {
 } from "@/lib/plugConnector";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorStylePicker } from "@/components/ConnectorStylePicker";
+import {
+  isViewportGestureOwned,
+  subscribeViewportPaint,
+} from "@/lib/viewportGesture";
 import { useCanvasStore } from "@/lib/store";
 
 const BASE_STROKE_SCREEN = 1.75;
@@ -94,6 +98,14 @@ export function ConnectionsCanvas({
     let geometry: RenderableConnection[] = [];
     let geometryDirty = true;
     let paths = new Map<string, Path2D>();
+    // Marker Path2D cache, keyed by the scale they were built at — building
+    // them per connection per draw allocated hundreds of objects per frame.
+    // Mid-zoom the markers keep the previous scale's size (imperceptible at
+    // 2.5/5px) and rebuild on geometry invalidation or once the gesture
+    // releases (the settle draw).
+    let plugPaths = new Map<string, Path2D>();
+    let arrowPaths = new Map<string, Path2D>();
+    let markerScale = 0;
     // Draw-in animation state for freshly created connections.
     let drawIn: { connId: string; startedAt: number } | null = null;
 
@@ -131,10 +143,39 @@ export function ConnectionsCanvas({
         paths.set(render.connId, new Path2D(render.d));
       }
       geometryDirty = false;
+      markerScale = 0; // markers derive from geometry — force rebuild
     };
 
-    const draw = () => {
-      raf = 0;
+    const rebuildMarkers = (scale: number) => {
+      markerScale = scale;
+      const { plugRadius, arrowSize } = connectorMarkerSizes(scale);
+      plugPaths = new Map();
+      arrowPaths = new Map();
+      for (const g of geometry) {
+        if (g.showSourcePlug) {
+          plugPaths.set(
+            g.connId,
+            new Path2D(
+              connectorPlugCirclePath(g.fromAnchor.px, g.fromAnchor.py, plugRadius),
+            ),
+          );
+        }
+        if (g.showTargetArrow) {
+          arrowPaths.set(
+            g.connId,
+            new Path2D(
+              connectorArrowPath(g.toAnchor.px, g.toAnchor.py, g.toSide, arrowSize),
+            ),
+          );
+        }
+      }
+    };
+
+    const drawNow = (viewportOverride?: {
+      x: number;
+      y: number;
+      scale: number;
+    }) => {
       const state = useCanvasStore.getState();
       const reveal = state.canvasLoadReveal;
       const hideForLoadReveal =
@@ -154,7 +195,12 @@ export function ConnectionsCanvas({
 
       if (geometryDirty) rebuildGeometry();
 
-      const { x: vx, y: vy, scale } = state.viewport;
+      const { x: vx, y: vy, scale } = viewportOverride ?? state.viewport;
+      // Refresh marker sizing outside gestures; keep the cached (slightly
+      // stale) markers while zooming — rebuilt on the settle draw.
+      if (markerScale !== scale && (markerScale === 0 || !isViewportGestureOwned())) {
+        rebuildMarkers(scale);
+      }
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * vx, dpr * vy);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -162,7 +208,6 @@ export function ConnectionsCanvas({
       ctx.lineWidth = BASE_STROKE_SCREEN / scale;
 
       const plugFill = plugFillColor(container);
-      const { plugRadius, arrowSize } = connectorMarkerSizes(scale);
       const hovered = hoverRef.current?.connId ?? null;
       const now = performance.now();
       let animating = false;
@@ -202,19 +247,15 @@ export function ConnectionsCanvas({
         ctx.lineDashOffset = 0;
 
         // Markers reuse the SVG path builders via Path2D — pixel-identical
-        // to the legacy ConnectorPathGroup rendering.
-        if (g.showSourcePlug) {
-          const plug = new Path2D(
-            connectorPlugCirclePath(g.fromAnchor.px, g.fromAnchor.py, plugRadius),
-          );
+        // to the legacy ConnectorPathGroup rendering (cached per scale).
+        const plug = plugPaths.get(g.connId);
+        if (plug) {
           ctx.fillStyle = plugFill;
           ctx.fill(plug);
           ctx.stroke(plug);
         }
-        if (g.showTargetArrow) {
-          const arrow = new Path2D(
-            connectorArrowPath(g.toAnchor.px, g.toAnchor.py, g.toSide, arrowSize),
-          );
+        const arrow = arrowPaths.get(g.connId);
+        if (arrow) {
           ctx.fillStyle = g.stroke;
           ctx.globalAlpha = g.opacity;
           ctx.fill(arrow);
@@ -225,9 +266,28 @@ export function ConnectionsCanvas({
       if (animating) schedule();
     };
 
+    const draw = () => {
+      raf = 0;
+      drawNow();
+    };
+
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(draw);
     };
+
+    // Gesture paints: redraw with the TRANSIENT viewport in the same frame
+    // as the card transform — the store-commit path is one rAF behind, which
+    // read as connections trailing their cards during fast pan/zoom.
+    // Deliberately UNTHROTTLED: 120Hz trackpads emit two wheel events per
+    // 60Hz display frame, and the card transform takes the LAST event's
+    // value at style-flush. A once-per-frame guard here froze connections at
+    // the FIRST event's transform — a constant intra-frame offset that
+    // oscillated against the cards and read as shudder while scrolling.
+    // Drawing per paint (sub-ms) keeps both in lockstep; the browser only
+    // presents the final state per display frame.
+    const unsubPaint = subscribeViewportPaint((v) => {
+      drawNow(v);
+    });
 
     const invalidateGeometry = () => {
       geometryDirty = true;
@@ -250,7 +310,11 @@ export function ConnectionsCanvas({
         invalidateGeometry();
         return;
       }
-      if (state.viewport !== prev.viewport) schedule();
+      // While a gesture owns the viewport the paint listener already drew
+      // this frame's transform — the commit echo would draw a frame behind.
+      if (state.viewport !== prev.viewport && !isViewportGestureOwned()) {
+        schedule();
+      }
       if (state.recentConnectionId !== prev.recentConnectionId) {
         if (state.recentConnectionId) {
           drawIn = {
@@ -321,6 +385,7 @@ export function ConnectionsCanvas({
     return () => {
       unsubStore();
       unsubDrag();
+      unsubPaint();
       ro.disconnect();
       container.removeEventListener("pointermove", onPointerMove);
       if (raf) cancelAnimationFrame(raf);

@@ -11,6 +11,7 @@ export function CanvasGridCard({
   canvasId,
   title,
   updatedAt,
+  thumbnailUrl,
   members,
   isSwitching,
   isPendingSwitch,
@@ -19,6 +20,7 @@ export function CanvasGridCard({
   canvasId: string;
   title: string;
   updatedAt: string | null | undefined;
+  thumbnailUrl?: string | null;
   members?: CanvasMember[];
   isSwitching: boolean;
   isPendingSwitch: boolean;
@@ -35,7 +37,16 @@ export function CanvasGridCard({
       className="group flex h-full w-full flex-col overflow-hidden rounded-canvas-lg border border-canvas-border bg-canvas-card text-left shadow-artifact transition-all duration-motion-standard ease-motion-medium hover:-translate-y-1 hover:border-canvas-ink/15 hover:shadow-artifactHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
       <div className="relative aspect-[16/10]">
-        <CanvasThumbnail seed={canvasId} />
+        {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnailUrl}
+            alt=""
+            className="h-full w-full bg-canvas-artifactStage object-cover"
+          />
+        ) : (
+          <CanvasThumbnail seed={canvasId} />
+        )}
         {/* Open affordance — slides in with the branch animation. */}
         <span
           aria-hidden

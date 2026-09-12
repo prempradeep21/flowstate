@@ -36,7 +36,7 @@ function ColorSwatch({
       onClick={onSelect}
       className={`h-4 w-4 rounded-full border ${
         selected
-          ? "border-canvas-ink/50 ring-1 ring-canvas-ink/25"
+          ? "border-canvas-accent ring-1 ring-canvas-accent/40"
           : "border-canvas-ink/20"
       } ${disabled ? "cursor-default opacity-60" : "cursor-pointer"}`}
       style={{ backgroundColor: bg }}
@@ -135,7 +135,7 @@ export function StickyNoteArtifactContent({
 
   const noteBody = (
     <div
-      className={`relative flex flex-col overflow-hidden shadow-[2px_3px_8px_rgb(0_0_0/0.12)] ${
+      className={`artifact-sticky-surface relative flex flex-col overflow-hidden shadow-[2px_3px_8px_rgb(0_0_0/0.12)] ${
         fill ? "min-h-0 flex-1 rounded-canvas-sm" : "rounded-canvas"
       }`}
       style={{
@@ -168,7 +168,7 @@ export function StickyNoteArtifactContent({
 
       {canInteract ? (
         <div
-          className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5"
+          className="artifact-sticky-swatches absolute bottom-2.5 right-2.5 flex items-center gap-1.5"
           data-no-drag
         >
           {STICKY_NOTE_PICKER_COLOR_IDS.map((id) => (

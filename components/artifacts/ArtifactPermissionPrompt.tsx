@@ -42,7 +42,7 @@ export function ArtifactPermissionPrompt({
             type="button"
             disabled={busy}
             onClick={onDecline}
-            className="rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink disabled:opacity-50"
+            className="btn rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-muted hover:text-canvas-ink"
           >
             Not now
           </button>
@@ -50,7 +50,7 @@ export function ArtifactPermissionPrompt({
             type="button"
             disabled={busy}
             onClick={onApprove}
-            className="rounded-canvas bg-canvas-ink px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-card transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="btn rounded-canvas bg-canvas-accent px-3 py-1.5 text-canvas-body-sm font-medium text-canvas-onAccent"
           >
             Create
           </button>

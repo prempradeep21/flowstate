@@ -13,10 +13,15 @@ export const canvasColors = {
   ink: "#2C2A26",
   /** AA on bg (4.65:1) and card (5.30:1) — do not lighten past #7A766E. */
   muted: "#6F6B63",
-  accent: "#6B4EFF",
+  /** Primary brand cobalt (matches the logo mark) — selected/active states. */
+  accent: "#2066EB",
+  /** Soft accent tint — selected-row/toggle fills (withLightness 0.93/0.9). */
+  accentSoft: "#E0E9FA",
+  /** Text/icons on solid accent fills — AA against `accent` in both modes. */
+  onAccent: "#FFFFFF",
   secondary: "#5B7FD6",
   tertiary: "#D97706",
-  artifactIconBg: "#EDE9FE",
+  artifactIconBg: "#E0E9FA",
   artifactStage: "#F3F2EF",
   connector: "#B8B5AE",
   plugFill: "#F7F6F3",
@@ -28,6 +33,8 @@ export const canvasColors = {
   syntaxKeyword: "#0550AE",
   /** Semantic — status & feedback */
   danger: "#dc2626",
+  /** Text/icons on solid danger fills — AA against `danger` in both modes. */
+  onDanger: "#FFFFFF",
   dangerSoft: "#fef2f2",
   dangerBorder: "#fecaca",
   success: "#10b981",
@@ -43,11 +50,16 @@ export const canvasColors = {
   infoSoft: "#f0f9ff",
   infoRing: "#bae6fd",
   /** Map marker pins */
-  mapPrimary: "#6B4EFF",
+  mapPrimary: "#2066EB",
   mapSaved: "#d97706",
   tagDanger: "#be123c",
   tagDangerSoft: "#fff1f2",
   tagDangerRing: "#fecdd3",
+  /** Neobrutalism pack (lib/design/style) — loud, flat, opaque. */
+  brutCanvas: "#FFF4CF",
+  brutInk: "#000000",
+  brutPop: "#FF4081",
+  brutSun: "#FFEB3B",
 } as const;
 
 /**
@@ -63,10 +75,13 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   border: "#34322D",
   ink: "#ECEAE3",
   muted: "#A8A29A",
-  accent: "#8E78FF",
+  accent: "#2066EB",
+  accentSoft: "#1F2D47",
+  /** Brand primary on dark; white text/icons clear AA (5.05:1) on this blue. */
+  onAccent: "#FFFFFF",
   secondary: "#8EA6E0",
   tertiary: "#F5A447",
-  artifactIconBg: "#2C2541",
+  artifactIconBg: "#1F2D47",
   artifactStage: "#1E1D1A",
   connector: "#4E4B45",
   plugFill: "#1E1D1A",
@@ -76,6 +91,8 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   syntaxString: "#A5D6FF",
   syntaxKeyword: "#FF7B72",
   danger: "#F87171",
+  /** Dark danger is a light red — near-black text keeps AA on solid fills. */
+  onDanger: "#181715",
   dangerSoft: "#2A1818",
   dangerBorder: "#5C2A2A",
   success: "#34D399",
@@ -90,11 +107,15 @@ export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   infoText: "#7DD3FC",
   infoSoft: "#14222A",
   infoRing: "#1F4A5C",
-  mapPrimary: "#8E78FF",
+  mapPrimary: "#2066EB",
   mapSaved: "#FBBF24",
   tagDanger: "#FB7185",
   tagDangerSoft: "#2A1620",
   tagDangerRing: "#5C2A3A",
+  brutCanvas: "#191324",
+  brutInk: "#F2ECDF",
+  brutPop: "#FF7AA8",
+  brutSun: "#3A2F55",
 };
 
 /** "#RRGGBB" -> "R G B" space-separated channels for `rgb(var(--x) / a)`. */

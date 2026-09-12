@@ -38,6 +38,39 @@ export function youtubeThumbUrl(id: string): string {
   return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 }
 
+let ytApiPromise: Promise<void> | null = null;
+
+/**
+ * Loads the YouTube IFrame Player API script once and resolves when the global
+ * `YT.Player` constructor is available. Used by the canvas PiP layer so it can
+ * drive play/pause state and controls on a single persistent player.
+ */
+export function loadYoutubeIframeApi(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const w = window as typeof window & {
+    YT?: { Player?: unknown };
+    onYouTubeIframeAPIReady?: () => void;
+  };
+  if (w.YT?.Player) return Promise.resolve();
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise<void>((resolve) => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve();
+    };
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://www.youtube.com/iframe_api"]',
+    );
+    if (!existing) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+    }
+  });
+  return ytApiPromise;
+}
+
 export interface YoutubeMeta {
   title: string;
   thumb: string;

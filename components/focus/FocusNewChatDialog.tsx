@@ -69,21 +69,21 @@ export function FocusNewChatDialog({ onClose }: { onClose: () => void }) {
             type="button"
             autoFocus
             onClick={continueWithArtifact}
-            className="w-full rounded-canvas bg-canvas-ink px-3 py-2 text-left text-canvas-body-sm font-medium text-canvas-card shadow-card transition-colors hover:bg-canvas-ink/90"
+            className="btn w-full justify-start rounded-canvas bg-canvas-accent px-3 py-2 text-left text-canvas-body-sm font-medium text-canvas-onAccent shadow-card"
           >
             Continue with “{artifact?.title ?? "current artifact"}”
           </button>
           <button
             type="button"
             onClick={startFresh}
-            className="w-full rounded-canvas border border-canvas-border px-3 py-2 text-left text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-bg"
+            className="btn w-full justify-start rounded-canvas border border-canvas-border px-3 py-2 text-left text-canvas-body-sm font-medium text-canvas-ink"
           >
             Start new
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-canvas px-3 py-1.5 text-center text-canvas-body-sm text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+            className="btn w-full rounded-canvas px-3 py-1.5 text-canvas-body-sm text-canvas-muted hover:text-canvas-ink"
           >
             Cancel
           </button>

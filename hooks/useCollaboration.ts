@@ -203,7 +203,13 @@ export function useCollaboration({
   );
 
   const activeCanvasRole: CanvasRole | null = accessInfo?.role ?? null;
-  const canEdit = canEditCanvas(activeCanvasRole);
+  // Local sessions (localhost read-only sandbox) keep canvases in-memory —
+  // there is no DB row to derive a role from, so the access fetch always
+  // came back null and the user's OWN canvases rendered read-only (disabled
+  // toolbar, no artifacts). On their machine they own everything; "read
+  // only" refers to the production DB, which the persistence layer already
+  // enforces by caching edits as session snapshots instead of writing.
+  const canEdit = localReadOnly || canEditCanvas(activeCanvasRole);
 
   const refreshSharedAndInvites = useCallback(async () => {
     if (!user || !supabaseConfigured) {
@@ -241,7 +247,10 @@ export function useCollaboration({
   }, [supabaseConfigured, user]);
 
   const refreshActiveCanvasCollaboration = useCallback(async () => {
-    if (!user || !supabaseConfigured || !activeCanvasId) {
+    // Local sessions have no canvas rows / members / invites to fetch —
+    // querying with an in-memory canvas id would just resolve to null and
+    // clobber canEdit (see above).
+    if (!user || !supabaseConfigured || !activeCanvasId || localReadOnly) {
       setMembers([]);
       setAccessInfo(null);
       setCanvasInvites([]);
@@ -288,7 +297,29 @@ export function useCollaboration({
       setCanvasInvites([]);
       setShareLink(null);
     }
-  }, [activeCanvasId, supabaseConfigured, user]);
+  }, [activeCanvasId, localReadOnly, supabaseConfigured, user]);
+
+  /**
+   * Optimistically marks the caller as owner of a canvas they just created,
+   * BEFORE `refreshActiveCanvasCollaboration`'s async round trip resolves.
+   *
+   * `createCanvas` always inserts with `owner_id: user.id` — the creator's
+   * ownership is already a known fact at that point, not something that
+   * needs a fetch to establish. Without this, `accessInfo` stays at its
+   * `null` default (→ `canEdit` false) for the ~1 network round trip after
+   * `activeCanvasId` flips to the new canvas, so the creator's OWN
+   * brand-new canvas rendered read-only (disabled toolbar) until the fetch
+   * caught up. The subsequent real fetch (triggered by the `activeCanvasId`
+   * effect below) still runs and reconciles this to the same values.
+   */
+  const seedOwnerAccessInfo = useCallback(() => {
+    if (!user) return;
+    setAccessInfo({
+      role: "owner",
+      ownerId: user.id,
+      allowViewerDuplicate: false,
+    });
+  }, [user]);
 
   useEffect(() => {
     void refreshSharedAndInvites();
@@ -724,6 +755,7 @@ export function useCollaboration({
     joinViaToken,
     refreshSharedAndInvites,
     refreshActiveCanvasCollaboration,
+    seedOwnerAccessInfo,
     stampContributor,
     getSnapshotSource,
   };

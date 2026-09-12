@@ -69,6 +69,23 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     quickAction: true,
   },
   {
+    href: "/admin/sample-canvases",
+    label: "Sample Canvases",
+    description:
+      "Code-defined research canvases built with the research-canvas skill — add a copy to your account.",
+    icon: "sample-canvases",
+    group: "lab",
+    quickAction: true,
+  },
+  {
+    href: "/admin/outreach",
+    label: "Podcaster outreach",
+    description:
+      "Messaging variants, target shortlist and pilot playbook for the podcaster pilots.",
+    icon: "message",
+    group: "operate",
+  },
+  {
     href: "/admin/analytics/usage",
     label: "Usage Analysis",
     description:

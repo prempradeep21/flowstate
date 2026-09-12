@@ -115,6 +115,7 @@ export function finalizeCardResponse(
             thinkingLabel: undefined,
             sdkBuildStages: undefined,
             pendingFiles: undefined,
+            customUiSource: undefined,
             responseType: opts.responseType ?? base.responseType ?? "text",
           },
         },
@@ -146,6 +147,10 @@ export function resolveEditingPayloadForApi(cardId: string): {
   const state = useCanvasStore.getState();
   const card = state.cards[cardId];
   if (!card) return null;
+  // A build_custom_ui follow-up builds a NEW artifact from its own source data.
+  // Without this, resolveEditingArtifactId walks the parent chain, finds the
+  // parent's artifact, and the generator surgically edits that instead.
+  if (card.suppressArtifactInheritance) return null;
 
   const plugContext = {
     artifactPlugConnections: state.artifactPlugConnections,

@@ -18,7 +18,10 @@ import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
 import { ARTIFACT_CANVAS_CHROME_OPACITY, ARTIFACT_CANVAS_CHROME_POINTER } from "@/lib/artifactCanvasChrome";
-import { artifactCategoryStyle } from "@/lib/design/theme/artifactCategories";
+import {
+  artifactCategoryOf,
+  artifactCategoryStyle,
+} from "@/lib/design/theme/artifactCategories";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 
 export interface ArtifactEditControls {
@@ -73,6 +76,7 @@ export function ArtifactPanelHeader({
   isVideo = false,
   websiteUrl,
   googleFileKind,
+  iconFaviconUrl,
   exportPayload,
 }: {
   kind: ArtifactKind;
@@ -92,6 +96,8 @@ export function ArtifactPanelHeader({
   isVideo?: boolean;
   websiteUrl?: string;
   googleFileKind?: GoogleDriveFileKind;
+  /** Source favicon for input artifacts (website / embed) — shown as the header icon. */
+  iconFaviconUrl?: string;
   exportPayload?: ArtifactPayload;
 }) {
   const [versionOpen, setVersionOpen] = useState(false);
@@ -154,8 +160,9 @@ export function ArtifactPanelHeader({
   const showArtifactCancel =
     editControls?.isEditing && !editControls.isDirty;
 
+  // Shared .btn state layer (globals.css) supplies hover/press feedback.
   const ctaClass =
-    "flex h-11 shrink-0 items-center rounded-full px-4 text-canvas-heading font-medium transition-colors";
+    "btn h-11 shrink-0 gap-1.5 rounded-full px-4 text-canvas-heading font-medium";
   const chromeClass = isCanvas
     ? `${ARTIFACT_CANVAS_CHROME_OPACITY} ${ARTIFACT_CANVAS_CHROME_POINTER}`
     : "";
@@ -173,10 +180,12 @@ export function ArtifactPanelHeader({
 
   return (
     <div
-      className={`flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+      className={`artifact-panel-header flex items-center gap-[11px]${isCanvas ? " py-3.5 pl-4 pr-2" : " h-14"}`}
+      data-artifact-kind={isVideo ? "video" : kind}
+      data-artifact-category={artifactCategoryOf(isVideo ? "video" : kind)}
     >
       <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
+        className="artifact-header-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-canvas-ink"
         style={
           kind === "table" && artifactId
             ? tableAccentStyles(artifactId)
@@ -194,22 +203,25 @@ export function ArtifactPanelHeader({
           <ArtifactTypeIcon
             kind={isVideo ? "video" : kind}
             googleFileKind={kind === "google-doc" ? googleFileKind : undefined}
+            faviconUrl={isVideo ? undefined : iconFaviconUrl}
             className="h-[22px] w-[22px]"
           />
         </span>
       </span>
-      <EditableArtifactTitle
-        displayTitle={title}
-        renameTitle={renameTitle ?? title}
-        canRename={canRenameTitle && Boolean(onRenameTitle)}
-        onRename={(next) => onRenameTitle?.(next)}
-      />
+      <div className="artifact-header-title flex min-w-0 flex-1 items-center">
+        <EditableArtifactTitle
+          displayTitle={title}
+          renameTitle={renameTitle ?? title}
+          canRename={canRenameTitle && Boolean(onRenameTitle)}
+          onRename={(next) => onRenameTitle?.(next)}
+        />
+      </div>
 
       {showArtifactEdit && (
         <button
           type="button"
           onClick={editControls.onEdit}
-          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink`}
         >
           Edit
         </button>
@@ -219,7 +231,7 @@ export function ArtifactPanelHeader({
         <button
           type="button"
           onClick={editControls.onCancelEdit}
-          className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-muted hover:text-canvas-ink`}
         >
           Cancel
         </button>
@@ -231,7 +243,7 @@ export function ArtifactPanelHeader({
             <button
               type="button"
               onClick={editControls.onDiscard}
-              className={`${ctaClass} text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink`}
+              className={`${ctaClass} text-canvas-muted hover:text-canvas-ink`}
             >
               Discard
             </button>
@@ -239,7 +251,7 @@ export function ArtifactPanelHeader({
           <button
             type="button"
             onClick={editControls.onSave}
-            className={`${ctaClass} bg-canvas-accent text-white hover:opacity-90`}
+            className={`${ctaClass} bg-canvas-accent text-canvas-onAccent`}
           >
             Save
           </button>
@@ -252,7 +264,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink ${chromeClass}`}
         >
           Visit website
           <ExternalLinkIcon />
@@ -263,7 +275,7 @@ export function ArtifactPanelHeader({
           target="_blank"
           rel="noopener noreferrer"
           data-no-drag
-          className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg ${chromeClass}`}
+          className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink ${chromeClass}`}
         >
           Open in Google
           <ExternalLinkIcon />
@@ -288,7 +300,7 @@ export function ArtifactPanelHeader({
               ref={versionButtonRef}
               type="button"
               onClick={() => setVersionOpen((o) => !o)}
-              className={`${ctaClass} gap-1.5 border border-canvas-ink/20 text-canvas-ink hover:bg-canvas-bg`}
+              className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink`}
             >
               Version {active?.number ?? 1}
               <span className="text-canvas-body opacity-70" aria-hidden>
@@ -313,7 +325,7 @@ export function ArtifactPanelHeader({
                       }}
                       className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
                         v.id === activeVersionId
-                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
                           : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
                       }`}
                     >
@@ -335,7 +347,7 @@ export function ArtifactPanelHeader({
                       }}
                       className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
                         v.id === activeVersionId
-                          ? "bg-canvas-bg font-medium text-canvas-ink"
+                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
                           : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
                       }`}
                     >
@@ -359,7 +371,7 @@ export function ArtifactPanelHeader({
             aria-label="More options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
-            className={`flex shrink-0 items-center justify-center rounded-full text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+            className={`btn shrink-0 rounded-full text-canvas-muted hover:text-canvas-ink ${
               isCanvas ? "h-11 w-9" : "h-10 w-10"
             }`}
           >

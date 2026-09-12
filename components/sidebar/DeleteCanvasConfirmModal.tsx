@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { MotionBackdrop, MotionOverlayModal } from "@/components/motion";
+import { Button } from "@/components/ui/Button";
 
 interface DeleteCanvasConfirmModalProps {
   isOpen: boolean;
@@ -75,22 +76,17 @@ export function DeleteCanvasConfirmModal({
               )}
 
               <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={onCancel}
-                  className="rounded-canvas border border-canvas-border px-4 py-2 text-canvas-body font-medium text-canvas-ink hover:bg-canvas-bg disabled:opacity-40"
-                >
+                <Button variant="ghost" disabled={busy} onClick={onCancel}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
+                </Button>
+                <Button
+                  variant="primary"
+                  tone="danger"
+                  loading={busy}
                   onClick={onConfirm}
-                  className="rounded-canvas border border-canvas-dangerBorder px-4 py-2 text-canvas-body font-medium text-canvas-danger hover:bg-canvas-dangerSoft disabled:opacity-40"
                 >
                   {busy ? "Deleting…" : "Delete canvas"}
-                </button>
+                </Button>
               </div>
             </div>
           </MotionOverlayModal>

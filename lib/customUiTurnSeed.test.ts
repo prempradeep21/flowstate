@@ -55,3 +55,17 @@ describe("seedCustomUiTurnState", () => {
     expect(seed!.sdkBuildStages.some((s) => s.id === "ui-planner")).toBe(true);
   });
 });
+
+describe("seedCustomUiTurnState force", () => {
+  // A build_custom_ui follow-up is known custom-UI work; its machine-authored
+  // question must not have to contain the intent keywords.
+  it("seeds a build even when the question misses the keywords", () => {
+    const question = "Summarize the memory results";
+    expect(seedCustomUiTurnState(question, undefined, undefined, {})).toBeNull();
+    const forced = seedCustomUiTurnState(question, undefined, undefined, {}, {
+      force: true,
+    });
+    expect(forced?.sdkBuildStages.length).toBeGreaterThan(0);
+    expect(forced?.thinkingLabel).toBeTruthy();
+  });
+});

@@ -1,39 +1,34 @@
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import type {
-  BranchGroup,
   CanvasArtifactNode,
   Card,
   Connection,
   Thread,
 } from "@/lib/store";
-import { CARD_WIDTH } from "@/lib/canvasNodeBounds";
 import {
-  ARTIFACT_OFFSET_X,
-  ARTIFACT_STACK_Y,
-  CARD_STEP_X,
+  episodePayload,
+  linkGroupPayload,
+  mechanismPayload,
+  quotePayload,
+} from "@/lib/transcriptArtifacts";
+import { layoutChapters } from "@/lib/transcriptImport/chapterLayout";
+import {
   conn,
   convCard,
-  INPUT_ARTIFACT_STEP,
-  ORIGIN_X,
-  OUTPUT_ARTIFACT_LANE_X,
-  spawnInputWebsiteStrip,
   spawnPayload,
   spawnWebsite,
+  spawnWebsites,
   thread,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 
-export const TIP_GROUP_ID = "tip-import-group";
+/** The transcript never names its speaker, so the role label is the attribution. */
+const SPEAKER = "Narrator";
+
 export const TIP_THREAD_MAIN = "tip-thread-main";
 export const TIP_THREAD_ADOBE = "tip-thread-adobe";
 export const TIP_THREAD_PREFIGMA = "tip-thread-prefigma";
 export const TIP_THREAD_DYLAN = "tip-thread-dylan";
-
-const MAIN_Y = 720;
-const ADOBE_Y = 80;
-const PREFIGMA_Y = 1320;
-const DYLAN_Y = 1820;
-const INPUT_ARTIFACTS_Y_LOCAL = 2360;
 
 /** Design tools history conversation graph for the transcript-import playground. */
 export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
@@ -56,172 +51,136 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
   const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
   const canvasArtifactOrder: string[] = [];
 
+  // ---- Chapter heads (the main spine) -------------------------------------
   const mainDefs = [
     {
       id: "tip-c-main-1",
       title: "Photoshop — first mass pro tool",
       summary:
         "Photoshop reached the masses first, but really served a niche of specialized designers. Training institutions sprang up to teach it.",
-      x: ORIGIN_X,
     },
     {
       id: "tip-c-main-2",
       title: "Canva democratizes design",
       summary:
         "Canva opened design to far more people than Photoshop ever did — a second wave of democratization.",
-      x: ORIGIN_X + CARD_STEP_X,
     },
     {
       id: "tip-c-main-3",
       title: "Photoshop era ends",
       summary:
         "For a long time Photoshop was the main tool — until Figma disrupted the category.",
-      x: ORIGIN_X + CARD_STEP_X * 2,
     },
     {
       id: "tip-c-main-4",
       title: "Figma's web-native bet",
       summary:
         "Figma bet hard on design in the browser — no download required, democratizing design again.",
-      x: ORIGIN_X + CARD_STEP_X * 3,
     },
     {
       id: "tip-c-main-5",
       title: "Figma wins the evolution",
       summary:
         "Design tools evolved through waves of democratization; Figma came out on top.",
-      x: ORIGIN_X + CARD_STEP_X * 4,
     },
   ];
 
   for (const def of mainDefs) {
-    cards[def.id] = convCard(
-      def.id,
-      TIP_THREAD_MAIN,
-      def.title,
-      def.summary,
-      { x: def.x, y: MAIN_Y },
-    );
+    cards[def.id] = convCard(def.id, TIP_THREAD_MAIN, def.title, def.summary);
     cardOrder.push(def.id);
   }
 
-  for (let i = 0; i < mainDefs.length - 1; i++) {
-    connections.push(
-      conn(mainDefs[i]!.id, mainDefs[i + 1]!.id, "right", "left"),
-    );
-  }
-
-  const main2X = ORIGIN_X + CARD_STEP_X;
-  const main3X = ORIGIN_X + CARD_STEP_X * 2;
-  const main4X = ORIGIN_X + CARD_STEP_X * 3;
-  const main5X = ORIGIN_X + CARD_STEP_X * 4;
-
+  // ---- Adobe craft (chapter 2) --------------------------------------------
   const adobeDefs = [
     {
       id: "tip-c-adobe-1",
       title: "Adobe suite complexity",
       summary:
         "Photoshop, Premiere Pro, and After Effects — respect for how complicated and deep their interaction design is.",
-      x: main2X,
     },
     {
       id: "tip-c-adobe-2",
       title: "Interaction design mastery",
       summary:
         "Among the toughest UX problems: inventing color pickers, keyframes, and professional editing paradigms.",
-      x: main3X,
     },
     {
       id: "tip-c-adobe-3",
       title: "Color pickers & keyframes",
       summary:
         "These interactions didn't exist before Adobe — they had to be invented from scratch.",
-      x: main4X,
     },
   ];
-
   for (const def of adobeDefs) {
     cards[def.id] = convCard(
       def.id,
       TIP_THREAD_ADOBE,
       def.title,
       def.summary,
-      { x: def.x, y: ADOBE_Y },
       "tip-c-main-2",
     );
     cardOrder.push(def.id);
   }
-  connections.push(conn("tip-c-main-2", "tip-c-adobe-1", "top", "bottom"));
+  connections.push(conn("tip-c-main-2", "tip-c-adobe-1", "bottom", "top"));
   connections.push(conn("tip-c-adobe-1", "tip-c-adobe-2", "right", "left"));
   connections.push(conn("tip-c-adobe-2", "tip-c-adobe-3", "right", "left"));
-  connections.push(conn("tip-c-adobe-2", "tip-c-main-3", "bottom", "top"));
 
+  // ---- Pre-Figma landscape (chapter 3) ------------------------------------
   const preDefs = [
     {
       id: "tip-c-pre-1",
       title: "Sketch — Mac only",
       summary: "Before Figma, Sketch dominated for interface design — Mac users only.",
-      x: main3X,
     },
     {
       id: "tip-c-pre-2",
       title: "Zeplin & smaller tools",
       summary: "Zeplin and other smaller players filled gaps in the pre-Figma landscape.",
-      x: main4X,
     },
   ];
-
   for (const def of preDefs) {
     cards[def.id] = convCard(
       def.id,
       TIP_THREAD_PREFIGMA,
       def.title,
       def.summary,
-      { x: def.x, y: PREFIGMA_Y },
       "tip-c-main-3",
     );
     cardOrder.push(def.id);
   }
   connections.push(conn("tip-c-main-3", "tip-c-pre-1", "bottom", "top"));
   connections.push(conn("tip-c-pre-1", "tip-c-pre-2", "right", "left"));
-  connections.push(conn("tip-c-pre-2", "tip-c-main-4", "top", "bottom"));
 
+  // ---- Dylan Field & WebGL (chapter 4) ------------------------------------
   const dylanDefs = [
     {
       id: "tip-c-dylan-1",
       title: "Dylan Field & WebGL",
       summary:
         "Figma wasn't luck — CEO Dylan Field was a longtime WebGL enthusiast; browser GPU power enabled the product.",
-      x: main4X,
     },
     {
       id: "tip-c-dylan-2",
       title: "WebGL water demo",
       summary:
-        "Evan Wallace's WebGL water simulation showed what the browser could render — a founding inspiration for Figma.",
-      x: main5X,
+        "A video explaining the capabilities of WebGL with a splashing water 3D moving display, rendering on the web.",
     },
   ];
-
   for (const def of dylanDefs) {
     cards[def.id] = convCard(
       def.id,
       TIP_THREAD_DYLAN,
       def.title,
       def.summary,
-      { x: def.x, y: DYLAN_Y },
       "tip-c-main-4",
     );
     cardOrder.push(def.id);
   }
   connections.push(conn("tip-c-main-4", "tip-c-dylan-1", "bottom", "top"));
   connections.push(conn("tip-c-dylan-1", "tip-c-dylan-2", "right", "left"));
-  connections.push(conn("tip-c-dylan-2", "tip-c-main-5", "top", "bottom"));
 
-  const dylanArtifactX = main5X + CARD_WIDTH + ARTIFACT_OFFSET_X;
-  const inputStripStartX = ORIGIN_X + CARD_STEP_X * 2;
-
-  spawnInputWebsiteStrip(
+  // ---- Artifacts — each lands in the chapter of its source card -----------
+  spawnWebsites(
     [
       {
         id: "photoshop",
@@ -266,8 +225,6 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
         cardId: "tip-c-main-4",
       },
     ],
-    inputStripStartX,
-    INPUT_ARTIFACTS_Y_LOCAL,
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -290,17 +247,6 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-dylan-2",
-    { x: dylanArtifactX, y: DYLAN_Y },
-    sessionArtifacts,
-    canvasArtifactNodes,
-    canvasArtifactOrder,
-  );
-  spawnWebsite(
-    "evan-water",
-    "https://madebyevan.com/webgl-water/",
-    "WebGL Water (interactive)",
-    "tip-c-dylan-2",
-    { x: dylanArtifactX + INPUT_ARTIFACT_STEP, y: DYLAN_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -310,17 +256,6 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
     "https://en.wikipedia.org/wiki/Dylan_Field",
     "Dylan Field",
     "tip-c-dylan-1",
-    { x: dylanArtifactX + INPUT_ARTIFACT_STEP * 2, y: DYLAN_Y },
-    sessionArtifacts,
-    canvasArtifactNodes,
-    canvasArtifactOrder,
-  );
-  spawnWebsite(
-    "figma-origin",
-    "https://www.figma.com/blog/design-meet-the-internet/",
-    "Design Meet the Internet",
-    "tip-c-dylan-1",
-    { x: dylanArtifactX + INPUT_ARTIFACT_STEP * 3, y: DYLAN_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -337,16 +272,11 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-adobe-3",
-    {
-      x: adobeDefs[2]!.x + CARD_WIDTH + ARTIFACT_OFFSET_X,
-      y: ADOBE_Y,
-    },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
   );
 
-  const outputX = mainDefs[4]!.x + CARD_WIDTH + OUTPUT_ARTIFACT_LANE_X;
   spawnPayload(
     "tip-art-timeline",
     {
@@ -363,7 +293,6 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-main-5",
-    { x: outputX, y: MAIN_Y },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
@@ -387,31 +316,176 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
       },
     },
     "tip-c-main-5",
-    { x: outputX, y: MAIN_Y + ARTIFACT_STACK_Y * 2 },
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
   );
 
-  const groups: Record<string, BranchGroup> = {
-    [TIP_GROUP_ID]: {
-      id: TIP_GROUP_ID,
-      label: "Design tools history import",
-      familyRootThreadIds: [TIP_THREAD_MAIN],
-      summaryMarkdown: null,
-    },
-  };
+
+  /*
+   * Extracted artifacts, per the transcript-artifacts skill. Every string below is
+   * a verbatim lift from DESIGN_TOOLS_HISTORY_TRANSCRIPT.
+   *
+   * This transcript yields far less than the other two, and that is the correct
+   * result: ~330 words of casual monologue with no numbers, no disagreement and no
+   * defined terms. Chapter 3 (the pre-Figma landscape) earns no primary artifact at
+   * all — two named tools with one attribute between them is not a table.
+   */
+
+  spawnPayload(
+    "tip-art-quote-masses",
+    quotePayload("Masses, but a niche", {
+      text:
+        "Photoshop is the first ever design tool that reached the masses and although we consider it as masses, it actually is for a niche of specialized designers.",
+      speaker: SPEAKER,
+      context: "Opening claim about where design tooling started",
+    }),
+    "tip-c-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-quote-interactions",
+    quotePayload("Inventing the interactions", {
+      text:
+        "I think it was one of the most toughest jobs to create interactions for things like color pickers.",
+      speaker: SPEAKER,
+      context: "On respect for Adobe's interaction design",
+    }),
+    "tip-c-adobe-2",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-quote-promise",
+    quotePayload("The crazy promise", {
+      text: "Figma came in with the crazy promise of doing design on the web.",
+      speaker: SPEAKER,
+      context: "On what set Figma apart from Sketch",
+    }),
+    "tip-c-main-4",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-mech-web",
+    mechanismPayload("Why web-native was not luck", {
+      steps: [
+        {
+          id: "dylan",
+          label: "Dylan Field, a WebGL enthusiast for a very long time",
+          note: "CEO of Figma",
+        },
+        {
+          id: "webgl",
+          label: "WebGL rendering 3D in the browser",
+          note: "A splashing water display, rendering on the web",
+        },
+        { id: "web", label: "Design on the web" },
+        { id: "nodownload", label: "You don't have to download a software anymore" },
+        { id: "democratize", label: "Democratized it for so many people" },
+      ],
+      edges: [
+        { from: "dylan", to: "webgl" },
+        { from: "webgl", to: "web", label: "made it possible" },
+        { from: "web", to: "nodownload" },
+        { from: "nodownload", to: "democratize" },
+      ],
+    }),
+    "tip-c-dylan-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  /*
+   * The masthead. This source is a voice note, not a published episode — no
+   * channel, no URL, no thumbnail, no duration — so the artifact is the chapter
+   * index alone. The link directory is the better half here: the transcript
+   * names seven tools, which is exactly the "products" shape the kind exists for.
+   */
+  const MASTHEAD_NODE_IDS = ["tip-art-design-episode", "tip-art-design-links"];
+
+  spawnPayload(
+    "tip-art-design-episode",
+    episodePayload("The recording", {
+      videoTitle: "Design tools history",
+      description:
+        "A voice note tracing design tooling from Photoshop through Canva and Sketch to Figma.",
+      chapters: mainDefs.map((def, index) => ({
+        label: def.title,
+        groupId: `tip-design-chapter-${index + 1}`,
+      })),
+    }),
+    "tip-c-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+  spawnPayload(
+    "tip-art-design-links",
+    linkGroupPayload("Affiliated links", {
+      sections: [
+        {
+          label: "Tools discussed",
+          links: [
+            { label: "Photoshop", url: "https://www.adobe.com/products/photoshop.html" },
+            { label: "Canva", url: "https://www.canva.com" },
+            { label: "Premiere Pro", url: "https://www.adobe.com/products/premiere.html" },
+            { label: "After Effects", url: "https://www.adobe.com/products/aftereffects.html" },
+            { label: "Sketch", url: "https://www.sketch.com" },
+            { label: "Zeplin", url: "https://zeplin.io" },
+            { label: "Figma", url: "https://www.figma.com" },
+          ],
+        },
+        {
+          label: "People",
+          links: [
+            { label: "Dylan Field", url: "https://en.wikipedia.org/wiki/Dylan_Field" },
+          ],
+        },
+        {
+          label: "Watch",
+          links: [
+            {
+              label: "WebGL Water",
+              url: "https://www.youtube.com/watch?v=R0O_9bp3EKQ",
+            },
+          ],
+        },
+      ],
+    }),
+    "tip-c-main-1",
+    sessionArtifacts,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+  );
+
+  const layout = layoutChapters({
+    mainCardIds: mainDefs.map((def) => def.id),
+    cards,
+    cardOrder,
+    connections,
+    canvasArtifactNodes,
+    canvasArtifactOrder,
+    sessionArtifacts,
+    mastheadNodeIds: MASTHEAD_NODE_IDS,
+    idPrefix: "tip-design",
+  });
 
   return {
     cards,
     cardOrder,
-    connections,
+    connections: layout.connections,
     threads,
     threadOrder,
-    groups,
+    groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,
     canvasArtifactOrder,
-    contentCenter: { x: ORIGIN_X + CARD_STEP_X * 2.5, y: MAIN_Y },
+    contentCenter: layout.contentCenter,
   };
 }

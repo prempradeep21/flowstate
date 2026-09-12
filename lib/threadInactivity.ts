@@ -52,6 +52,11 @@ export function shouldAutoCollapseThread(
 
   const root = getThreadRootCard(state, threadId);
   if (!root) return false;
+  // Transcript/conversation cards are the canvas's standing content, not a Q&A
+  // exchange that has gone quiet — they stay expanded however long they idle.
+  if (cardsInThread(state, threadId).some((c) => c.cardKind === "conversation")) {
+    return false;
+  }
   if (state.collapsedCardIds.includes(root.id)) return false;
   if (threadHasPendingResponse(state, threadId)) return false;
   if (root.status === "empty" && !root.question.trim()) return false;
