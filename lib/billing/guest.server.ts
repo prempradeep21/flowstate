@@ -14,8 +14,28 @@ import {
  * abuse ceiling, not a user's entitlement, and making it permanent would ban a
  * whole building forever.
  */
-export const GUEST_IP_CREDITS = GUEST_CREDITS * 3;
 const IP_WINDOW_HOURS = 24;
+
+/**
+ * The guest allowance in force, honouring GUEST_CREDITS_OVERRIDE.
+ *
+ * 240 is a calibration from a single measured canvas, not a settled number, so
+ * it needs to be tunable without a deploy — and testable without asking 15
+ * questions. Server-side only: plans.ts stays client-safe.
+ */
+export function guestCreditAllowance(): number {
+  const raw = process.env.GUEST_CREDITS_OVERRIDE?.trim();
+  const n = raw ? Number.parseFloat(raw) : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? n : GUEST_CREDITS;
+}
+
+/**
+ * Anti-abuse ceiling for a shared address, at 3x the per-visitor allowance so
+ * an office or carrier NAT is not locked out by its first few visitors.
+ */
+export function guestIpAllowance(): number {
+  return guestCreditAllowance() * 3;
+}
 
 /** `guests` enables the wall independently of BILLING_ENFORCEMENT, because the
  *  guest wall and signed-in limits ship at different times. */
@@ -88,7 +108,8 @@ export async function guardGuestCredits(args: {
       ),
     };
 
-    let overLimit = usage.creditsUsed >= GUEST_CREDITS;
+    const allowance = guestCreditAllowance();
+    let overLimit = usage.creditsUsed >= allowance;
 
     // IP backstop — only when a salt is configured, and only within the window.
     if (!overLimit && args.ipHash) {
@@ -106,7 +127,7 @@ export async function guardGuestCredits(args: {
           sum + num((r as { credits_used: number | string }).credits_used),
         0,
       );
-      overLimit = ipTotal >= GUEST_IP_CREDITS;
+      overLimit = ipTotal >= guestIpAllowance();
     }
 
     if (!overLimit) return { ok: true, usage };
@@ -120,7 +141,7 @@ export async function guardGuestCredits(args: {
           code: "guest_limit_reached",
           billing: {
             creditsUsed: usage.creditsUsed,
-            creditsLimit: GUEST_CREDITS,
+            creditsLimit: allowance,
             questionsAsked: usage.requests,
             signInRequired: true,
           },
