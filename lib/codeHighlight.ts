@@ -7,26 +7,47 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
-const KEYWORD_RE =
-  /\b(def|class|if|elif|else|return|import|from|const|let|var|function|async|await|export|default|interface|type|enum|struct|public|private|void|int|float|bool|string|new|try|catch|finally|for|while|switch|case|break|continue|extends|implements|package|using|namespace|template|typename)\b/g;
+const KEYWORDS =
+  "def|class|if|elif|else|return|import|from|const|let|var|function|async|await|export|default|interface|type|enum|struct|public|private|void|int|float|bool|string|new|try|catch|finally|for|while|switch|case|break|continue|extends|implements|package|using|namespace|template|typename";
 
-export function highlightCode(source: string, _language: string): string {
+/**
+ * One pass over the escaped line: strings and keywords are matched together so
+ * the `class="…"` attributes of an already-emitted span are never re-scanned
+ * (a second pass would highlight the literal word `class` and shred the tag).
+ */
+const STRING_AND_KEYWORD_RE = new RegExp(
+  `('[^']*'|"[^"]*"|\`[^\`]*\`)|\\b(${KEYWORDS})\\b`,
+  "g",
+);
+
+/** Prose formats: quoted words are not string literals, `if`/`for`/… are not keywords. */
+function isProseLanguage(language: string): boolean {
+  return language === "markdown" || language === "plaintext";
+}
+
+export function highlightCode(source: string, language: string): string {
+  const prose = isProseLanguage(language);
   const lines = source.split("\n");
   return lines
     .map((line) => {
       if (/^\s*#/.test(line) || /^\s*\/\//.test(line)) {
         return `<span class="text-canvas-syntaxComment">${escapeHtml(line)}</span>`;
       }
-      let html = escapeHtml(line);
-      html = html.replace(
-        /('[^']*'|"[^"]*"|`[^`]*`)/g,
-        '<span class="text-canvas-syntaxString">$1</span>',
+      const escaped = escapeHtml(line);
+      if (prose) {
+        // Only inline-code spans get colour; prose words stay plain.
+        return escaped.replace(
+          /(`[^`]*`)/g,
+          '<span class="text-canvas-syntaxString">$1</span>',
+        );
+      }
+      return escaped.replace(
+        STRING_AND_KEYWORD_RE,
+        (_match, str?: string, keyword?: string) =>
+          str
+            ? `<span class="text-canvas-syntaxString">${str}</span>`
+            : `<span class="text-canvas-syntaxKeyword font-medium">${keyword}</span>`,
       );
-      html = html.replace(
-        KEYWORD_RE,
-        '<span class="text-canvas-syntaxKeyword font-medium">$1</span>',
-      );
-      return html;
     })
     .join("\n");
 }
