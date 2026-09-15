@@ -86,6 +86,15 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     group: "operate",
   },
   {
+    href: "/admin/operate/billing",
+    label: "Spend",
+    description:
+      "Live per-request cost and credits from usage_ledger — includes signed-out and unsaved sessions.",
+    icon: "usage",
+    group: "operate",
+    quickAction: true,
+  },
+  {
     href: "/admin/analytics/usage",
     label: "Usage Analysis",
     description:
