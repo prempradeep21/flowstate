@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_MODEL_ID } from "@/lib/models";
 import { inferCategory } from "@/lib/github/stackDetect";
 import type { OverviewAi, WhoItsForDetail } from "@/lib/github/types";
 import { polishWhatItIsCopy } from "@/lib/github/overviewCopyLimits";
@@ -130,7 +131,7 @@ ${OVERVIEW_JSON_SCHEMA}`;
   try {
     const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: DEFAULT_MODEL_ID,
       max_tokens: 1000,
       system:
         "You explain GitHub repositories in clear, simple English for rapid evaluation. Write original summaries — never copy README wording with links or notes. Return only valid JSON, no markdown fences.",

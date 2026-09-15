@@ -27,6 +27,7 @@ import {
   type NeutralContentPart,
   type NeutralMessage,
   type NeutralToolDef,
+  type RunUsage,
 } from "@/lib/llm/provider";
 import {
   createToolExecutor,
@@ -328,7 +329,12 @@ export async function POST(req: Request) {
         controller.close();
       };
 
-      const totalUsage = { inputTokens: 0, outputTokens: 0 };
+      const totalUsage: RunUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      };
       const turnStartedAt = Date.now();
       let toolTurns = 0;
       let pauseTurns = 0;
@@ -456,8 +462,13 @@ export async function POST(req: Request) {
             maxToolTurns: mcp.tools.length > 0 ? MCP_MAX_TOOL_TURNS : undefined,
           });
 
+          // Carry ALL four fields. Anthropic reports cache reads/writes in
+          // separate buckets from `input_tokens` and bills them at ~10% /
+          // ~125%, so dropping them understates real cost several-fold.
           totalUsage.inputTokens = result.usage.inputTokens;
           totalUsage.outputTokens = result.usage.outputTokens;
+          totalUsage.cacheReadTokens = result.usage.cacheReadTokens;
+          totalUsage.cacheCreationTokens = result.usage.cacheCreationTokens;
           toolTurns = result.toolTurns;
           pauseTurns = result.pauseTurns;
           webSearchBlocks = result.webSearchBlocks;
@@ -501,8 +512,11 @@ export async function POST(req: Request) {
           question,
           model,
           durationMs,
+          ownerId: user?.id ?? null,
           inputTokens: totalUsage.inputTokens,
           outputTokens: totalUsage.outputTokens,
+          cacheReadTokens: totalUsage.cacheReadTokens,
+          cacheCreationTokens: totalUsage.cacheCreationTokens,
           toolTurns,
           pauseTurns,
           webSearchBlocks,

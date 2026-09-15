@@ -503,11 +503,14 @@ export interface Database {
           created_at: string;
           card_id: string | null;
           canvas_id: string | null;
+          owner_id: string | null;
           question: string | null;
           model: string | null;
           duration_ms: number | null;
           input_tokens: number | null;
           output_tokens: number | null;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
           tool_turns: number | null;
           pause_turns: number | null;
           web_search_blocks: number | null;
@@ -520,11 +523,14 @@ export interface Database {
           created_at?: string;
           card_id?: string | null;
           canvas_id?: string | null;
+          owner_id?: string | null;
           question?: string | null;
           model?: string | null;
           duration_ms?: number | null;
           input_tokens?: number | null;
           output_tokens?: number | null;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
           tool_turns?: number | null;
           pause_turns?: number | null;
           web_search_blocks?: number | null;
@@ -537,11 +543,14 @@ export interface Database {
           created_at?: string;
           card_id?: string | null;
           canvas_id?: string | null;
+          owner_id?: string | null;
           question?: string | null;
           model?: string | null;
           duration_ms?: number | null;
           input_tokens?: number | null;
           output_tokens?: number | null;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
           tool_turns?: number | null;
           pause_turns?: number | null;
           web_search_blocks?: number | null;
@@ -555,6 +564,13 @@ export interface Database {
             columns: ["canvas_id"];
             isOneToOne: false;
             referencedRelation: "canvases";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qa_turn_events_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];

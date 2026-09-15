@@ -9,6 +9,8 @@ export interface QaTurnFailureRow {
   duration_ms: number | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_creation_tokens: number | null;
   tool_turns: number | null;
   pause_turns: number | null;
   web_search_blocks: number | null;

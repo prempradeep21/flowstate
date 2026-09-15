@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_MODEL_ID } from "@/lib/models";
 import { buildRepoOverviewAi } from "@/lib/github/ensureRichOverview";
 import {
   decodeBase64Content,
@@ -92,7 +93,7 @@ Separate paragraphs with a blank line. Max ~110 words total.`;
 
     const client = new Anthropic({ apiKey });
     const stream = client.messages.stream({
-      model: "claude-sonnet-4-20250514",
+      model: DEFAULT_MODEL_ID,
       max_tokens: 600,
       system:
         "You summarize GitHub repositories in clear, simple English. Write original prose — never copy README links or notes.",
