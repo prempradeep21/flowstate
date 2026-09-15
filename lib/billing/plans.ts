@@ -72,8 +72,20 @@ export const PLANS: Plan[] = [
 
 export const DEFAULT_PLAN_ID: PlanId = "free";
 
-/** Guest allowance. Granted ONCE per visitor and never refilled. */
-export const GUEST_CREDITS = 50;
+/**
+ * Guest allowance. Granted ONCE per visitor and never refilled — consistent
+ * with the no-daily-limits rule, and stricter than a daily reset because there
+ * is nothing to farm by waiting.
+ *
+ * CALIBRATED, not guessed: 240 credits is exactly what the measured "Bali
+ * planning" canvas cost — 5 questions, $0.48, on claude-sonnet-4-6.
+ *
+ * It buys a guest roughly 10-15 questions rather than 5, because cost per
+ * question scales with canvas maturity and guests always start from an empty
+ * canvas: ~11 credits on a cold first question, ~5 on the next few, rising
+ * toward ~48 once a canvas carries 113k tokens of cached context.
+ */
+export const GUEST_CREDITS = 240;
 
 export function getPlan(id: string | null | undefined): Plan {
   return PLANS.find((p) => p.id === id) ?? PLANS[0];

@@ -166,6 +166,40 @@ export function askClaude(
 
       if (!res.ok) {
         if (cancelled) return;
+
+        // The guest wall. A 402 here is not a failure to report — it is a
+        // conversion moment, so open the sign-in modal and say nothing in the
+        // card. Rendering "Request failed (HTTP 402)" would be both alarming
+        // and wrong.
+        if (res.status === 402) {
+          const body = (await res.json().catch(() => null)) as {
+            code?: string;
+            billing?: { questionsAsked?: number };
+          } | null;
+          if (body?.code === "guest_limit_reached") {
+            useCanvasStore
+              .getState()
+              .openGuestWall(body.billing?.questionsAsked ?? null);
+
+            // Mark content as received so the `finally` block below does not
+            // add "⚠️ No response received. The connection may have timed
+            // out." — nothing failed and nothing timed out, and telling a
+            // visitor otherwise at the exact moment we ask them to sign in is
+            // both untrue and alarming.
+            receivedContent = true;
+            cb.onThinking?.("Sign in to continue");
+            // Leaves a calm line in the card, so it still makes sense after
+            // the modal is dismissed. Without any text the card falls through
+            // to the missing-answer retry placeholder.
+            cb.onToken(
+              "Sign in to see this answer — your canvas is saved and comes with you.",
+            );
+            // No onDone here: the `finally` block owns that, and calling it
+            // twice double-fires the turn-complete handlers.
+            return;
+          }
+        }
+
         receivedContent = true;
         const timeout =
           res.status === 504 || res.status === 408;

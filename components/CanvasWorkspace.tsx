@@ -15,6 +15,7 @@ import { CanvasVideoPlayerLayer } from "@/components/CanvasVideoPlayerLayer";
 import { McpApprovalDock } from "@/components/mcp/McpApprovalPopup";
 import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
+import { GuestWall } from "@/components/billing/GuestWall";
 import { useAuth } from "@/components/AuthProvider";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
@@ -22,7 +23,9 @@ import { useVideoPipStore } from "@/lib/videoPipStore";
 
 const CanvasSwitchOverlay = dynamic(
   () =>
-    import("@/components/CanvasSwitchOverlay").then((m) => m.CanvasSwitchOverlay),
+    import("@/components/CanvasSwitchOverlay").then(
+      (m) => m.CanvasSwitchOverlay,
+    ),
   { ssr: false },
 );
 
@@ -71,15 +74,18 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
           visible={isSwitchingCanvas}
           canvasTitle={switchingCanvasTitle}
         />
-
       </div>
       <AppLeftPanel onGoHome={onGoHome} />
       <AppRightPanel />
       <ArtifactPanel />
       <ShareModal />
+      <GuestWall />
       <CoachMarkTour />
       {viewMode === "canvas" && (
-        <CanvasMinimap containerRef={canvasContainerRef} canvasKey={canvasKey} />
+        <CanvasMinimap
+          containerRef={canvasContainerRef}
+          canvasKey={canvasKey}
+        />
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
         <CanvasBottomToolbar />

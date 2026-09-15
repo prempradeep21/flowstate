@@ -774,6 +774,13 @@ interface CanvasState {
     opts?: { position?: { x: number; y: number } },
   ) => { artifactId: string; versionId: string };
 
+  /** Set when a signed-out visitor exhausts their guest allowance. Session
+   *  state, never persisted — the server is the authority and re-blocks the
+   *  next request regardless of what the client thinks. */
+  guestWall: { open: boolean; questionsAsked: number | null };
+  openGuestWall: (questionsAsked: number | null) => void;
+  dismissGuestWall: () => void;
+
   sessionUsage: {
     inputTokens: number;
     outputTokens: number;
@@ -1669,6 +1676,11 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   selectedModel: "claude-sonnet-4-6",
+  guestWall: { open: false, questionsAsked: null },
+  openGuestWall: (questionsAsked) =>
+    set({ guestWall: { open: true, questionsAsked } }),
+  dismissGuestWall: () =>
+    set((s) => ({ guestWall: { ...s.guestWall, open: false } })),
   sessionUsage: {
     inputTokens: 0,
     outputTokens: 0,

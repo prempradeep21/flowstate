@@ -61,7 +61,13 @@ import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
 import { recordUsage } from "@/lib/billing/ledger.server";
 import { resolveBillingOwner } from "@/lib/billing/owner";
 import { guardCredits } from "@/lib/billing/guard.server";
-import { estimateCredits } from "@/lib/billing/pricing";
+import {
+  addGuestUsage,
+  clientIpFrom,
+  guardGuestCredits,
+  hashIp,
+} from "@/lib/billing/guest.server";
+import { creditsFor, estimateCredits } from "@/lib/billing/pricing";
 import {
   buildCanvasMemoryNote,
   buildUserMemoryNote,
@@ -167,6 +173,23 @@ export async function POST(req: Request) {
     } catch {
       // proceed without MCP tools
     }
+  }
+
+  // Guest identity. Only meaningful when signed out; middleware guarantees the
+  // cookie exists by the time any route runs.
+  const visitorId = user ? null : (req.headers.get("cookie")?.match(/(?:^|;\s*)fs_vid=([^;]+)/)?.[1] ?? null);
+  const guestIpHash = user ? null : hashIp(clientIpFrom(req.headers));
+
+  // The guest wall. Signed-in users skip this entirely — it is gated on
+  // GUEST_ENFORCEMENT, separate from BILLING_ENFORCEMENT, because the two ship
+  // at different times.
+  if (!user) {
+    const guestGuard = await guardGuestCredits({
+      visitorId,
+      ipHash: guestIpHash,
+      surface: "chat",
+    });
+    if (!guestGuard.ok) return guestGuard.response;
   }
 
   // Credit guard. In "off" (the default) and "shadow" this cannot refuse a
@@ -541,10 +564,27 @@ export async function POST(req: Request) {
           cacheCreationTokens: totalUsage.cacheCreationTokens,
           webSearches: webSearchBlocks,
           durationMs,
+          visitorId,
           canvasId: canvasId ?? null,
           cardId: conversationId ?? null,
           outcome,
         });
+
+        // Guests: add real spend to the lifetime counter the wall reads.
+        if (!user && visitorId) {
+          void addGuestUsage({
+            visitorId,
+            ipHash: guestIpHash,
+            credits: creditsFor({
+              model,
+              inputTokens: totalUsage.inputTokens,
+              outputTokens: totalUsage.outputTokens,
+              cacheReadTokens: totalUsage.cacheReadTokens,
+              cacheCreationTokens: totalUsage.cacheCreationTokens,
+              webSearches: webSearchBlocks,
+            }),
+          });
+        }
 
         logQaTurnEvent({
           cardId: conversationId ?? null,
