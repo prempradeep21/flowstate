@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
 import { createClient } from "@/lib/supabase/server";
 
 // Cross-canvas user memory extraction. Called after each exchange, but
@@ -115,6 +116,15 @@ export async function POST(req: Request) {
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userContent }],
+    });
+
+    recordUsage({
+      ownerId: user.id,
+      surface: "memory-extract",
+      provider: "anthropic",
+      model: EXTRACT_MODEL,
+      ...fromAnthropicUsage(message.usage),
+      outcome: "success",
     });
 
     const textBlock = message.content.find((b) => b.type === "text");

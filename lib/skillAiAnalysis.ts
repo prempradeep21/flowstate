@@ -5,6 +5,7 @@
  * bundle. Only app/api/skills/analyze/route.ts should import this module.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
 import { deriveSkillCardData, type SkillCardData } from "@/lib/skillMetadata";
 
 const SKILL_ANALYSIS_MAX_CHARS = 12_000;
@@ -29,6 +30,8 @@ const SKILL_ANALYSIS_JSON_SCHEMA = `{
 export async function analyzeSkillWithClaude(
   rawText: string,
   fileName: string,
+  /** Billing owner to attribute this analysis to; null for guests. */
+  ownerId?: string | null,
 ): Promise<SkillCardData> {
   const fallback = deriveSkillCardData(rawText);
 
@@ -53,6 +56,15 @@ ${SKILL_ANALYSIS_JSON_SCHEMA}`;
       system:
         "You analyze Claude Code skill files (markdown, often with YAML frontmatter) for a card preview. Return only valid JSON, no markdown fences, no commentary.",
       messages: [{ role: "user", content: userContent }],
+    });
+
+    recordUsage({
+      ownerId: ownerId ?? null,
+      surface: "skills-analyze",
+      provider: "anthropic",
+      model: "claude-haiku-4-5-20251001",
+      ...fromAnthropicUsage(message.usage),
+      outcome: "success",
     });
 
     const block = message.content.find((b) => b.type === "text");

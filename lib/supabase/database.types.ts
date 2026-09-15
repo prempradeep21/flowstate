@@ -575,6 +575,180 @@ export interface Database {
           },
         ];
       };
+      usage_ledger: {
+        Row: {
+          id: string;
+          created_at: string;
+          owner_id: string | null;
+          visitor_id: string | null;
+          period_start: string;
+          kind: string;
+          hold_id: string | null;
+          credits: number;
+          surface: string;
+          provider: string | null;
+          model: string | null;
+          input_tokens: number;
+          output_tokens: number;
+          cache_read_tokens: number;
+          cache_creation_tokens: number;
+          web_searches: number;
+          units: number;
+          duration_ms: number | null;
+          cost_usd: number | null;
+          pricing_version: string;
+          canvas_id: string | null;
+          card_id: string | null;
+          outcome: string | null;
+          expires_at: string | null;
+          metadata: Json;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          owner_id?: string | null;
+          visitor_id?: string | null;
+          period_start: string;
+          kind: string;
+          hold_id?: string | null;
+          credits: number;
+          surface: string;
+          provider?: string | null;
+          model?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
+          web_searches?: number;
+          units?: number;
+          duration_ms?: number | null;
+          cost_usd?: number | null;
+          pricing_version: string;
+          canvas_id?: string | null;
+          card_id?: string | null;
+          outcome?: string | null;
+          expires_at?: string | null;
+          metadata?: Json;
+        };
+        Update: Partial<Database["public"]["Tables"]["usage_ledger"]["Insert"]>;
+        Relationships: [];
+      };
+      usage_counters: {
+        Row: {
+          owner_id: string;
+          period_start: string;
+          period_end: string;
+          credits_used: number;
+          credits_reserved: number;
+          cost_usd: number;
+          events: number;
+          updated_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          period_start: string;
+          period_end: string;
+          credits_used?: number;
+          credits_reserved?: number;
+          cost_usd?: number;
+          events?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["usage_counters"]["Insert"]>;
+        Relationships: [];
+      };
+      user_entitlements: {
+        Row: {
+          owner_id: string;
+          owner_type: string;
+          plan_id: string;
+          status: string;
+          credits_per_period: number;
+          bonus_credits: number;
+          period_start: string;
+          period_end: string;
+          cancel_at_period_end: boolean;
+          pending_plan_id: string | null;
+          pending_effective_at: string | null;
+          provider: string;
+          provider_customer_id: string | null;
+          provider_subscription_id: string | null;
+          provider_price_id: string | null;
+          grace_until: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          owner_type?: string;
+          plan_id?: string;
+          status?: string;
+          credits_per_period?: number;
+          bonus_credits?: number;
+          period_start?: string;
+          period_end?: string;
+          cancel_at_period_end?: boolean;
+          pending_plan_id?: string | null;
+          pending_effective_at?: string | null;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          provider_price_id?: string | null;
+          grace_until?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["user_entitlements"]["Insert"]>;
+        Relationships: [];
+      };
+      billing_events: {
+        Row: {
+          id: string;
+          provider: string;
+          event_id: string;
+          type: string | null;
+          owner_id: string | null;
+          payload: Json;
+          received_at: string;
+          processed_at: string | null;
+          error: string | null;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          event_id: string;
+          type?: string | null;
+          owner_id?: string | null;
+          payload?: Json;
+          received_at?: string;
+          processed_at?: string | null;
+          error?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["billing_events"]["Insert"]>;
+        Relationships: [];
+      };
+      guest_credit_counters: {
+        Row: {
+          visitor_id: string;
+          ip_hash: string | null;
+          credits_used: number;
+          requests: number;
+          window_start: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          visitor_id: string;
+          ip_hash?: string | null;
+          credits_used?: number;
+          requests?: number;
+          window_start?: string;
+          last_seen_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["guest_credit_counters"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

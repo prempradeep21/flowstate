@@ -58,6 +58,8 @@ import {
 } from "@/lib/fetchPageContent";
 import { extractUrlsFromText } from "@/lib/urlDetection";
 import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
+import { recordUsage } from "@/lib/billing/ledger.server";
+import { resolveBillingOwner } from "@/lib/billing/owner";
 import {
   buildCanvasMemoryNote,
   buildUserMemoryNote,
@@ -505,6 +507,25 @@ export async function POST(req: Request) {
             : turnError
               ? "error"
               : "success";
+
+        // Billing meter. Phase 1 records only — nothing is checked or refused.
+        // Fire-and-forget, exactly like logQaTurnEvent below: a billing write
+        // must never be able to break a chat turn.
+        recordUsage({
+          ownerId: user ? resolveBillingOwner(user.id).ownerId : null,
+          surface: "chat",
+          provider,
+          model,
+          inputTokens: totalUsage.inputTokens,
+          outputTokens: totalUsage.outputTokens,
+          cacheReadTokens: totalUsage.cacheReadTokens,
+          cacheCreationTokens: totalUsage.cacheCreationTokens,
+          webSearches: webSearchBlocks,
+          durationMs,
+          canvasId: canvasId ?? null,
+          cardId: conversationId ?? null,
+          outcome,
+        });
 
         logQaTurnEvent({
           cardId: conversationId ?? null,

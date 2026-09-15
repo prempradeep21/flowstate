@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 import type { GroupTranscript } from "@/lib/buildGroupTranscript";
 
 const MAX_TRANSCRIPT_CHARS = 100_000;
@@ -103,6 +105,15 @@ export async function POST(req: Request) {
           content: userContent,
         },
       ],
+    });
+
+    recordUsage({
+      ownerId: (await getCurrentUser())?.id ?? null,
+      surface: "summarize",
+      provider: "anthropic",
+      model: model ?? "claude-sonnet-4-6",
+      ...fromAnthropicUsage(message.usage),
+      outcome: "success",
     });
 
     const textBlock = message.content.find((b) => b.type === "text");

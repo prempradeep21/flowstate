@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { DEFAULT_MODEL_ID } from "@/lib/models";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 import { buildRepoOverviewAi } from "@/lib/github/ensureRichOverview";
 import {
   decodeBase64Content,
@@ -113,6 +115,22 @@ Separate paragraphs with a blank line. Max ~110 words total.`;
             }
           }
           controller.close();
+
+          // Usage is only knowable once the stream completes. The response is
+          // already closed by this point, so metering cannot affect it.
+          try {
+            const final = await stream.finalMessage();
+            recordUsage({
+              ownerId: (await getCurrentUser())?.id ?? null,
+              surface: "github-summary-stream",
+              provider: "anthropic",
+              model: DEFAULT_MODEL_ID,
+              ...fromAnthropicUsage(final.usage),
+              outcome: "success",
+            });
+          } catch {
+            // never let metering surface as a stream error
+          }
         } catch (err) {
           controller.error(err);
         }

@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { DEFAULT_MODEL_ID } from "@/lib/models";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 import { inferCategory } from "@/lib/github/stackDetect";
 import type { OverviewAi, WhoItsForDetail } from "@/lib/github/types";
 import { polishWhatItIsCopy } from "@/lib/github/overviewCopyLimits";
@@ -136,6 +138,15 @@ ${OVERVIEW_JSON_SCHEMA}`;
       system:
         "You explain GitHub repositories in clear, simple English for rapid evaluation. Write original summaries — never copy README wording with links or notes. Return only valid JSON, no markdown fences.",
       messages: [{ role: "user", content: userContent }],
+    });
+
+    recordUsage({
+      ownerId: (await getCurrentUser())?.id ?? null,
+      surface: "github-summary",
+      provider: "anthropic",
+      model: DEFAULT_MODEL_ID,
+      ...fromAnthropicUsage(message.usage),
+      outcome: "success",
     });
 
     const block = message.content.find((b) => b.type === "text");

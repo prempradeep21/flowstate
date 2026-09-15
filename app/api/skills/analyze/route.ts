@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyzeSkillWithClaude } from "@/lib/skillAiAnalysis";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,8 @@ export async function GET(req: Request) {
     }
     const rawText = await fileRes.text();
 
-    const metadata = await analyzeSkillWithClaude(rawText, fileName);
+    const ownerId = (await getCurrentUser())?.id ?? null;
+    const metadata = await analyzeSkillWithClaude(rawText, fileName, ownerId);
 
     return NextResponse.json(
       { metadata },

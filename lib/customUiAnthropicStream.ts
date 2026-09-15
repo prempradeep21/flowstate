@@ -62,6 +62,15 @@ export interface CustomUiAnthropicStreamResult {
   artifact: CustomArtifactPayload | null;
   assistantText: string;
   error?: string;
+  /** Token usage accumulated across every tool turn. Undefined if none ran. */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
+  /** Model actually used, for cost attribution. */
+  modelUsed?: string;
 }
 
 export async function streamCustomUiViaAnthropic(
@@ -160,10 +169,17 @@ export async function streamCustomUiViaAnthropic(
   let captured: CustomArtifactPayload | null = null;
   let assistantText = "";
   const model = input.model?.trim() || "claude-sonnet-4-6";
+  // Accumulated across tool turns — a single custom-UI build can make several.
+  const usageTotal = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+  };
 
   for (let turn = 0; turn < 3; turn++) {
     if (input.signal?.aborted) {
-      return { artifact: captured, assistantText, error: "Cancelled." };
+      return { artifact: captured, assistantText, error: "Cancelled.", usage: usageTotal, modelUsed: model };
     }
 
     const stream = anthropic.messages.stream({
@@ -184,7 +200,7 @@ export async function streamCustomUiViaAnthropic(
 
     for await (const event of stream) {
       if (input.signal?.aborted) {
-        return { artifact: captured, assistantText, error: "Cancelled." };
+        return { artifact: captured, assistantText, error: "Cancelled.", usage: usageTotal, modelUsed: model };
       }
       if (
         event.type === "content_block_delta" &&
@@ -196,11 +212,17 @@ export async function streamCustomUiViaAnthropic(
     }
 
     const msg = await stream.finalMessage();
+    usageTotal.inputTokens += msg.usage.input_tokens ?? 0;
+    usageTotal.outputTokens += msg.usage.output_tokens ?? 0;
+    usageTotal.cacheReadTokens += msg.usage.cache_read_input_tokens ?? 0;
+    usageTotal.cacheCreationTokens += msg.usage.cache_creation_input_tokens ?? 0;
     if (msg.usage.input_tokens || msg.usage.output_tokens) {
       input.emit({
         usage: {
           inputTokens: msg.usage.input_tokens,
           outputTokens: msg.usage.output_tokens,
+          cacheReadTokens: msg.usage.cache_read_input_tokens ?? 0,
+          cacheCreationTokens: msg.usage.cache_creation_input_tokens ?? 0,
         },
       });
     }
@@ -277,6 +299,8 @@ export async function streamCustomUiViaAnthropic(
       assistantText:
         assistantText.trim() ||
         (editingCustom ? "Updated the custom UI." : "Built your custom UI component."),
+      usage: usageTotal,
+      modelUsed: model,
     };
   }
 
@@ -285,5 +309,7 @@ export async function streamCustomUiViaAnthropic(
     assistantText,
     error:
       "Custom UI was not saved — no valid artifact was emitted. Try again with a clearer prompt.",
+    usage: usageTotal,
+    modelUsed: model,
   };
 }

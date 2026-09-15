@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 
 // Rolling per-thread gist: given the previous gist and only the latest
 // exchange, produce an updated 1-2 sentence summary. Never re-reads the whole
@@ -62,6 +64,15 @@ export async function POST(req: Request) {
       max_tokens: 120,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: parts.join("\n\n") }],
+    });
+
+    recordUsage({
+      ownerId: (await getCurrentUser())?.id ?? null,
+      surface: "gist",
+      provider: "anthropic",
+      model: GIST_MODEL,
+      ...fromAnthropicUsage(message.usage),
+      outcome: "success",
     });
 
     const textBlock = message.content.find((b) => b.type === "text");

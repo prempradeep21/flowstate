@@ -14,6 +14,8 @@ import {
 import { sanitizeCustomUiSource } from "@/lib/customUiSource";
 import { streamCustomUiViaAnthropic } from "@/lib/customUiAnthropicStream";
 import { runCustomUiGenerator } from "@/lib/cursorSdk/customUiGenerator";
+import { recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 import { getCursorSdkRuntimeIssue } from "@/lib/cursorSdk/runtimeCheck";
 import { initialSdkBuildStages } from "@/lib/cursorSdk/sdkStageLabels";
 import {
@@ -107,6 +109,18 @@ export async function POST(req: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       let closed = false;
+      // Metering state. custom-ui has two cost profiles under one surface:
+      // a Cursor composer run (flat, no usage reported by the SDK) and an
+      // Anthropic fallback (real tokens). `provider` keeps them separable.
+      let billedProvider: "cursor" | "anthropic" | null = null;
+      let billedModel: string | null = null;
+      let billedUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      };
+      let cursorRuns = 0;
       const emit = (data: object) => {
         if (closed) return;
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
@@ -142,6 +156,10 @@ export async function POST(req: Request) {
           emit,
           signal: req.signal,
         });
+        billedProvider = "anthropic";
+        billedModel = fallback.modelUsed ?? null;
+        if (fallback.usage) billedUsage = fallback.usage;
+
         if (fallback.artifact) {
           emit({ text: fallback.assistantText });
         } else if (fallback.error) {
@@ -215,6 +233,8 @@ export async function POST(req: Request) {
         emit({ pendingArtifact: { type: "custom" } });
         emit({ responseType: "custom" });
 
+        cursorRuns += 1;
+        billedProvider = "cursor";
         const result = await runCustomUiGenerator({
           question,
           history: rawHistory,
@@ -288,6 +308,22 @@ export async function POST(req: Request) {
         }
       } finally {
         if (hardTimeout) clearTimeout(hardTimeout);
+
+        // Phase 1 meter. The Cursor SDK reports no usage at all, so its cost is
+        // a flat calibrated constant (NON_TOKEN_USD.cursorRun) rather than a
+        // measurement — see Phase 4.5. The Anthropic fallback bills real tokens.
+        if (billedProvider) {
+          recordUsage({
+            ownerId: (await getCurrentUser())?.id ?? null,
+            surface: "custom-ui",
+            provider: billedProvider,
+            model: billedModel,
+            ...billedUsage,
+            cursorRuns: billedProvider === "cursor" ? cursorRuns : 0,
+            outcome: "success",
+          });
+        }
+
         closeStream();
       }
     },

@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fromAnthropicUsage, recordUsage } from "@/lib/billing/ledger.server";
+import { getCurrentUser } from "@/lib/auth/currentUser.server";
 
 const SYSTEM_PROMPT =
   "Give a brief, clear explanation of the following term or phrase in 2–4 sentences. " +
@@ -46,12 +48,20 @@ export async function POST(req: Request) {
         }
 
         const msg = await stream.finalMessage();
-        emit({
-          usage: {
-            inputTokens: msg.usage.input_tokens,
-            outputTokens: msg.usage.output_tokens,
-          },
+        const usage = fromAnthropicUsage(msg.usage);
+
+        recordUsage({
+          ownerId: (await getCurrentUser())?.id ?? null,
+          surface: "quick-explain",
+          provider: "anthropic",
+          model: MODEL,
+          ...usage,
+          outcome: "success",
         });
+
+        // Emit all four fields, matching /api/chat. The two cache figures were
+        // previously dropped here, which understates cost several-fold.
+        emit({ usage });
         emit({ done: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
