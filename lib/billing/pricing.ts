@@ -144,3 +144,38 @@ export function creditsFor(facts: UsageFacts): number {
 
 // TODO(Phase 4.5): hydrate the OpenRouter entries from its /models endpoint,
 // which returns live per-model pricing, so those models are self-pricing.
+
+export interface EstimateInput {
+  model: string;
+  /** Characters of prompt we are about to send (system + history + question). */
+  promptChars: number;
+  /** The route's output token budget. */
+  maxTokens: number;
+  /** Tool loops re-send the transcript; caching absorbs most but not all of it. */
+  expectedToolTurns?: number;
+  webSearchEnabled?: boolean;
+}
+
+/** ~4 characters per token is close enough for a pre-flight estimate. */
+const CHARS_PER_TOKEN = 4;
+
+/**
+ * Rough pre-flight cost estimate, used only to decide whether a request fits
+ * inside the remaining balance. Deliberately NOT exact: the true cost is only
+ * knowable after the call, and is recorded then. Anthropic's count_tokens
+ * endpoint is rejected here on purpose — a network round-trip on every request
+ * to refine a number that gets reconciled anyway.
+ */
+export function estimateCredits(input: EstimateInput): number {
+  const inputTokens = Math.ceil(input.promptChars / CHARS_PER_TOKEN);
+  // Assume output lands around 60% of the budget rather than hitting the cap.
+  const outputTokens = Math.ceil(input.maxTokens * 0.6);
+  const turnMultiplier = 1 + (input.expectedToolTurns ?? 0) * 0.5;
+
+  return creditsFor({
+    model: input.model,
+    inputTokens: Math.ceil(inputTokens * turnMultiplier),
+    outputTokens,
+    webSearches: input.webSearchEnabled ? 2 : 0,
+  });
+}

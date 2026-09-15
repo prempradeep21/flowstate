@@ -60,6 +60,8 @@ import { extractUrlsFromText } from "@/lib/urlDetection";
 import { logQaTurnEvent } from "@/lib/qaTurnEvents.server";
 import { recordUsage } from "@/lib/billing/ledger.server";
 import { resolveBillingOwner } from "@/lib/billing/owner";
+import { guardCredits } from "@/lib/billing/guard.server";
+import { estimateCredits } from "@/lib/billing/pricing";
 import {
   buildCanvasMemoryNote,
   buildUserMemoryNote,
@@ -137,7 +139,7 @@ export async function POST(req: Request) {
   // Resolve the signed-in user once — user memory and MCP tools are both
   // per-user and best-effort (never block the chat request).
   let supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> | null = null;
-  let user: { id: string } | null = null;
+  let user: { id: string; email?: string | null } | null = null;
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -166,6 +168,23 @@ export async function POST(req: Request) {
       // proceed without MCP tools
     }
   }
+
+  // Credit guard. In "off" (the default) and "shadow" this cannot refuse a
+  // request — it only records what it *would* have done. Placed before the
+  // prompt is assembled so a denial costs nothing.
+  const creditGuard = await guardCredits({
+    ownerId: user ? resolveBillingOwner(user.id).ownerId : null,
+    email: user?.email ?? null,
+    surface: "chat",
+    estimate: estimateCredits({
+      model,
+      promptChars:
+        question.length + JSON.stringify(history ?? []).length + BASE_SYSTEM.length,
+      maxTokens: 4096,
+      expectedToolTurns: 2,
+    }),
+  });
+  if (!creditGuard.ok) return creditGuard.response;
 
   const intentQuestion = stripAppendedQuestionContext(question);
 
