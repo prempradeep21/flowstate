@@ -94,9 +94,9 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     height: 316,
   },
   "https://en.wikipedia.org/wiki/Mahatma_Gandhi": {
-    path: "/transcript-import/previews/8675f46feded.webp",
-    mime: "image/webp",
-    sizeBytes: 524862,
+    path: "/transcript-import/previews/8675f46feded.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 525574,
     width: 1280,
     height: 1598,
   },
@@ -170,6 +170,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     width: 276,
     height: 361,
   },
+  "https://en.wikipedia.org/wiki/The_British_School,_New_Delhi": {
+    path: "/transcript-import/previews/3815a019d714.png",
+    mime: "image/png",
+    sizeBytes: 136893,
+    width: 316,
+    height: 316,
+  },
   "https://en.wikipedia.org/wiki/Where_Eagles_Dare": {
     path: "/transcript-import/previews/80d84bd4c784.jpg",
     mime: "image/jpeg",
@@ -183,13 +190,6 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     sizeBytes: 12335,
     width: 1200,
     height: 628,
-  },
-  "https://twitter.com/garrytan": {
-    path: "/transcript-import/previews/512bd984accb.jpg",
-    mime: "image/jpeg",
-    sizeBytes: 10235,
-    width: 200,
-    height: 200,
   },
   "https://vercel.com": {
     path: "/transcript-import/previews/e1b397fc3214.png",

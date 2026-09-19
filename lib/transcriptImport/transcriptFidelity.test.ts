@@ -6,6 +6,7 @@ import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHuberman
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
 import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
 import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
+import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
@@ -17,6 +18,7 @@ import { LIGHTCONE_EMERGENT_TRANSCRIPT } from "@/lib/transcriptImport/lightconeE
 import { PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/prashantKishorInterview";
 import { HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/hubermanRajShamaniInterview";
 import { CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
+import { SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -143,6 +145,11 @@ const CASES = [
     name: "Sahil Aggarwal — Cazual Talk",
     build: buildCazualTalkSahilAggarwalCanvasSection,
     transcript: CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+  },
+  {
+    name: "Vanita Uppal — Schoolcast with Avyakt",
+    build: buildSchoolCastVanitaUppalCanvasSection,
+    transcript: SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
   },
 ];
 
