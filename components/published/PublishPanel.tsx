@@ -6,6 +6,7 @@ import { showAppToast } from "@/lib/appToastStore";
 import {
   fetchPublicationForCanvas,
   publishCanvas,
+  publishedCanvasUrl,
   unpublishCanvas,
   type PublicationState,
 } from "@/lib/publishedCanvasPersistence";
@@ -39,7 +40,7 @@ export function PublishPanel({ canvasId }: { canvasId: string | null }) {
   }, [refresh]);
 
   const live = publication && publication.visibility !== "revoked";
-  const url = publication ? `${window.location.origin}/c/${publication.slug}` : "";
+  const url = publication ? publishedCanvasUrl(publication.slug) : "";
 
   const run = useCallback(
     async (fn: () => Promise<unknown>, done: string) => {

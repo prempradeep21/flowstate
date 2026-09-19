@@ -1,5 +1,3 @@
-import type { CanvasSnapshot } from "@/lib/canvasSnapshot";
-
 /**
  * Strips from a snapshot everything that must not reach the public web.
  *
@@ -11,10 +9,12 @@ import type { CanvasSnapshot } from "@/lib/canvasSnapshot";
  *    payload, and every reader would download it.
  *
  * Runs on a structured clone, so the owner's live canvas is untouched.
+ *
+ * Generic over the blob type rather than typed to CanvasSnapshot: that type
+ * lives in a module which drags the client store into the server bundle, and
+ * this is a plain JSON walk that does not need it.
  */
-export function scrubSnapshotForPublish(
-  snapshot: CanvasSnapshot,
-): CanvasSnapshot {
+export function scrubSnapshotForPublish<T>(snapshot: T): T {
   const out = structuredClone(snapshot) as unknown as Record<string, unknown>;
 
   delete out.uploadedAttachments;
@@ -45,5 +45,5 @@ export function scrubSnapshotForPublish(
     delete asset.canvasId;
   }
 
-  return out as unknown as CanvasSnapshot;
+  return out as unknown as T;
 }

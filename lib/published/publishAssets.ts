@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
-import { ASSET_STORAGE_BUCKET } from "@/lib/attachments";
+import {
+  ASSET_STORAGE_BUCKET,
+  PUBLISHED_ASSET_BUCKET,
+} from "@/lib/storageBuckets";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-export const PUBLISHED_ASSET_BUCKET = "published-assets";
+// Re-exported so existing importers keep working.
+export { PUBLISHED_ASSET_BUCKET };
 
 /**
  * Matches any URL pointing at the PRIVATE asset bucket, signed or public form.

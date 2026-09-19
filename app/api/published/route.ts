@@ -1,6 +1,9 @@
 import { revalidateTag } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/currentUser.server";
-import { parseCanvasSnapshot, CANVAS_SNAPSHOT_VERSION } from "@/lib/canvasSnapshot";
+import {
+  isPublishableSnapshot,
+  snapshotVersionOf,
+} from "@/lib/published/readSnapshotBlob";
 import { generatePublishedSlug } from "@/lib/published/slug";
 import { scrubSnapshotForPublish } from "@/lib/published/scrubSnapshot";
 import {
@@ -33,6 +36,21 @@ const bad = (status: number, error: string) =>
   Response.json({ error }, { status });
 
 export async function POST(req: Request) {
+  // Everything is wrapped, not just the asset work. The prologue below reads
+  // the canvas, the profile and any existing publication, and an unhandled
+  // throw in any of it escapes as an HTML 500 with no message — which reaches
+  // the owner as a bare "Request failed (500)" and is undiagnosable. A publish
+  // failure must always say what went wrong.
+  try {
+    return await publish(req);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[published] publish failed", err);
+    return bad(500, `Publish failed: ${message}`);
+  }
+}
+
+async function publish(req: Request) {
   const user = await getCurrentUser();
   if (!user) return bad(401, "Sign in to publish a canvas.");
   if (!isServiceRoleConfigured()) {
@@ -63,8 +81,10 @@ export async function POST(req: Request) {
     return bad(403, "Only the owner can publish this canvas.");
   }
 
-  const snapshot = parseCanvasSnapshot(canvas.state);
-  if (!snapshot) return bad(422, "This canvas has no readable content yet.");
+  const snapshot = canvas.state;
+  if (!isPublishableSnapshot(snapshot)) {
+    return bad(422, "This canvas has no readable content yet.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -137,7 +157,7 @@ export async function POST(req: Request) {
         published_canvas_id: publishedId,
         version,
         state: published as unknown as Json,
-        snapshot_version: CANVAS_SNAPSHOT_VERSION,
+        snapshot_version: snapshotVersionOf(snapshot),
         byte_size: byteSize,
       });
 
@@ -167,6 +187,8 @@ export async function POST(req: Request) {
       url: `/c/${slug}`,
     });
   } catch (err) {
+    // Asset/scrub failures get their own message, which is already specific
+    // (which object, which bucket) — surface it rather than the generic wrap.
     const message = err instanceof Error ? err.message : "Publish failed.";
     return bad(500, message);
   }
@@ -177,6 +199,16 @@ export async function POST(req: Request) {
  * lineage, and readers mid-session keep a working blob URL for their version.
  */
 export async function DELETE(req: Request) {
+  try {
+    return await unpublish(req);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[published] unpublish failed", err);
+    return bad(500, `Unpublish failed: ${message}`);
+  }
+}
+
+async function unpublish(req: Request) {
   const user = await getCurrentUser();
   if (!user) return bad(401, "Sign in first.");
   if (!isServiceRoleConfigured()) return bad(500, "Not configured.");

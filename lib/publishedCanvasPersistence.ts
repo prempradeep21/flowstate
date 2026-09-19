@@ -44,6 +44,23 @@ export async function fetchPublicationForCanvas(
   };
 }
 
+/**
+ * The link an owner copies for a published canvas.
+ *
+ * Prefers NEXT_PUBLIC_SITE_URL so the link is always canonical, whatever the
+ * owner happened to be browsing. Without it, publishing from a Vercel PREVIEW
+ * deployment copies that preview's hostname — which is rotated per deployment,
+ * so a link sent to an audience would quietly 404 once the preview is replaced.
+ * Falls back to the current origin, which is right for localhost and for prod
+ * when the env var is unset.
+ */
+export function publishedCanvasUrl(slug: string): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  const origin =
+    configured || (typeof window !== "undefined" ? window.location.origin : "");
+  return `${origin}/c/${slug}`;
+}
+
 async function callPublishApi(
   method: "POST" | "DELETE",
   body: Record<string, unknown>,
