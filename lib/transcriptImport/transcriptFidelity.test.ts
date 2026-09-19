@@ -4,6 +4,7 @@ import { getLatestVersion } from "@/lib/sessionArtifacts";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
 import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
@@ -15,6 +16,7 @@ import { JAGADAMBA_THEATRE_TRANSCRIPT } from "@/lib/transcriptImport/jagadambaTh
 import { LIGHTCONE_EMERGENT_TRANSCRIPT } from "@/lib/transcriptImport/lightconeEmergent";
 import { PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/prashantKishorInterview";
 import { HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/hubermanRajShamaniInterview";
+import { CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -136,6 +138,11 @@ const CASES = [
     name: "Andrew Huberman — Figuring Out",
     build: buildHubermanRajShamaniCanvasSection,
     transcript: HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+  },
+  {
+    name: "Sahil Aggarwal — Cazual Talk",
+    build: buildCazualTalkSahilAggarwalCanvasSection,
+    transcript: CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
   },
 ];
 

@@ -9,6 +9,7 @@ import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInt
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
 import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
@@ -41,6 +42,10 @@ import {
   HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
   HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
 } from "@/lib/transcriptImport/hubermanRajShamaniInterview";
+import {
+  CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+  CAZUAL_TALK_SAHIL_AGGARWAL_VIDEO_URL,
+} from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -209,6 +214,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
     buildHubermanRajShamaniCanvasSection,
     HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
+  ),
+  defineCanvas(
+    "cazual-talk-sahil-aggarwal",
+    "Sahil Aggarwal — Cazual Talk",
+    CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+    buildCazualTalkSahilAggarwalCanvasSection,
+    CAZUAL_TALK_SAHIL_AGGARWAL_VIDEO_URL,
   ),
 ];
 

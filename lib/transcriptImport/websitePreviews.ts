@@ -94,9 +94,9 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     height: 316,
   },
   "https://en.wikipedia.org/wiki/Mahatma_Gandhi": {
-    path: "/transcript-import/previews/8675f46feded.jpg",
-    mime: "image/jpeg",
-    sizeBytes: 525574,
+    path: "/transcript-import/previews/8675f46feded.webp",
+    mime: "image/webp",
+    sizeBytes: 524862,
     width: 1280,
     height: 1598,
   },
@@ -141,6 +141,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     sizeBytes: 328234,
     width: 1280,
     height: 848,
+  },
+  "https://en.wikipedia.org/wiki/Rishihood_University": {
+    path: "/transcript-import/previews/90caf8f47ff7.png",
+    mime: "image/png",
+    sizeBytes: 33677,
+    width: 521,
+    height: 192,
   },
   "https://en.wikipedia.org/wiki/Sensurround": {
     path: "/transcript-import/previews/33a6e3d48b17.png",
