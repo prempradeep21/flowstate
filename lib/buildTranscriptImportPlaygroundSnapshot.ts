@@ -10,6 +10,7 @@ import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHuberman
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
   HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
@@ -31,6 +32,10 @@ import {
   LIGHTCONE_EMERGENT_TRANSCRIPT,
   LIGHTCONE_EMERGENT_VIDEO_URL,
 } from "@/lib/transcriptImport/lightconeEmergent";
+import {
+  PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
+  PRASHANT_KISHOR_VIDEO_URL,
+} from "@/lib/transcriptImport/prashantKishorInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -185,6 +190,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     LIGHTCONE_EMERGENT_TRANSCRIPT,
     buildLightconeEmergentCanvasSection,
     LIGHTCONE_EMERGENT_VIDEO_URL,
+  ),
+  defineCanvas(
+    "prashant-kishor-unfiltered",
+    "Prashant Kishor — Unfiltered by Samdish",
+    PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
+    buildPrashantKishorCanvasSection,
+    PRASHANT_KISHOR_VIDEO_URL,
   ),
 ];
 

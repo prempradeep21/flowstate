@@ -5,12 +5,14 @@ import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesig
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import { HUBERMAN_NEUROPLASTICITY_TRANSCRIPT } from "@/lib/transcriptImport/hubermanNeuroplasticity";
 import { JAGADAMBA_THEATRE_TRANSCRIPT } from "@/lib/transcriptImport/jagadambaTheatre";
 import { LIGHTCONE_EMERGENT_TRANSCRIPT } from "@/lib/transcriptImport/lightconeEmergent";
+import { PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/prashantKishorInterview";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -122,6 +124,11 @@ const CASES = [
     name: "Design tools history",
     build: buildDesignToolsCanvasSection,
     transcript: DESIGN_TOOLS_HISTORY_TRANSCRIPT,
+  },
+  {
+    name: "Prashant Kishor — Unfiltered by Samdish",
+    build: buildPrashantKishorCanvasSection,
+    transcript: PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
   },
 ];
 

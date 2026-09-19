@@ -51,6 +51,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     width: 263,
     height: 380,
   },
+  "https://en.wikipedia.org/wiki/Begusarai": {
+    path: "/transcript-import/previews/94b65b166be5.png",
+    mime: "image/png",
+    sizeBytes: 910081,
+    width: 1280,
+    height: 637,
+  },
   "https://en.wikipedia.org/wiki/D._Ramanaidu": {
     path: "/transcript-import/previews/1477bcde463b.jpg",
     mime: "image/jpeg",
@@ -72,12 +79,40 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     width: 263,
     height: 378,
   },
+  "https://en.wikipedia.org/wiki/Jan_Suraaj": {
+    path: "/transcript-import/previews/afe5b173da31.png",
+    mime: "image/png",
+    sizeBytes: 154834,
+    width: 316,
+    height: 316,
+  },
+  "https://en.wikipedia.org/wiki/Mahatma_Gandhi": {
+    path: "/transcript-import/previews/8675f46feded.webp",
+    mime: "image/webp",
+    sizeBytes: 524862,
+    width: 1280,
+    height: 1598,
+  },
   "https://en.wikipedia.org/wiki/Mahesh_Babu": {
     path: "/transcript-import/previews/35e3afe87ec8.jpg",
     mime: "image/jpeg",
     sizeBytes: 441707,
     width: 675,
     height: 901,
+  },
+  "https://en.wikipedia.org/wiki/Nitish_Kumar": {
+    path: "/transcript-import/previews/c986a297ae10.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 28148,
+    width: 355,
+    height: 531,
+  },
+  "https://en.wikipedia.org/wiki/Prashant_Kishor": {
+    path: "/transcript-import/previews/2a8bd322c646.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 146335,
+    width: 1280,
+    height: 1363,
   },
   "https://en.wikipedia.org/wiki/Rana_Daggubati": {
     path: "/transcript-import/previews/be857365ee46.jpg",
@@ -127,6 +162,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     sizeBytes: 12335,
     width: 1200,
     height: 628,
+  },
+  "https://twitter.com/garrytan": {
+    path: "/transcript-import/previews/512bd984accb.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 10235,
+    width: 200,
+    height: 200,
   },
   "https://vercel.com": {
     path: "/transcript-import/previews/e1b397fc3214.png",
