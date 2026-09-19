@@ -9,6 +9,7 @@ import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInt
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
@@ -36,6 +37,10 @@ import {
   PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
   PRASHANT_KISHOR_VIDEO_URL,
 } from "@/lib/transcriptImport/prashantKishorInterview";
+import {
+  HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+  HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
+} from "@/lib/transcriptImport/hubermanRajShamaniInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -197,6 +202,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
     buildPrashantKishorCanvasSection,
     PRASHANT_KISHOR_VIDEO_URL,
+  ),
+  defineCanvas(
+    "huberman-raj-shamani",
+    "Andrew Huberman — Figuring Out",
+    HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+    buildHubermanRajShamaniCanvasSection,
+    HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
   ),
 ];
 

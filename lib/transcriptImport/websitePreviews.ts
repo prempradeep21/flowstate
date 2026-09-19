@@ -44,6 +44,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     width: 2401,
     height: 1260,
   },
+  "https://en.wikipedia.org/wiki/Andrew_Huberman": {
+    path: "/transcript-import/previews/c03826499553.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 359810,
+    width: 1280,
+    height: 1353,
+  },
   "https://en.wikipedia.org/wiki/Baahubali:_The_Beginning": {
     path: "/transcript-import/previews/2a3fb8ac192e.jpg",
     mime: "image/jpeg",
@@ -87,9 +94,9 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     height: 316,
   },
   "https://en.wikipedia.org/wiki/Mahatma_Gandhi": {
-    path: "/transcript-import/previews/8675f46feded.webp",
-    mime: "image/webp",
-    sizeBytes: 524862,
+    path: "/transcript-import/previews/8675f46feded.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 525574,
     width: 1280,
     height: 1598,
   },
@@ -113,6 +120,13 @@ export const TRANSCRIPT_WEBSITE_PREVIEWS: Record<string, TranscriptWebsitePrevie
     sizeBytes: 146335,
     width: 1280,
     height: 1363,
+  },
+  "https://en.wikipedia.org/wiki/Raj_Shamani": {
+    path: "/transcript-import/previews/c94a2ad0b762.jpg",
+    mime: "image/jpeg",
+    sizeBytes: 18983,
+    width: 274,
+    height: 395,
   },
   "https://en.wikipedia.org/wiki/Rana_Daggubati": {
     path: "/transcript-import/previews/be857365ee46.jpg",

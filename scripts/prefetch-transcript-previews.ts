@@ -21,6 +21,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { buildDesignToolsCanvasSection } from "../lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "../lib/transcriptImport/buildHubermanCanvasSection";
+import { buildHubermanRajShamaniCanvasSection } from "../lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildJagadambaCanvasSection } from "../lib/transcriptImport/buildJagadambaCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "../lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "../lib/transcriptImport/buildPrashantKishorCanvasSection";
@@ -44,6 +45,7 @@ const EXT: Record<string, string> = {
 const BUILDERS = [
   buildDesignToolsCanvasSection,
   buildHubermanCanvasSection,
+  buildHubermanRajShamaniCanvasSection,
   buildJagadambaCanvasSection,
   buildLightconeEmergentCanvasSection,
   buildPrashantKishorCanvasSection,
