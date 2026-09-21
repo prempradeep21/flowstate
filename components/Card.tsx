@@ -12,7 +12,8 @@ import {
 import { AnswerSelectionMenu } from "@/components/AnswerSelectionMenu";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQuestionText } from "@/components/cards/CardQuestionText";
-import { ConversationCardSurface } from "@/components/admin/ConversationCardSurface";
+import { ConversationCardSurface } from "@/components/cards/ConversationCardSurface";
+import { isConversationCard } from "@/lib/conversationCard";
 import { ChatComposer } from "@/components/ChatComposer";
 import { Plug } from "@/components/plugs/Plug";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
@@ -178,7 +179,7 @@ function CardInner({ card }: CardProps) {
   // every other card so the settle storm still costs those nothing.
   const conversationZoom = conversationZoomDisplay(
     useCanvasStore((s) =>
-      card.cardKind === "conversation" ? s.viewportSettledScale : 1,
+      isConversationCard(card) ? s.viewportSettledScale : 1,
     ),
   );
   // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
@@ -212,7 +213,7 @@ function CardInner({ card }: CardProps) {
   });
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
-  const isConversation = card.cardKind === "conversation";
+  const isConversation = isConversationCard(card);
   const plugAccent = accent ?? CANVAS_ACCENT;
   const showBranchPlugs = card.status === "done" && !isConversation;
   const receivePlugsActive =

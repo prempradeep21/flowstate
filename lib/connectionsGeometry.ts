@@ -1,4 +1,5 @@
 import { isConnectionHidden } from "@/lib/chatThreads";
+import { isConversationCard } from "@/lib/conversationCard";
 import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import {
   buildPlugConnectorPath,
@@ -175,7 +176,7 @@ export function resolveConnectionRender(
   }
 
   const isConversationLink =
-    from.cardKind === "conversation" && to.cardKind === "conversation";
+    isConversationCard(from) && isConversationCard(to);
 
   const {
     fromAnchor: a,

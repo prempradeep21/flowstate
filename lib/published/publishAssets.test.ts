@@ -36,6 +36,22 @@ describe("collectPrivateAssetPaths", () => {
     );
   });
 
+  it("ignores an app-served storagePath, which is not a bucket object", () => {
+    // An imported transcript canvas registers its baked website previews as
+    // canvas assets so they travel with the snapshot, but the bytes ship with
+    // the app. Treating one as a bucket object makes copyAssetsToPublicBucket
+    // throw on the download miss and fails the whole publish. Bucket paths are
+    // "<uid>/<canvasId>/…" and never start with a slash.
+    expect(
+      collectPrivateAssetPaths({
+        canvasAssets: {
+          a: { storagePath: "/transcript-import/previews/abc123.png" },
+          b: { storagePath: P1 },
+        },
+      }),
+    ).toEqual(new Set([P1]));
+  });
+
   it("finds assets in artifact kinds nobody enumerated", () => {
     // The whole point of walking generically: a new artifact kind must be
     // covered on the day it is added, not the day someone remembers.

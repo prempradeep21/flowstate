@@ -124,6 +124,10 @@ function snapshotFromSection(
     connections: section.connections,
     threads: section.threads,
     threadOrder: section.threadOrder,
+    // Canvas memory travels with the canvas. Without it a published copy starts
+    // with no sibling-branch awareness, and nothing would ever backfill it —
+    // gists are only written by a real exchange, which an import never has.
+    threadGists: section.threadGists,
     groups: section.groups,
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",

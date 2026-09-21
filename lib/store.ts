@@ -325,7 +325,14 @@ export interface BranchOptions {
 export interface Card {
   id: string;
   threadId: string;
-  /** Admin playground only — conversation import cards (not in design system yet). */
+  /**
+   * "conversation" cards carry imported transcript content rather than a turn
+   * the user took: `question` holds the heading and `answer` the body prose.
+   * They are never asked and never stream, so their status is always "done",
+   * and they offer no follow-up composer or branch plug yet — guards in
+   * `createFollowUp`, `CardQaMenu` and `ChatView` depend on that. They persist,
+   * sync and group exactly like a "qa" card.
+   */
   cardKind?: "qa" | "conversation";
   question: string;
   answer: string;
@@ -5026,6 +5033,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const parent = state.cards[parentId];
       if (!parent) return state;
+      // A conversation card is imported content, not a turn — nothing may hang
+      // off it until the branch build lands. The canvas surface renders no
+      // composer, but ChatView's thread composer and QnaTurnBlock's "Try again"
+      // both reach this directly, and a conversation card's status is always
+      // "done", so their own done-checks let it through. One guard here closes
+      // every caller.
+      if (parent.cardKind === "conversation") return state;
       parentThreadId = parent.threadId;
       const undoPast = pushUndoSnapshot(state);
       const id = newCardId();

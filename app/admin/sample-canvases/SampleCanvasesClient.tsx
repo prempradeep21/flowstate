@@ -10,20 +10,13 @@ import {
 import { SAMPLE_CANVAS_REGISTRY } from "@/lib/sampleCanvases/registry";
 import type { SampleCanvasDefinition } from "@/lib/sampleCanvases/types";
 import { createClient } from "@/lib/supabase/client";
+import { dedupeTitle } from "@/lib/canvasTitles";
 
 type AddState =
   | { status: "idle" }
   | { status: "adding" }
   | { status: "added"; canvasId: string }
   | { status: "error"; message: string };
-
-/** "Henry Ford", "Henry Ford (2)", "Henry Ford (3)" … */
-function dedupeTitle(base: string, existingTitles: string[]): string {
-  if (!existingTitles.includes(base)) return base;
-  let n = 2;
-  while (existingTitles.includes(`${base} (${n})`)) n += 1;
-  return `${base} (${n})`;
-}
 
 function statsLine(def: SampleCanvasDefinition): string {
   const { stats } = def;

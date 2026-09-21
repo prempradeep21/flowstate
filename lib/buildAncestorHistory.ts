@@ -3,6 +3,10 @@ import { getLatestVersion, getVersionById } from "@/lib/sessionArtifacts";
 import type { Card, Connection } from "@/lib/store";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
+import {
+  conversationTitle,
+  isConversationCard,
+} from "@/lib/conversationCard";
 
 export interface HistoryMessage {
   question: string;
@@ -255,6 +259,25 @@ export function collectAncestorCardIds(
  * All ancestor Q&A for a card: vertical chain (parentCardId) plus lateral
  * branch source (parentConversationId / side connection).
  */
+/**
+ * A conversation ancestor framed as canvas content, not as a turn.
+ *
+ * Its `question` is a heading and its `answer` imported prose — nobody asked it
+ * and the model never said it. Sent raw, /api/chat would splice it in as a
+ * user/assistant pair and the model would build on a false account of who said
+ * what, which reads as a perfectly plausible answer. The marker is the cheapest
+ * thing that keeps it honest.
+ */
+function conversationAncestorMessage(
+  parent: Card,
+  answer: string,
+): HistoryMessage {
+  return {
+    question: `[Imported transcript excerpt from the canvas — context, not something the user asked] ${conversationTitle(parent)}`,
+    answer,
+  };
+}
+
 export function buildAncestorHistory(
   graph: HistoryGraph & { sessionArtifacts?: Record<string, SessionArtifact> },
   cardId: string,
@@ -288,10 +311,11 @@ export function buildAncestorHistory(
       parent.outputArtifactId;
 
     if (parent.question.trim() && hasContent) {
-      history.unshift({
-        question: formatQuestionForContext(parent),
-        answer,
-      });
+      history.unshift(
+        isConversationCard(parent)
+          ? conversationAncestorMessage(parent, answer)
+          : { question: formatQuestionForContext(parent), answer },
+      );
     }
 
     const nextViaCard =

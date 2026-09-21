@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { isConversationCard } from "@/lib/conversationCard";
 import {
   CanvasFloatingMenuPortal,
   useCanvasFloatingMenuPosition,
@@ -108,7 +109,10 @@ export function CardQaMenu({
 
   const isEmpty = card.status === "empty";
   if (isEmpty && hideDelete) return null;
-  const canBranch = card.status === "done";
+  // A conversation card is always "done" — it was never asked — so the status
+  // check alone would offer Pull branch on imported content. Mirrors the
+  // showBranchPlugs guard on the canvas surface.
+  const canBranch = card.status === "done" && !isConversationCard(card);
   const turnInProgress = isQaTurnInProgress(card);
   const showCollapseToggle = isCanvas && !isEmpty;
 

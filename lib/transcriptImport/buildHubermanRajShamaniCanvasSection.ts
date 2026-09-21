@@ -19,6 +19,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -61,6 +62,40 @@ export const TIP_THREAD_AH_RESILIENCE = "tip-thread-ah-resilience";
 export const TIP_THREAD_AH_GRIEF = "tip-thread-ah-grief";
 export const TIP_THREAD_AH_LOVE = "tip-thread-ah-love";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_AH_MAIN]:
+    "Andrew Huberman with Raj Shamani: the morning cortisol protocol, sorting actionable from unactionable thoughts, yoga nidra and sleep, knowing your own state, a three-stage career framework, fame and choking under pressure, and what the public role has cost him.",
+  [TIP_THREAD_AH_BACKGROUND]:
+    "His grounding — a research laboratory run from age 19 into his late 40s studying neural development, plasticity and regeneration, before folding that into the podcast.",
+  [TIP_THREAD_AH_BREATHWORK]:
+    "Why the extended exhale works: it mechanically shrinks the heart and slows its rate via the vagus nerve, the basis of heart-rate variability, and a handful of long exhales a day is enough to matter.",
+  [TIP_THREAD_AH_SLEEP]:
+    "Honest tradeoffs on supplements: ashwagandha to blunt cortisol belongs in the evening and only in cycles, and nicotine's calm-alert state comes bundled with costs he names rather than glosses over.",
+  [TIP_THREAD_AH_CAREER]:
+    "Following people rather than inspiration — he looks for people operating in their element and lets proximity do the work, and treats online negativity as something to route around.",
+  [TIP_THREAD_AH_PEERS]:
+    "Gas pedal first, then dynamic regulation: go all-in early with no ceiling, then learn to modulate output, because pushing hard is a young person's discipline.",
+  // This thread is registered but carries no cards today — the "Why Fame Can
+  // Destroy Performers" chapter sits on the main spine with no branch built off
+  // it yet. The gist is here so the thread is covered the day one is.
+  [TIP_THREAD_AH_FAME]:
+    "Why sudden fame without a stable internal structure is one of the more reliable ways to derail an otherwise successful career.",
+  [TIP_THREAD_AH_RESILIENCE]:
+    "Committees, not solo calls — for decisions with real weight he assembles a small group of trusted people to pressure-test his thinking and catch blind spots, without outsourcing the decision.",
+  [TIP_THREAD_AH_GRIEF]:
+    "Losing three scientific mentors — to suicide and to cancer twice — and grief described less as stages than as a nervous system still reaching for someone who is no longer there.",
+  [TIP_THREAD_AH_LOVE]:
+    "What neuroscience does not explain: decades studying the brain did not spare him difficulty in relationships, and what helped was slowing down to build the friendship before the feeling.",
+};
+
 export function buildHubermanRajShamaniCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -85,6 +120,9 @@ export function buildHubermanRajShamaniCanvasSection(): TranscriptImportCanvasSe
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 50 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   // ---- Chapter heads: ten curated groups over the source's own ~31
   // creator chapters (see HUBERMAN_RAJ_SHAMANI_CHAPTERS) -------------------
@@ -446,6 +484,7 @@ export function buildHubermanRajShamaniCanvasSection(): TranscriptImportCanvasSe
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

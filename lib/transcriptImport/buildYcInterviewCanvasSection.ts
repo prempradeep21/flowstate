@@ -6,6 +6,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -33,6 +34,25 @@ export const TIP_THREAD_YC_WEDGE = "tip-thread-yc-wedge";
 export const TIP_THREAD_YC_PREP = "tip-thread-yc-prep";
 
 /** YC interview tips conversation graph for the transcript-import playground. */
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_YC_MAIN]:
+    "How to handle the ten-minute YC interview: the three things partners always look for — the problem in plain English, the solution with real numbers behind it, and how big this can get if it works.",
+  [TIP_THREAD_YC_METRICS]:
+    "The numbers to walk in knowing: net versus gross revenue and take rate, week- or month-over-month growth, burn against revenue, the rationale behind the price point, NPS, and cohort retention at 10 and 20 weeks.",
+  [TIP_THREAD_YC_WEDGE]:
+    "The thin end of the wedge is fine — Airbnb started with air beds and breakfast for conference travel in San Francisco, and only later saw it was the marketplace for space, expandable to all of housing.",
+  [TIP_THREAD_YC_PREP]:
+    "Preparing: mock interviews with YC alumni in adjacent spaces, since the community is unusually giving even to applicants — and inverted-pyramid answers, because partners interrupt often, so lead with the headline.",
+};
+
 export function buildYcInterviewCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -49,6 +69,9 @@ export function buildYcInterviewCanvasSection(): TranscriptImportCanvasSection {
     TIP_THREAD_YC_WEDGE,
     TIP_THREAD_YC_PREP,
   ];
+  const threadGists = Object.fromEntries(
+    threadOrder.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
   const sessionArtifacts: Record<string, SessionArtifact> = {};
   const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
   const canvasArtifactOrder: string[] = [];
@@ -683,6 +706,7 @@ export function buildYcInterviewCanvasSection(): TranscriptImportCanvasSection {
     connections: layout.connections,
     threads,
     threadOrder,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

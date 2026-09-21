@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAncestorHistory,
   collectAncestorCardIds,
   formatQuestionForContext,
 } from "@/lib/buildAncestorHistory";
@@ -47,5 +48,57 @@ describe("collectAncestorCardIds", () => {
       "c1",
       "c2",
     ]);
+  });
+});
+
+describe("buildAncestorHistory with a conversation ancestor", () => {
+  it("frames an imported card instead of passing it off as a real exchange", () => {
+    // A conversation card's question is a heading and its answer is imported
+    // prose — nobody asked it and the model never said it. /api/chat splices
+    // each history entry in as a user/assistant pair, so sending it raw would
+    // have the model build on a false account of who said what.
+    const cards: Record<string, Card> = {
+      chapter: makeCard({
+        id: "chapter",
+        cardKind: "conversation",
+        question: "Why Gen Z lacks resilience",
+        answer: "Resilience isn't taught because judgment starts at home.",
+      }),
+      child: makeCard({
+        id: "child",
+        question: "What would change that?",
+        answer: "",
+        parentConversationId: "chapter",
+      }),
+    };
+
+    const history = buildAncestorHistory({ cards, connections: [] }, "child");
+
+    expect(history).toHaveLength(1);
+    expect(history[0]!.question).toContain("Imported transcript excerpt");
+    expect(history[0]!.question).toContain("Why Gen Z lacks resilience");
+    expect(history[0]!.question).not.toBe("Why Gen Z lacks resilience");
+    expect(history[0]!.answer).toContain("judgment starts at home");
+  });
+
+  it("leaves a normal qa ancestor untouched", () => {
+    const cards: Record<string, Card> = {
+      parent: makeCard({
+        id: "parent",
+        question: "What is neuroplasticity?",
+        answer: "The nervous system's ability to change.",
+      }),
+      child: makeCard({
+        id: "child",
+        question: "How long does it take?",
+        answer: "",
+        parentConversationId: "parent",
+      }),
+    };
+
+    const history = buildAncestorHistory({ cards, connections: [] }, "child");
+
+    expect(history).toHaveLength(1);
+    expect(history[0]!.question).toBe("What is neuroplasticity?");
   });
 });

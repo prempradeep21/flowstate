@@ -21,6 +21,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -72,6 +73,53 @@ export const TIP_THREAD_PK_GARLANDS = "tip-thread-pk-garlands";
 export const TIP_THREAD_PK_NITISH = "tip-thread-pk-nitish";
 export const TIP_THREAD_PK_LEGACY = "tip-thread-pk-legacy";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_PK_MAIN]:
+    "Prashant Kishor, unfiltered: his mission in a Bihar at the bottom of India's HDI rankings, speeches composed on the spot, who funds the yatra, his history with Nitish Kumar, how elections are won in India, and his critique of Modi and the BJP.",
+  [TIP_THREAD_PK_PADYATRA]:
+    "Introducing himself to a village crowd as holding no post — not MLA, MP, minister, Mukhiya or Sarpanch — just a son of Bihar repaying a debt to its soil.",
+  [TIP_THREAD_PK_MEETING]:
+    "The small negotiation before the interview over where to sit — ground, gamcha or chair — because anything unusual draws a curious crowd.",
+  [TIP_THREAD_PK_VOTING]:
+    "Why he rejects the comparison to a protest movement: no revolution has benefited a civilisation the way a slow, deliberate awakening does.",
+  [TIP_THREAD_PK_CANVAS]:
+    "The job has not changed since his strategist years, only its target — where he once told parties how to organise and message, he now tries to speak to society itself.",
+  [TIP_THREAD_PK_SHOES]:
+    "Sixteen months on foot through four pairs of the same Asics, around Rs. 12,000–13,000 each, none lasting more than four months on Bihar's broken village roads.",
+  [TIP_THREAD_PK_MOTIVE]:
+    "His stated ambition, blunt: to see Bihar among India's leading states in his own lifetime, from a current rank of 28th — having turned down government posts he could have taken.",
+  [TIP_THREAD_PK_FEE]:
+    "He says he has never taken a professional fee, only campaign expenses — never payment for the relationship itself, the way a vendor would charge.",
+  [TIP_THREAD_PK_SOUTHVOTES]:
+    "The south as evidence that development changes voting behaviour: no chief minister there has lasted more than a decade, because rising expectations make voters harder to satisfy.",
+  [TIP_THREAD_PK_ASPIRATIONS]:
+    "Why some politicians would rather not deliver visible development — it raises expectations they would then have to manage, so keeping people grateful for a small ration is sometimes the strategy.",
+  [TIP_THREAD_PK_GANDHI]:
+    "No films in twenty years and never a selfie with a leader he has worked with — sitting beside a chief minister, he says, is self-esteem, not power.",
+  [TIP_THREAD_PK_PARENTS]:
+    "Growing up with no fixed village, his father's transferable government job keeping the family moving — he calls himself and his siblings born nomads with no lasting school friendships.",
+  [TIP_THREAD_PK_UNETHICAL]:
+    "He does not claim to be clean: everyone in the profession routinely overspends the legal election expenditure limit, by his estimate fifty times over, with regulators looking away.",
+  [TIP_THREAD_PK_INSTITUTIONS]:
+    "Asked to compare Mamata Banerjee's and Narendra Modi's authoritarian tendencies he redirects — any sufficiently powerful, popular leader anywhere will try to overpower institutions, so the institutions are what need strengthening.",
+  [TIP_THREAD_PK_TALENT]:
+    "The talent show the Padyatris run before he arrives at each stop — poets reciting verse about the journey, singers setting his speeches to music.",
+  [TIP_THREAD_PK_GARLANDS]:
+    "No security ring, unlike other padyatras — anyone can push through to garland him or take a photo, which means bruises from bangles and badly-aimed garlands.",
+  [TIP_THREAD_PK_NITISH]:
+    "Despite calling him “Paltu Ram” for switching sides, he describes real personal intimacy with Nitish Kumar — living together, a father-son dynamic.",
+  [TIP_THREAD_PK_LEGACY]:
+    "Having inherited no legacy, leaving one matters enormously to him — and he argues a political leader needs a working dose of narcissism to believe the world is watching.",
+};
+
 export function buildPrashantKishorCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -104,6 +152,9 @@ export function buildPrashantKishorCanvasSection(): TranscriptImportCanvasSectio
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 30 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   // ---- Chapter heads: nine curated groups over the source's own fine-grained
   // chapter markers (see PRASHANT_KISHOR_CHAPTERS) ---------------------------
@@ -874,6 +925,7 @@ export function buildPrashantKishorCanvasSection(): TranscriptImportCanvasSectio
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

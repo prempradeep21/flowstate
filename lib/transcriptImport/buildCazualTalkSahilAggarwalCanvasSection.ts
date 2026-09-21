@@ -19,6 +19,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -61,6 +62,35 @@ export const TIP_THREAD_CT_RISK = "tip-thread-ct-risk";
 export const TIP_THREAD_CT_ACCESS = "tip-thread-ct-access";
 export const TIP_THREAD_CT_DEREGULATE = "tip-thread-ct-deregulate";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_CT_MAIN]:
+    "Sahil Aggarwal on why Indian graduates are unemployed: unemployment rising with each level of schooling, the skills–industry mismatch, Rishihood's three-pillar curriculum, the funding gap, the public-versus-private perception gap, and educating for life rather than livelihood.",
+  [TIP_THREAD_CT_BACKGROUND]:
+    "His route to founding a university: engineering at IIT Delhi, where volunteering to teach in a nearby slum first surfaced the gap between what education is for and what it actually delivers.",
+  [TIP_THREAD_CT_CURRICULUM]:
+    "How much of India's curriculum is still colonial — the modern system is young relative to independence and inherited much of its structure from the British, leaving an open question about what should have been replaced.",
+  [TIP_THREAD_CT_CHINA]:
+    "What China's education bet bought it: starting from a comparable position, deliberate named programmes — Project 211 for 100 universities, Project 985 to push a smaller group to world class — while India's spending ambitions slipped.",
+  [TIP_THREAD_CT_RANKINGS]:
+    "Measuring the wrong things: India's education-spending target slid from 10% to 6% of GDP and sits below 2% in real terms, while rankings like NIRF and NAAC reward research-paper counts, so institutions optimise for paper counts.",
+  [TIP_THREAD_CT_UNEVEN]:
+    "One rulebook for public universities, another for private: a public university can teach from rented premises while it builds, while a private one in Haryana must first assemble 20 acres and construct 100,000 square feet.",
+  [TIP_THREAD_CT_RISK]:
+    "Teaching comfort with financial risk — incoming students get a starting balance to trade in real markets, not to gamble but to experience losing and gaining money early.",
+  [TIP_THREAD_CT_ACCESS]:
+    "Accessibility designed in from day one rather than retrofitted, with two of the university's own founders living with physical disabilities — and a need-based scholarship programme in place of any formal quota.",
+  [TIP_THREAD_CT_DEREGULATE]:
+    "The one change he would make: push accountability to the most local level possible, contrasting India's centre-to-state-to-district chain with more locally governed systems elsewhere.",
+};
+
 export function buildCazualTalkSahilAggarwalCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -84,6 +114,9 @@ export function buildCazualTalkSahilAggarwalCanvasSection(): TranscriptImportCan
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 70 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   const mainDefs = [
     { id: "tip-c-ct-main-1", title: "The Graduate Unemployment Paradox" },
@@ -426,6 +459,7 @@ export function buildCazualTalkSahilAggarwalCanvasSection(): TranscriptImportCan
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

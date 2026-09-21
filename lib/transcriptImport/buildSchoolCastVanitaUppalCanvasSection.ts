@@ -18,6 +18,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -58,6 +59,37 @@ export const TIP_THREAD_SC_SPOILING = "tip-thread-sc-spoiling";
 export const TIP_THREAD_SC_RAPIDFIRE = "tip-thread-sc-rapidfire";
 export const TIP_THREAD_SC_ADVICE = "tip-thread-sc-advice";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_SC_MAIN]:
+    "Vanita Uppal on forty years in education: marks versus mindset, how education has shifted since content stopped being king, what makes a great teacher, whether international schools are easier to teach in, NEP 2020, and three parenting mistakes.",
+  [TIP_THREAD_SC_RESILIENCE]:
+    "Why Gen Z lacks resilience: judgment starts at home, with parents insisting they apply no pressure while the child absorbs constant comparison and quietly concludes they must be failing.",
+  [TIP_THREAD_SC_CONTENT]:
+    "Teachers as more than content deliverers — with knowledge a click away, the value has shifted to relationship: first responder, counselor, sometimes the one emotionally available adult in a child's life.",
+  [TIP_THREAD_SC_REALITY]:
+    "Teaching reality in Indian schools: changing a culture is the hardest change there is, and a five-student-per-teacher international classroom and a village school teaching five age groups in one room are solving different problems.",
+  [TIP_THREAD_SC_BECOMING]:
+    "Becoming an international school teacher — the same B.Ed qualification as anywhere, plus continuous professional development to absorb the school's pedagogy, which is part of why salaries run higher.",
+  [TIP_THREAD_SC_ADVANTAGE]:
+    "The global advantage IB students carry from a 4,000-word extended essay or Theory of Knowledge piece — real analytical skills, though she resists generalising it as superiority over other boards.",
+  [TIP_THREAD_SC_LEARN]:
+    "What Indian schools can learn from international curricula: concept-based inquiry learning in the national framework, sustained teacher training, and assessment treated as an ongoing process.",
+  [TIP_THREAD_SC_SPOILING]:
+    "Whether facilities spoil children — she argues it has nothing to do with curriculum, since her own school ran with plain classrooms and blackboards for years and kept its standards.",
+  [TIP_THREAD_SC_RAPIDFIRE]:
+    "A quickfire round on habits versus passion, what parents should stop asking their children, and the one golden rule she would want every teacher to follow.",
+  [TIP_THREAD_SC_ADVICE]:
+    "Her closing message: don't lose hope when times get rough, and default to kindness — an unkind word can change how a student sees themselves.",
+};
+
 export function buildSchoolCastVanitaUppalCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -82,6 +114,9 @@ export function buildSchoolCastVanitaUppalCanvasSection(): TranscriptImportCanva
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 90 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   const mainDefs = [
     { id: "tip-c-sc-main-1", title: "Intro: Meet Vanita Uppal" },
@@ -562,6 +597,7 @@ export function buildSchoolCastVanitaUppalCanvasSection(): TranscriptImportCanva
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

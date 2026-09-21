@@ -6,9 +6,19 @@ import {
 } from "@/components/QaQuestionSection";
 import type { Card } from "@/lib/store";
 import type { ConversationZoomDisplay } from "@/lib/zoomDisplay";
-import { CONVERSATION_CARD_LAYOUT_H } from "@/lib/transcriptImport/playgroundLayout";
+import {
+  CONVERSATION_CARD_LAYOUT_H,
+  conversationBody,
+  conversationTitle,
+} from "@/lib/conversationCard";
 
-/** Temporary conversation-import card chrome (admin playground only). */
+/**
+ * Chrome for a conversation card: an imported transcript beat, rendered as a
+ * heading over body prose.
+ *
+ * Read-only by design — there is no composer, no ask affordance and no branch
+ * plug. The text is selectable so a reader can quote from it.
+ */
 export function ConversationCardSurface({
   card,
   zoom,
@@ -37,14 +47,14 @@ export function ConversationCardSurface({
             WebkitLineClamp: zoom.titleLineClamp,
           }}
         >
-          {card.question}
+          {conversationTitle(card)}
         </div>
       </QaQuestionSection>
       {zoom.showSummary && (
         <>
           <div className="mx-[22.5px] shrink-0 h-px bg-canvas-border" />
           <div className="line-clamp-6 flex-1 overflow-hidden px-[22.5px] py-[15px] text-canvas-body-sm leading-relaxed text-canvas-ink">
-            {card.answer}
+            {conversationBody(card)}
           </div>
         </>
       )}

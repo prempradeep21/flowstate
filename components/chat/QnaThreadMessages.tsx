@@ -5,6 +5,7 @@ import { QuestionAttachments } from "@/components/QuestionAttachments";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { isConversationCard } from "@/lib/conversationCard";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { QaStatusBadge } from "@/components/QaStatusBadge";
 import {
@@ -42,6 +43,9 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
 
   const handleTryAgain = useCallback(() => {
     if (!card?.question.trim()) return;
+    // Retrying a conversation card would re-ask its heading as a question.
+    // createFollowUp refuses it anyway; this keeps the intent at the call site.
+    if (isConversationCard(card)) return;
     const attachedImages = card ? getQuestionAttachedImages(card) : [];
     createFollowUp(cardId, card.question, {
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
