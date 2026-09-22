@@ -14,6 +14,7 @@ import {
   TRANSCRIPT_IMPORT_CANVASES,
 } from "@/lib/buildTranscriptImportPlaygroundSnapshot";
 import { useCanvasStore } from "@/lib/store";
+import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import {
   createCanvasFromSnapshot,
@@ -37,6 +38,7 @@ export function TranscriptImportPlaygroundApp({
   backHref: string;
   immersive?: boolean;
 }) {
+  const { refreshCanvasList } = useAuth();
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeCanvasId, setActiveCanvasId] = useState(
     DEFAULT_TRANSCRIPT_IMPORT_CANVAS_ID,
@@ -86,6 +88,10 @@ export function TranscriptImportPlaygroundApp({
       // canvas underneath it would cross-save two canvases' contents — the
       // same hazard the sample-canvas copy path documents.
       await createCanvasFromSnapshot(supabase, user.id, title, snapshot);
+      // The insert went straight to Supabase, so the provider's canvas list
+      // still predates it — without this the new canvas is missing from the
+      // sidebar until a full reload, which reads as "the publish did nothing".
+      await refreshCanvasList();
       setPublishState({ status: "published", title });
     } catch (error) {
       setPublishState({

@@ -44,6 +44,16 @@ interface AuthContextValue extends CollaborationContextValue {
   ) => Promise<void>;
   deleteOwnedCanvas: (canvasId: string) => Promise<void>;
   duplicateCanvas: (canvasId: string) => Promise<string | null>;
+  /**
+   * Re-read the owner's canvas list from the server.
+   *
+   * For surfaces that insert a canvas row directly rather than through
+   * createNewCanvas — the admin sample-canvas and transcript-playground copy
+   * paths do, deliberately, so they never touch the active canvas. Nothing
+   * else tells this provider the row exists, so without a refresh the new
+   * canvas is invisible in the sidebar until a full reload.
+   */
+  refreshCanvasList: () => Promise<void>;
   localReadOnly: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -291,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
+      refreshCanvasList: onRefreshCanvasList,
       localReadOnly,
       signInWithGoogle,
       signOut,
@@ -311,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCanvasThumbnail,
       deleteOwnedCanvas,
       duplicateCanvas,
+      onRefreshCanvasList,
       localReadOnly,
       saveStatus,
       shareModalOpen,
