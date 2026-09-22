@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePersistenceReady } from "@/components/AuthProvider";
+import { useAuth, usePersistenceReady } from "@/components/AuthProvider";
 import { CanvasWorkspace } from "@/components/CanvasWorkspace";
-import { PublishedCanvasBanner } from "@/components/published/PublishedCanvasBanner";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { buildCanvasSnapshot, parseCanvasSnapshot } from "@/lib/canvasSnapshot";
@@ -15,6 +14,7 @@ import {
 import {
   beginPublishedCanvasSession,
   endPublishedCanvasSession,
+  isPublishedCanvasAdopted,
 } from "@/lib/publishedCanvasSession";
 import { useCanvasStore } from "@/lib/store";
 
@@ -48,6 +48,8 @@ export function PublishedCanvasApp({
 }: PublishedCanvasAppProps) {
   const router = useRouter();
   const persistenceReady = usePersistenceReady();
+  const { user, adoptPublishedCanvasFork } = useAuth();
+  const forked = useCanvasStore((s) => s.publishedOrigin?.forked ?? false);
   // Read from the store, not the fetched blob: hydrateFromSnapshot has already
   // applied the published snapshot's style, and reading it back here keeps the
   // viewer's own style switcher working on this surface too.
@@ -93,6 +95,7 @@ export function PublishedCanvasApp({
           title,
           ownerName,
           forked: false,
+          forkSaveState: "idle",
         });
         setLoaded(true);
 
@@ -123,14 +126,30 @@ export function PublishedCanvasApp({
     setPublishedOrigin,
   ]);
 
-  // Restore the visitor's own canvas on the way out.
+  /**
+   * A signed-in visitor's fork has to be written the moment it happens.
+   *
+   * A guest's fork survives on its own — it is stashed at sign-in and adopted
+   * on return — but nothing carries a signed-in visitor's copy anywhere: the
+   * published session mutes autosave, and the unmount below would hand their
+   * old canvas back over the top of it. Adoption is what makes the "Saved to
+   * your canvases" toast true.
+   */
+  useEffect(() => {
+    if (!loaded || !forked || !user) return;
+    void adoptPublishedCanvasFork();
+  }, [adoptPublishedCanvasFork, forked, loaded, user]);
+
+  // Restore the visitor's own canvas on the way out — unless the fork became
+  // a canvas of their own, in which case the restore would undo the adoption.
   useEffect(() => {
     return () => {
       if (!sessionStartedRef.current) return;
+      const adopted = isPublishedCanvasAdopted();
       const restore = endPublishedCanvasSession();
       sessionStartedRef.current = false;
       useCanvasStore.getState().setPublishedOrigin(null);
-      if (restore) {
+      if (restore && !adopted) {
         resetViewportBootstrap();
         useCanvasStore
           .getState()
@@ -153,7 +172,6 @@ export function PublishedCanvasApp({
     <ArtifactStyleScope styleId={canvasArtifactStyle}>
       <main className="relative h-full w-full overflow-hidden">
         <ThemeApplier />
-        {loaded && <PublishedCanvasBanner />}
         {error && (
           <div className="absolute inset-0 z-50 flex items-center justify-center">
             <p className="rounded-canvas border border-canvas-border bg-canvas-card px-6 py-4 text-canvas-muted">
@@ -162,7 +180,10 @@ export function PublishedCanvasApp({
           </div>
         )}
         {/* No Home grid on this surface — the visitor may not have an account.
-            The logo goes to Flowstate itself. */}
+            The logo goes to Flowstate itself. The published header — whose
+            canvas this is, and what asking a question does — is folded into the
+            canvas chip in AppLeftPanel rather than floating as a second card
+            that repeats the title. */}
         <CanvasWorkspace onGoHome={() => router.push("/")} />
       </main>
     </ArtifactStyleScope>

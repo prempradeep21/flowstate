@@ -790,11 +790,18 @@ interface CanvasState {
 
   /** Set while viewing a published canvas (/c/<slug>).
    *
-   *  `forked` flips the first time the visitor does anything generative. It is
-   *  bookkeeping and UI only: there is nothing to copy, because the store
-   *  already holds their fork and they have no write path to the original. It
-   *  drives the "(copy)" title suffix and the banner, and carries the lineage
-   *  recorded on the canvas they adopt when they sign in. */
+   *  `forked` flips the first time the visitor does anything generative. In
+   *  the store it is bookkeeping and UI only: there is nothing to copy,
+   *  because the store already holds their fork and they have no write path
+   *  to the original. It drives the "(copy)" title suffix and the canvas
+   *  chip's published header, and carries the lineage recorded on the canvas
+   *  they end up owning.
+   *
+   *  Which canvas that is depends on who they are. A guest's fork is stashed
+   *  at sign-in and adopted on the way back. A visitor who is ALREADY signed
+   *  in has no such moment, so the fork is written the instant it happens —
+   *  `forkSaveState` tracks that write, because nothing may claim a save
+   *  that has not landed. */
   publishedOrigin: {
     slug: string;
     publishedCanvasId: string;
@@ -802,11 +809,15 @@ interface CanvasState {
     title: string;
     ownerName: string | null;
     forked: boolean;
+    forkSaveState: "idle" | "saving" | "saved" | "failed";
   } | null;
   setPublishedOrigin: (
     origin: CanvasState["publishedOrigin"],
   ) => void;
   markPublishedCanvasForked: () => void;
+  setPublishedForkSaveState: (
+    state: NonNullable<CanvasState["publishedOrigin"]>["forkSaveState"],
+  ) => void;
 
   sessionUsage: {
     inputTokens: number;
@@ -1717,6 +1728,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       !s.publishedOrigin || s.publishedOrigin.forked
         ? s
         : { publishedOrigin: { ...s.publishedOrigin, forked: true } },
+    ),
+  setPublishedForkSaveState: (forkSaveState) =>
+    set((s) =>
+      !s.publishedOrigin || s.publishedOrigin.forkSaveState === forkSaveState
+        ? s
+        : { publishedOrigin: { ...s.publishedOrigin, forkSaveState } },
     ),
   sessionUsage: {
     inputTokens: 0,

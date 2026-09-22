@@ -55,6 +55,10 @@ interface AuthContextValue extends CollaborationContextValue {
    */
   refreshCanvasList: () => Promise<void>;
   localReadOnly: boolean;
+  /** Writes a signed-in visitor's fork of a published canvas into their own
+   *  canvases. Returns the new canvas id, or null if there was nothing to
+   *  adopt. See PublishedCanvasApp for the call site. */
+  adoptPublishedCanvasFork: () => Promise<string | null>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   shareModalOpen: boolean;
@@ -89,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchingCanvasId,
     switchingCanvasTitle,
     loadCanvasRow,
+    adoptPublishedCanvasFork: adoptPublishedCanvasForkRaw,
     refreshOwnedCanvasList,
     flushSave,
     isDirtyRef,
@@ -161,6 +166,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (id && user && !localReadOnly) collaboration.seedOwnerAccessInfo();
     return id;
   }, [collaboration.seedOwnerAccessInfo, createNewCanvasRaw, localReadOnly, user]);
+
+  const adoptPublishedCanvasFork = useCallback(async () => {
+    const id = await adoptPublishedCanvasForkRaw();
+    // Same reason as createNewCanvas: the adopter IS the DB owner, so seed
+    // accessInfo instead of letting activeCanvasId flip ahead of the fetch —
+    // that gap renders their own fresh copy read-only and blocks its first
+    // autosave, which on this surface looks exactly like the bug we just fixed.
+    if (id && user && !localReadOnly) collaboration.seedOwnerAccessInfo();
+    return id;
+  }, [
+    adoptPublishedCanvasForkRaw,
+    collaboration.seedOwnerAccessInfo,
+    localReadOnly,
+    user,
+  ]);
 
   useEffect(() => {
     const readOnly =
@@ -303,6 +323,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       duplicateCanvas,
       refreshCanvasList: onRefreshCanvasList,
       localReadOnly,
+      adoptPublishedCanvasFork,
       signInWithGoogle,
       signOut,
       shareModalOpen,
@@ -324,6 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       duplicateCanvas,
       onRefreshCanvasList,
       localReadOnly,
+      adoptPublishedCanvasFork,
       saveStatus,
       shareModalOpen,
       signInWithGoogle,

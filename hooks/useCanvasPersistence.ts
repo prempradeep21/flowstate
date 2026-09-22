@@ -54,6 +54,7 @@ import {
   withSaveRetry,
 } from "@/lib/canvasSaveRetry";
 import {
+  buildDuplicateTitle,
   deleteCanvas,
   fetchSharedCanvasList,
   snapshotWithOwnerAttribution,
@@ -64,10 +65,16 @@ import {
   resetViewportBootstrap,
 } from "@/lib/canvasViewportBootstrap";
 import { clearLandingAnimated } from "@/lib/motion/performance";
+import { showAppToast } from "@/lib/appToastStore";
 import type { Viewport } from "@/lib/store";
 import { createClient } from "@/lib/supabase/client";
 import { isEphemeralFixtureSessionActive } from "@/lib/ephemeralCanvasSessions";
-import { isPublishedCanvasSessionActive } from "@/lib/publishedCanvasSession";
+import {
+  adoptPublishedCanvasSession,
+  isPublishedCanvasAdopted,
+  isPublishedCanvasSessionActive,
+  releasePublishedCanvasAdoption,
+} from "@/lib/publishedCanvasSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
 
@@ -79,6 +86,24 @@ const FLUSH_SAVE_DEADLINE_MS = 4_000;
 
 function hasMeaningfulSavedViewport(viewport: Viewport): boolean {
   return viewport.x !== 0 || viewport.y !== 0 || viewport.scale !== 1;
+}
+
+/**
+ * Bumps a published canvas's copy counter, best effort.
+ *
+ * The `.then` is load-bearing, not tidiness: a PostgREST builder is a lazy
+ * thenable, so `void supabase.rpc(...)` builds a request and never sends it.
+ * Both halves are supplied so a rejection can't surface as an unhandled one —
+ * a statistic must never be able to break an adoption.
+ */
+function recordPublishedCopy(
+  supabase: ReturnType<typeof createClient>,
+  slug: string,
+): void {
+  supabase.rpc("record_published_canvas_copy", { p_slug: slug }).then(
+    () => {},
+    () => {},
+  );
 }
 
 interface UseCanvasPersistenceOptions {
@@ -157,6 +182,9 @@ export function useCanvasPersistence({
   const getSnapshotSource = useCanvasStore((s) => s.getCanvasSnapshotSource);
   const resetCanvasState = useCanvasStore((s) => s.resetCanvasState);
   const closeArtifact = useCanvasStore((s) => s.closeArtifact);
+  const setPublishedForkSaveState = useCanvasStore(
+    (s) => s.setPublishedForkSaveState,
+  );
 
   useEffect(() => {
     const readOnly = isLocalReadOnlyClient();
@@ -669,9 +697,10 @@ export function useCanvasPersistence({
             // Best-effort copy counter, deliberately inside the existing
             // try/catch: adoption must never fail on a statistic.
             if (guestStash.lineage?.sourcePublishedSlug) {
-              void supabase.rpc("record_published_canvas_copy", {
-                p_slug: guestStash.lineage.sourcePublishedSlug,
-              });
+              recordPublishedCopy(
+                supabase,
+                guestStash.lineage.sourcePublishedSlug,
+              );
             }
 
             hydrateFromSnapshot(adoptedSnapshot, {
@@ -1075,6 +1104,102 @@ export function useCanvasPersistence({
     ],
   );
 
+  /**
+   * Turns a signed-in visitor's fork of a published canvas into a canvas they
+   * own, the moment the fork happens.
+   *
+   * A guest gets this for free: their fork is stashed across the OAuth
+   * redirect and adopted on the way back (see the guest-stash branch in
+   * loadCanvasForUser). A visitor who was ALREADY signed in never passes
+   * through sign-in, and autosave is muted for the whole published session —
+   * so without this their copy lives only in the store, the toast tells them
+   * it was saved, and the session's restore throws it away on unmount.
+   *
+   * Adoption ends the published session, which is what lets the ordinary
+   * autosave take over and keep writing to the new canvas while they carry on
+   * editing on /c/<slug>.
+   */
+  const adoptPublishedCanvasFork = useCallback(async (): Promise<
+    string | null
+  > => {
+    if (!supabaseConfigured || !user || localReadOnlyRef.current) return null;
+    // Also the re-entrancy guard: adoption clears the session, so a second
+    // call cannot get past here and mint a second canvas.
+    if (!isPublishedCanvasSessionActive()) return null;
+
+    const origin = useCanvasStore.getState().publishedOrigin;
+    if (!origin?.forked) return null;
+
+    adoptPublishedCanvasSession();
+    ephemeralRef.current = false;
+    setPublishedForkSaveState("saving");
+
+    try {
+      const supabase = createClient();
+      // Publishing scrubs contributorIds / createdByUserId, so the visitor is
+      // stamped as the author of what is now their canvas.
+      const snapshot = snapshotWithOwnerAttribution(
+        buildCanvasSnapshot(getSnapshotSource()),
+        user.id,
+      );
+      const adopted = await createCanvasFromSnapshot(
+        supabase,
+        user.id,
+        buildDuplicateTitle(origin.title),
+        snapshot,
+        {
+          sourcePublishedSlug: origin.slug,
+          sourcePublishedVersion: origin.version,
+        },
+      );
+
+      // Hand the page to cloud persistence: from here every edit is an edit
+      // to `adopted`, not to a canvas that saves nowhere.
+      canvasIdRef.current = adopted.id;
+      canvasUpdatedAtRef.current = adopted.updatedAt;
+      isDirtyRef.current = false;
+      contentEditDirtyRef.current = false;
+      initialHydrationCompleteRef.current = true;
+      setActiveCanvasId(adopted.id);
+      setPublishedForkSaveState("saved");
+      setSaveStatus("saved");
+      // The canvas chip now reads like any owned canvas, so the copy landing
+      // is announced once, here, instead of sitting as a standing label.
+      showAppToast("Saved to your canvases.");
+
+      // Best-effort tail, deliberately after the state handover: neither a
+      // statistic nor a list refresh may cost the visitor their copy.
+      recordPublishedCopy(supabase, origin.slug);
+      void updateLastActiveCanvas(supabase, user.id, adopted.id).catch(
+        () => {},
+      );
+      try {
+        setCanvases(await fetchCanvasList(supabase, user.id));
+      } catch {
+        // The canvas exists; the home grid will pick it up on next load.
+      }
+
+      return adopted.id;
+    } catch (err) {
+      // Put the page back under the session's protection. Leaving it adopted
+      // would arm autosave with no canvas id of its own — the exact overwrite
+      // the session exists to prevent.
+      releasePublishedCanvasAdoption();
+      ephemeralRef.current = true;
+      canvasIdRef.current = null;
+      setPublishedForkSaveState("failed");
+      console.error("[published] could not adopt fork", err);
+      return null;
+    }
+  }, [
+    getSnapshotSource,
+    setActiveCanvasId,
+    setPublishedForkSaveState,
+    setSaveStatus,
+    supabaseConfigured,
+    user,
+  ]);
+
   useEffect(() => {
     if (!supabaseConfigured) {
       setPersistenceStatus("ready");
@@ -1092,9 +1217,14 @@ export function useCanvasPersistence({
     // canvas over what they came to read. Still marks ready: PublishedCanvasApp
     // waits on persistenceReady before hydrating, so returning early without
     // it would deadlock the page.
-    if (isPublishedCanvasSessionActive()) {
+    //
+    // An ADOPTED fork stands down for the same reason even though its session
+    // is over and saves are flowing again: the store now holds a canvas the
+    // visitor owns, and loading their last canvas over it would throw the copy
+    // away exactly as it was rescued.
+    if (isPublishedCanvasSessionActive() || isPublishedCanvasAdopted()) {
       setPersistenceStatus("ready");
-      setSaveStatus("idle");
+      if (!isPublishedCanvasAdopted()) setSaveStatus("idle");
       return;
     }
 
@@ -1271,6 +1401,10 @@ export function useCanvasPersistence({
       }
     };
   }, [
+    // activeCanvasId: the effect gates on canvasIdRef.current, so it has to
+    // re-run when the page acquires one — otherwise an adopted published fork
+    // is never subscribed to and saves nothing after the first insert.
+    activeCanvasId,
     isRemoteUpdateRef,
     performSave,
     persistLocalBackup,
@@ -1319,6 +1453,7 @@ export function useCanvasPersistence({
   }, [supabaseConfigured, user]);
 
   return {
+    adoptPublishedCanvasFork,
     loadCanvasForUser,
     loadCanvasRow,
     canvasIdRef,
