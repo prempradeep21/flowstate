@@ -21,6 +21,7 @@ import {
 } from "@/lib/plugConnector";
 import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
+import { isConversationCard } from "@/lib/conversationCard";
 
 const STROKE_FALLBACK = CANVAS_CONNECTOR;
 
@@ -274,7 +275,7 @@ export function Connections() {
           }
 
           const isConversationLink =
-            from.cardKind === "conversation" && to.cardKind === "conversation";
+            isConversationCard(from) && isConversationCard(to);
 
           const {
             fromAnchor: a,

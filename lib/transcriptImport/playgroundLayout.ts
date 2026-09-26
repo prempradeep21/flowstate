@@ -13,8 +13,10 @@ import type {
   Card,
   Connection,
   Thread,
+  ThreadGist,
 } from "@/lib/store";
 import { domainDisplayLabel } from "@/lib/urlDetection";
+import { CONVERSATION_CARD_LAYOUT_H } from "@/lib/conversationCard";
 
 /**
  * Content helpers for the transcript-import playground. Every node is spawned
@@ -25,16 +27,13 @@ import { domainDisplayLabel } from "@/lib/urlDetection";
 import { transcriptWebsitePreview } from "@/lib/transcriptImport/websitePreviews";
 
 export const ORIGIN_X = 0;
+
 /**
- * Fixed layout height so horizontal connectors stay level across a row.
- *
- * Sized for a two-line title plus a six-line summary at 420px wide: the body is
- * 13px text on relaxed leading (~21px a line) across ~384px of usable width, so
- * six lines need ~127px on top of the header, divider and padding. At 200px the
- * card could not fit the four lines its own clamp asked for, and summaries were
- * cut mid-sentence.
+ * Re-exported so builders keep one import, while the constant itself lives in a
+ * leaf module the app can reach without pulling this file — and with it the
+ * generated website-preview manifest — into the card renderer's bundle.
  */
-export const CONVERSATION_CARD_LAYOUT_H = 300;
+export { CONVERSATION_CARD_LAYOUT_H };
 
 /** Placeholder until the chapter engine assigns a real position. */
 const UNPLACED = { x: 0, y: 0 };
@@ -45,6 +44,8 @@ export interface TranscriptImportCanvasSection {
   connections: Connection[];
   threads: Record<string, Thread>;
   threadOrder: string[];
+  /** Canvas memory — one authored gist per thread. See `threadGist`. */
+  threadGists: Record<string, ThreadGist>;
   groups: Record<string, BranchGroup>;
   sessionArtifacts: Record<string, SessionArtifact>;
   canvasArtifactNodes: Record<string, CanvasArtifactNode>;
@@ -57,6 +58,18 @@ export function thread(id: string, accentIndex: number): Thread {
     id,
     accentColour: THREAD_ACCENT_PALETTE[accentIndex % THREAD_ACCENT_PALETTE.length],
   };
+}
+
+/**
+ * An authored thread gist — canvas memory for an imported canvas.
+ *
+ * Real gists are written by /api/gist after each exchange; an imported canvas
+ * has no exchanges, so its builder authors them instead. `updatedAt` is fixed
+ * at 0 to keep builds deterministic: two builds of the same canvas must be
+ * byte-identical, and nothing exists yet for `mergeThreadGists` to race with.
+ */
+export function threadGist(gist: string, turnCount: number): ThreadGist {
+  return { gist, updatedAt: 0, turnCount };
 }
 
 export function convCard(

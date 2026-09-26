@@ -20,6 +20,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -75,6 +76,53 @@ export const TIP_THREAD_JAG_ADVICE = "tip-thread-jag-advice";
 export const TIP_THREAD_JAG_SOUND = "tip-thread-jag-sound";
 export const TIP_THREAD_JAG_FUTURE = "tip-thread-jag-future";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_JAG_MAIN]:
+    "Jagadamba Theatre, Visakhapatnam, told by the owner's son: a projection test watched at eight before the theatre opened, the Mumbai distributor trips from age twelve, Sensurround on 70 mm opened with Sholay, why action filled the hall and comedy never did, a business built on never gambling, and speakers he still cannot stop changing.",
+  [TIP_THREAD_JAG_ORIGIN]:
+    "His first memory predates the place — the screen was up but the theatre had not opened, and the family sat in the unfinished hall for a projection test. The 1964 trip to Chennai to see the newly opened Safire playing Cleopatra is what sold his father on 70 mm.",
+  [TIP_THREAD_JAG_BUILD]:
+    "Barren land, because the idea needed the room — not a theatre on a plot but an integrated building with shops beneath. Bought in 1968 and finished in eighteen months to open in 1970, funded without banks because the money was tough to raise.",
+  [TIP_THREAD_JAG_OPENING]:
+    "He asked his father whether the family house could go inside the complex. It opened with Where Eagles Dare in the 70 mm presentation his father had come back from Chennai determined to build — in a Visakhapatnam closer to a big village than a city, but with an English-film audience already there.",
+  [TIP_THREAD_JAG_CHILDHOOD]:
+    "He was at the theatre every day, watching the same films over and over — a self-described movie fanatic. He reads the Hollywood exposure at that age as a good way to have grown up.",
+  [TIP_THREAD_JAG_BOMBAY]:
+    "From twelve he travelled with his father every three or four months to the foreign distributors' offices in Mumbai — Warner Brothers, 20th Century, Columbia. Regal, Metro and Sterling played English films there; Vizag had exactly one such house, and the films booked at par on a sharing basis.",
+  [TIP_THREAD_JAG_SURROUND]:
+    "His father kept adding systems as they appeared, putting Sensurround on top of 70 mm six-track stereo. Leela Mahal had already run Sholay for a hundred days; Jagadamba then played the 70 mm Sensurround version and ran it further.",
+  [TIP_THREAD_JAG_CONSOLE]:
+    "Sensurround was manually operated, so he sat at the console himself after college, taking the evening show and part of the night. Getting good at it led him into studying speakers from sound-design magazines, there being no internet.",
+  [TIP_THREAD_JAG_DOLBY]:
+    "The format card at the end of Hollywood prints kept saying Dolby stereo while Jagadamba had 70 mm four-track, and not knowing what he was missing bothered him enough to act. It became the third Dolby house in India, after Priya in Delhi and Sterling in Mumbai, and the first in the South.",
+  [TIP_THREAD_JAG_STATUE]:
+    "The discus thrower outside the theatre, Enter the Dragon seen at fifteen, and meeting Jackie Chan in Singapore.",
+  [TIP_THREAD_JAG_WHATRAN]:
+    "Hollywood occupancies swung on one axis — action filled the hall, comedy never did, whatever the same film had done in Bombay for fifty weeks. Jurassic Park was the biggest English run at ten weeks; Shiva held the screen 155 days.",
+  [TIP_THREAD_JAG_FANS]:
+    "The six-foot compound wall was not enough — fans dropped over it on release day, so it went to ten. He finds fans more sensible now, and they stopped re-releases because the crowds stood on the seats.",
+  [TIP_THREAD_JAG_SAFE]:
+    "He cannot name a biggest disaster, and the reason is structural: a film that is not working comes off the following week. They pay the distributor an advance and stop there — never a minimum guarantee.",
+  [TIP_THREAD_JAG_TOGETHER]:
+    "The Vizag exhibitors know each other, meet regularly and share what they know — no sense of competition between them, in his account, because everybody grows together.",
+  [TIP_THREAD_JAG_SCREENS]:
+    "Single screens in the city are outperforming the multiplexes, with a producer naming Jagadamba, Melody and Sarat. Runs went from four weeks to two, which he treats as a gain, and OTT did not dent a hall people come to for the experience.",
+  [TIP_THREAD_JAG_ADVICE]:
+    "His advice to anyone opening a single screen today is short — build a nice theatre with a big screen and great sound, and serve the public around it. The complex carried Visakhapatnam's first gaming zone, bikes and cars among the machines.",
+  [TIP_THREAD_JAG_SOUND]:
+    "He heard line arrays at a Janet Jackson show, wanted them, and put them behind the screen — the first theatre in India to do so. He does the room's Dolby equalization himself, having learned it from his engineers and gone to Dolby Labs to do it better.",
+  [TIP_THREAD_JAG_FUTURE]:
+    "On IMAX he points out it is the format he opened with — the same 70 mm film, which he rates above 4K or 8K digital. He markets by word of mouth rather than digitally, because an experience is what is being advertised, and his most rooted moment is the theatre itself.",
+};
+
 export function buildJagadambaCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -107,6 +155,9 @@ export function buildJagadambaCanvasSection(): TranscriptImportCanvasSection {
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 4 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   // ---- Chapter heads: the six derived chapters ---------------------------
   const mainDefs = JAGADAMBA_THEATRE_CHAPTERS.map((chapter, index) => ({
@@ -1145,6 +1196,7 @@ export function buildJagadambaCanvasSection(): TranscriptImportCanvasSection {
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

@@ -8,6 +8,7 @@ import {
   type ResolvedCanvasTuning,
 } from "@/lib/canvasTuning";
 import { isCardPending, pendingLayoutMinHeight } from "@/lib/cardLayoutPolicy";
+import { isConversationCard } from "@/lib/conversationCard";
 
 const DEFAULT_TUNING = resolveTuning(DEFAULT_CANVAS_TUNING);
 
@@ -40,7 +41,7 @@ export function getCanvasCardBounds(
 ): { w: number; h: number } {
   const w = tuning.cardWidth;
   if (
-    card.cardKind === "conversation" &&
+    isConversationCard(card) &&
     card.size?.h != null &&
     card.size.h > 0
   ) {

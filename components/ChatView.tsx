@@ -10,6 +10,7 @@ import {
   pickDefaultThreadId,
 } from "@/lib/chatThreads";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
+import { isConversationCard } from "@/lib/conversationCard";
 
 function ThreadChatComposer({ threadId }: { threadId: string }) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
@@ -27,7 +28,11 @@ function ThreadChatComposer({ threadId }: { threadId: string }) {
   );
 
   const tail = tailId ? cards[tailId] : null;
-  const disabled = tail?.status !== "done";
+  // An imported transcript thread ends on a conversation card, whose status is
+  // always "done" — so the status check alone leaves this composer looking live
+  // while createFollowUp refuses the write, swallowing whatever was typed.
+  const importedThread = isConversationCard(tail);
+  const disabled = tail?.status !== "done" || importedThread;
 
   const onSubmit = (question: string, options?: FollowUpOptions) => {
     if (!tailId) return;
@@ -37,7 +42,13 @@ function ThreadChatComposer({ threadId }: { threadId: string }) {
   return (
     <div className="shrink-0 border-t border-canvas-border bg-canvas-bg px-4 py-4 md:px-8">
       <ChatComposer
-        placeholder={disabled ? "Waiting for the current reply…" : "Follow up"}
+        placeholder={
+          importedThread
+            ? "Imported transcript — branching from it is coming soon"
+            : disabled
+              ? "Waiting for the current reply…"
+              : "Follow up"
+        }
         disabled={disabled}
         onSubmit={onSubmit}
       />

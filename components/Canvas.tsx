@@ -136,6 +136,8 @@ import { CanvasPieMenu } from "@/components/CanvasPieMenu";
 import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
 import { canvasLoadRevealTotalMs } from "@/lib/motion/canvasLoadReveal";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
+import { isConversationCard } from "@/lib/conversationCard";
+
 const MARQUEE_MIN_DRAG_PX = 6;
 
 interface PlacementState {
@@ -218,7 +220,7 @@ export function Canvas({
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const connectionsBehindCards = useCanvasStore((s) =>
-    s.cardOrder.some((id) => s.cards[id]?.cardKind === "conversation"),
+    s.cardOrder.some((id) => isConversationCard(s.cards[id])),
   );
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);

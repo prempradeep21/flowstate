@@ -251,6 +251,20 @@ export function useCanvasPersistence({
       snapshotSource: ReturnType<typeof getSnapshotSource>,
       touchContentEditedAt: boolean,
     ) => {
+      // Every write to canvases.state from this hook funnels through here, so
+      // the fixture guard lives here rather than only in performSave.
+      //
+      // flushSaveWithDeadline's content-edit branch calls executeSave DIRECTLY,
+      // skipping performSave and its guard. A fixture session (the transcript
+      // playground, a published canvas, the landing demo) puts foreign content
+      // in the store while canvasIdRef still points at a real canvas, and
+      // contentEditDirtyRef survives from before the session began — so that
+      // branch wrote playground content into whichever canvas was last open.
+      // That is how canvases published from the playground came back holding a
+      // later canvas's chapters. scheduleSave already refuses to arm a save
+      // during a session; this refuses to complete one.
+      if (isEphemeralFixtureSessionActive()) return;
+
       const payloadBytes = JSON.stringify(snapshotSource).length;
 
       setSaveStatus("saving");

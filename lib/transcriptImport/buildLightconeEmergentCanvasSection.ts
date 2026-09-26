@@ -21,6 +21,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -87,6 +88,67 @@ export const TIP_THREAD_LC_SWARM = "tip-thread-lc-swarm";
 export const TIP_THREAD_LC_PRICE = "tip-thread-lc-price";
 export const TIP_THREAD_LC_PEOPLE = "tip-thread-lc-people";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_LC_MAIN]:
+    "Emergent on The Lightcone: twin founders out of YC summer 2024, the testing-automation idea VCs called too crazy, verification as the loop that keeps an agent running, the pivot from enterprise to consumer, their own Kubernetes stack, a live demo, and small-business users who would once have paid a dev shop half a million dollars.",
+  [TIP_THREAD_LC_INTRO]:
+    "The host frames the episode with growth rather than product — seven million apps built with Emergent in the eight months since launch — and the platform lets anyone build and ship production-ready software with AI agents.",
+  [TIP_THREAD_LC_TWINS]:
+    "Both brothers started programming at twelve and came to the US for PhDs; one dropped out for Google, the other started a deep learning team. They had been watching the field expecting an inflection rather than reacting to one.",
+  [TIP_THREAD_LC_DUNZO]:
+    "Before Emergent one brother ran Dunzo, the Indian hyperlocal quick-commerce company whose name became a verb. Managing three hundred engineers, he watched software testing turn out to be the biggest bottleneck in shipping fast.",
+  [TIP_THREAD_LC_VERIFY]:
+    "They applied to YC with automated software testing and VCs found it too crazy to fund. Building the testing agents produced the insight that verification is the loop keeping an agent running over a long horizon — solve it and you get much more than testing.",
+  [TIP_THREAD_LC_LANDSCAPE]:
+    "What the landscape looked like in 2024: Lovable had not started at all, Cursor was just getting going, and Devin had only just come out.",
+  [TIP_THREAD_LC_BENCH]:
+    "SWE-bench was where every coding agent was measured, so four of them packed into a room to become number one on it — and made discoveries that turned up in papers later.",
+  [TIP_THREAD_LC_PIVOT]:
+    "Enterprise was the conventional move and they tried it two or three months before concluding it was too slow. A small beta in June took off instead, and eighty percent of those users have no programming knowledge.",
+  [TIP_THREAD_LC_MODELS]:
+    "The rule they build by: don't solve what the next model generation will solve for you.",
+  [TIP_THREAD_LC_SECOND]:
+    "Coming second is not the disadvantage it looks like — every model generation reopens the question of what to build, so the second mover starts with a wider aperture while everyone else optimised for the front end.",
+  [TIP_THREAD_LC_DISTRO]:
+    "Coming from behind means entering head and shoulders above what exists before anyone notices, then scaling distribution deliberately — influencers, and a message about building real apps.",
+  [TIP_THREAD_LC_INFRA]:
+    "The last mile everyone neglects is the app deploying, not just building — which is why they run their own Kubernetes stack rather than outsourcing to a third-party sandbox vendor.",
+  [TIP_THREAD_LC_STACK]:
+    "The stack is deliberately not the Node-heavy one most would pick: a Python backend server and a React front-end server in a client-server architecture that supports background work.",
+  [TIP_THREAD_LC_MEMORY]:
+    "They went multi-agent early because context management has to be frugal — the main agent handles routine work and anything delegable goes to a sub-agent. Aggregating past trajectories into skills gave the agent memory that learns across sessions.",
+  [TIP_THREAD_LC_UX]:
+    "They hide the diff: the coding agent is strong enough that they use it internally instead of Claude Code, but they do not want to put a power tool in front of a non-technical user — agent experience alongside user experience.",
+  [TIP_THREAD_LC_MODELRISK]:
+    "On whether more capable models leave them exposed, he argues coding is only twenty percent of the job — and each generation they hand the models more autonomy, from library definitions to integrations to generating unit tests.",
+  [TIP_THREAD_LC_DEMO]:
+    "A live build: one prompt for an interview-practice app, and the engine works out on its own that this wants a mobile app and routes it to the mobile builder — then comes back with clarifying questions before it builds.",
+  [TIP_THREAD_LC_USERS]:
+    "Real users: an audio-video business in Illinois that replaced spreadsheet-and-phone intake, and a Norwegian who sold his company to PE and built lawyers a CRM with no programming background. Design stopped being a trade-off against functionality.",
+  [TIP_THREAD_LC_ASANA]:
+    "Their internal project management tool is an Asana replacement built on Emergent by a QA engineer with no code edited by hand. The whole company builds it collaboratively, and marketing built a complete CRM while support builds its own software.",
+  [TIP_THREAD_LC_HIRE]:
+    "They hire on two things only — problem solving and ownership — and the shape that follows is one or two people carrying what is a whole company elsewhere, with deployment that nearly mirrors Vercel done by two people.",
+  [TIP_THREAD_LC_SPLIT]:
+    "Most of the team is in Bangalore with three to five people in SF. Everyone talks to a customer once or twice a week and everyone does support — and he started the company partly to answer why there was no Google or Facebook from India.",
+  [TIP_THREAD_LC_SAAS]:
+    "SaaS as it exists faces two headwinds: its workflows get consumed by agents, and customers can now build the customised version themselves. Roughly a fifth of what people build on Emergent today is already agentic.",
+  [TIP_THREAD_LC_SWARM]:
+    "He calls the METR horizon chart the chart of the year, and they are experimenting with agent swarms over longer horizons with an agent watching the swarm. Most internal research goes into fine-tuning verifiers rather than the model — and the frontier models are clearly not interchangeable.",
+  [TIP_THREAD_LC_PRICE]:
+    "The primary users are small and medium business owners running on email, WhatsApp and spreadsheets, who would previously have gone to a dev shop — half a million dollars becomes five thousand.",
+  [TIP_THREAD_LC_PEOPLE]:
+    "Christy, a clinical psychologist in Alaska who also coaches equestrian sport, built the app she could not find anywhere. What users tell them is that money was never the whole problem — a lot gets lost in translation explaining an idea through a developer.",
+};
+
 export function buildLightconeEmergentCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -126,6 +188,9 @@ export function buildLightconeEmergentCanvasSection(): TranscriptImportCanvasSec
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 4 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   // ---- Chapter heads: the eleven creator chapters ------------------------
   const mainDefs = LIGHTCONE_EMERGENT_CHAPTERS.map((chapter, index) => ({
@@ -1408,6 +1473,7 @@ export function buildLightconeEmergentCanvasSection(): TranscriptImportCanvasSec
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

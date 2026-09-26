@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, usePersistenceReady } from "@/components/AuthProvider";
 import { CanvasWorkspace } from "@/components/CanvasWorkspace";
 import { ThemeApplier } from "@/components/ThemeApplier";
+import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { buildCanvasSnapshot, parseCanvasSnapshot } from "@/lib/canvasSnapshot";
 import {
   markViewportRestoredFromSnapshot,
@@ -49,6 +50,10 @@ export function PublishedCanvasApp({
   const persistenceReady = usePersistenceReady();
   const { user, adoptPublishedCanvasFork } = useAuth();
   const forked = useCanvasStore((s) => s.publishedOrigin?.forked ?? false);
+  // Read from the store, not the fetched blob: hydrateFromSnapshot has already
+  // applied the published snapshot's style, and reading it back here keeps the
+  // viewer's own style switcher working on this surface too.
+  const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
   const hydrateFromSnapshot = useCanvasStore((s) => s.hydrateFromSnapshot);
   const setPublishedOrigin = useCanvasStore((s) => s.setPublishedOrigin);
   const sessionStartedRef = useRef(false);
@@ -157,21 +162,30 @@ export function PublishedCanvasApp({
   }, []);
 
   return (
-    <main className="relative h-full w-full overflow-hidden">
-      <ThemeApplier />
-      {error && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center">
-          <p className="rounded-canvas border border-canvas-border bg-canvas-card px-6 py-4 text-canvas-muted">
-            {error}
-          </p>
-        </div>
-      )}
-      {/* No Home grid on this surface — the visitor may not have an account.
-          The logo goes to Flowstate itself. The published header — whose
-          canvas this is, and what asking a question does — is folded into the
-          canvas chip in AppLeftPanel rather than floating as a second card
-          that repeats the title. */}
-      <CanvasWorkspace onGoHome={() => router.push("/")} />
-    </main>
+    // The pack has to be scoped here as well as named on the snapshot.
+    // canvasArtifactStyle only records which pack is active; nothing emits the
+    // [data-artifact-style] hook that app/styles/artifact-styles.css keys off
+    // unless a subtree opts in. app/page.tsx does it around the workspace and
+    // this surface did not — so every non-vanilla pack (neo, bento, brut,
+    // liquid-glass, riso) silently rendered as vanilla on a published link,
+    // including the style the canvas was published with.
+    <ArtifactStyleScope styleId={canvasArtifactStyle}>
+      <main className="relative h-full w-full overflow-hidden">
+        <ThemeApplier />
+        {error && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center">
+            <p className="rounded-canvas border border-canvas-border bg-canvas-card px-6 py-4 text-canvas-muted">
+              {error}
+            </p>
+          </div>
+        )}
+        {/* No Home grid on this surface — the visitor may not have an account.
+            The logo goes to Flowstate itself. The published header — whose
+            canvas this is, and what asking a question does — is folded into the
+            canvas chip in AppLeftPanel rather than floating as a second card
+            that repeats the title. */}
+        <CanvasWorkspace onGoHome={() => router.push("/")} />
+      </main>
+    </ArtifactStyleScope>
   );
 }

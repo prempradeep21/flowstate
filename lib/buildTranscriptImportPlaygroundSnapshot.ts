@@ -9,7 +9,11 @@ import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInt
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
+import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
+import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
   HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
@@ -31,6 +35,22 @@ import {
   LIGHTCONE_EMERGENT_TRANSCRIPT,
   LIGHTCONE_EMERGENT_VIDEO_URL,
 } from "@/lib/transcriptImport/lightconeEmergent";
+import {
+  PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
+  PRASHANT_KISHOR_VIDEO_URL,
+} from "@/lib/transcriptImport/prashantKishorInterview";
+import {
+  HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+  HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
+} from "@/lib/transcriptImport/hubermanRajShamaniInterview";
+import {
+  CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+  CAZUAL_TALK_SAHIL_AGGARWAL_VIDEO_URL,
+} from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
+import {
+  SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
+  SCHOOLCAST_VANITA_UPPAL_VIDEO_URL,
+} from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -104,6 +124,10 @@ function snapshotFromSection(
     connections: section.connections,
     threads: section.threads,
     threadOrder: section.threadOrder,
+    // Canvas memory travels with the canvas. Without it a published copy starts
+    // with no sibling-branch awareness, and nothing would ever backfill it —
+    // gists are only written by a real exchange, which an import never has.
+    threadGists: section.threadGists,
     groups: section.groups,
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
@@ -185,6 +209,34 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     LIGHTCONE_EMERGENT_TRANSCRIPT,
     buildLightconeEmergentCanvasSection,
     LIGHTCONE_EMERGENT_VIDEO_URL,
+  ),
+  defineCanvas(
+    "prashant-kishor-unfiltered",
+    "Prashant Kishor — Unfiltered by Samdish",
+    PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
+    buildPrashantKishorCanvasSection,
+    PRASHANT_KISHOR_VIDEO_URL,
+  ),
+  defineCanvas(
+    "huberman-raj-shamani",
+    "Andrew Huberman — Figuring Out",
+    HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+    buildHubermanRajShamaniCanvasSection,
+    HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
+  ),
+  defineCanvas(
+    "cazual-talk-sahil-aggarwal",
+    "Sahil Aggarwal — Cazual Talk",
+    CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+    buildCazualTalkSahilAggarwalCanvasSection,
+    CAZUAL_TALK_SAHIL_AGGARWAL_VIDEO_URL,
+  ),
+  defineCanvas(
+    "schoolcast-vanita-uppal",
+    "Vanita Uppal — Schoolcast with Avyakt",
+    SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
+    buildSchoolCastVanitaUppalCanvasSection,
+    SCHOOLCAST_VANITA_UPPAL_VIDEO_URL,
   ),
 ];
 

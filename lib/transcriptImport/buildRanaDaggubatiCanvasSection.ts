@@ -21,6 +21,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import {
@@ -70,6 +71,53 @@ export const TIP_THREAD_RANA_RELEASE = "tip-thread-rana-release";
 export const TIP_THREAD_RANA_CULTURE = "tip-thread-rana-culture";
 export const TIP_THREAD_RANA_FUTURE = "tip-thread-rana-future";
 
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_RANA_MAIN]:
+    "Rana Daggubati on InFocus: always three world-domination plans running, never logging out of the arts, what trauma actually means, breaking and resetting, why Telugu money goes on the screen, the limits of AI on set, and why the north's networks decide release dates.",
+  [TIP_THREAD_RANA_NEWGEN]:
+    "A new generation and a new voice have arrived in the last five or six months — evidence everywhere he looks — and a decade ago they ran the under-30 office deliberately, when he was barely thirty and the oldest in the camp.",
+  [TIP_THREAD_RANA_COSTS]:
+    "Costs rose dramatically and caution came back with them — films once comfortably made for three to five crore no longer are — but he does not accept the problem is real, since Kerala makes films at a cost nobody else manages.",
+  [TIP_THREAD_RANA_BALANCE]:
+    "On balance he rejects the premise: the influence ran the other way with his wife, and the balance already exists because most of the day is spent sitting with an idea — a school friend's line about what a wonderful life he has stuck with him.",
+  [TIP_THREAD_RANA_CREATOR]:
+    "Every industry needs storytelling — brands tell shorter stories through a product rather than a plot — and every extreme consumer eventually becomes a creator, a line he says holds for almost everything in his life.",
+  [TIP_THREAD_RANA_TRAUMA]:
+    "He pushes back on the word trauma: it means whatever deeply affected you, and need not be bad. His grandfather's passing and his own health became weapons rather than wounds — and testing Claude, he finds it mimics rather than creates.",
+  [TIP_THREAD_RANA_BREAK]:
+    "When you break, you break, and everything you believed your life was disappears — months in America among doctors and bookstores where nobody knew him, and three whole days spent writing an exhaustive list of everything else he could do.",
+  [TIP_THREAD_RANA_INDIE]:
+    "The clarity from that list: what you are doing is not the end of your life, only what you had defined it as. He picked parallel cinema deliberately — the films are not the problem, the system they are released into is.",
+  [TIP_THREAD_RANA_ROOMS]:
+    "The Assembly Rooms — fifty- and eighty-seater rooms with two or three screens each, designed to feel like a coffee shop rather than a theatre, starting in Ooty with Hyderabad and Bangalore next and Mumbai last.",
+  [TIP_THREAD_RANA_TELUGU]:
+    "The big shift is audiences moving from hero-first to director-first, languages disappearing as a barrier through subtitles and dubbing, and small films getting a real chance at a mainstream release.",
+  [TIP_THREAD_RANA_MONEY]:
+    "Where the money goes: talent costs little beside what reaches the frame, almost all of it is borrowed rather than funded with perhaps ten per cent interest-free, and the OTT years briefly pushed budgets two and three times higher.",
+  [TIP_THREAD_RANA_PRODUCERS]:
+    "Every couple of years another eight or ten producers enter Telugu cinema, an influx that does not happen in other languages — risk-takers literally liable for the money, not people who sign the biggest star and wait.",
+  [TIP_THREAD_RANA_THEATRES]:
+    "Appetite for theatres is more vibrant than ever, something he would not have said so confidently a year ago — and short content has run its course as a fad, because there is only so much chips and coke before you want a proper meal.",
+  [TIP_THREAD_RANA_RULES]:
+    "Almost nothing they do with AI reaches the screen, because you cannot test it the way you test a real effect. Where it works is digital doubles for dangerous stunts — and what he waits for is the stuff you cannot put a camera in front of.",
+  [TIP_THREAD_RANA_WRITING]:
+    "He is relaxed about writers cleaning up prose with Claude, but the limit showed in his own office: great log lines and pitches, then nothing there when he met the person. Specialised vernacular products are being built around Hyderabad and Chennai.",
+  [TIP_THREAD_RANA_RELEASE]:
+    "His Hindi producing debut is finished and waiting on a date, because up north the networks choose it rather than the producer — and the north is heavily underscreened compared with his two states.",
+  [TIP_THREAD_RANA_CULTURE]:
+    "Theatrical release is where cultural influence is made, rarely streaming. The habit traces back to what cinema taught its audience — gods, prayers, how to live — and to tickets kept deliberately low for a bigger audience.",
+  [TIP_THREAD_RANA_FUTURE]:
+    "Formats will move — films without intervals, different durations, day passes — plus an extreme surge in live performance as a counter-effect of AI, and filmmakers now saying openly they are making a film to win at Cannes.",
+};
+
 export function buildRanaDaggubatiCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -102,6 +150,9 @@ export function buildRanaDaggubatiCanvasSection(): TranscriptImportCanvasSection
   threadIds.forEach((id, index) => {
     threads[id] = thread(id, 15 + index);
   });
+  const threadGists = Object.fromEntries(
+    threadIds.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
 
   // ---- Chapter heads: the creator's seven, titles verbatim ----------------
   const mainDefs = RANA_DAGGUBATI_CHAPTERS.map((chapter, index) => ({
@@ -1078,6 +1129,7 @@ export function buildRanaDaggubatiCanvasSection(): TranscriptImportCanvasSection
     connections: layout.connections,
     threads,
     threadOrder: threadIds,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

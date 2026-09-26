@@ -134,6 +134,16 @@ export async function updateOnboardingTourCompleted(
   if (error) throw error;
 }
 
+/**
+ * The owner's canvases, newest content first.
+ *
+ * Sorted here rather than trusting the server's `order`, because that orders on
+ * `content_edited_at` with NULLs last and a freshly inserted row has none —
+ * `createCanvasFromSnapshot` stamps state but never a content-edit time. Such a
+ * canvas came back BELOW everything the user had ever edited, so a just-created
+ * copy looked like it had not been created at all. mapCanvasMetaRow falls back
+ * to `updated_at`, so sorting on the mapped rows puts it where it belongs.
+ */
 export async function fetchCanvasList(
   supabase: Supabase,
   userId: string,
@@ -147,7 +157,7 @@ export async function fetchCanvasList(
 
     if (!error) {
       supportsExtendedCanvasColumns = true;
-      return (data ?? []).map(mapCanvasMetaRow);
+      return sortCanvasesByContentEditedAt((data ?? []).map(mapCanvasMetaRow));
     }
 
     if (!isMissingOptionalCanvasColumn(error)) {
@@ -165,7 +175,7 @@ export async function fetchCanvasList(
 
   if (error) throw error;
 
-  return (data ?? []).map(mapCanvasMetaRow);
+  return sortCanvasesByContentEditedAt((data ?? []).map(mapCanvasMetaRow));
 }
 
 export async function fetchCanvasById(

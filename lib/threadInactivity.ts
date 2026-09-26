@@ -4,6 +4,7 @@ import {
   type ChatThreadState,
 } from "@/lib/chatThreads";
 import type { Card } from "@/lib/store";
+import { isConversationCard } from "@/lib/conversationCard";
 
 /** Idle time before a thread auto-collapses on the canvas. */
 export const INACTIVITY_MS = 5 * 60 * 1000;
@@ -54,7 +55,7 @@ export function shouldAutoCollapseThread(
   if (!root) return false;
   // Transcript/conversation cards are the canvas's standing content, not a Q&A
   // exchange that has gone quiet — they stay expanded however long they idle.
-  if (cardsInThread(state, threadId).some((c) => c.cardKind === "conversation")) {
+  if (cardsInThread(state, threadId).some(isConversationCard)) {
     return false;
   }
   if (state.collapsedCardIds.includes(root.id)) return false;
