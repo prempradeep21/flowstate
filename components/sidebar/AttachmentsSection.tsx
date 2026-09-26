@@ -1,6 +1,9 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useRef, useState } from "react";
+import { showAppErrorToast } from "@/lib/appToastStore";
+import { downloadCanvasAsset } from "@/lib/assetDownload";
 import {
   groupCanvasAssets,
   uploadAssetFiles,
@@ -14,7 +17,16 @@ import { useAuth } from "@/components/AuthProvider";
 
 function DraggableAssetTile({ id }: { id: string }) {
   const asset = useCanvasStore((s) => s.canvasAssets[id]);
+  const [downloading, setDownloading] = useState(false);
   if (!asset) return null;
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    const result = await downloadCanvasAsset(asset);
+    setDownloading(false);
+    if (!result.ok) showAppErrorToast(result.error ?? "Could not download file.");
+  };
 
   return (
     <div className="group relative aspect-square overflow-hidden rounded-canvas border border-canvas-border bg-canvas-bg">
@@ -34,6 +46,18 @@ function DraggableAssetTile({ id }: { id: string }) {
       <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-canvas-body-sm text-white opacity-0 transition-opacity group-hover:opacity-100">
         {asset.name}
       </span>
+      <button
+        type="button"
+        disabled={downloading}
+        aria-label={`Download ${asset.name}`}
+        title={`Download ${asset.name}`}
+        onClick={() => {
+          void handleDownload();
+        }}
+        className="absolute right-7 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-black/80 disabled:opacity-50 group-hover:opacity-100"
+      >
+        <Download className="h-3 w-3" aria-hidden />
+      </button>
       <button
         type="button"
         aria-label={`Remove ${asset.name}`}
