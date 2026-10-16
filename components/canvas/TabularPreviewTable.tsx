@@ -47,8 +47,11 @@ export function TabularPreviewTable({
         </div>
       ) : null}
       <div
-        className="min-h-0 flex-1 overflow-auto"
-        {...(noDrag ? { "data-no-drag": true } : {})}
+        data-canvas-scroll
+        className={`min-h-0 flex-1 overflow-auto ${
+          noDrag ? "cursor-text select-text" : ""
+        }`}
+        {...(noDrag ? { "data-no-drag": true, "data-selectable-text": true } : {})}
       >
         <table
           className={`w-full border-collapse text-left text-canvas-ink ${

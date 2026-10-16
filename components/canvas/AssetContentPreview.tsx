@@ -204,10 +204,13 @@ function TextAssetPreview({
       <pre
         data-canvas-scroll
         className={`min-h-0 flex-1 overflow-auto font-mono leading-[1.45] text-canvas-ink ${
+          interactive ? "cursor-text select-text" : ""
+        } ${
           compact
             ? "p-0.5 text-[6px] leading-[1.3]"
             : "p-3 text-canvas-body-sm"
         }`}
+        {...(interactive ? { "data-selectable-text": true } : {})}
         {...(noDrag && interactive ? { "data-no-drag": true } : {})}
       >
         <code dangerouslySetInnerHTML={{ __html: html }} />
