@@ -12,6 +12,7 @@ import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadam
 import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
 import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
+import { buildMeenakshiAnantramCanvasSection } from "@/lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
@@ -51,6 +52,10 @@ import {
   SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
   SCHOOLCAST_VANITA_UPPAL_VIDEO_URL,
 } from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
+import {
+  MEENAKSHI_ANANTRAM_TRANSCRIPT,
+  MEENAKSHI_ANANTRAM_VIDEO_URL,
+} from "@/lib/transcriptImport/meenakshiAnantramInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -237,6 +242,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
     buildSchoolCastVanitaUppalCanvasSection,
     SCHOOLCAST_VANITA_UPPAL_VIDEO_URL,
+  ),
+  defineCanvas(
+    "meenakshi-anantram-rooted",
+    "Dr. Meenakshi Anantram — Rooted Stories",
+    MEENAKSHI_ANANTRAM_TRANSCRIPT,
+    buildMeenakshiAnantramCanvasSection,
+    MEENAKSHI_ANANTRAM_VIDEO_URL,
   ),
 ];
 

@@ -24,6 +24,7 @@ import { buildHubermanCanvasSection } from "../lib/transcriptImport/buildHuberma
 import { buildCazualTalkSahilAggarwalCanvasSection } from "../lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
 import { buildHubermanRajShamaniCanvasSection } from "../lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
 import { buildSchoolCastVanitaUppalCanvasSection } from "../lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
+import { buildMeenakshiAnantramCanvasSection } from "../lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildJagadambaCanvasSection } from "../lib/transcriptImport/buildJagadambaCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "../lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "../lib/transcriptImport/buildPrashantKishorCanvasSection";
@@ -51,6 +52,7 @@ const BUILDERS = [
   buildHubermanRajShamaniCanvasSection,
   buildSchoolCastVanitaUppalCanvasSection,
   buildJagadambaCanvasSection,
+  buildMeenakshiAnantramCanvasSection,
   buildLightconeEmergentCanvasSection,
   buildPrashantKishorCanvasSection,
   buildRanaDaggubatiCanvasSection,
