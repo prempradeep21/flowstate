@@ -6,7 +6,6 @@ import { CanvasGridCard } from "@/components/home/CanvasGridCard";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { NewCanvasCard } from "@/components/home/NewCanvasCard";
 import { PaginatedGrid, type GridSlot } from "@/components/home/PaginatedGrid";
-import { SampleCanvasesSection } from "@/components/home/SampleCanvasesSection";
 import { SectionHeading } from "@/components/home/SectionHeading";
 import { useCanvasSnapshotThumbnailUrls } from "@/components/home/useCanvasSnapshotThumbnailUrls";
 import { useHomeCanvasCollaborators } from "@/components/home/useHomeCanvasCollaborators";
@@ -248,12 +247,7 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           </div>
         )}
 
-        {!searching && (
-          <>
-            <WhatYouCanDoSection />
-            <SampleCanvasesSection />
-          </>
-        )}
+        {!searching && <WhatYouCanDoSection />}
       </div>
     </div>
   );

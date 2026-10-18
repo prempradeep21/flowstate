@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
+import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { AppLeftPanel } from "@/components/AppLeftPanel";
 import { AppRightPanel } from "@/components/AppRightPanel";
 import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
@@ -84,6 +85,9 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
       </div>
       <AppLeftPanel onGoHome={onGoHome} />
       <AppRightPanel />
+      <div className="pointer-events-auto absolute bottom-5 left-3 z-30">
+        <AdminPortalButton />
+      </div>
       <ArtifactPanel />
       <ShareModal />
       <GuestWall />

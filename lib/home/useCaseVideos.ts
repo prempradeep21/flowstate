@@ -37,17 +37,6 @@ export const USE_CASE_VIDEOS: UseCaseVideo[] = [
   },
 ];
 
-/**
- * Poster frame for the un-played state — no channel name or avatar in it.
- * maxresdefault is the full-resolution frame; hqdefault is the guaranteed
- * fallback (see UseCaseVideoCard's onError).
- */
-export const youtubePoster = (id: string) =>
-  `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
-
-export const youtubePosterFallback = (id: string) =>
-  `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
-
 /** The player is rendered at this size so YouTube serves a 1080p rendition, */
 /** then scaled down to the card — otherwise a ~450px-wide player gets a soft */
 /** low-res stream. */

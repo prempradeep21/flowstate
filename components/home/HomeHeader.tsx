@@ -18,7 +18,7 @@ export function HomeHeader({
     <header className="sticky top-0 z-20 border-b border-canvas-border bg-canvas-card shadow-card">
       <div className="mx-auto flex w-full max-w-[86rem] flex-wrap items-center gap-x-2.5 gap-y-3 px-6 py-3 sm:flex-nowrap sm:px-8">
         <div className="mr-auto">
-          <FlowstateBrand />
+          <FlowstateBrand variant="lockup" />
         </div>
 
         {search ? (

@@ -97,13 +97,6 @@ import {
   getLatestThreadIdForArtifact,
 } from "@/lib/focusView";
 import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
-import { runSilentAutoCollapse } from "@/lib/collapseSoundSuppress";
-import {
-  registerThreadInactivityHandlers,
-  resetThreadActivity,
-  touchThreadActivity,
-  type ThreadInactivityState,
-} from "@/lib/threadInactivity";
 import {
   buildCanvasClipboardPayload,
   canCopyCanvasSelection,
@@ -988,7 +981,6 @@ interface CanvasState {
   toggleBranchThreadCollapsed: (branchThreadId: string) => void;
   toggleCardCollapsed: (cardId: string) => void;
   toggleChatsGloballyHidden: () => void;
-  autoCollapseInactiveThreads: (threadIds: string[]) => void;
   clearSelection: () => void;
   /** Remove the current canvas selection from the canvas (sidebar data is kept). */
   removeSelectedFromCanvas: () => void;
@@ -2684,9 +2676,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const wasCollapsed =
         state.collapsedBranchThreadIds.includes(branchThreadId);
-      if (wasCollapsed) {
-        touchThreadInactivity(branchThreadId);
-      }
       return {
         collapsedBranchThreadIds: wasCollapsed
           ? state.collapsedBranchThreadIds.filter((id) => id !== branchThreadId)
@@ -2697,10 +2686,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   toggleCardCollapsed: (cardId) =>
     set((state) => {
       const wasCollapsed = state.collapsedCardIds.includes(cardId);
-      const card = state.cards[cardId];
-      if (wasCollapsed && card?.threadId) {
-        touchThreadInactivity(card.threadId);
-      }
       return {
         collapsedCardIds: wasCollapsed
           ? state.collapsedCardIds.filter((id) => id !== cardId)
@@ -2719,35 +2704,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         };
       }
       return { chatsGloballyHidden: false };
-    }),
-
-  autoCollapseInactiveThreads: (threadIds) =>
-    runSilentAutoCollapse(() => {
-      set((state) => {
-        const next = new Set(state.collapsedCardIds);
-        let changed = false;
-        for (const threadId of threadIds) {
-          const root = getThreadRootCard(state, threadId);
-          if (!root || next.has(root.id)) continue;
-          if (
-            state.cardOrder.some((id) => {
-              const card = state.cards[id];
-              return (
-                card &&
-                card.threadId === threadId &&
-                (card.status === "thinking" || card.status === "streaming")
-              );
-            })
-          ) {
-            continue;
-          }
-          if (root.status === "empty" && !root.question.trim()) continue;
-          next.add(root.id);
-          changed = true;
-        }
-        if (!changed) return state;
-        return { collapsedCardIds: [...next] };
-      });
     }),
 
   clearSelection: () =>
@@ -5202,7 +5158,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   createFollowUp: (parentId, question, options) => {
     get().markPublishedCanvasForked();
     let childId: string | null = null;
-    let parentThreadId: string | null = null;
     set((state) => {
       const parent = state.cards[parentId];
       if (!parent) return state;
@@ -5213,7 +5168,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       // "done", so their own done-checks let it through. One guard here closes
       // every caller.
       if (parent.cardKind === "conversation") return state;
-      parentThreadId = parent.threadId;
       const undoPast = pushUndoSnapshot(state);
       const id = newCardId();
       childId = id;
@@ -5301,7 +5255,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         createdAt: Date.now(),
       });
     }
-    if (parentThreadId) touchThreadInactivity(parentThreadId);
     return childId;
   },
 
@@ -5742,16 +5695,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   createBranchAt: (sourceId, side, position, options) => {
     let branchId: string | null = null;
-    let sourceThreadId: string | null = null;
-    let newBranchThreadId: string | null = null;
     set((state) => {
       const source = state.cards[sourceId];
       if (!source) return state;
-      sourceThreadId = source.threadId;
       const undoPast = pushUndoSnapshot(state);
 
       const newThreadIdStr = newThreadId();
-      newBranchThreadId = newThreadIdStr;
       const accent =
         PALETTE[state.threadOrder.length % PALETTE.length];
       const thread: Thread = {
@@ -5810,19 +5759,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         createdAt: Date.now(),
       });
     }
-    if (sourceThreadId) touchThreadInactivity(sourceThreadId);
-    if (newBranchThreadId) touchThreadInactivity(newBranchThreadId);
     return branchId;
   },
 
   createBranch: (sourceId, side, options) => {
     let branchId: string | null = null;
-    let sourceThreadId: string | null = null;
-    let newBranchThreadId: string | null = null;
     set((state) => {
       const source = state.cards[sourceId];
       if (!source) return state;
-      sourceThreadId = source.threadId;
       const undoPast = pushUndoSnapshot(state);
 
       const existingOnSide = state.connections.filter(
@@ -5836,7 +5780,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const y = childBandY(layout, sourceId, source, tuning);
 
       const newThreadIdStr = newThreadId();
-      newBranchThreadId = newThreadIdStr;
       const accent =
         PALETTE[state.threadOrder.length % PALETTE.length];
       const thread: Thread = {
@@ -5886,8 +5829,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         createdAt: Date.now(),
       });
     }
-    if (sourceThreadId) touchThreadInactivity(sourceThreadId);
-    if (newBranchThreadId) touchThreadInactivity(newBranchThreadId);
     return branchId;
   },
 
@@ -6363,7 +6304,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         collaborationHasEdits: snapshotNorm.collaborationHasEdits ?? false,
       };
     });
-    resetThreadActivity(get().threadOrder);
   },
 }));
 
@@ -6373,29 +6313,6 @@ function pushUndoSnapshot(state: CanvasState): GraphSnapshot[] {
   if (next.length > MAX_UNDO_STACK) next.shift();
   return next;
 }
-
-function pickThreadInactivityState(state: CanvasState): ThreadInactivityState {
-  return {
-    cards: state.cards,
-    cardOrder: state.cardOrder,
-    connections: state.connections,
-    threads: state.threads,
-    threadOrder: state.threadOrder,
-    collapsedCardIds: state.collapsedCardIds,
-  };
-}
-
-function touchThreadInactivity(threadId: string): void {
-  touchThreadActivity(threadId, () =>
-    pickThreadInactivityState(useCanvasStore.getState()),
-  );
-}
-
-registerThreadInactivityHandlers({
-  readState: () => pickThreadInactivityState(useCanvasStore.getState()),
-  applyCollapse: (threadIds) =>
-    useCanvasStore.getState().autoCollapseInactiveThreads(threadIds),
-});
 
 // Selector helpers.
 export const selectAccentForCard = (cardId: string) =>

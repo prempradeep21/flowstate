@@ -7,7 +7,6 @@ import {
   setMasterMuted,
   setMasterVolume,
 } from "@/lib/sounds/engine";
-import { isChatCollapseSoundSuppressed } from "@/lib/collapseSoundSuppress";
 import { isViewportGesturing } from "@/lib/canvasViewportGuard";
 import { useCanvasStore } from "@/lib/store";
 
@@ -86,9 +85,7 @@ export function useCanvasSounds(): void {
       }
 
       if (arraysChanged(state.collapsedCardIds, prev.collapsedCardIds)) {
-        if (!isChatCollapseSoundSuppressed()) {
-          void playSound("chat-collapse");
-        }
+        void playSound("chat-collapse");
       }
 
       const wasPanelOpen = isArtifactPanelOpen(prev);

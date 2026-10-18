@@ -1,12 +1,12 @@
 "use client";
 
+import { AnimatePresence, m } from "framer-motion";
 import { FileText, MessageSquare, Paperclip, Search, Type } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { MotionOverlayPopover } from "@/components/motion/MotionOverlay";
 import { Icon } from "@/components/ui/Icon";
-import { IconButton } from "@/components/ui/IconButton";
 import {
   buildCanvasSearchIndex,
   searchCanvasIndex,
@@ -14,6 +14,8 @@ import {
   type CanvasSearchKind,
 } from "@/lib/canvasSearch";
 import { focusSearchResult } from "@/lib/canvasSearchFocus";
+import { framerTransition } from "@/lib/motion/transitions";
+import { useReducedMotion } from "@/lib/motion/useReducedMotion";
 import {
   pushSearchHistory,
   readSearchHistory,
@@ -34,14 +36,65 @@ const KIND_LABEL: Record<CanvasSearchKind, string> = {
   label: "Label",
 };
 
+/** What the empty input cycles through: "Search artifacts", "Search chats"… */
+const ROLLING_TARGETS = ["artifacts", "chats", "inputs", "labels"];
+const ROLL_INTERVAL_MS = 1800;
+
+/**
+ * Stands in for the input's placeholder: a fixed "Search" with the thing being
+ * searched rolling up beneath it, so the scope reads without a help line.
+ */
+function RollingPlaceholder() {
+  const reducedMotion = useReducedMotion();
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const timer = window.setInterval(
+      () => setIndex((i) => (i + 1) % ROLLING_TARGETS.length),
+      ROLL_INTERVAL_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [reducedMotion]);
+
+  if (reducedMotion) {
+    return <>Search artifacts, chats, inputs and labels</>;
+  }
+
+  return (
+    <span className="flex items-center gap-[0.3em]">
+      Search
+      <span className="relative inline-flex h-[1.4em] overflow-hidden">
+        <AnimatePresence initial={false} mode="popLayout">
+          <m.span
+            key={ROLLING_TARGETS[index]}
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: "0%", opacity: 1 }}
+            exit={{ y: "-100%", opacity: 0 }}
+            transition={framerTransition("standard", "easeMedium")}
+            className="inline-block"
+          >
+            {ROLLING_TARGETS[index]}
+          </m.span>
+        </AnimatePresence>
+      </span>
+    </span>
+  );
+}
+
 const rowBase =
   "flex w-full items-center gap-2.5 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm text-canvas-ink transition-colors";
 
+/** Closed: the 46px icon chip. Open: the same shell, eased wider. */
+const OPEN_WIDTH = "min(18rem, 50vw)";
+const CLOSED_WIDTH = "46px";
+
 /**
- * `bare` drops the search's own card so it can sit inside another toolbar pill
- * (the top-right unit); the open input then grows that pill leftward.
+ * One shell for both states, so opening reads as the icon chip widening into
+ * the bar (panelExpand: CSS width, standard / easeMedium) and the field fading
+ * in just behind it; closing fades the field fast, then narrows back.
  */
-export function CanvasSearch({ bare = false }: { bare?: boolean }) {
+export function CanvasSearch() {
   const { activeCanvasId } = useAuth();
   const canvasId = activeCanvasId ?? "local";
 
@@ -139,94 +192,93 @@ export function CanvasSearch({ bare = false }: { bare?: boolean }) {
     }
   };
 
-  if (!open) {
-    if (bare) {
-      return (
-        <IconButton icon={Search} label="Search canvas" onClick={openSearch} />
-      );
-    }
-    return (
-      <div className="pointer-events-auto rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
-        <IconButton
-          icon={Search}
-          label="Search canvas"
-          onClick={openSearch}
-          className="m-1"
-        />
-      </div>
-    );
-  }
-
   const showHistory = query.trim().length === 0;
   const listId = "canvas-search-results";
 
   return (
     <div
       ref={shellRef}
-      data-canvas-hotkeys="off"
+      data-canvas-hotkeys={open ? "off" : undefined}
       className="pointer-events-auto relative"
     >
       <div
-        className={
-          bare
-            ? "flex h-9 w-[min(16rem,40vw)] items-center gap-2 rounded-canvas bg-canvas-bg px-2.5"
-            : "flex w-[min(18rem,50vw)] items-center gap-2 rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-2 shadow-card"
-        }
+        className="flex h-[46px] items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width] duration-motion-standard ease-motion-medium"
+        style={{ width: open ? OPEN_WIDTH : CLOSED_WIDTH }}
       >
-        <Icon icon={Search} className="text-canvas-muted" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActiveIndex(0);
-          }}
-          onKeyDown={handleInputKeyDown}
-          placeholder="Search this canvas"
-          role="combobox"
-          aria-expanded={results.length > 0}
-          aria-controls={results.length > 0 ? listId : undefined}
-          aria-autocomplete="list"
-          aria-activedescendant={results[activeIndex]?.id}
-          className="min-w-0 flex-1 bg-transparent text-canvas-body-sm text-canvas-ink outline-none placeholder:text-canvas-muted"
-        />
+        <button
+          type="button"
+          aria-label="Search canvas"
+          aria-expanded={open}
+          onClick={() => (open ? inputRef.current?.focus() : openSearch())}
+          className="btn m-[4px] h-9 w-9 shrink-0 rounded-canvas-md text-canvas-muted hover:text-canvas-ink"
+        >
+          <Icon icon={Search} />
+        </button>
+        <div
+          aria-hidden={!open}
+          className={`relative flex min-w-0 flex-1 items-center pr-3 transition-opacity motion-reduce:transition-none ${
+            open
+              ? "opacity-100 delay-[60ms] duration-motion-standard ease-motion-medium"
+              : "pointer-events-none opacity-0 duration-motion-instant"
+          }`}
+        >
+          {open && query.length === 0 && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center whitespace-nowrap text-canvas-body-sm text-canvas-muted"
+            >
+              <RollingPlaceholder />
+            </span>
+          )}
+          <input
+            ref={inputRef}
+            value={query}
+            tabIndex={open ? 0 : -1}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIndex(0);
+            }}
+            onKeyDown={handleInputKeyDown}
+            aria-label="Search this canvas"
+            role="combobox"
+            aria-expanded={results.length > 0}
+            aria-controls={results.length > 0 ? listId : undefined}
+            aria-autocomplete="list"
+            aria-activedescendant={results[activeIndex]?.id}
+            className="min-w-0 flex-1 bg-transparent text-canvas-body-sm text-canvas-ink outline-none"
+          />
+        </div>
       </div>
 
       <MotionOverlayPopover
-        isOpen
-        className={`absolute left-0 top-full z-[60] ${bare ? "mt-3" : "mt-2"} w-[min(18rem,50vw)] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card`}
+        isOpen={open && !(showHistory && history.length === 0)}
+        className={`absolute left-0 top-full z-[60] mt-2 w-[min(18rem,50vw)] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card`}
         style={{ transformOrigin: "top left" }}
       >
         {showHistory ? (
-          history.length > 0 ? (
-            <>
-              <p className="px-2.5 py-1.5 text-canvas-caption text-canvas-muted">
-                Recent
-              </p>
-              <ul>
-                {history.map((q) => (
-                  <li key={q}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuery(q);
-                        setActiveIndex(0);
-                        inputRef.current?.focus();
-                      }}
-                      className={`btn ${rowBase} hover:bg-canvas-bg`}
-                    >
-                      <Icon icon={Search} className="text-canvas-muted" />
-                      <span className="min-w-0 flex-1 truncate">{q}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="px-2.5 py-2 text-canvas-body-sm text-canvas-muted">
-              Search artifacts, chats, inputs and labels.
+          <>
+            <p className="px-2.5 py-1.5 text-canvas-caption text-canvas-muted">
+              Recent
             </p>
-          )
+            <ul>
+              {history.map((q) => (
+                <li key={q}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery(q);
+                      setActiveIndex(0);
+                      inputRef.current?.focus();
+                    }}
+                    className={`btn ${rowBase} hover:bg-canvas-bg`}
+                  >
+                    <Icon icon={Search} className="text-canvas-muted" />
+                    <span className="min-w-0 flex-1 truncate">{q}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : results.length === 0 ? (
           <p className="px-2.5 py-2 text-canvas-body-sm text-canvas-muted">
             No matches on this canvas.

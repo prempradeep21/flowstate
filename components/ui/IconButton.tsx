@@ -31,7 +31,7 @@ export function IconButton({
   className = "",
 }: {
   icon: LucideIcon;
-  /** Accessible name; also used as the tooltip. */
+  /** Accessible name; HoverHint also shows it on hover. */
   label: string;
   onClick?: () => void;
   size?: IconButtonSize;
@@ -43,7 +43,6 @@ export function IconButton({
     <button
       type="button"
       aria-label={label}
-      title={label}
       onClick={onClick}
       disabled={disabled}
       className={`btn rounded-canvas-md ${BUTTON_SIZE_CLASS[size]} ${

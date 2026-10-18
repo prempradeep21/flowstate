@@ -2,12 +2,12 @@
 
 
 
+import { AnimatePresence, m } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
 import { CanvasTopRightToolbar } from "@/components/CanvasTopRightToolbar";
-import { LiveDrakkar } from "@/components/LiveDrakkar";
+import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { LocalSessionTag } from "@/components/LocalSessionTag";
 import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 
@@ -22,6 +22,8 @@ import { SkillsSection } from "@/components/sidebar/SkillsSection";
 // Beta suggestions button is parked for now; flip to bring it back.
 const SHOW_BETA_SUGGESTIONS = false;
 
+import { distances } from "@/lib/motion/tokens";
+import { framerTransition } from "@/lib/motion/transitions";
 import { SIDEBAR_TILE_STAGGER_MS } from "@/lib/motion/variants";
 
 import { useCanvasStore } from "@/lib/store";
@@ -33,6 +35,8 @@ export function AppRightPanel() {
   const collapsed = useCanvasStore((s) => s.rightPanelCollapsed);
 
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
+
+  const viewMode = useCanvasStore((s) => s.viewMode);
 
   const [activeTab, setActiveTab] = useState<
     "artifacts" | "assets" | "skills" | "mcp"
@@ -72,9 +76,25 @@ export function AppRightPanel() {
 
       <LocalSessionTag />
 
-      <LiveDrakkar />
-
-      <AdminPortalButton />
+      {/* Search sits apart from the unit: an icon that opens into the bar. It
+          only searches the canvas, so it leaves with the canvas view — easing
+          out of the unit's edge on the way in, a quick fade on the way out. */}
+      <AnimatePresence initial={false}>
+        {viewMode === "canvas" && (
+          <m.div
+            key="canvas-search"
+            initial={{ opacity: 0, x: distances.shiftXs }}
+            animate={{
+              opacity: 1,
+              x: 0,
+              transition: framerTransition("standard", "easeMedium"),
+            }}
+            exit={{ opacity: 0, transition: framerTransition("instant", "easeLight") }}
+          >
+            <CanvasSearch />
+          </m.div>
+        )}
+      </AnimatePresence>
 
       {SHOW_BETA_SUGGESTIONS && <BetaFeedbackButton />}
 
