@@ -22,6 +22,7 @@ import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { GuestWall } from "@/components/billing/GuestWall";
 import { useAuth } from "@/components/AuthProvider";
+import { useCanvasSnapshotThumbnailCapture } from "@/hooks/useCanvasSnapshotThumbnailCapture";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
 import { useVideoPipStore } from "@/lib/videoPipStore";
@@ -47,6 +48,7 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
   const { activeCanvasId, isSwitchingCanvas, switchingCanvasTitle } = useAuth();
   const setLeftPanelCollapsed = useCanvasStore((s) => s.setLeftPanelCollapsed);
   useUndoKeyboard();
+  useCanvasSnapshotThumbnailCapture(canvasContainerRef);
 
   const canvasKey = activeCanvasId ?? "local";
 

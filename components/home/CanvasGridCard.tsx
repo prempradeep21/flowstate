@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
 import { CanvasThumbnail } from "@/components/home/CanvasThumbnail";
 import { formatRelativeTime } from "@/lib/home/formatRelativeTime";
@@ -27,6 +28,11 @@ export function CanvasGridCard({
   onOpen: () => void;
 }) {
   const relative = formatRelativeTime(updatedAt);
+  // Track load per URL: a fresh capture swaps the src, and an expired or
+  // deleted image falls back to the placeholder instead of a broken icon.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = Boolean(thumbnailUrl) && failedUrl !== thumbnailUrl;
 
   return (
     <button
@@ -36,13 +42,19 @@ export function CanvasGridCard({
       title={title}
       className="group flex h-full w-full flex-col overflow-hidden rounded-canvas-lg border border-canvas-border bg-canvas-card text-left shadow-artifact transition-all duration-motion-standard ease-motion-medium hover:-translate-y-1 hover:border-canvas-ink/15 hover:shadow-artifactHover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
-      <div className="relative aspect-[16/10]">
-        {thumbnailUrl ? (
+      <div className="relative aspect-[16/10] overflow-hidden bg-canvas-artifactStage">
+        {showImage && thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={thumbnailUrl}
             alt=""
-            className="h-full w-full bg-canvas-artifactStage object-cover"
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoadedUrl(thumbnailUrl)}
+            onError={() => setFailedUrl(thumbnailUrl)}
+            className={`h-full w-full object-cover transition-[opacity,transform] duration-motion-standard ease-motion-medium group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100 ${
+              loadedUrl === thumbnailUrl ? "opacity-100" : "opacity-0"
+            }`}
           />
         ) : (
           <CanvasThumbnail seed={canvasId} />

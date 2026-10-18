@@ -8,6 +8,7 @@ import { NewCanvasCard } from "@/components/home/NewCanvasCard";
 import { PaginatedGrid, type GridSlot } from "@/components/home/PaginatedGrid";
 import { SampleCanvasesSection } from "@/components/home/SampleCanvasesSection";
 import { SectionHeading } from "@/components/home/SectionHeading";
+import { useCanvasSnapshotThumbnailUrls } from "@/components/home/useCanvasSnapshotThumbnailUrls";
 import { useHomeCanvasCollaborators } from "@/components/home/useHomeCanvasCollaborators";
 import { WhatYouCanDoSection } from "@/components/home/WhatYouCanDoSection";
 import { SearchField } from "@/components/ui/SearchField";
@@ -78,6 +79,15 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
     Boolean(user && supabaseConfigured),
   );
 
+  const allCanvasIds = useMemo(
+    () => [...canvases.map((c) => c.id), ...sharedCanvases.map((c) => c.id)],
+    [canvases, sharedCanvases],
+  );
+  const snapshotUrls = useCanvasSnapshotThumbnailUrls(
+    allCanvasIds,
+    Boolean(user && supabaseConfigured),
+  );
+
   const handleOpen = useCallback(
     async (canvasId: string) => {
       if (isSwitchingCanvas) return;
@@ -124,7 +134,8 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           canvasId={canvas.id}
           title={canvas.title}
           updatedAt={canvas.contentEditedAt ?? canvas.updatedAt}
-          thumbnailUrl={canvas.thumbnailUrl}
+          // An owner-picked image wins over the auto-captured snapshot.
+          thumbnailUrl={canvas.thumbnailUrl ?? snapshotUrls[canvas.id]}
           members={membersByCanvas[canvas.id]}
           isSwitching={isSwitchingCanvas}
           isPendingSwitch={switchingCanvasId === canvas.id}
@@ -141,6 +152,7 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
         canvasId={canvas.id}
         title={canvas.title}
         updatedAt={canvas.updatedAt}
+        thumbnailUrl={snapshotUrls[canvas.id]}
         members={membersByCanvas[canvas.id]}
         isSwitching={isSwitchingCanvas}
         isPendingSwitch={switchingCanvasId === canvas.id}

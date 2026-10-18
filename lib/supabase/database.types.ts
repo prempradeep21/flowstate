@@ -116,6 +116,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      canvas_thumbnails: {
+        Row: {
+          canvas_id: string;
+          storage_path: string;
+          captured_at: string;
+          captured_by: string | null;
+        };
+        Insert: {
+          canvas_id: string;
+          storage_path: string;
+          captured_at?: string;
+          captured_by?: string | null;
+        };
+        Update: {
+          canvas_id?: string;
+          storage_path?: string;
+          captured_at?: string;
+          captured_by?: string | null;
+        };
+        Relationships: [];
+      };
       canvas_invites: {
         Row: {
           id: string;

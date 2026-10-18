@@ -99,6 +99,7 @@ import { getCanvasFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
 import { useCanvasPan } from "@/hooks/useCanvasPan";
 import { useCanvasViewportInput } from "@/hooks/useCanvasViewportInput";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
+import { useCaptureMountAllNodes } from "@/lib/canvasSnapshotThumbnail/captureMountAll";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import {
@@ -195,18 +196,27 @@ interface ArtifactPlacementState extends PlacementState {
  */
 function CulledKeepAlive({
   visible,
+  captureMount,
   children,
 }: {
   visible: boolean;
+  /**
+   * Shown only for a dashboard-thumbnail capture. Deliberately does NOT count
+   * as "seen": otherwise one capture would pin every artifact on the canvas
+   * (and load every offscreen iframe/player) for the rest of the session.
+   */
+  captureMount: boolean;
   children: ReactNode;
 }) {
   const seenRef = useRef(false);
   if (visible) seenRef.current = true;
-  if (!seenRef.current) return null;
+  if (!seenRef.current && !captureMount) return null;
   return (
     <div
       className="absolute left-0 top-0"
-      style={{ contentVisibility: visible ? "visible" : "hidden" }}
+      style={{
+        contentVisibility: visible || captureMount ? "visible" : "hidden",
+      }}
     >
       {children}
     </div>
@@ -234,6 +244,10 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
     containerRef,
     { landingCardId },
   );
+  // A dashboard-thumbnail capture renders the whole canvas — mount every node
+  // for its duration (see captureMountAll).
+  const captureMountAll = useCaptureMountAllNodes();
+  const cullCards = cullingEnabled && !captureMountAll;
   const hiddenCardIds = useHiddenCardIds();
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
@@ -256,7 +270,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         const card = cards[id];
         if (!card) return null;
         if (hiddenCardIds.has(id)) return null;
-        if (cullingEnabled && visibleNodes && !visibleNodes.cards.has(id)) {
+        if (cullCards && visibleNodes && !visibleNodes.cards.has(id)) {
           return null;
         }
         return <Card key={id} card={card} />;
@@ -267,6 +281,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         return (
           <CulledKeepAlive
             key={id}
+            captureMount={captureMountAll}
             visible={
               !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
             }
@@ -281,6 +296,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         return (
           <CulledKeepAlive
             key={id}
+            captureMount={captureMountAll}
             visible={
               !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
             }
@@ -295,6 +311,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         return (
           <CulledKeepAlive
             key={id}
+            captureMount={captureMountAll}
             visible={
               !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
             }
@@ -309,6 +326,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         return (
           <CulledKeepAlive
             key={id}
+            captureMount={captureMountAll}
             visible={
               !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
             }
@@ -320,7 +338,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
       {canvasSkillOrder.map((id) => {
         const node = canvasSkillNodes[id];
         if (!node) return null;
-        if (cullingEnabled && visibleNodes && !visibleNodes.skills.has(id)) {
+        if (cullCards && visibleNodes && !visibleNodes.skills.has(id)) {
           return null;
         }
         return <CanvasSkillNode key={id} node={node} />;
@@ -328,7 +346,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
       {canvasTextLabelOrder.map((id) => {
         const label = canvasTextLabels[id];
         if (!label) return null;
-        if (cullingEnabled && visibleNodes && !visibleNodes.labels.has(id)) {
+        if (cullCards && visibleNodes && !visibleNodes.labels.has(id)) {
           return null;
         }
         return (

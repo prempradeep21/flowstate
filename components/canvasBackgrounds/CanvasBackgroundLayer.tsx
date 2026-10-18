@@ -49,6 +49,7 @@ function ViewportSyncedGridBackground() {
   return (
     <div
       ref={elRef}
+      data-canvas-background-layer
       className="pointer-events-none absolute inset-0 z-0 size-full"
       aria-hidden
       style={{ backgroundColor: CANVAS_BG }}
@@ -67,11 +68,20 @@ export function CanvasBackgroundLayer() {
 
   if (style === "static-image") {
     return (
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        data-canvas-background-layer
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+      >
         <StaticImageBackground />
       </div>
     );
   }
 
-  return <Component animate={true} />;
+  // The marker lets dashboard-thumbnail capture find and re-render the
+  // backdrop (lib/canvasSnapshotThumbnail/captureCanvasThumbnail).
+  return (
+    <div data-canvas-background-layer className="pointer-events-none absolute inset-0 z-0">
+      <Component animate={true} />
+    </div>
+  );
 }
