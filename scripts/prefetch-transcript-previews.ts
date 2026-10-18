@@ -19,6 +19,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { buildAllariNareshCanvasSection } from "../lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildDesignToolsCanvasSection } from "../lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "../lib/transcriptImport/buildHubermanCanvasSection";
 import { buildCazualTalkSahilAggarwalCanvasSection } from "../lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
@@ -26,8 +27,10 @@ import { buildHubermanRajShamaniCanvasSection } from "../lib/transcriptImport/bu
 import { buildSchoolCastVanitaUppalCanvasSection } from "../lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
 import { buildMeenakshiAnantramCanvasSection } from "../lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildJagadambaCanvasSection } from "../lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "../lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "../lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "../lib/transcriptImport/buildPrashantKishorCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "../lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "../lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "../lib/transcriptImport/buildYcInterviewCanvasSection";
 import { fetchLinkPreview, validateLinkPreviewUrl } from "../lib/linkPreview";
@@ -47,6 +50,7 @@ const EXT: Record<string, string> = {
 
 const BUILDERS = [
   buildCazualTalkSahilAggarwalCanvasSection,
+  buildAllariNareshCanvasSection,
   buildDesignToolsCanvasSection,
   buildHubermanCanvasSection,
   buildHubermanRajShamaniCanvasSection,
@@ -55,6 +59,8 @@ const BUILDERS = [
   buildMeenakshiAnantramCanvasSection,
   buildLightconeEmergentCanvasSection,
   buildPrashantKishorCanvasSection,
+  buildKunalShahHiringCanvasSection,
+  buildNithinKamathRiskCanvasSection,
   buildRanaDaggubatiCanvasSection,
   buildYcInterviewCanvasSection,
 ];

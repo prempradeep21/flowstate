@@ -5,16 +5,23 @@
  *   node scripts/render-demo-video.mjs --url http://localhost:3000 [options]
  *
  * Options:
- *   --scene <id>       branching (default, 15s) | assets (36s)
+ *   --scene <id>       branching (default, 15s) | assets (36s) | jagadamba (15s) | …
  *   --url <origin>     Dev server origin (spawns its own on :4123 if omitted)
  *   --every <n>        Render every nth frame (sparse preview passes)
  *   --range <a-b>      Frame range, inclusive
  *   --dsf <n>          deviceScaleFactor (default 2 = supersampled)
+ *   --stable           Diagnostic: re-screenshot each frame until two consecutive
+ *                      captures match, and list the frames that never settle.
+ *                      It detects an unstable compositor; it does not cure one.
+ *   --browser-args "<a b>"  Extra Chromium launch switches (space separated)
+ *   --channel <name>   Launch an installed browser (e.g. "chrome") instead of
+ *                      Playwright's bundled chromium
  *   --skip-encode      Capture frames only
  *   --encode-only      Encode existing frames only
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -72,6 +79,14 @@ const SCENES = {
       [Math.round((28000 / 1000) * FPS)]: 900, // invoice iframe morph
     },
   },
+  jagadamba: {
+    durationMs: 15000,
+    framesDir: path.join(ROOT, "demo-video", "frames-jagadamba"),
+    outFile: path.join(ROOT, "demo-video", "flowstate-jagadamba-demo.mp4"),
+    // Remote thumbnails (YouTube stills, link favicons) + the finale card.
+    warmupMs: [0, 6200, 9000, 14500],
+    settleExtraMs: {},
+  },
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(
@@ -109,6 +124,10 @@ const [rangeA, rangeB] = getArg("range", `0-${TOTAL_FRAMES - 1}`)
   .split("-")
   .map(Number);
 const dsf = Number(getArg("dsf", "2"));
+const channel = getArg("channel", undefined);
+const stable = hasFlag("stable");
+const browserArgs = (getArg("browser-args", "") || "").split(/\s+/).filter(Boolean);
+const unstable = [];
 
 async function waitForServer(origin, timeoutMs = 120_000) {
   const start = Date.now();
@@ -161,7 +180,7 @@ async function main() {
     }
     mkdirSync(scene.framesDir, { recursive: true });
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({ headless: true, channel, args: browserArgs });
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       deviceScaleFactor: dsf,
@@ -211,10 +230,27 @@ async function main() {
         }
       }
       await waitSettled(page, 8000);
-      await page.screenshot({
-        path: path.join(scene.framesDir, `${String(f).padStart(4, "0")}.png`),
-        animations: "allow",
-      });
+      const framePath = path.join(
+        scene.framesDir,
+        `${String(f).padStart(4, "0")}.png`,
+      );
+      if (stable) {
+        // Capture until two consecutive screenshots are byte-identical; frames
+        // that never match are reported (an unstable compositor — see the
+        // "missing tiles" note in the demo-video skill's renderer constraints).
+        let prev = null;
+        let shot = null;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          await page.waitForTimeout(attempt === 0 ? 80 : 160);
+          shot = await page.screenshot({ animations: "allow" });
+          if (prev && shot.equals(prev)) break;
+          prev = shot;
+          if (attempt === 5) unstable.push(f);
+        }
+        writeFileSync(framePath, shot);
+      } else {
+        await page.screenshot({ path: framePath, animations: "allow" });
+      }
       captured++;
       if (captured % 60 === 0) {
         const rate = captured / ((Date.now() - t0) / 1000);
@@ -224,6 +260,9 @@ async function main() {
       }
     }
     console.log(`Captured ${captured} frames in ${Math.round((Date.now() - t0) / 1000)}s`);
+    if (unstable.length) {
+      console.warn(`  never settled (kept last capture): frames ${unstable.join(", ")}`);
+    }
 
     await browser.close();
     if (serverProc) serverProc.kill();
@@ -239,27 +278,44 @@ async function main() {
     f.endsWith(".png"),
   ).length;
   console.log(`Encoding ${frameCount} frames -> ${scene.outFile}`);
-  await new Promise((resolve, reject) => {
-    const ff = spawn(
-      ffmpegPath,
-      [
-        "-y",
-        "-framerate", String(FPS),
-        "-i", path.join(scene.framesDir, "%04d.png"),
-        "-vf", "scale=1920:1080:flags=lanczos",
-        "-c:v", "libx264",
-        "-preset", "slow",
-        "-crf", "18",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        scene.outFile,
-      ],
-      { stdio: ["ignore", "inherit", "inherit"] },
+  const run = (cmd, cmdArgs) =>
+    new Promise((resolve, reject) => {
+      const proc = spawn(cmd, cmdArgs, { stdio: ["ignore", "inherit", "inherit"] });
+      proc.on("error", reject);
+      proc.on("close", (code) =>
+        code === 0 ? resolve() : reject(new Error(`${path.basename(cmd)} exited ${code}`)),
+      );
+    });
+  if (ffmpegPath && existsSync(ffmpegPath)) {
+    await run(ffmpegPath, [
+      "-y",
+      "-framerate", String(FPS),
+      "-i", path.join(scene.framesDir, "%04d.png"),
+      "-vf", "scale=1920:1080:flags=lanczos",
+      "-c:v", "libx264",
+      "-preset", "slow",
+      "-crf", "18",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      scene.outFile,
+    ]);
+  } else if (process.platform === "darwin") {
+    // ffmpeg-static ships one binary per platform; when this machine's is
+    // missing, encode natively with AVFoundation instead of downloading one.
+    console.log("ffmpeg binary not found — encoding with AVFoundation.");
+    const encoder = path.join(os.tmpdir(), "flowstate-encode-demo-video");
+    await run("swiftc", [
+      "-O",
+      "-suppress-warnings",
+      path.join(ROOT, "scripts", "encode-demo-video.swift"),
+      "-o", encoder,
+    ]);
+    await run(encoder, [scene.framesDir, scene.outFile, String(FPS), "1920", "1080"]);
+  } else {
+    throw new Error(
+      `ffmpeg binary not found at ${ffmpegPath} — run "node node_modules/ffmpeg-static/install.js"`,
     );
-    ff.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`)),
-    );
-  });
+  }
   console.log(`Done: ${scene.outFile}`);
 }
 

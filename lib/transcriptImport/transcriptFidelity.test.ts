@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
+import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
@@ -10,17 +11,22 @@ import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/
 import { buildMeenakshiAnantramCanvasSection } from "@/lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
+import { ALLARI_NARESH_TRANSCRIPT } from "@/lib/transcriptImport/allariNareshInterview";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import { HUBERMAN_NEUROPLASTICITY_TRANSCRIPT } from "@/lib/transcriptImport/hubermanNeuroplasticity";
 import { JAGADAMBA_THEATRE_TRANSCRIPT } from "@/lib/transcriptImport/jagadambaTheatre";
+import { KUNAL_SHAH_HIRING_TRANSCRIPT } from "@/lib/transcriptImport/kunalShahHiring";
 import { LIGHTCONE_EMERGENT_TRANSCRIPT } from "@/lib/transcriptImport/lightconeEmergent";
 import { PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/prashantKishorInterview";
 import { HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/hubermanRajShamaniInterview";
 import { CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
 import { SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
 import { MEENAKSHI_ANANTRAM_TRANSCRIPT } from "@/lib/transcriptImport/meenakshiAnantramInterview";
+import { NITHIN_KAMATH_RISK_TRANSCRIPT } from "@/lib/transcriptImport/nithinKamathRisk";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -127,6 +133,21 @@ const CASES = [
     name: "Emergent — The Lightcone",
     build: buildLightconeEmergentCanvasSection,
     transcript: LIGHTCONE_EMERGENT_TRANSCRIPT,
+  },
+  {
+    name: "Kunal Shah — hiring & retention",
+    build: buildKunalShahHiringCanvasSection,
+    transcript: KUNAL_SHAH_HIRING_TRANSCRIPT,
+  },
+  {
+    name: "Nithin Kamath — moats & risk",
+    build: buildNithinKamathRiskCanvasSection,
+    transcript: NITHIN_KAMATH_RISK_TRANSCRIPT,
+  },
+  {
+    name: "Allari Naresh — Raw Talks with VK",
+    build: buildAllariNareshCanvasSection,
+    transcript: ALLARI_NARESH_TRANSCRIPT,
   },
   {
     name: "Design tools history",

@@ -78,3 +78,4 @@ __MACOSX/
 
 # Editor backup with .backup infix
 *.backup.tsx
+/.next-outreach/

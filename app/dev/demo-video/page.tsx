@@ -4,6 +4,7 @@ import { DemoVideoApp } from "./DemoVideoApp";
 import { AssetsSceneApp } from "./scenes/assets/AssetsSceneApp";
 import { DisneySceneApp } from "./scenes/disney/DisneySceneApp";
 import { FreelancerSceneApp } from "./scenes/freelancer/FreelancerSceneApp";
+import { JagadambaSceneApp } from "./scenes/jagadamba/JagadambaSceneApp";
 import { LogoSceneApp } from "./scenes/logo/LogoSceneApp";
 import { LOGO_VARIANTS, type LogoVariant } from "./scenes/logo/timeline";
 
@@ -30,6 +31,8 @@ export default async function DemoVideoPage({
         <DisneySceneApp />
       ) : scene === "freelancer" ? (
         <FreelancerSceneApp />
+      ) : scene === "jagadamba" ? (
+        <JagadambaSceneApp />
       ) : (
         <DemoVideoApp />
       )}

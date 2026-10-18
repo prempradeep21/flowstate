@@ -5,7 +5,10 @@ import type { CanvasNodesState } from "@/lib/canvasSelection";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
+import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import {
@@ -94,6 +97,9 @@ const SECTIONS: [string, () => TranscriptImportCanvasSection][] = [
   ["rana daggubati", buildRanaDaggubatiCanvasSection],
   ["jagadamba", buildJagadambaCanvasSection],
   ["lightcone emergent", buildLightconeEmergentCanvasSection],
+  ["kunal shah", buildKunalShahHiringCanvasSection],
+  ["nithin kamath", buildNithinKamathRiskCanvasSection],
+  ["allari naresh", buildAllariNareshCanvasSection],
 ];
 
 const LEGAL_SPANS = [2, 3, 4].map(bentoSpanWidth);
@@ -109,8 +115,12 @@ function tile(
   return { id, natural, floor, max };
 }
 
-/** The only artifacts allowed to sit outside every chapter — the masthead. */
-const MASTHEAD_KINDS = new Set(["episode", "linkgroup"]);
+/**
+ * The only artifacts allowed to sit outside every chapter — the masthead. A
+ * chart is allowed there for the episode-level measured series (airtime per
+ * chapter, theme counts per chapter), which belong to no single chapter.
+ */
+const MASTHEAD_KINDS = new Set(["episode", "linkgroup", "chart"]);
 
 describe("packBentoGrid", () => {
   const quote = (id: string) => tile(id, { w: 520, h: 240 });

@@ -564,9 +564,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
              * The masthead pair is drawn at 2.5× — node box and everything in
              * it, header chrome included, so the blow-up is uniform. Zoom (not
              * transform) so layout inside still resolves against the node box.
+             * Any other kind placed in a masthead opts in per node.
              */
             style={
-              MASTHEAD_ARTIFACT_KINDS.has(art.kind)
+              MASTHEAD_ARTIFACT_KINDS.has(art.kind) || node.mastheadScale
                 ? { zoom: MASTHEAD_ARTIFACT_SCALE }
                 : undefined
             }

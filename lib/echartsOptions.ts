@@ -49,6 +49,14 @@ export function buildEChartsOption(
 
   if (style.chartType === "bar") {
     const horizontal = style.echartsVariant === "horizontal";
+    // Stacked bars read as one column per category; a rounded cap on every
+    // segment would draw seams through it, so only unstacked bars are rounded.
+    const stacked = data.stacked === true && series.length > 1;
+    const radius: number | number[] = stacked
+      ? 0
+      : horizontal
+        ? [0, 4, 4, 0]
+        : [4, 4, 0, 0];
     return {
       ...base,
       legend: series.length > 1 ? { bottom: 0, textStyle } : undefined,
@@ -62,7 +70,8 @@ export function buildEChartsOption(
         name: s.name,
         type: "bar",
         data: s.data,
-        itemStyle: { color: palette.series[i % palette.series.length], borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0] },
+        stack: stacked ? "total" : undefined,
+        itemStyle: { color: palette.series[i % palette.series.length], borderRadius: radius },
       })),
     };
   }

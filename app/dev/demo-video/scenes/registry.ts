@@ -48,6 +48,13 @@ export const SCENES: Record<string, SceneSpec> = {
       [Math.round((28000 / 1000) * 60)]: 900, // invoice iframe morph
     },
   },
+  jagadamba: {
+    id: "jagadamba",
+    durationMs: 15000,
+    // Remote thumbnails (YouTube stills, link favicons) on the far-left
+    // masthead and the Chapter 1 video tile; pre-seek so they are cached.
+    warmupMs: [0, 6200, 9000, 14500],
+  },
   // 3s brand idents (scenes/logo) — no network content, no settle hints.
   "logo-draw": { id: "logo-draw", durationMs: 3000 },
   "logo-type": { id: "logo-type", durationMs: 3000 },

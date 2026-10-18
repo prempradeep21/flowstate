@@ -15,6 +15,9 @@ import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/
 import { buildMeenakshiAnantramCanvasSection } from "@/lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
+import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
   HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
@@ -56,6 +59,18 @@ import {
   MEENAKSHI_ANANTRAM_TRANSCRIPT,
   MEENAKSHI_ANANTRAM_VIDEO_URL,
 } from "@/lib/transcriptImport/meenakshiAnantramInterview";
+import {
+  KUNAL_SHAH_HIRING_TRANSCRIPT,
+  KUNAL_SHAH_HIRING_VIDEO_URL,
+} from "@/lib/transcriptImport/kunalShahHiring";
+import {
+  NITHIN_KAMATH_RISK_TRANSCRIPT,
+  NITHIN_KAMATH_RISK_VIDEO_URL,
+} from "@/lib/transcriptImport/nithinKamathRisk";
+import {
+  ALLARI_NARESH_TRANSCRIPT,
+  ALLARI_NARESH_VIDEO_URL,
+} from "@/lib/transcriptImport/allariNareshInterview";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -249,6 +264,27 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     MEENAKSHI_ANANTRAM_TRANSCRIPT,
     buildMeenakshiAnantramCanvasSection,
     MEENAKSHI_ANANTRAM_VIDEO_URL,
+  ),
+  defineCanvas(
+    "kunal-shah-hiring",
+    "Hiring & retention — Kunal Shah",
+    KUNAL_SHAH_HIRING_TRANSCRIPT,
+    buildKunalShahHiringCanvasSection,
+    KUNAL_SHAH_HIRING_VIDEO_URL,
+  ),
+  defineCanvas(
+    "nithin-kamath-risk",
+    "Moats & risk — Nithin Kamath",
+    NITHIN_KAMATH_RISK_TRANSCRIPT,
+    buildNithinKamathRiskCanvasSection,
+    NITHIN_KAMATH_RISK_VIDEO_URL,
+  ),
+  defineCanvas(
+    "allari-naresh-raw-talks",
+    "Allari Naresh — Raw Talks with VK",
+    ALLARI_NARESH_TRANSCRIPT,
+    buildAllariNareshCanvasSection,
+    ALLARI_NARESH_VIDEO_URL,
   ),
 ];
 
