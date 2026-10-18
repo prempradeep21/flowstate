@@ -22,12 +22,17 @@ function StreetViewFrame({
   fill,
   minHeight,
   circle,
+  interactive,
 }: {
   children: ReactNode;
   fill: boolean;
   minHeight?: string;
   circle: boolean;
+  interactive: boolean;
 }) {
+  // Only claim pointer input (exempt from the canvas inert layer) once the
+  // node is selected; until then a click selects and a scroll pans the canvas.
+  const noDrag = interactive ? { "data-no-drag": true } : {};
   const panelSizeStyle =
     !fill && minHeight ? { minHeight, height: minHeight } : undefined;
 
@@ -43,7 +48,7 @@ function StreetViewFrame({
       >
         <div className="flex h-full w-full items-center justify-center">
           <div
-            data-no-drag
+            {...noDrag}
             className="relative aspect-square max-h-full max-w-full shrink-0 overflow-hidden rounded-full [width:min(100cqw,100cqh)]"
           >
             {children}
@@ -60,7 +65,7 @@ function StreetViewFrame({
       style={panelSizeStyle}
     >
       <div
-        data-no-drag
+        {...noDrag}
         className="relative h-full w-full overflow-hidden rounded-2xl"
       >
         {children}
@@ -88,10 +93,9 @@ export function StreetViewArtifactContent({
     (s) => s.saveStreetViewArtifactVersion,
   );
 
-  const [interactive, setInteractive] = useState(forceInteractive);
-  useEffect(() => {
-    setInteractive(forceInteractive);
-  }, [forceInteractive]);
+  // Live only while the canvas node is selected — the embed iframe swallows
+  // every wheel event, so it must stay inert until then.
+  const interactive = forceInteractive;
 
   const data = payload.data;
   const [viewMode, setViewMode] = useState<StreetViewMode>(
@@ -126,10 +130,6 @@ export function StreetViewArtifactContent({
     ),
     [viewMode, handleViewModeChange, sidebar],
   );
-
-  const enableInteraction = useCallback(() => {
-    setInteractive(true);
-  }, []);
 
   const { place, heading, pitch, fov } = data;
   const lat = place.lat;
@@ -183,7 +183,12 @@ export function StreetViewArtifactContent({
       artifactId={artifactId}
       className={stageClassName}
     >
-      <StreetViewFrame fill={fill} minHeight={panelMinHeight} circle={isCircle}>
+      <StreetViewFrame
+        fill={fill}
+        minHeight={panelMinHeight}
+        circle={isCircle}
+        interactive={isCanvas && interactive}
+      >
         {!keyReady ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas-artifactStage p-6 text-center">
             <p className="text-canvas-body-sm font-medium text-canvas-ink">
@@ -201,31 +206,17 @@ export function StreetViewArtifactContent({
             </p>
           </div>
         ) : (
-          <>
-            <iframe
-              title={`Street View: ${label}`}
-              src={embedUrl}
-              className="h-full w-full border-0"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              style={{
-                pointerEvents: isCanvas && interactive ? "auto" : "none",
-              }}
-            />
-            {isCanvas && !interactive && (
-              <button
-                type="button"
-                data-no-drag
-                onClick={enableInteraction}
-                className={`absolute inset-0 z-10 flex items-center justify-center ${
-                  isCircle ? "rounded-full" : "rounded-2xl"
-                } bg-canvas-ink/0 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-ink/5`}
-              >
-                Click to interact
-              </button>
-            )}
-          </>
+          <iframe
+            title={`Street View: ${label}`}
+            src={embedUrl}
+            className="h-full w-full border-0"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            style={{
+              pointerEvents: isCanvas && interactive ? "auto" : "none",
+            }}
+          />
         )}
       </StreetViewFrame>
     </ArtifactContentStage>

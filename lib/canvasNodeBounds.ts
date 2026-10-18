@@ -42,6 +42,12 @@ import {
   stickyNoteContentFloors,
 } from "@/lib/stickyNoteArtifact";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import { isWebsiteEnriching, websiteArtifactSize } from "@/lib/websiteArtifact";
+import { normalizeTableArtifactData } from "@/lib/tableArtifact";
+import {
+  computeTableIntrinsicSize,
+  estimateTableHeightPx,
+} from "@/lib/tableColumnWidths";
 import { ARTIFACT_CANVAS_CHROME_HEIGHT_PX, artifactKindUsesCanvasPaddingChrome } from "@/lib/artifactCanvasChrome";
 import {
   DEFAULT_CANVAS_TUNING,
@@ -127,6 +133,11 @@ export function getSidebarPreviewContentSize(
 export const EMPTY_CARD_HEIGHT = 88;
 export const FALLBACK_CARD_HEIGHT = 240;
 export const DEFAULT_ARTIFACT_HEIGHT = 280;
+/**
+ * The casing's border on both sides of an axis. A content-fitted node has to
+ * add it back, or its stage comes up 3–4px short and grows a scrollbar.
+ */
+const ARTIFACT_CASING_BORDER_PX = 4;
 export const TABLE_ARTIFACT_HEIGHT = 512;
 /** Content stage height (control strip + table body) inside a default table node. */
 export const TABLE_ARTIFACT_STAGE_HEIGHT =
@@ -210,6 +221,8 @@ export interface CardBoundsInput {
 /** Minimal artifact node fields for bounds (avoids importing the store). */
 export interface ArtifactBoundsNode {
   size?: { w: number; h: number };
+  /** A size the user dragged to — it always wins over content sizing. */
+  userSetSize?: boolean;
 }
 
 export function getCardWidth(tuning: ResolvedCanvasTuning = DEFAULT_TUNING): number {
@@ -246,8 +259,25 @@ export function getDefaultArtifactSize(
   payload?: ArtifactPayload,
 ): { w: number; h: number } {
   switch (kind) {
-    case "table":
+    case "table": {
+      // Sized to its content once it has rows: the columns' own widths across,
+      // every wrapped row down. An empty (still-streaming) table keeps the
+      // default box so the skeleton has somewhere to draw.
+      if (payload?.type === "table") {
+        const { columns, rows } = normalizeTableArtifactData(payload.data);
+        if (columns.length > 0 && rows.length > 0) {
+          return clampTableArtifactSize(
+            computeTableIntrinsicSize(columns, rows).widthPx +
+              CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX +
+              ARTIFACT_CASING_BORDER_PX,
+            estimateTableHeightPx(columns, rows) +
+              ARTIFACT_CANVAS_CHROME_HEIGHT_PX +
+              ARTIFACT_CASING_BORDER_PX,
+          );
+        }
+      }
       return { w: CANVAS_TABLE_ARTIFACT_WIDTH, h: TABLE_ARTIFACT_HEIGHT };
+    }
     case "repo":
       return { w: REPO_ARTIFACT_WIDTH, h: REPO_ARTIFACT_HEIGHT };
     case "timeline":
@@ -276,8 +306,17 @@ export function getDefaultArtifactSize(
       return { w: CANVAS_ARTIFACT_WIDTH, h: CODE_ARTIFACT_HEIGHT };
     case "custom":
       return { w: CANVAS_ARTIFACT_WIDTH, h: CUSTOM_ARTIFACT_HEIGHT };
+    case "website": {
+      const fitted =
+        payload?.type === "website"
+          ? websiteArtifactSize(payload.data, {
+              w: ARTIFACT_CASING_BORDER_PX,
+              h: ARTIFACT_CANVAS_CHROME_HEIGHT_PX + ARTIFACT_CASING_BORDER_PX,
+            })
+          : null;
+      return fitted ?? { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
+    }
     case "images":
-    case "website":
     case "google-doc":
       return { w: CANVAS_ARTIFACT_WIDTH, h: MEDIA_ARTIFACT_HEIGHT };
     case "3d":
@@ -333,10 +372,47 @@ export function getArtifactBounds(
   const fallback = artifact
     ? getDefaultArtifactSize(artifact.kind, latest?.payload)
     : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
-  return {
-    w: node.size?.w ?? fallback.w,
-    h: node.size?.h ?? fallback.h,
-  };
+  if (!node.size) return fallback;
+  if (node.userSetSize || !artifact || !latest) return node.size;
+  return contentSizeWithin(artifact.id, latest.payload, node.size) ?? node.size;
+}
+
+/**
+ * The size rules for content-sized kinds, applied on every canvas when it is
+ * drawn — not only when a canvas is built. A saved canvas stores each node's
+ * box from the day it was made; these rules (a table as wide as its columns, a
+ * hero image at its own aspect, a favicon-only site as a square) are design,
+ * so they have to reach those canvases too.
+ *
+ * They never outgrow the stored box: content shrinks into it (a hero scales
+ * whole, keeping its ratio), so nothing on a saved canvas moves or overlaps.
+ * A user-resized node is left exactly as the user sized it.
+ */
+function contentSizeWithin(
+  artifactId: string,
+  payload: ArtifactPayload,
+  stored: { w: number; h: number },
+): { w: number; h: number } | null {
+  if (payload.type === "website") {
+    return websiteArtifactSize(
+      payload.data,
+      {
+        w: ARTIFACT_CASING_BORDER_PX,
+        h: ARTIFACT_CANVAS_CHROME_HEIGHT_PX + ARTIFACT_CASING_BORDER_PX,
+      },
+      { settled: !isWebsiteEnriching(artifactId), within: stored },
+    );
+  }
+  if (payload.type === "table") {
+    const { columns, rows } = normalizeTableArtifactData(payload.data);
+    if (columns.length === 0 || rows.length === 0) return null;
+    const content = getDefaultArtifactSize("table", payload);
+    return {
+      w: Math.min(content.w, stored.w),
+      h: Math.min(content.h, stored.h),
+    };
+  }
+  return null;
 }
 
 export function emptyCardSize(

@@ -12,22 +12,12 @@ import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAlla
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import {
-  BAND_SPLITS,
-  BENTO_BAND_H,
-  BENTO_COL_W,
-  BENTO_ROW_H,
-  BENTO_SQUEEZE_FLOOR,
+  BENTO_SHRINK_FLOOR,
   CHAPTER_CONTENT_WIDTH,
   TILE_GAP,
-  bentoSpanWidth,
   packBentoGrid,
   type BentoTile,
 } from "@/lib/transcriptImport/chapterLayout";
-import {
-  getArtifactLayoutFloors,
-  getArtifactMaxSize,
-  getDefaultArtifactSize,
-} from "@/lib/canvasNodeBounds";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 interface Rect {
@@ -102,17 +92,12 @@ const SECTIONS: [string, () => TranscriptImportCanvasSection][] = [
   ["allari naresh", buildAllariNareshCanvasSection],
 ];
 
-const LEGAL_SPANS = [2, 3, 4].map(bentoSpanWidth);
-const COL_PITCH = BENTO_COL_W + TILE_GAP;
-const ROW_PITCH = BENTO_ROW_H + TILE_GAP;
-
 function tile(
   id: string,
   natural: { w: number; h: number },
-  floor = natural,
-  max = { w: 1200, h: 1170 },
+  flexible = true,
 ): BentoTile {
-  return { id, natural, floor, max };
+  return { id, natural, flexible };
 }
 
 /**
@@ -124,119 +109,97 @@ const MASTHEAD_KINDS = new Set(["episode", "linkgroup", "chart"]);
 
 describe("packBentoGrid", () => {
   const quote = (id: string) => tile(id, { w: 520, h: 240 });
-  const website = (id: string) => tile(id, { w: 520, h: 400 });
-  const table = (id: string) =>
-    tile(id, { w: 680, h: 512 }, { w: 680, h: 512 });
+  const claim = (id: string) => tile(id, { w: 680, h: 420 });
+  const table = (id: string, w = 584) => tile(id, { w, h: 423 }, false);
+  const favicon = (id: string) => tile(id, { w: 280, h: 280 }, false);
+  const hero = (id: string, w = 420, h = 664) => tile(id, { w, h }, false);
+
+  const byId = (packed: ReturnType<typeof packBentoGrid>, id: string) =>
+    packed.placed.find((t) => t.id === id)!;
 
   it("is empty for no tiles", () => {
     expect(packBentoGrid([])).toEqual({ placed: [], width: 0, height: 0 });
   });
 
-  it("hugs a lone tile instead of padding out the full grid", () => {
-    const packed = packBentoGrid([quote("solo")]);
-    expect(packed.placed).toHaveLength(1);
-    expect(packed.width).toBe(bentoSpanWidth(2));
-    expect(packed.width).toBeLessThan(CHAPTER_CONTENT_WIDTH);
+  it("hugs a lone tile at its own size", () => {
+    const packed = packBentoGrid([table("solo")]);
+    expect(byId(packed, "solo")).toMatchObject({ x: 0, y: 0, w: 584, h: 423 });
+    expect(packed.width).toBe(584);
   });
 
-  it("lands every tile on the column and row lattice", () => {
-    const packed = packBentoGrid([
-      quote("a"),
-      website("b"),
-      table("c"),
-      quote("d"),
-      website("e"),
-    ]);
-    for (const t of packed.placed) {
-      expect(t.x % COL_PITCH).toBe(0);
-      expect(t.y % ROW_PITCH).toBe(0);
-      expect(LEGAL_SPANS).toContain(t.w);
-      expect([BENTO_ROW_H, BENTO_BAND_H]).toContain(t.h);
-    }
-  });
-
-  it("fills every band to exactly six columns", () => {
-    const packed = packBentoGrid([
-      quote("a"),
-      quote("b"),
-      quote("c"),
-      website("d"),
-      table("e"),
-      quote("f"),
-    ]);
-    const byBand = new Map<number, typeof packed.placed>();
-    for (const t of packed.placed) {
-      const band = Math.floor(t.y / ROW_PITCH);
-      byBand.set(band, [...(byBand.get(band) ?? []), t]);
-    }
-    // A band is full when its distinct column starts tile the six columns.
-    for (const tiles of byBand.values()) {
-      const columns = new Map<number, number>();
-      for (const t of tiles) columns.set(t.x, t.w);
-      const cols = [...columns.values()].reduce(
-        (sum, w) => sum + Math.round((w + TILE_GAP) / COL_PITCH),
-        0,
-      );
-      expect([6, 2, 3, 4]).toContain(cols);
-    }
-  });
-
-  it("never places a tile below its floor or above its max", () => {
-    const packed = packBentoGrid([table("t1"), quote("q1"), table("t2")]);
-    const floors: Record<string, { w: number; h: number }> = {
-      t1: { w: 680, h: 512 },
-      t2: { w: 680, h: 512 },
-      q1: { w: 520, h: 240 },
-    };
-    for (const t of packed.placed) {
-      expect(t.w).toBeGreaterThanOrEqual(floors[t.id]!.w);
-      expect(t.h).toBeGreaterThanOrEqual(floors[t.id]!.h);
-    }
-  });
-
-  it("gives a full-bleed tile its own band and widens the grid", () => {
-    const timeline = tile(
-      "timeline",
-      { w: 1920, h: 480 },
-      { w: 1920, h: 480 },
-      { w: 2800, h: 1170 },
+  it("places content-sized tiles at exactly their content size", () => {
+    const packed = packBentoGrid(
+      [quote("q"), table("t"), favicon("f"), claim("c")],
+      { minWidth: CHAPTER_CONTENT_WIDTH },
     );
+    expect(byId(packed, "t")).toMatchObject({ w: 584, h: 423 });
+    expect(byId(packed, "f")).toMatchObject({ w: 280, h: 280 });
+  });
+
+  it("never runs a row past the content width, and never squeezes text below its floor", () => {
+    const packed = packBentoGrid(
+      Array.from({ length: 10 }, (_, i) =>
+        i % 3 === 0 ? table(`t${i}`) : i % 3 === 1 ? quote(`q${i}`) : favicon(`f${i}`),
+      ),
+    );
+    for (const t of packed.placed) {
+      expect(t.x + t.w).toBeLessThanOrEqual(CHAPTER_CONTENT_WIDTH + 1);
+      if (t.id.startsWith("q")) {
+        expect(t.w).toBeGreaterThanOrEqual(520 * BENTO_SHRINK_FLOOR - 1);
+      }
+    }
+  });
+
+  it("justifies reflowing tiles toward the block width, leaving content-sized ones alone", () => {
+    const packed = packBentoGrid([quote("q"), table("t")], { minWidth: 1400 });
+    const q = byId(packed, "q");
+    const t = byId(packed, "t");
+    expect(q.w).toBeGreaterThan(520);
+    expect(t.w).toBe(584);
+    expect(t.x).toBe(q.x + q.w + TILE_GAP);
+  });
+
+  it("gives a full-row tile a row of its own, hoisted to the top", () => {
+    const timeline = tile("timeline", { w: 1920, h: 480 }, false);
     const packed = packBentoGrid([quote("a"), timeline, quote("b")]);
-    const placedTimeline = packed.placed.find((t) => t.id === "timeline")!;
-    expect(placedTimeline.y).toBe(0); // hoisted to the front
-    expect(placedTimeline.w).toBe(1920);
+    expect(byId(packed, "timeline")).toMatchObject({ x: 0, y: 0, w: 1920 });
     expect(packed.width).toBe(1920);
     for (const other of packed.placed.filter((t) => t.id !== "timeline")) {
-      expect(other.y).toBeGreaterThan(0);
+      expect(other.y).toBeGreaterThanOrEqual(480 + TILE_GAP);
     }
   });
 
-  it("stacks two short tiles inside one tall slot, gutter exact", () => {
-    const packed = packBentoGrid([
-      website("tall"),
-      quote("short-a"),
-      quote("short-b"),
-    ]);
-    const a = packed.placed.find((t) => t.id === "short-a")!;
-    const b = packed.placed.find((t) => t.id === "short-b")!;
+  it("stacks two short tiles beside a tall one, gutter exact", () => {
+    const packed = packBentoGrid([claim("tall"), quote("short-a"), quote("short-b")]);
+    const a = byId(packed, "short-a");
+    const b = byId(packed, "short-b");
     expect(a.x).toBe(b.x);
     expect(a.w).toBe(b.w);
-    expect(a.h).toBe(BENTO_ROW_H);
     expect(b.y - (a.y + a.h)).toBe(TILE_GAP);
+    expect(b.y + b.h).toBeGreaterThanOrEqual(420);
+  });
+
+  it("keeps a hero image at its own aspect ratio, whatever the row", () => {
+    const packed = packBentoGrid(
+      [favicon("f"), hero("portrait"), quote("q"), hero("banner", 588, 388)],
+      { minWidth: CHAPTER_CONTENT_WIDTH },
+    );
+    expect(byId(packed, "portrait")).toMatchObject({ w: 420, h: 664 });
+    expect(byId(packed, "banner")).toMatchObject({ w: 588, h: 388 });
   });
 
   it("is deterministic", () => {
-    const build = () => [quote("a"), website("b"), table("c"), quote("d")];
+    const build = () => [quote("a"), favicon("b"), table("c"), quote("d"), hero("e")];
     expect(packBentoGrid(build())).toEqual(packBentoGrid(build()));
   });
 
   it("never overlaps", () => {
     const packed = packBentoGrid(
-      Array.from({ length: 9 }, (_, i) =>
-        i % 3 === 0 ? website(`w${i}`) : quote(`q${i}`),
+      Array.from({ length: 12 }, (_, i) =>
+        [quote, claim, table, favicon, hero][i % 5]!(`n${i}`),
       ),
     );
-    expect(packed.placed).toHaveLength(9);
+    expect(packed.placed).toHaveLength(12);
     for (let i = 0; i < packed.placed.length; i++) {
       for (let j = i + 1; j < packed.placed.length; j++) {
         expect(overlaps(packed.placed[i]!, packed.placed[j]!)).toBe(false);

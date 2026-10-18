@@ -152,10 +152,7 @@ function snapshotFromSection(
     connectorStyle: "orthogonal",
     canvasBackgroundStyle: "grid",
     canvasTheme: "light",
-    // Imported transcripts read as notes rather than chat output, and neo's
-    // flatter casing keeps a chapter of twelve tiles from looking like twelve
-    // separate cards.
-    canvasArtifactStyle: "neo",
+    canvasArtifactStyle: "vanilla",
     selectedModel: "claude-sonnet-4-6",
     viewMode: "canvas",
     sessionArtifacts: section.sessionArtifacts,

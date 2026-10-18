@@ -166,8 +166,8 @@ export function PublishedCanvasApp({
     // canvasArtifactStyle only records which pack is active; nothing emits the
     // [data-artifact-style] hook that app/styles/artifact-styles.css keys off
     // unless a subtree opts in. app/page.tsx does it around the workspace and
-    // this surface did not — so every non-vanilla pack (neo, bento, brut,
-    // liquid-glass, riso) silently rendered as vanilla on a published link,
+    // this surface did not — so every non-vanilla pack (bento, brut,
+    // liquid-glass) silently rendered as vanilla on a published link,
     // including the style the canvas was published with.
     <ArtifactStyleScope styleId={canvasArtifactStyle}>
       <main className="relative h-full w-full overflow-hidden">

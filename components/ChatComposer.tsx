@@ -147,7 +147,20 @@ export function ChatComposer({
   );
 
   useEffect(() => {
-    if (autoFocus) textarea.ref.current?.focus();
+    if (!autoFocus) return;
+    // Never yank focus from a field the user is already typing in (e.g. a
+    // text label being edited when a card mounts elsewhere on the canvas).
+    const active = document.activeElement as HTMLElement | null;
+    if (
+      active &&
+      active !== textarea.ref.current &&
+      (active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.isContentEditable)
+    ) {
+      return;
+    }
+    textarea.ref.current?.focus();
   }, [autoFocus, textarea.ref]);
 
   useEffect(() => {
@@ -594,8 +607,13 @@ export function ChatComposer({
           </div>
         )}
 
-        {/* Question row: input spans end-to-end, send button beside it. */}
-        <div className="flex min-w-0 items-center gap-2 px-3 py-2">
+        {/* Question row: input spans end-to-end, send button beside it.
+            data-card-question-input: an empty card's branch connector meets
+            the card here (canvasMeasure.readCardQuestionCenterY). */}
+        <div
+          data-card-question-input={cardId ? true : undefined}
+          className="flex min-w-0 items-center gap-2 px-3 py-2"
+        >
           <div
             className={`flex min-w-0 flex-1 ${
               lockedPrefix ? "flex-col items-stretch gap-1.5" : "items-center"
@@ -715,8 +733,6 @@ export function ChatComposer({
               )}
           </div>
 
-          {trailingControls}
-
           <div className="ml-auto">
             <ComposerModelPicker
               disabled={disabled}
@@ -725,6 +741,8 @@ export function ChatComposer({
               )}
             />
           </div>
+
+          {trailingControls}
         </div>
       </div>
 

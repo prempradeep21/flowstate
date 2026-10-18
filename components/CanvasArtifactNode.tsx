@@ -34,7 +34,7 @@ import {
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
@@ -234,9 +234,13 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
           : artForBounds?.kind === "table"
             ? clampTableArtifactSize(targetW, targetH)
             : clampArtifactSize(targetW, targetH, clampOpts);
+      // Compare with what is stored, not what is drawn: content sizing may
+      // draw a node smaller than its stored box (see getArtifactBounds), and
+      // measuring against that would rewrite the same stored size forever.
+      const stored = current.size ?? bounds;
       if (
-        Math.abs(next.w - bounds.w) > 1 ||
-        Math.abs(next.h - bounds.h) > 1
+        Math.abs(next.w - stored.w) > 1 ||
+        Math.abs(next.h - stored.h) > 1
       ) {
         st.setCanvasArtifactSize(node.id, next);
       }
@@ -246,8 +250,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sourceCard = cards[node.sourceCardId];
   const remoteUpdatingCard =
     remoteUpdatingCardId != null ? cards[remoteUpdatingCardId] : undefined;
-  const plugAccent =
-    (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
+  const plugAccent = connectorColour(
+    sourceCard ? threads[sourceCard.threadId]?.accentColour : undefined,
+    CANVAS_ACCENT,
+  );
   const remoteUpdateAccent =
     (remoteUpdatingCard &&
       threads[remoteUpdatingCard.threadId]?.accentColour) ??

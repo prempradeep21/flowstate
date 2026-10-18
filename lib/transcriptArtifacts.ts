@@ -273,10 +273,21 @@ export const LINK_GROUP_ARTIFACT_HEIGHT = 420 * MASTHEAD_ARTIFACT_SCALE;
 /** Google's favicon service — the same source spawnWebsite already uses. */
 export function faviconForUrl(url: string): string | undefined {
   try {
-    return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`;
+    return `${FAVICON_SERVICE_PREFIX}${new URL(url).hostname}&sz=128`;
   } catch {
     return undefined;
   }
+}
+
+const FAVICON_SERVICE_PREFIX = "https://www.google.com/s2/favicons?domain=";
+
+/**
+ * True when a loaded favicon is the service's stand-in rather than the site's
+ * own: for a site it has no icon for, the service answers with a 16px globe
+ * instead of an error, which upscales into a blurry copy of our own glyph.
+ */
+export function isFaviconServicePlaceholder(img: HTMLImageElement): boolean {
+  return img.src.startsWith(FAVICON_SERVICE_PREFIX) && img.naturalWidth <= 16;
 }
 
 function isHttpUrl(value: unknown): value is string {

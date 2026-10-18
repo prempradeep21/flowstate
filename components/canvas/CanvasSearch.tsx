@@ -37,7 +37,11 @@ const KIND_LABEL: Record<CanvasSearchKind, string> = {
 const rowBase =
   "flex w-full items-center gap-2.5 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm text-canvas-ink transition-colors";
 
-export function CanvasSearch() {
+/**
+ * `bare` drops the search's own card so it can sit inside another toolbar pill
+ * (the top-right unit); the open input then grows that pill leftward.
+ */
+export function CanvasSearch({ bare = false }: { bare?: boolean }) {
   const { activeCanvasId } = useAuth();
   const canvasId = activeCanvasId ?? "local";
 
@@ -136,6 +140,11 @@ export function CanvasSearch() {
   };
 
   if (!open) {
+    if (bare) {
+      return (
+        <IconButton icon={Search} label="Search canvas" onClick={openSearch} />
+      );
+    }
     return (
       <div className="pointer-events-auto rounded-canvas border border-canvas-border bg-canvas-card shadow-card">
         <IconButton
@@ -157,7 +166,13 @@ export function CanvasSearch() {
       data-canvas-hotkeys="off"
       className="pointer-events-auto relative"
     >
-      <div className="flex w-[min(18rem,50vw)] items-center gap-2 rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-2 shadow-card">
+      <div
+        className={
+          bare
+            ? "flex h-9 w-[min(16rem,40vw)] items-center gap-2 rounded-canvas bg-canvas-bg px-2.5"
+            : "flex w-[min(18rem,50vw)] items-center gap-2 rounded-canvas border border-canvas-border bg-canvas-card px-2.5 py-2 shadow-card"
+        }
+      >
         <Icon icon={Search} className="text-canvas-muted" />
         <input
           ref={inputRef}
@@ -179,7 +194,7 @@ export function CanvasSearch() {
 
       <MotionOverlayPopover
         isOpen
-        className="absolute left-0 top-full z-[60] mt-2 w-[min(18rem,50vw)] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+        className={`absolute left-0 top-full z-[60] ${bare ? "mt-3" : "mt-2"} w-[min(18rem,50vw)] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card`}
         style={{ transformOrigin: "top left" }}
       >
         {showHistory ? (

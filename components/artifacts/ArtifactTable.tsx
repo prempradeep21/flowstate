@@ -372,20 +372,27 @@ export function ArtifactTable({
           canvasSurface ? "" : "w-full"
         }`}
         style={
+          // The node is sized to the table's content, but a wider node (a
+          // corner resize, or a slot wider than the content) must not leave a
+          // dead band to the right: the table spans the node and the last
+          // column, left at auto width, absorbs whatever is spare.
           canvasSurface
-            ? { width: tableWidthPx, minWidth: tableWidthPx }
+            ? { width: "100%", minWidth: tableWidthPx }
             : undefined
         }
       >
         <colgroup>
           {columns.map((col, colIndex) => {
             const spec = widthByKey.get(col.key);
+            const isLast = colIndex === columns.length - 1;
             return (
               <col
                 key={`${col.key}-${colIndex}`}
                 style={
                   canvasSurface
-                    ? { width: `${spec?.widthPx ?? TABLE_COLUMN_MIN_PX}px` }
+                    ? isLast && columns.length > 1
+                      ? undefined
+                      : { width: `${spec?.widthPx ?? TABLE_COLUMN_MIN_PX}px` }
                     : {
                         width: `${
                           spec?.percent ??

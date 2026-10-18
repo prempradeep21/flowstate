@@ -42,7 +42,9 @@ export function AssetAttachmentPill({
 
   return (
     <div
-      className="inline-flex max-w-full items-center gap-3 rounded-canvas border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5"
+      // self-start: hugs its contents in the canvas composer's column list,
+      // which otherwise stretches every chip to the full composer width.
+      className="inline-flex max-w-full items-center gap-3 self-start rounded-canvas border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5"
     >
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-canvas bg-canvas-artifactIconBg text-canvas-muted"

@@ -8,7 +8,7 @@
  * `[data-artifact-style="<id>"]` (see resolveArtifactStyle.ts); the default
  * "vanilla" pack resolves to nothing so existing surfaces stay untouched.
  *
- * Color-led packs (Bento, Riso) extend the contract with an optional
+ * Color-led packs (Bento) extend the contract with an optional
  * per-category tonal palette, a chart palette (the JS seam for canvas
  * renderers), neutral-token re-declarations, and display typography.
  */
@@ -35,7 +35,7 @@ export interface ArtifactStyleCategoryTones {
   onSolidMuted: string;
   /** Soft category fill (pale card surfaces, tint blocks). */
   pale: string;
-  /** Primary text on `pale` (and on the neutral card, for Riso). */
+  /** Primary text on `pale` (and on the neutral card). */
   ink: string;
   /** Secondary text on `pale`. */
   muted: string;

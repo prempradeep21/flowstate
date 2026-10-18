@@ -400,24 +400,6 @@ export function buildPrashantKishorCanvasSection(): TranscriptImportCanvasSectio
 
   // Chapter 1 — H quote, D' stat, G definition, three site links.
   spawn(
-    "tip-art-pk-video",
-    {
-      type: "images",
-      title: "The Prashant Kishor Interview | Samdish x PK",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: PRASHANT_KISHOR_VIDEO_URL,
-            title: "The Prashant Kishor Interview | Samdish x PK",
-            thumb: "https://img.youtube.com/vi/fPP_3XCXbPQ/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-pk-main-1",
-  );
-  spawn(
     "tip-art-pk-quote-notpolitician",
     quotePayload("\"I am not a politician\"", {
       text:

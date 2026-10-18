@@ -271,24 +271,6 @@ export function buildSchoolCastVanitaUppalCanvasSection(): TranscriptImportCanva
     );
 
   spawn(
-    "tip-art-sc-video",
-    {
-      type: "images",
-      title: "Teaching Reality: Indian vs International School Boards | British School Director",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: SCHOOLCAST_VANITA_UPPAL_VIDEO_URL,
-            title: "Teaching Reality: Indian vs International School Boards | British School Director",
-            thumb: "https://img.youtube.com/vi/65DU7cn-3nA/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-sc-main-1",
-  );
-  spawn(
     "tip-art-sc-quote-goodteacher",
     quotePayload("A good teacher, wherever she is", {
       text: "A good teacher is a good teacher no matter where you play.",

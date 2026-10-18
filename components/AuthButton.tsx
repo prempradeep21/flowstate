@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { buttonClasses } from "@/components/ui/Button";
 
 type AuthButtonSize = "default" | "panel";
@@ -10,14 +11,12 @@ type AuthButtonSize = "default" | "panel";
 export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
   const textSize =
     size === "panel" ? "floating-chrome-chip" : "text-canvas-compact";
-  const avatarSize = size === "panel" ? "h-7 w-7" : "h-7 w-7";
   const {
     user,
     authLoading,
     supabaseConfigured,
     activeCanvasId,
     signInWithGoogle,
-    signOut,
   } = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -43,54 +42,13 @@ export function AuthButton({ size = "default" }: { size?: AuthButtonSize }) {
   }
 
   if (user) {
-    const name =
-      user.user_metadata?.full_name ??
-      user.user_metadata?.name ??
-      user.email ??
-      "Account";
-    const avatar = user.user_metadata?.avatar_url as string | undefined;
-
     return (
-      <div className="pointer-events-auto flex items-center gap-2">
+      <div className="pointer-events-auto flex min-w-0 items-center gap-2">
         <GoogleWorkspaceConnectMenu size={size} />
-        <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-canvas-border/60 bg-canvas-card/90 py-0.5 pl-0.5 pr-2">
-          {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatar}
-              alt=""
-              className={`${avatarSize} rounded-full object-cover`}
-            />
-          ) : (
-            <div
-              className={`flex ${avatarSize} items-center justify-center rounded-full bg-canvas-accent/20 ${textSize} font-medium text-canvas-accent`}
-            >
-              {name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <span className={`max-w-[120px] truncate ${textSize} text-canvas-ink`}>
-            {name}
-          </span>
-        </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await signOut();
-            } finally {
-              setBusy(false);
-            }
-          }}
-          className={buttonClasses({
-            shape: "pill",
-            size: "sm",
-            className: "pointer-events-auto shrink-0",
-          })}
-        >
-          <span>Sign out</span>
-        </button>
+        <ProfileMenu
+          placement={size === "panel" ? "up" : "down"}
+          textClassName={textSize}
+        />
       </div>
     );
   }

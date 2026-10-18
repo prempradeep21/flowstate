@@ -6,6 +6,7 @@ import {
   getLatestVersion,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
+import { faviconForUrl } from "@/lib/transcriptArtifacts";
 import { createWebsitePayload } from "@/lib/websiteArtifact";
 import type {
   BranchGroup,
@@ -122,8 +123,14 @@ export function spawnWebsite(
   canvasArtifactOrder: string[],
 ): void {
   const preview = transcriptWebsitePreview(url);
+  // Transcript sites are never probed for embedding, so the card's level is
+  // settled here: a baked hero (L2) when one exists, else the favicon card (L1).
   const payload = createWebsitePayload(url, title || domainDisplayLabel(url), {
+    faviconUrl: faviconForUrl(url),
     previewImageUrl: preview?.path,
+    previewWidth: preview?.width,
+    previewHeight: preview?.height,
+    embeddable: false,
   });
   const art = createSessionArtifactFromPayload(payload, cardId);
   sessionArtifacts[art.id] = art;

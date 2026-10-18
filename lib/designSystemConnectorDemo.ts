@@ -38,7 +38,7 @@ export interface DesignSystemConnectorPath {
   toSide: CardSide;
   strokeWidth: number;
   plugRadius: number;
-  arrowSize: number;
+  plugRingWidth: number;
 }
 
 const CARD_H = 120;
@@ -122,9 +122,9 @@ function nodeById(id: string): DesignSystemConnectorNode {
 export function buildDesignSystemConnectorPaths(
   viewportScale = 1,
 ): DesignSystemConnectorPath[] {
-  const { arrowSize } = connectorMarkerSizes(viewportScale);
+  const { plugRadius, plugRingWidth, plugOuterRadius } =
+    connectorMarkerSizes(viewportScale);
   const strokeWidth = 1.75 / viewportScale;
-  const trimInset = arrowSize * 1.35;
 
   return DESIGN_SYSTEM_CONNECTOR_SPECS.map((spec) => {
     const from = nodeById(spec.fromId);
@@ -149,9 +149,8 @@ export function buildDesignSystemConnectorPaths(
       resolved.fromSide,
       resolved.toSide,
       spec.style,
-      { trimTargetArrowInset: trimInset },
+      { startInset: plugOuterRadius, endInset: plugOuterRadius },
     );
-    const { plugRadius, arrowSize: arrow } = connectorMarkerSizes(viewportScale);
 
     return {
       spec,
@@ -161,7 +160,7 @@ export function buildDesignSystemConnectorPaths(
       toSide: resolved.toSide,
       strokeWidth,
       plugRadius,
-      arrowSize: arrow,
+      plugRingWidth,
     };
   });
 }

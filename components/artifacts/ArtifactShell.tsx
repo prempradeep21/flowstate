@@ -28,6 +28,7 @@ import {
 } from "@/lib/artifactTypes";
 import { CANVAS_CONTENT_INERT_CLASS } from "@/lib/canvasNodeInteraction";
 import { useCanvasStore } from "@/lib/store";
+import { faviconForUrl } from "@/lib/transcriptArtifacts";
 
 export function ArtifactShell({
   sessionArtifact,
@@ -230,7 +231,9 @@ export function ArtifactShell({
           iconFaviconUrl={
             sessionArtifact.kind === "website" &&
             activeVersion.payload.type === "website"
-              ? activeVersion.payload.data.faviconUrl
+              ? // Every site gets a favicon attempt, stored or looked up.
+                (activeVersion.payload.data.faviconUrl ??
+                faviconForUrl(activeVersion.payload.data.url))
               : sessionArtifact.kind === "embed" &&
                   activeVersion.payload.type === "embed"
                 ? activeVersion.payload.data.fallback?.faviconUrl

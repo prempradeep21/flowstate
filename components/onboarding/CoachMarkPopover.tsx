@@ -95,6 +95,9 @@ export function measureCoachTarget(
   const nodes = Array.from(document.querySelectorAll(selector));
   for (const node of nodes) {
     if (!(node instanceof HTMLElement)) continue;
+    // Culled canvas nodes are hidden with content-visibility (not
+    // display:none), so they still measure a real rect — skip them.
+    if (node.checkVisibility?.() === false) continue;
     const style = window.getComputedStyle(node);
     if (
       style.display === "none" ||

@@ -26,6 +26,7 @@ import {
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
+import { connectorColour } from "@/lib/design/tokens";
 
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
@@ -239,7 +240,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
             <div className={canvasSidePlugWrapperClass("left", "skill")}>
               <Plug
                 side="left"
-                accentColour="#111111"
+                accentColour={connectorColour(undefined, "#111111")}
                 visible
                 ariaLabel="Attach skill to question from left"
                 onPointerDown={handleSkillPlugPointerDown("left")}
@@ -248,7 +249,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
             <div className={canvasSidePlugWrapperClass("right", "skill")}>
               <Plug
                 side="right"
-                accentColour="#111111"
+                accentColour={connectorColour(undefined, "#111111")}
                 visible
                 ariaLabel="Attach skill to question from right"
                 onPointerDown={handleSkillPlugPointerDown("right")}

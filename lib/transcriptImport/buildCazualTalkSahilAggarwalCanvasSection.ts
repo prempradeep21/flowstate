@@ -261,24 +261,6 @@ export function buildCazualTalkSahilAggarwalCanvasSection(): TranscriptImportCan
     );
 
   spawn(
-    "tip-art-ct-video",
-    {
-      type: "images",
-      title: "Indian Education System Needs a Revolution | Cazual Talk With Sahil Aggarwal",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: CAZUAL_TALK_SAHIL_AGGARWAL_VIDEO_URL,
-            title: "Indian Education System Needs a Revolution | Cazual Talk With Sahil Aggarwal",
-            thumb: "https://img.youtube.com/vi/KHvnzVxLRYQ/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-ct-main-1",
-  );
-  spawn(
     "tip-art-ct-quote-wastage",
     quotePayload("A national wastage of talent", {
       text: "It's like a national wastage of talent.",

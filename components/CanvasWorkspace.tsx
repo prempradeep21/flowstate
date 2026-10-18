@@ -4,10 +4,15 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { AppLeftPanel } from "@/components/AppLeftPanel";
 import { AppRightPanel } from "@/components/AppRightPanel";
+import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { Canvas } from "@/components/Canvas";
 import { CanvasMinimap } from "@/components/CanvasMinimap";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
-import { ChatView } from "@/components/ChatView";
+import {
+  CHAT_RIGHT_PANEL_CLEARANCE_PX,
+  CHAT_SIDEBAR_WIDTH_PX,
+  ChatView,
+} from "@/components/ChatView";
 import { FocusView } from "@/components/FocusView";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
@@ -36,6 +41,8 @@ const CanvasSwitchOverlay = dynamic(
  */
 export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
   const viewMode = useCanvasStore((s) => s.viewMode);
+  const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
+  const rightPanelCollapsed = useCanvasStore((s) => s.rightPanelCollapsed);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const { activeCanvasId, isSwitchingCanvas, switchingCanvasTitle } = useAuth();
   const setLeftPanelCollapsed = useCanvasStore((s) => s.setLeftPanelCollapsed);
@@ -58,7 +65,10 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
     <div className="relative h-full w-full">
       <div className="relative h-full w-full">
         {viewMode === "canvas" ? (
-          <Canvas key={canvasKey} containerRef={canvasContainerRef} />
+          // Style packs reach the canvas only; the floating UI below stays on brand.
+          <ArtifactStyleScope styleId={canvasArtifactStyle}>
+            <Canvas key={canvasKey} containerRef={canvasContainerRef} />
+          </ArtifactStyleScope>
         ) : viewMode === "focus" ? (
           <>
             <FocusView key={canvasKey} />
@@ -87,7 +97,19 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
           canvasKey={canvasKey}
         />
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center"
+        // In chat view, center the toolbar on the message column (past the
+        // thread sidebar and any open panel) so it lines up with the composer.
+        style={
+          viewMode === "chat"
+            ? {
+                left: CHAT_SIDEBAR_WIDTH_PX,
+                right: rightPanelCollapsed ? 0 : CHAT_RIGHT_PANEL_CLEARANCE_PX,
+              }
+            : undefined
+        }
+      >
         <CanvasBottomToolbar />
       </div>
       <McpApprovalDock />

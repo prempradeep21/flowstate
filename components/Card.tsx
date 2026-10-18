@@ -2,6 +2,7 @@
 
 import {
   PointerEvent as ReactPointerEvent,
+  type ReactNode,
   memo,
   useCallback,
   useEffect,
@@ -48,7 +49,7 @@ import {
   commitGroupMoveForCard,
   groupRefsForCardDrag,
 } from "@/lib/groupMembership";
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { quickExplain, type QuickExplainHandle } from "@/lib/quickExplainClient";
 import { QuickExplainPopup } from "@/components/QuickExplainPopup";
@@ -214,7 +215,7 @@ function CardInner({ card }: CardProps) {
   const emptyPlaceholder = isBranchRoot ? "Pull a new thread" : "Ask anything";
   const hideForLanding = isLanding;
   const isConversation = isConversationCard(card);
-  const plugAccent = accent ?? CANVAS_ACCENT;
+  const plugAccent = connectorColour(accent, CANVAS_ACCENT);
   const showBranchPlugs = card.status === "done" && !isConversation;
   const receivePlugsActive =
     (plugDrag?.kind === "artifact" ||
@@ -858,18 +859,11 @@ function CardInner({ card }: CardProps) {
       onPointerCancel={handleDragPointerUp}
       className={`group/card absolute overflow-visible select-text ${
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
-      } ${hideForLanding ? "pointer-events-none invisible" : ""} ${
-        isEmptyComposer
-          ? "overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-artifact"
-          : ""
-      }`}
+      } ${hideForLanding ? "pointer-events-none invisible" : ""}`}
       style={{
         left: card.position.x,
         top: card.position.y,
         width: cardWidth,
-        ...(isEmptyComposer
-          ? { borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))" }
-          : {}),
         ...(pendingMinHeight != null ? { minHeight: pendingMinHeight } : {}),
       }}
       aria-hidden={hideForLanding || undefined}
@@ -941,11 +935,7 @@ function CardInner({ card }: CardProps) {
         </>
       )}
       {isEmptyComposer ? (
-        <div
-          className="relative min-w-0 overflow-hidden"
-          style={qaInsetStyle("emptyComposer")}
-          data-coach-target="ask-composer"
-        >
+        <div className="relative min-w-0" data-coach-target="ask-composer">
           <CanvasSharpContent className="w-full min-w-0">
             <ChatComposer
               variant="canvas"
@@ -1166,6 +1156,38 @@ const BRANCH_PLUG_SIZE_PX = 10;
 const BRANCH_PLUG_HINT_GAP_PX = 8;
 const BRANCH_PLUG_HINT_OFFSET_PX =
   BRANCH_PLUG_SIZE_PX / 2 + BRANCH_PLUG_HINT_GAP_PX;
+/** Collapse toggle's bottom edge sits this far above the plug's centre… */
+const BRANCH_TOGGLE_RISE_PX = BRANCH_PLUG_SIZE_PX / 2 + 4;
+/** …and its inner edge this far outside it, so it never covers the plug. */
+const BRANCH_TOGGLE_INSET_PX = 2;
+
+/**
+ * A zero-size point at the plug's centre on the card edge, counter-scaled
+ * exactly like <Plug>. Chrome placed beside the plug inside it keeps the same
+ * screen gap from the plug at every zoom — scaled with the card instead, it
+ * shrank toward the screen-constant plug when zoomed out and ran into it.
+ */
+function PlugSideAnchor({
+  side,
+  children,
+}: {
+  side: "left" | "right";
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`pointer-events-none absolute top-1/2 z-40 h-0 w-0 ${
+        side === "left" ? "left-0" : "right-0"
+      }`}
+      style={{
+        transform: "scale(calc(1 / min(var(--vp-scale, 1), 1)))",
+        transformOrigin: "0 0",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function BranchCollapseToggle({
   side,
@@ -1178,27 +1200,34 @@ function BranchCollapseToggle({
 }) {
   const isLeft = side === "left";
 
+  // Only the expand "+" shows — the collapse "−" cluttered every branch plug.
+  // Kept for already-collapsed branches so they can still be reopened.
+  if (!collapsed) return null;
+
   return (
-    <button
-      type="button"
-      aria-label={collapsed ? "Expand branch" : "Collapse branch"}
-      title={collapsed ? "Expand branch" : "Collapse branch"}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle();
-      }}
-      className={`pointer-events-auto absolute top-1/2 z-40 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-body-sm font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
-        isLeft ? "right-full" : "left-full"
-      }`}
-      style={{
-        ...(isLeft
-          ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
-          : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
-      }}
-    >
-      {collapsed ? "+" : "−"}
-    </button>
+    <PlugSideAnchor side={side}>
+      <button
+        type="button"
+        aria-label="Expand branch"
+        title="Expand branch"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        // Up and out from the plug, clear of the wire — which leaves the plug
+        // level, so a toggle beside it sat right on the line.
+        className="pointer-events-auto absolute z-40 flex h-6 w-6 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-body-sm font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        style={{
+          bottom: BRANCH_TOGGLE_RISE_PX,
+          ...(isLeft
+            ? { right: BRANCH_TOGGLE_INSET_PX }
+            : { left: BRANCH_TOGGLE_INSET_PX }),
+        }}
+      >
+        +
+      </button>
+    </PlugSideAnchor>
   );
 }
 
@@ -1206,18 +1235,20 @@ function BranchPlugHint({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";
 
   return (
-    <span
-      className={`pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
-        isLeft ? "right-full text-right" : "left-full text-left"
-      }`}
-      style={{
-        ...(isLeft
-          ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
-          : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
-      }}
-    >
-      Pull a branch
-    </span>
+    <PlugSideAnchor side={side}>
+      <span
+        className={`pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
+          isLeft ? "right-full text-right" : "left-full text-left"
+        }`}
+        style={{
+          ...(isLeft
+            ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
+            : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
+        }}
+      >
+        Pull a branch
+      </span>
+    </PlugSideAnchor>
   );
 }
 

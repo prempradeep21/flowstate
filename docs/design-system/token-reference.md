@@ -12,6 +12,7 @@ All values defined in [`lib/design/tokens.ts`](../../lib/design/tokens.ts). Tail
 | `ink` | `#2C2A26` | `text-canvas-ink` |
 | `muted` | `#6F6B63` | `text-canvas-muted` (AA on bg + card) |
 | `dot` | `#8B8A86` | `--canvas-dot` in CSS |
+| `gridDot` | `#ABA9A3` | `--canvas-grid-dot` — canvas dot-grid dots at full strength, ~2:1 on bg (dark `#4C4942`); style packs set it from `canvasDot` |
 | `accent` | `#2066EB` | `text-canvas-accent`, `bg-canvas-accent` — themable primary (brand blue; dark `#2066EB`) |
 | `accentSoft` | `#E0E9FA` | `bg-canvas-accentSoft` — soft selected-state fill (dark `#1F2D47`) |
 | `onAccent` | `#FFFFFF` | `text-canvas-onAccent` — text/icons on solid accent fills (dark `#FFFFFF`) |
@@ -107,26 +108,14 @@ Style packs are defined in [`lib/design/style/stylePacks.ts`](../../lib/design/s
 | `--canvas-artifact-control-stroke-w` | `controlStrokeWidth` | In-card controls (pills, calendar chips) |
 | `--canvas-artifact-checkbox-stroke-w` | `checkboxStrokeWidth` | Todo checkboxes |
 
-### Neo values
-
-| Field | Value |
-|-------|-------|
-| `strokeWidth` | `1.6px` |
-| `controlStrokeWidth` | `1.3px` |
-| `checkboxStrokeWidth` | `1.4px` |
-| `stroke` (light) | `#232323` |
-| `stroke` (dark) | `#ECEAE3` |
-
-In Neo the `1.6px` ink frame stroke (`--canvas-artifact-stroke-w`) is applied uniformly across all input + output artifacts and chat surfaces (`.chat-casing`).
-
-### Color-led pack variables (optional — Bento, Riso)
+### Color-led pack variables (optional — Bento)
 
 | Variable | Source field | Use |
 |----------|--------------|-----|
 | `--art-cat-<category>-solid / -on-solid / -on-solid-muted / -pale / -ink / -muted / -vivid` | `categories[<category>]` (RGB channels, per mode) | Tonal palette per artifact category |
 | `--art-cat-<category>-line / -stage / -solid-line / -solid-stage` | derived (`mixHex`) | In-family hairline + raised stage for the pale and solid surfaces |
 | `--art-solid`, `--art-pale`, `--art-ink`, … | bound per node from `data-artifact-category` | What the pack rules actually read |
-| `--canvas-card / --canvas-ink / --canvas-muted / --canvas-border / --canvas-connector` (scope) | `surfaceCard / surfaceInk / surfaceMuted / surfaceBorder / canvasConnector` | Neutral re-declarations inside the scope (Riso) |
+| `--canvas-card / --canvas-ink / --canvas-muted / --canvas-border / --canvas-connector` (scope) | `surfaceCard / surfaceInk / surfaceMuted / surfaceBorder / canvasConnector` | Neutral re-declarations inside the scope (when a pack sets them) |
 | `--canvas-artifact-display-family / -weight / -tracking / -size`, `--canvas-artifact-quote-size`, `--canvas-artifact-eyebrow-family / -tracking` | `typography` | Headline typography for stat / quote / definition |
 
 The `chart` and `timeline` fields are not emitted as CSS — `getChartPalette(isDark, pack[mode].chart)` and `useTimelinePalette()` read them in JS.

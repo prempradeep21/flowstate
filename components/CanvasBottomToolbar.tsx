@@ -5,36 +5,24 @@ import {
   ArtefactIcon,
   BranchForkIcon,
   ChatBubbleIcon,
-  FocusViewIcon,
-  EyeIcon,
-  EyeOffIcon,
-  GearIcon,
   PencilIcon,
   PlusIcon,
-  ShareIcon,
+  TextBoxIcon,
 } from "@/components/MenuIcons";
 import { CanvasAddMenu } from "@/components/CanvasAddMenu";
 import { CanvasArtifactMenu } from "@/components/CanvasArtifactMenu";
 import { CanvasGifPicker } from "@/components/CanvasGifPicker";
 import { CanvasPencilPopover } from "@/components/CanvasPencilPopover";
-import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
-import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
 import { useCanEditCanvas, useAuth } from "@/components/AuthProvider";
-import { isCanvasOwner } from "@/lib/collaborationPersistence";
 import { uploadAssetFiles, type AssetUploadError, DOCUMENT_FILE_ACCEPT, CODE_FILE_ACCEPT, isDocumentAssetKind } from "@/lib/attachments";
 import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useClientMounted } from "@/hooks/useClientMounted";
 import { useCanvasStore } from "@/lib/store";
 
-// Shared .btn state layer (globals.css) supplies hover/press/disabled physics.
-const toolbarBtn =
-  "btn gap-2 rounded-canvas px-3 py-2 text-canvas-body-sm font-medium text-canvas-ink";
-
-const iconToggleBtn = "btn h-9 w-9 rounded-canvas";
+import { iconToggleBtn, toolbarBtn } from "@/components/toolbarButtonClasses";
 
 export function CanvasBottomToolbar() {
   const mounted = useClientMounted();
-  const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const artefactBtnRef = useRef<HTMLButtonElement>(null);
   const pencilBtnRef = useRef<HTMLButtonElement>(null);
@@ -43,19 +31,11 @@ export function CanvasBottomToolbar() {
   const documentInputRef = useRef<HTMLInputElement>(null);
   const codeFileInputRef = useRef<HTMLInputElement>(null);
   const model3dInputRef = useRef<HTMLInputElement>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [pencilOpen, setPencilOpen] = useState(false);
   const canEdit = useCanEditCanvas();
-  const {
-    activeCanvasRole,
-    setShareModalOpen,
-    user,
-    activeCanvasId,
-    members,
-    onlineUserIds,
-  } = useAuth();
+  const { user, activeCanvasId } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
   const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
@@ -72,16 +52,13 @@ export function CanvasBottomToolbar() {
   const pencilColor = useCanvasStore((s) => s.pencilColor);
   const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
   const setPencilColor = useCanvasStore((s) => s.setPencilColor);
-  const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
-  const toggleChatsGloballyHidden = useCanvasStore(
-    (s) => s.toggleChatsGloballyHidden,
-  );
 
-  const showShare =
-    Boolean(user && activeCanvasId) && isCanvasOwner(activeCanvasRole);
+  // Add, artefact and pencil only act on the canvas surface — the chat view
+  // keeps just the view switch. Sharing, hide-chats and canvas settings live in
+  // the top-right unit (CanvasTopRightToolbar).
+  const canvasTools = viewMode === "canvas";
 
   const closeSubpanels = () => {
-    setSettingsOpen(false);
     setAddMenuOpen(false);
     setArtifactMenuOpen(false);
     setGifPickerOpen(false);
@@ -219,19 +196,12 @@ export function CanvasBottomToolbar() {
         }}
       />
       <div ref={toolbarShellRef} className="relative">
-        <CanvasSettingsPopover
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          anchorRef={settingsBtnRef}
-          containerRef={toolbarShellRef}
-        />
         <CanvasAddMenu
           open={addMenuOpen}
           onClose={() => setAddMenuOpen(false)}
           anchorRef={addBtnRef}
           containerRef={toolbarShellRef}
           disabled={!canEdit}
-          onAddText={() => requestCanvasPlacement("text")}
           onAddImage={() => imageInputRef.current?.click()}
           onAdd3DModel={() => model3dInputRef.current?.click()}
           onAddDocument={() => documentInputRef.current?.click()}
@@ -283,155 +253,105 @@ export function CanvasBottomToolbar() {
           role="toolbar"
           aria-label="Canvas tools"
         >
-          <button
-            ref={addBtnRef}
-            type="button"
-            data-coach-target="add-btn"
-            disabled={!canEdit}
-            className={`${toolbarBtn} ${
-              addMenuOpen || gifPickerOpen || activeCanvasPlacement === "text"
-                ? "bg-canvas-accentSoft text-canvas-accent"
-                : ""
-            }`}
-            aria-expanded={addMenuOpen || gifPickerOpen}
-            aria-haspopup="menu"
-            onClick={() => {
-              deactivatePencil();
-              setSettingsOpen(false);
-              setGifPickerOpen(false);
-              setArtifactMenuOpen(false);
-              setAddMenuOpen((v) => !v);
-            }}
-          >
-            <span className="text-canvas-muted">
-              <PlusIcon />
-            </span>
-            Add
-          </button>
-          <button
-            ref={artefactBtnRef}
-            type="button"
-            data-coach-target="artefact-btn"
-            disabled={!canEdit}
-            className={`${toolbarBtn} ${
-              artifactMenuOpen || artefactPlacementActive
-                ? "bg-canvas-accentSoft text-canvas-accent"
-                : ""
-            }`}
-            aria-pressed={artifactMenuOpen || artefactPlacementActive}
-            aria-expanded={artifactMenuOpen}
-            aria-haspopup="menu"
-            onClick={() => {
-              deactivatePencil();
-              setSettingsOpen(false);
-              setGifPickerOpen(false);
-              setArtifactMenuOpen((v) => !v);
-            }}
-          >
-            <span className="text-canvas-muted">
-              <ArtefactIcon />
-            </span>
-            Add artefact
-          </button>
-
-          <button
-            ref={pencilBtnRef}
-            type="button"
-            disabled={!canEdit}
-            className={`${iconToggleBtn} ${
-              pencilOpen || pencilToolActive
-                ? "bg-canvas-accentSoft text-canvas-accent"
-                : "text-canvas-muted hover:text-canvas-ink"
-            }`}
-            aria-label="Pencil tool"
-            aria-expanded={pencilOpen}
-            aria-pressed={pencilToolActive}
-            aria-haspopup="dialog"
-            onClick={() => {
-              if (pencilToolActive) {
-                setPencilOpen((v) => !v);
-                return;
-              }
-              setSettingsOpen(false);
-              setAddMenuOpen(false);
-              setGifPickerOpen(false);
-              setArtifactMenuOpen(false);
-              setPencilToolActive(true);
-              setPencilOpen(true);
-            }}
-          >
-            <PencilIcon />
-          </button>
-
-          {(showShare || members.length > 1) && (
+          {canvasTools && (
             <>
+              <button
+                ref={addBtnRef}
+                type="button"
+                data-coach-target="add-btn"
+                disabled={!canEdit}
+                className={`${toolbarBtn} ${
+                  addMenuOpen || gifPickerOpen
+                    ? "bg-canvas-accentSoft text-canvas-accent"
+                    : ""
+                }`}
+                aria-expanded={addMenuOpen || gifPickerOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  deactivatePencil();
+                  setGifPickerOpen(false);
+                  setArtifactMenuOpen(false);
+                  setAddMenuOpen((v) => !v);
+                }}
+              >
+                <span className="text-canvas-muted">
+                  <PlusIcon />
+                </span>
+                Add
+              </button>
+              <button
+                ref={artefactBtnRef}
+                type="button"
+                data-coach-target="artefact-btn"
+                disabled={!canEdit}
+                className={`${toolbarBtn} ${
+                  artifactMenuOpen || artefactPlacementActive
+                    ? "bg-canvas-accentSoft text-canvas-accent"
+                    : ""
+                }`}
+                aria-pressed={artifactMenuOpen || artefactPlacementActive}
+                aria-expanded={artifactMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  deactivatePencil();
+                  setGifPickerOpen(false);
+                  setArtifactMenuOpen((v) => !v);
+                }}
+              >
+                <span className="text-canvas-muted">
+                  <ArtefactIcon />
+                </span>
+                Add artefact
+              </button>
+
+              <button
+                ref={pencilBtnRef}
+                type="button"
+                disabled={!canEdit}
+                className={`${iconToggleBtn} ${
+                  pencilOpen || pencilToolActive
+                    ? "bg-canvas-accentSoft text-canvas-accent"
+                    : "text-canvas-muted hover:text-canvas-ink"
+                }`}
+                aria-label="Pencil tool"
+                aria-expanded={pencilOpen}
+                aria-pressed={pencilToolActive}
+                aria-haspopup="dialog"
+                onClick={() => {
+                  if (pencilToolActive) {
+                    setPencilOpen((v) => !v);
+                    return;
+                  }
+                  setAddMenuOpen(false);
+                  setGifPickerOpen(false);
+                  setArtifactMenuOpen(false);
+                  setPencilToolActive(true);
+                  setPencilOpen(true);
+                }}
+              >
+                <PencilIcon />
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit}
+                className={`${iconToggleBtn} ${
+                  activeCanvasPlacement === "text"
+                    ? "bg-canvas-accentSoft text-canvas-accent"
+                    : "text-canvas-muted hover:text-canvas-ink"
+                }`}
+                aria-label="Text tool"
+                aria-pressed={activeCanvasPlacement === "text"}
+                onClick={() => {
+                  closeSubpanels();
+                  deactivatePencil();
+                  requestCanvasPlacement("text");
+                }}
+              >
+                <TextBoxIcon />
+              </button>
               <div className="mx-1 h-7 w-px shrink-0 bg-canvas-border" aria-hidden />
-              {showShare && (
-                <button
-                  type="button"
-                  data-coach-target="share-btn"
-                  className={toolbarBtn}
-                  onClick={() => setShareModalOpen(true)}
-                >
-                  <span className="text-canvas-muted">
-                    <ShareIcon />
-                  </span>
-                  Share
-                </button>
-              )}
-              <CollaboratorAvatarStack
-                members={members}
-                onlineUserIds={onlineUserIds}
-                onClick={() => setShareModalOpen(true)}
-                size="sm"
-              />
             </>
           )}
-
-          <div
-            className="mx-1 h-7 w-px shrink-0 bg-canvas-border"
-            aria-hidden
-          />
-
-          <button
-            type="button"
-            className={`${toolbarBtn} ${
-              chatsGloballyHidden ? "bg-canvas-accentSoft text-canvas-accent" : ""
-            }`}
-            aria-pressed={chatsGloballyHidden}
-            aria-label={chatsGloballyHidden ? "Show chats" : "Hide chats"}
-            onClick={() => {
-              deactivatePencil();
-              closeSubpanels();
-              toggleChatsGloballyHidden();
-            }}
-          >
-            <span className="text-canvas-muted">
-              {chatsGloballyHidden ? <EyeIcon /> : <EyeOffIcon />}
-            </span>
-            {chatsGloballyHidden ? "Show chats" : "Hide chats"}
-          </button>
-
-          <button
-            ref={settingsBtnRef}
-            type="button"
-            className={`${iconToggleBtn} ${
-              settingsOpen
-                ? "bg-canvas-accentSoft text-canvas-accent"
-                : "text-canvas-muted hover:text-canvas-ink"
-            }`}
-            aria-label="Canvas controls"
-            aria-expanded={settingsOpen}
-            aria-haspopup="dialog"
-            onClick={() => {
-              setAddMenuOpen(false);
-              setArtifactMenuOpen(false);
-              setGifPickerOpen(false);
-              setSettingsOpen((v) => !v);
-            }}
-          >
-            <GearIcon />
-          </button>
 
           <div
             className="flex rounded-canvas bg-canvas-bg p-0.5"
@@ -450,19 +370,6 @@ export function CanvasBottomToolbar() {
               onClick={() => setViewMode("canvas")}
             >
               <BranchForkIcon />
-            </button>
-            <button
-              type="button"
-              className={`${iconToggleBtn} ${
-                viewMode === "focus"
-                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
-                  : "text-canvas-muted hover:text-canvas-ink"
-              }`}
-              aria-label="Focus view"
-              aria-pressed={viewMode === "focus"}
-              onClick={() => setViewMode("focus")}
-            >
-              <FocusViewIcon />
             </button>
             <button
               type="button"

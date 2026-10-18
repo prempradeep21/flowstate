@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { Canvas } from "@/components/Canvas";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
+import { CanvasVideoPlayerLayer } from "@/components/CanvasVideoPlayerLayer";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
@@ -290,13 +291,14 @@ export function TranscriptImportPlaygroundApp({
         The pack has to be scoped here as well as named on the snapshot.
         canvasArtifactStyle only records which pack is active; nothing renders
         the [data-artifact-style] hook that app/styles/artifact-styles.css keys
-        off unless a subtree opts in, which app/page.tsx does around the
-        workspace and this page previously did not. Read from the store rather
+        off unless a subtree opts in, which CanvasWorkspace does around the
+        canvas and this page previously did not. Read from the store rather
         than the snapshot so the toolbar's style switcher still works here.
+        Only the canvas is scoped: the toolbar stays on brand, as in the app.
       */}
-      <ArtifactStyleScope styleId={canvasArtifactStyle}>
-        <div className="relative min-h-0 flex-1 bg-canvas-bg">
-          <ThemeApplier />
+      <div className="relative min-h-0 flex-1 bg-canvas-bg">
+        <ThemeApplier />
+        <ArtifactStyleScope styleId={canvasArtifactStyle}>
           <div
             ref={canvasContainerRef}
             className="absolute inset-0"
@@ -304,12 +306,15 @@ export function TranscriptImportPlaygroundApp({
           >
             <Canvas containerRef={canvasContainerRef} />
           </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
-            <CanvasBottomToolbar />
-          </div>
-          <CardAskOrchestrator />
+        </ArtifactStyleScope>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
+          <CanvasBottomToolbar />
         </div>
-      </ArtifactStyleScope>
+        <CardAskOrchestrator />
+        {/* The video cells and the episode masthead only start a session;
+            this layer owns the player and its corner PiP, as on the canvas. */}
+        <CanvasVideoPlayerLayer />
+      </div>
     </div>
   );
 }

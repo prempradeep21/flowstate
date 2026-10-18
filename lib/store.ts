@@ -460,6 +460,15 @@ export interface ArtifactPlugConnection {
   toSide: PlugSide;
 }
 
+/** Dashed plug link from a canvas asset (image) node to a question card composer. */
+export interface AssetPlugConnection {
+  id: string;
+  assetNodeId: string;
+  cardId: string;
+  fromSide: PlugSide;
+  toSide: PlugSide;
+}
+
 /** Dashed plug link from a canvas skill node to a question card composer. */
 export interface SkillPlugConnection {
   id: string;
@@ -937,6 +946,7 @@ interface CanvasState {
   setComposerDraft: (cardId: string, draft: string) => void;
   clearComposerDraft: (cardId: string) => void;
   artifactPlugConnections: ArtifactPlugConnection[];
+  assetPlugConnections: AssetPlugConnection[];
   skillPlugConnections: SkillPlugConnection[];
   groupPlugConnections: GroupPlugConnection[];
 
@@ -1078,6 +1088,12 @@ interface CanvasState {
     fromSide: PlugSide;
     toSide: PlugSide;
   }) => void;
+  addAssetPlugConnection: (conn: {
+    assetNodeId: string;
+    cardId: string;
+    fromSide: PlugSide;
+    toSide: PlugSide;
+  }) => void;
   addSkillPlugConnection: (conn: {
     skillNodeId: string;
     cardId: string;
@@ -1188,6 +1204,15 @@ interface CanvasState {
       embeddable?: boolean;
     },
   ) => void;
+  /**
+   * Record a website hero image's intrinsic size, read off the loaded image.
+   * Cards made before sizes were stored (or from a pasted link) learn their
+   * real aspect ratio this way instead of keeping a generic box.
+   */
+  patchWebsitePreviewSize: (
+    artifactId: string,
+    size: { width: number; height: number },
+  ) => void;
   patchYoutubeArtifactTitle: (
     artifactId: string,
     versionId: string,
@@ -1279,6 +1304,28 @@ interface CanvasState {
   updateCanvasTextLabel: (nodeId: string, text: string) => void;
   setCanvasTextLabelFontSize: (nodeId: string, fontSize: number) => void;
   setCanvasTextLabelWidth: (nodeId: string, width: number) => void;
+  /**
+   * One store write for a resize gesture frame: any of position, font size
+   * and width. `width: null` returns the label to auto width.
+   */
+  transformCanvasTextLabel: (
+    nodeId: string,
+    patch: {
+      position?: { x: number; y: number };
+      fontSize?: number;
+      width?: number | null;
+    },
+  ) => void;
+  /**
+   * Close an edit session. Empty text deletes the label; a label that was
+   * created empty (a fresh placement) gets an undo step that removes it
+   * entirely, rather than one that leaves an invisible empty label behind.
+   */
+  finishCanvasTextLabelEdit: (
+    nodeId: string,
+    text: string,
+    options: { createdEmpty: boolean },
+  ) => void;
   removeCanvasTextLabel: (nodeId: string) => void;
   selectCanvasTextLabel: (nodeId: string | null) => void;
 
@@ -1843,6 +1890,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           state.selectedCanvasAssetId && removedNodeIds.has(state.selectedCanvasAssetId)
             ? null
             : state.selectedCanvasAssetId,
+        assetPlugConnections: state.assetPlugConnections.filter(
+          (c) => !removedNodeIds.has(c.assetNodeId),
+        ),
         ...pruneGroupItemsForRemovedNodes(state, "asset", removedNodeIds),
         collaborationHasEdits: true,
       };
@@ -1930,6 +1980,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             : state.selectedCanvasAssetId,
         canvasSelection: state.canvasSelection.filter(
           (i) => !(i.kind === "asset" && i.id === nodeId),
+        ),
+        assetPlugConnections: state.assetPlugConnections.filter(
+          (c) => c.assetNodeId !== nodeId,
         ),
         ...pruneGroupItemsForRemovedNodes(state, "asset", [nodeId]),
         collaborationHasEdits: true,
@@ -2553,7 +2606,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       }
       return { activeCanvasStrokeId: null };
     }),
-  connectorStyle: "orthogonal",
+  connectorStyle: "curvy",
   canvasBackgroundStyle: "grid",
   canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "dark",
@@ -2612,6 +2665,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return { composerDraftsByCardId: next };
     }),
   artifactPlugConnections: [],
+  assetPlugConnections: [],
   skillPlugConnections: [],
   groupPlugConnections: [],
 
@@ -2978,6 +3032,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           (c) =>
             !cardIdsToDelete.has(c.cardId) &&
             !removedArtifactNodeIds.has(c.artifactNodeId),
+        ),
+        assetPlugConnections: state.assetPlugConnections.filter(
+          (c) =>
+            !cardIdsToDelete.has(c.cardId) &&
+            !removedAssetNodeIds.has(c.assetNodeId),
         ),
         skillPlugConnections: state.skillPlugConnections.filter(
           (c) =>
@@ -4315,6 +4374,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           embeddable: patch.embeddable ?? latest.payload.data.embeddable,
         },
       };
+      // A new image URL may be a different image: its size is re-read on load.
+      if (
+        patch.previewImageUrl &&
+        patch.previewImageUrl !== latest.payload.data.previewImageUrl &&
+        updatedPayload.type === "website"
+      ) {
+        delete updatedPayload.data.previewWidth;
+        delete updatedPayload.data.previewHeight;
+      }
       const versions = art.versions.map((v) =>
         v.id === latest.id ? { ...v, payload: updatedPayload } : v,
       );
@@ -4325,6 +4393,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             ...art,
             title,
             versions,
+          },
+        },
+      };
+    });
+  },
+
+  patchWebsitePreviewSize: (artifactId, size) => {
+    set((state) => {
+      const art = state.sessionArtifacts[artifactId];
+      if (!art || art.kind !== "website") return state;
+      const latest = getLatestVersion(art);
+      if (!latest || latest.payload.type !== "website") return state;
+      const { previewWidth, previewHeight } = latest.payload.data;
+      if (previewWidth === size.width && previewHeight === size.height) {
+        return state;
+      }
+      const updatedPayload: ArtifactPayload = {
+        ...latest.payload,
+        data: {
+          ...latest.payload.data,
+          previewWidth: size.width,
+          previewHeight: size.height,
+        },
+      };
+      return {
+        sessionArtifacts: {
+          ...state.sessionArtifacts,
+          [artifactId]: {
+            ...art,
+            versions: art.versions.map((v) =>
+              v.id === latest.id ? { ...v, payload: updatedPayload } : v,
+            ),
           },
         },
       };
@@ -4932,7 +5032,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  spawnCanvasTextLabel: (position, text = "Text") => {
+  spawnCanvasTextLabel: (position, text = "") => {
     const id = newCanvasTextLabelId();
     const label: CanvasTextLabel = {
       id,
@@ -5009,6 +5109,55 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         },
       };
     }),
+
+  transformCanvasTextLabel: (nodeId, patch) =>
+    set((state) => {
+      const label = state.canvasTextLabels[nodeId];
+      if (!label) return state;
+      const next: CanvasTextLabel = { ...label };
+      if (patch.position) next.position = { ...patch.position };
+      if (patch.fontSize != null) {
+        next.fontSize = clampTextLabelFontSize(patch.fontSize);
+      }
+      if (patch.width === null) delete next.width;
+      else if (patch.width != null) next.width = clampTextLabelWidth(patch.width);
+      return {
+        canvasTextLabels: { ...state.canvasTextLabels, [nodeId]: next },
+      };
+    }),
+
+  finishCanvasTextLabelEdit: (nodeId, text, { createdEmpty }) => {
+    const state = get();
+    const label = state.canvasTextLabels[nodeId];
+    if (!label) return;
+    if (text.trim().length === 0) {
+      if (!createdEmpty) state.recordUndo();
+      state.removeCanvasTextLabel(nodeId);
+      return;
+    }
+    if (text === label.text) return;
+    if (createdEmpty) {
+      // Snapshot the canvas as it was before the placement, so one undo
+      // takes the new label away instead of blanking it.
+      set((s) => {
+        const without = { ...s.canvasTextLabels };
+        delete without[nodeId];
+        const snap = graphSnapshotFromState({
+          ...s,
+          canvasTextLabels: without,
+          canvasTextLabelOrder: s.canvasTextLabelOrder.filter(
+            (id) => id !== nodeId,
+          ),
+        });
+        const undoPast = [...s.undoPast, snap];
+        if (undoPast.length > MAX_UNDO_STACK) undoPast.shift();
+        return { undoPast };
+      });
+    } else {
+      state.recordUndo();
+    }
+    state.updateCanvasTextLabel(nodeId, text);
+  },
 
   removeCanvasTextLabel: (nodeId) =>
     set((state) => {
@@ -5217,6 +5366,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           { ...conn, id },
         ],
         recentArtifactPlugId: id,
+      };
+    }),
+
+  addAssetPlugConnection: (conn) =>
+    set((state) => {
+      const id = `assetplug_${conn.assetNodeId}_${conn.cardId}`;
+      const withoutDup = state.assetPlugConnections.filter(
+        (c) =>
+          !(c.assetNodeId === conn.assetNodeId && c.cardId === conn.cardId),
+      );
+      return {
+        assetPlugConnections: [...withoutDup, { ...conn, id }],
       };
     }),
 
@@ -5824,6 +5985,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         artifactPlugConnections: state.artifactPlugConnections.filter(
           (c) => !toDelete.has(c.cardId),
         ),
+        assetPlugConnections: state.assetPlugConnections.filter(
+          (c) => !toDelete.has(c.cardId),
+        ),
         skillPlugConnections: state.skillPlugConnections.filter(
           (c) => !toDelete.has(c.cardId),
         ),
@@ -5991,6 +6155,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       plugComposerSkillAttachments: {},
       plugComposerGroupAttachments: {},
       artifactPlugConnections: [],
+      assetPlugConnections: [],
       skillPlugConnections: [],
       groupPlugConnections: [],
       canvasPlacementRequest: null,
@@ -6186,6 +6351,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         artifactPlugConnections: preserveEphemeral
           ? state.artifactPlugConnections
           : [],
+        assetPlugConnections: preserveEphemeral ? state.assetPlugConnections : [],
         skillPlugConnections: preserveEphemeral ? state.skillPlugConnections : [],
         canvasPlacementRequest: preserveEphemeral
           ? state.canvasPlacementRequest

@@ -44,6 +44,7 @@ import { previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/docume
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { showAppErrorToast } from "@/lib/appToastStore";
 import { downloadCanvasAsset } from "@/lib/assetDownload";
+import { connectorColour } from "@/lib/design/tokens";
 
 const DRAG_THRESHOLD_PX = 0;
 /**
@@ -309,7 +310,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             <div className={canvasSidePlugWrapperClass("left", "asset")}>
               <Plug
                 side="left"
-                accentColour="#7C9EFF"
+                accentColour={connectorColour(undefined, "#7C9EFF")}
                 visible
                 ariaLabel="Attach asset to question from left"
                 onPointerDown={handleAssetPlugPointerDown("left")}
@@ -318,7 +319,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             <div className={canvasSidePlugWrapperClass("right", "asset")}>
               <Plug
                 side="right"
-                accentColour="#7C9EFF"
+                accentColour={connectorColour(undefined, "#7C9EFF")}
                 visible
                 ariaLabel="Attach asset to question from right"
                 onPointerDown={handleAssetPlugPointerDown("right")}
@@ -333,7 +334,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         >
           {/* `.artifact-casing` opts this frame into the artifact style packs,
               so the stroke, radius, and shadow adapt to the active style
-              (Neo / Brut / Liquid Glass) instead of staying constant. Vanilla
+              (Brut / Liquid Glass / Bento) instead of staying constant. Vanilla
               falls back to the theme classes below. */}
           <div
             className={`artifact-casing flex h-full w-full flex-col overflow-hidden rounded-canvas border bg-canvas-card transition-shadow ${

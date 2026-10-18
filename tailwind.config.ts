@@ -27,6 +27,10 @@ const config: Config = {
     extend: {
       colors: {
         canvas: canvasColorVars,
+        brand: {
+          DEFAULT: "rgb(var(--fs-brand) / <alpha-value>)",
+          on: "rgb(var(--fs-on-brand) / <alpha-value>)",
+        },
       },
       fontSize: {
         "canvas-micro": canvasFontSize.micro,
@@ -76,6 +80,25 @@ const config: Config = {
           "Noto Color Emoji",
           "emoji",
         ],
+      },
+      // Cursor set (vars + SVGs defined in app/globals.css).
+      cursor: {
+        default: "var(--fs-cursor-default)",
+        pointer: "var(--fs-cursor-pointer)",
+        grab: "var(--fs-cursor-grab)",
+        grabbing: "var(--fs-cursor-grabbing)",
+        text: "var(--fs-cursor-text)",
+        move: "var(--fs-cursor-move)",
+        add: "var(--fs-cursor-add)",
+        "not-allowed": "var(--fs-cursor-not-allowed)",
+        wait: "var(--fs-cursor-progress)",
+        progress: "var(--fs-cursor-progress)",
+        "ew-resize": "var(--fs-cursor-ew-resize)",
+        "ns-resize": "var(--fs-cursor-ns-resize)",
+        "nwse-resize": "var(--fs-cursor-nwse-resize)",
+        "nesw-resize": "var(--fs-cursor-nesw-resize)",
+        "col-resize": "var(--fs-cursor-col-resize)",
+        "row-resize": "var(--fs-cursor-row-resize)",
       },
       boxShadow: {
         // Chrome (panels, toolbar, popovers) is flat — card resolves to none.

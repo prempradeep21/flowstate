@@ -921,25 +921,7 @@ export function buildMeenakshiAnantramCanvasSection(): TranscriptImportCanvasSec
       canvasArtifactOrder,
     );
 
-  // Chapter 1 — the video, a quote, a table of the list she is introduced as.
-  spawn(
-    "tip-art-min-video",
-    {
-      type: "images",
-      title: "From Scientist to CEO",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: MEENAKSHI_ANANTRAM_VIDEO_URL,
-            title: "Dr. Meenakshi Anantram | Rooted Stories",
-            thumb: "https://img.youtube.com/vi/A4gFMMa6OU4/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-min-main-1",
-  );
+  // Chapter 1 — a quote, a table of the list she is introduced as.
   spawn(
     "tip-art-min-quote-simple",
     quotePayload("How she describes herself", {

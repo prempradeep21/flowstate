@@ -18,16 +18,22 @@ import { useVideoPipStore } from "@/lib/videoPipStore";
  * floating corner widget when the node scrolls out. This keeps playback
  * seamless (the iframe is never reparented) and avoids a second audio source.
  */
-function YoutubePosterCell({
+export function YoutubePosterCell({
   item,
   videoId,
   allowInteraction,
   artifactId,
+  playWhileUnselected = false,
 }: {
   item: Extract<ImagesMediaItem, { kind: "youtube" }>;
   videoId: string;
   allowInteraction: boolean;
   artifactId?: string;
+  /**
+   * Let the play button through the canvas's unselected-node gate, so one
+   * click plays instead of the first one only selecting the node.
+   */
+  playWhileUnselected?: boolean;
 }) {
   const sessionId = useId();
   const isActive = useVideoPipStore((s) => s.active?.sessionId === sessionId);
@@ -47,6 +53,7 @@ function YoutubePosterCell({
       {!isActive ? (
         <button
           type="button"
+          {...(playWhileUnselected ? { "data-no-drag": "" } : {})}
           disabled={!allowInteraction}
           onClick={() =>
             play({

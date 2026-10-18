@@ -10,7 +10,6 @@ import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 import { ArtifactUpdateCenter } from "@/components/ArtifactUpdateCenter";
-import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
 import { usePublishedCanvasIdentity } from "@/components/published/usePublishedCanvasIdentity";
 import {
@@ -72,6 +71,9 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
           <MotionPanelContent
             side="left"
             collapsed={collapsed}
+            // p-1.5 around the 32px logo lands the chip at the same 46px as
+            // the search button beside it (36px button + m-1).
+            collapsedClassName="p-1.5 pr-2"
             collapsedContent={
               <div
                 data-coach-target="left-sidebar-entry"
@@ -207,7 +209,6 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
             }
           />
         </aside>
-        {viewMode === "canvas" ? <CanvasSearch /> : null}
       </div>
       {collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
     </div>

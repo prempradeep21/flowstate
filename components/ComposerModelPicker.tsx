@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { useSelectableModels } from "@/hooks/useSelectableModels";
 import { DEFAULT_MODEL_ID } from "@/lib/models";
 import { useCanvasStore } from "@/lib/store";
@@ -46,36 +47,45 @@ export function ComposerModelPicker({
     if (fallback) setModel(fallback.id);
   }, [restrictToAnthropic, selectedModel, models, setModel]);
 
+  // The native arrow hugs the right edge of the pill, so it's hidden
+  // (appearance-none) and drawn here with matching inset on both sides.
   return (
-    <select
-      value={selectedModel}
-      onChange={(e) => setModel(e.target.value)}
-      disabled={disabled}
-      aria-label="Model"
-      title={
-        restrictToAnthropic
-          ? "A PDF is attached — only Claude models can read PDFs"
-          : "Model for this and future questions (Claude → Anthropic, others → OpenRouter)"
-      }
-      className="max-w-[8.5rem] shrink-0 truncate rounded-full border border-canvas-border bg-canvas-bg px-2 py-1 text-canvas-micro text-canvas-muted outline-none transition-colors hover:border-canvas-muted hover:text-canvas-ink focus:border-canvas-muted disabled:opacity-40"
-    >
-      <optgroup label="Anthropic">
-        {anthropic.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
-          </option>
-        ))}
-      </optgroup>
-      {openrouter.length > 0 && (
-        <optgroup label="OpenRouter">
-          {openrouter.map((m) => (
+    <div className="relative shrink-0">
+      <select
+        value={selectedModel}
+        onChange={(e) => setModel(e.target.value)}
+        disabled={disabled}
+        aria-label="Model"
+        title={
+          restrictToAnthropic
+            ? "A PDF is attached — only Claude models can read PDFs"
+            : "Model for this and future questions (Claude → Anthropic, others → OpenRouter)"
+        }
+        className="block max-w-[9.5rem] cursor-pointer appearance-none truncate rounded-full border border-canvas-border bg-canvas-bg py-1 pl-2.5 pr-7 text-canvas-micro text-canvas-muted outline-none transition-colors hover:border-canvas-muted hover:text-canvas-ink focus:border-canvas-muted disabled:opacity-40"
+      >
+        <optgroup label="Anthropic">
+          {anthropic.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
-              {m.supportsTools ? "" : " (text only)"}
             </option>
           ))}
         </optgroup>
-      )}
-    </select>
+        {openrouter.length > 0 && (
+          <optgroup label="OpenRouter">
+            {openrouter.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+                {m.supportsTools ? "" : " (text only)"}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-canvas-muted"
+        strokeWidth={2}
+      />
+    </div>
   );
 }

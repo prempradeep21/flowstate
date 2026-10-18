@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { getHiddenCardIds } from "@/lib/chatThreads";
 import {
   resolveConnectionRender,
@@ -14,16 +8,13 @@ import {
 } from "@/lib/connectionsGeometry";
 import {
   getNodeDragFrame,
-  isNodeDragActive,
   subscribeToNodeDrag,
 } from "@/lib/gesture/gestureLayer";
 import {
-  connectorArrowPath,
   connectorMarkerSizes,
   connectorPlugCirclePath,
 } from "@/lib/plugConnector";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
-import { ConnectorStylePicker } from "@/components/ConnectorStylePicker";
 import {
   isViewportGestureOwned,
   subscribeViewportPaint,
@@ -31,19 +22,12 @@ import {
 import { useCanvasStore } from "@/lib/store";
 
 const BASE_STROKE_SCREEN = 1.75;
-const HIT_STROKE_SCREEN = 14;
 const DRAW_IN_MS = 480;
 
 /** Resolves the plug fill through the theme CSS variable at draw time. */
 function plugFillColor(el: HTMLElement): string {
   const raw = getComputedStyle(el).getPropertyValue("--canvas-plug-fill");
   return raw ? `rgb(${raw.trim()})` : "#ffffff";
-}
-
-interface HoverState {
-  connId: string;
-  screenX: number;
-  screenY: number;
 }
 
 /**
@@ -57,35 +41,23 @@ interface HoverState {
  * Tracks live gestures: node drags offset endpoints per frame through the
  * gesture layer, and pan/zoom redraws use the LIVE viewport (the SVG layer
  * compensated stroke widths against the settled scale only).
+ *
+ * `layer` splits the drawing when lines sit behind cards: the plug rings are
+ * centred on card edges, so a ring drawn behind its card loses half of itself
+ * under the card. Canvas renders a "lines" instance behind the node layer and
+ * a "markers" instance above it; with nothing to hide behind, one "all"
+ * instance draws both.
  */
 export function ConnectionsCanvas({
   containerRef,
+  layer = "all",
 }: {
   containerRef: RefObject<HTMLElement | null>;
+  layer?: "all" | "lines" | "markers";
 }) {
+  const drawLines = layer !== "markers";
+  const drawMarkers = layer !== "lines";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hover, setHover] = useState<HoverState | null>(null);
-  const hoverRef = useRef<HoverState | null>(null);
-  hoverRef.current = hover;
-  const pickerHoveredRef = useRef(false);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const setConnectorStyle = useCanvasStore((s) => s.setConnectorStyle);
-
-  const clearHideTimer = useCallback(() => {
-    if (hideTimerRef.current !== null) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleHide = useCallback(() => {
-    clearHideTimer();
-    hideTimerRef.current = setTimeout(() => {
-      if (!pickerHoveredRef.current) setHover(null);
-    }, 120);
-  }, [clearHideTimer]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -104,8 +76,8 @@ export function ConnectionsCanvas({
     // 2.5/5px) and rebuild on geometry invalidation or once the gesture
     // releases (the settle draw).
     let plugPaths = new Map<string, Path2D>();
-    let arrowPaths = new Map<string, Path2D>();
     let markerScale = 0;
+    let markerRingWidth = 0;
     // Draw-in animation state for freshly created connections.
     let drawIn: { connId: string; startedAt: number } | null = null;
 
@@ -148,26 +120,27 @@ export function ConnectionsCanvas({
 
     const rebuildMarkers = (scale: number) => {
       markerScale = scale;
-      const { plugRadius, arrowSize } = connectorMarkerSizes(scale);
+      const { plugRadius, plugRingWidth } = connectorMarkerSizes(scale);
+      markerRingWidth = plugRingWidth;
       plugPaths = new Map();
-      arrowPaths = new Map();
       for (const g of geometry) {
+        // Both ends share one Path2D — fill and stroke them in a single pass.
+        const rings = new Path2D();
         if (g.showSourcePlug) {
-          plugPaths.set(
-            g.connId,
+          rings.addPath(
             new Path2D(
               connectorPlugCirclePath(g.fromAnchor.px, g.fromAnchor.py, plugRadius),
             ),
           );
         }
-        if (g.showTargetArrow) {
-          arrowPaths.set(
-            g.connId,
+        if (g.showTargetPlug) {
+          rings.addPath(
             new Path2D(
-              connectorArrowPath(g.toAnchor.px, g.toAnchor.py, g.toSide, arrowSize),
+              connectorPlugCirclePath(g.toAnchor.px, g.toAnchor.py, plugRadius),
             ),
           );
         }
+        if (g.showSourcePlug || g.showTargetPlug) plugPaths.set(g.connId, rings);
       }
     };
 
@@ -197,8 +170,11 @@ export function ConnectionsCanvas({
 
       const { x: vx, y: vy, scale } = viewportOverride ?? state.viewport;
       // Refresh marker sizing outside gestures; keep the cached (slightly
-      // stale) markers while zooming — rebuilt on the settle draw.
+      // stale) markers while zooming — rebuilt on the settle draw. Line ends
+      // stop at the ring's outside, so a settled zoom re-resolves geometry
+      // too, keeping each stroke flush with its resized ring.
       if (markerScale !== scale && (markerScale === 0 || !isViewportGestureOwned())) {
+        if (markerScale !== 0) rebuildGeometry();
         rebuildMarkers(scale);
       }
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * vx, dpr * vy);
@@ -208,7 +184,18 @@ export function ConnectionsCanvas({
       ctx.lineWidth = BASE_STROKE_SCREEN / scale;
 
       const plugFill = plugFillColor(container);
-      const hovered = hoverRef.current?.connId ?? null;
+      // Opaque fill so a ring reads as a solid plug over the card edge it
+      // straddles, matching the DOM <Plug>; dashed stubs keep their fade.
+      const drawRings = (rings: Path2D, stroke: string, alpha: number) => {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = plugFill;
+        ctx.fill(rings);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = markerRingWidth;
+        ctx.stroke(rings);
+        ctx.lineWidth = BASE_STROKE_SCREEN / scale;
+      };
       const now = performance.now();
       let animating = false;
 
@@ -216,49 +203,43 @@ export function ConnectionsCanvas({
         const path = paths.get(g.connId);
         if (!path) continue;
 
-        ctx.globalAlpha = g.connId === hovered ? 0.95 : g.opacity;
-        ctx.strokeStyle = g.stroke;
-        ctx.setLineDash(g.dashed ? [6, 5] : []);
+        if (drawLines) {
+          ctx.globalAlpha = g.opacity;
+          ctx.strokeStyle = g.stroke;
+          ctx.setLineDash(g.dashed ? [6, 5] : []);
 
-        if (drawIn?.connId === g.connId) {
-          // Dash-offset reveal matching the SVG connection-draw-in keyframes.
-          const t = Math.min((now - drawIn.startedAt) / DRAW_IN_MS, 1);
-          // Path length unknown on canvas — approximate with anchor distance
-          // ×1.6 (bezier overshoot); visually indistinguishable at 480ms.
-          const approxLen =
-            Math.hypot(
-              g.toAnchor.px - g.fromAnchor.px,
-              g.toAnchor.py - g.fromAnchor.py,
-            ) * 1.6 || 1;
-          ctx.setLineDash([approxLen, approxLen]);
-          ctx.lineDashOffset = approxLen * (1 - t);
-          if (t >= 1) {
-            drawIn = null;
-            useCanvasStore.getState().clearRecentConnection();
+          if (drawIn?.connId === g.connId) {
+            // Dash-offset reveal matching the SVG connection-draw-in keyframes.
+            const t = Math.min((now - drawIn.startedAt) / DRAW_IN_MS, 1);
+            // Path length unknown on canvas — approximate with anchor distance
+            // ×1.6 (bezier overshoot); visually indistinguishable at 480ms.
+            const approxLen =
+              Math.hypot(
+                g.toAnchor.px - g.fromAnchor.px,
+                g.toAnchor.py - g.fromAnchor.py,
+              ) * 1.6 || 1;
+            ctx.setLineDash([approxLen, approxLen]);
+            ctx.lineDashOffset = approxLen * (1 - t);
+            if (t >= 1) {
+              drawIn = null;
+              useCanvasStore.getState().clearRecentConnection();
+            } else {
+              animating = true;
+            }
           } else {
-            animating = true;
+            ctx.lineDashOffset = 0;
           }
-        } else {
+
+          ctx.stroke(path);
+          ctx.setLineDash([]);
           ctx.lineDashOffset = 0;
         }
 
-        ctx.stroke(path);
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
-
         // Markers reuse the SVG path builders via Path2D — pixel-identical
         // to the legacy ConnectorPathGroup rendering (cached per scale).
-        const plug = plugPaths.get(g.connId);
-        if (plug) {
-          ctx.fillStyle = plugFill;
-          ctx.fill(plug);
-          ctx.stroke(plug);
-        }
-        const arrow = arrowPaths.get(g.connId);
-        if (arrow) {
-          ctx.fillStyle = g.stroke;
-          ctx.globalAlpha = g.opacity;
-          ctx.fill(arrow);
+        if (drawMarkers) {
+          const rings = plugPaths.get(g.connId);
+          if (rings) drawRings(rings, g.stroke, g.dashed ? g.opacity : 1);
         }
       }
       ctx.globalAlpha = 1;
@@ -315,7 +296,7 @@ export function ConnectionsCanvas({
       if (state.viewport !== prev.viewport && !isViewportGestureOwned()) {
         schedule();
       }
-      if (state.recentConnectionId !== prev.recentConnectionId) {
+      if (drawLines && state.recentConnectionId !== prev.recentConnectionId) {
         if (state.recentConnectionId) {
           drawIn = {
             connId: state.recentConnectionId,
@@ -332,54 +313,6 @@ export function ConnectionsCanvas({
     const ro = new ResizeObserver(schedule);
     ro.observe(container);
 
-    // Hover probe: hit-test with the canvas API itself (isPointInStroke on
-    // the hit width) — replaces the SVG 14px transparent hit paths.
-    const onPointerMove = (e: PointerEvent) => {
-      if (e.buttons !== 0 || isNodeDragActive()) return;
-      const rect = container.getBoundingClientRect();
-      const state = useCanvasStore.getState();
-      const { x: vx, y: vy, scale } = state.viewport;
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const wx = (sx - vx) / scale;
-      const wy = (sy - vy) / scale;
-
-      if (geometryDirty) rebuildGeometry();
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.lineWidth = HIT_STROKE_SCREEN / scale;
-      let hit: RenderableConnection | null = null;
-      for (const g of geometry) {
-        if (!g.hoverable) continue;
-        const path = paths.get(g.connId);
-        if (path && ctx.isPointInStroke(path, wx, wy)) {
-          hit = g;
-          break;
-        }
-      }
-      ctx.restore();
-
-      const current = hoverRef.current;
-      if (hit && hit.midX != null && hit.midY != null) {
-        clearHideTimer();
-        const screenX = hit.midX * scale + vx;
-        const screenY = hit.midY * scale + vy;
-        if (
-          !current ||
-          current.connId !== hit.connId ||
-          Math.abs(current.screenX - screenX) > 1 ||
-          Math.abs(current.screenY - screenY) > 1
-        ) {
-          setHover({ connId: hit.connId, screenX, screenY });
-        }
-      } else if (current) {
-        scheduleHide();
-      }
-    };
-    container.addEventListener("pointermove", onPointerMove, {
-      passive: true,
-    });
-
     schedule();
 
     return () => {
@@ -387,34 +320,17 @@ export function ConnectionsCanvas({
       unsubDrag();
       unsubPaint();
       ro.disconnect();
-      container.removeEventListener("pointermove", onPointerMove);
       if (raf) cancelAnimationFrame(raf);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, clearHideTimer, scheduleHide]);
+  }, [containerRef, drawLines, drawMarkers]);
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        aria-hidden
-        data-connections-canvas
-        className="pointer-events-none absolute inset-0 h-full w-full"
-      />
-      {hover && (
-        <ConnectorStylePicker
-          x={hover.screenX}
-          y={hover.screenY}
-          scale={1}
-          activeStyle={connectorStyle}
-          onSelect={setConnectorStyle}
-          onHoverChange={(hoveredNow) => {
-            pickerHoveredRef.current = hoveredNow;
-            if (hoveredNow) clearHideTimer();
-            else scheduleHide();
-          }}
-        />
-      )}
-    </>
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      data-connections-canvas
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    />
   );
 }

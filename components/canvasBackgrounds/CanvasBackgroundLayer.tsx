@@ -3,21 +3,13 @@
 import { useEffect, useRef } from "react";
 import { BACKGROUND_COMPONENTS } from "@/components/canvasBackgrounds/registry";
 import { StaticImageBackground } from "@/components/canvasBackgrounds/StaticImageBackground";
-import {
-  patternDotRadius,
-  patternOffset,
-  patternTileSize,
-} from "@/components/canvasBackgrounds/viewportSync";
+import { dotGridPaint } from "@/components/canvasBackgrounds/viewportSync";
 import {
   isViewportGestureOwned,
   subscribeViewportPaint,
 } from "@/lib/viewportGesture";
 import { CANVAS_BG } from "@/lib/design/tokens";
 import { useCanvasStore } from "@/lib/store";
-
-const GRID_BASE_SPACING = 22;
-const GRID_BASE_DOT_RADIUS = 0.5;
-const GRID_DOT_COLOR = "rgb(var(--canvas-dot) / 0.28)";
 
 /**
  * Grid dots synced to the viewport IMPERATIVELY — the previous version
@@ -34,12 +26,10 @@ function ViewportSyncedGridBackground() {
     if (!el) return;
 
     const apply = (v: { x: number; y: number; scale: number }) => {
-      const tileSize = patternTileSize(GRID_BASE_SPACING, v.scale);
-      const offset = patternOffset(v, tileSize);
-      const dotRadius = patternDotRadius(GRID_BASE_DOT_RADIUS, v.scale);
-      el.style.backgroundImage = `radial-gradient(circle, ${GRID_DOT_COLOR} ${dotRadius}px, transparent ${dotRadius}px)`;
-      el.style.backgroundSize = `${tileSize}px ${tileSize}px`;
-      el.style.backgroundPosition = `${offset.x}px ${offset.y}px`;
+      const paint = dotGridPaint(v);
+      el.style.backgroundImage = paint.backgroundImage;
+      el.style.backgroundSize = paint.backgroundSize;
+      el.style.backgroundPosition = paint.backgroundPosition;
     };
 
     apply(useCanvasStore.getState().viewport);

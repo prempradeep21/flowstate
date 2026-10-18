@@ -9,11 +9,13 @@ export function MotionPanelContent({
   collapsed,
   collapsedContent,
   expandedContent,
+  collapsedClassName = "floating-chrome-padding",
 }: {
   side: "left" | "right";
   collapsed: boolean;
   collapsedContent: ReactNode;
   expandedContent: ReactNode;
+  collapsedClassName?: string;
 }) {
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -24,7 +26,7 @@ export function MotionPanelContent({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.1 }}
-          className="floating-chrome-padding flex items-center gap-2"
+          className={`${collapsedClassName} flex items-center gap-2`}
         >
           {collapsedContent}
         </m.div>

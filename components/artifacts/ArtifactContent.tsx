@@ -178,6 +178,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={contentLayout}
+            interactive={canvasInteractive}
           />
         );
         return contentLayout === "canvas" ? (
@@ -319,6 +320,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={contentLayout}
+            canvasInteractive={canvasInteractive}
           />
         );
       }

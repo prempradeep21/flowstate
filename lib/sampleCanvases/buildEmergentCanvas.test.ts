@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CANVAS_TABLE_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
+import { CANVAS_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
 import { parseCanvasSnapshot } from "@/lib/canvasSnapshot";
 import { buildEmergentCanvas } from "@/lib/sampleCanvases/emergent/buildEmergentCanvas";
 import { EMERGENT_DISTRICTS } from "@/lib/sampleCanvases/emergent/data";
@@ -168,10 +168,15 @@ describe("buildEmergentCanvas", () => {
     // sticky column. Without this guard, an edit that moved every table out of
     // the districts would leave the overlap test green while the geometry was
     // still wrong.
-    const rects = nodeRects(buildEmergentCanvas());
-    const wideInClusters = rects.filter(
-      (rect) => rect.w === CANVAS_TABLE_ARTIFACT_WIDTH && rect.y > 2000,
-    );
+    // Tables are sized to their content now, so "non-520" is the test rather
+    // than one fixed table width.
+    const snapshot = buildEmergentCanvas();
+    const rects = nodeRects(snapshot);
+    const wideInClusters = rects.filter((rect) => {
+      const node = snapshot.canvasArtifactNodes![rect.id]!;
+      const kind = snapshot.sessionArtifacts[node.artifactId!]?.kind;
+      return kind === "table" && rect.w !== CANVAS_ARTIFACT_WIDTH && rect.y > 2000;
+    });
     expect(wideInClusters.length).toBeGreaterThan(0);
   });
 

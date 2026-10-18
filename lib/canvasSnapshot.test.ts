@@ -35,9 +35,9 @@ describe("normalizeCanvasSnapshot", () => {
 
   it("preserves a registered canvasArtifactStyle and drops unknown ones", () => {
     expect(
-      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "neo" })
+      normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "bento" })
         .canvasArtifactStyle,
-    ).toBe("neo");
+    ).toBe("bento");
     expect(
       normalizeCanvasSnapshot({ version: 1, canvasArtifactStyle: "bogus" })
         .canvasArtifactStyle,
@@ -71,13 +71,13 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundImageId).toBe("grok-5f2e9dd9");
   });
 
-  it("preserves chat and focus view modes and coerces unknown values", () => {
+  it("preserves chat view, reopens hidden focus view as chat, and coerces unknown values", () => {
     expect(
       normalizeCanvasSnapshot({ version: 1, viewMode: "chat" }).viewMode,
     ).toBe("chat");
     expect(
       normalizeCanvasSnapshot({ version: 1, viewMode: "focus" }).viewMode,
-    ).toBe("focus");
+    ).toBe("chat");
     expect(
       normalizeCanvasSnapshot({ version: 1, viewMode: "bogus" }).viewMode,
     ).toBe("canvas");

@@ -280,24 +280,6 @@ export function buildHubermanRajShamaniCanvasSection(): TranscriptImportCanvasSe
     );
 
   spawn(
-    "tip-art-ah-video",
-    {
-      type: "images",
-      title: "Andrew Huberman: Become Mentally Dangerous With These Daily Habits",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: HUBERMAN_RAJ_SHAMANI_VIDEO_URL,
-            title: "Andrew Huberman: Become Mentally Dangerous With These Daily Habits | FO556",
-            thumb: "https://img.youtube.com/vi/Y566_T-YlNQ/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-ah-main-1",
-  );
-  spawn(
     "tip-art-ah-quote-teach",
     quotePayload("His real love in life", {
       text: "My real love in life is learning and teaching things that I believe can be useful to people.",

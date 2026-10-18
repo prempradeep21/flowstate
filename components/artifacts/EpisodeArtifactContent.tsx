@@ -2,10 +2,12 @@
 
 import { useCallback } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { YoutubePosterCell } from "@/components/artifacts/ImagesArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { focusCanvasWorldRect } from "@/lib/canvasFocus";
 import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasStore } from "@/lib/store";
+import { parseYoutubeId } from "@/lib/youtube";
 
 /**
  * The masthead for an imported video, and the index you read before the spine.
@@ -40,6 +42,7 @@ export function EpisodeArtifactContent({
   }, []);
 
   const meta = [channel, duration].filter(Boolean).join(" · ");
+  const videoId = url ? parseYoutubeId(url) : null;
 
   return (
     <ArtifactContentStage fill={fill} artifactId={artifactId}>
@@ -63,20 +66,35 @@ export function EpisodeArtifactContent({
             ) : null}
           </div>
           {thumb ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer noopener"
+            <div
+              className="w-[50%] shrink-0 overflow-hidden rounded-canvas-sm border border-canvas-border"
               onClick={(e) => e.stopPropagation()}
-              className="block w-[38%] shrink-0 overflow-hidden rounded-canvas-sm border border-canvas-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={thumb}
-                alt=""
-                className="aspect-video w-full object-cover"
-              />
-            </a>
+              <div className="aspect-video w-full">
+                {videoId ? (
+                  // The same poster + play cell a video artifact uses, so the
+                  // episode plays through the one canvas player and hands off
+                  // to the corner PiP like any other video.
+                  <YoutubePosterCell
+                    item={{ kind: "youtube", url: url ?? "", title: videoTitle, thumb }}
+                    videoId={videoId}
+                    allowInteraction
+                    playWhileUnselected
+                    artifactId={artifactId}
+                  />
+                ) : (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                  </a>
+                )}
+              </div>
+            </div>
           ) : null}
         </header>
 

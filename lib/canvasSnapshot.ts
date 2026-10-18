@@ -439,7 +439,7 @@ export function buildEmptyCanvasSnapshot(
     threadOrder: [],
     threadGists: {},
     groups: {},
-    connectorStyle: "orthogonal",
+    connectorStyle: "curvy",
     canvasBackgroundStyle: "grid",
     canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
     canvasTheme: "dark",
@@ -592,12 +592,15 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       normalizeRecord<Thread>(snapshot.threads),
     ),
     groups: normalizeRecord<BranchGroup>(snapshot.groups),
+    // Curved is the only connector style offered (the hover picker is gone),
+    // so canvases saved with pipeline ("orthogonal") connectors load curved.
     connectorStyle:
-      snapshot.connectorStyle === "curvy" ||
-      snapshot.connectorStyle === "orthogonal" ||
       snapshot.connectorStyle === "straight"
         ? snapshot.connectorStyle
-        : base.connectorStyle,
+        : snapshot.connectorStyle === "curvy" ||
+            snapshot.connectorStyle === "orthogonal"
+          ? "curvy"
+          : base.connectorStyle,
     canvasBackgroundStyle: resolveBackgroundForTheme(
       normalizeCanvasBackgroundStyle(
         snapshot.canvasBackgroundStyle,
@@ -615,9 +618,11 @@ export function normalizeCanvasSnapshot(raw: unknown): CanvasSnapshot {
       snapshot.selectedModel && isKnownModel(snapshot.selectedModel)
         ? snapshot.selectedModel
         : base.selectedModel,
+    // Focus view is hidden from the view switch for now, so a canvas saved in
+    // it reopens in chat (its nearest sibling) rather than a mode with no button.
     viewMode:
       snapshot.viewMode === "chat" || snapshot.viewMode === "focus"
-        ? snapshot.viewMode
+        ? "chat"
         : "canvas",
     sessionArtifacts: normalizeSessionArtifacts(snapshot.sessionArtifacts),
     canvasAssets: normalizeRecord<CanvasAsset>(snapshot.canvasAssets),

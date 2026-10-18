@@ -215,27 +215,6 @@ export function buildYcInterviewCanvasSection(): TranscriptImportCanvasSection {
   );
 
   // ---- Artifacts — each lands in the chapter of its source card -----------
-  spawnPayload(
-    "tip-art-yc-youtube",
-    {
-      type: "images",
-      title: "3 Tips to Nail the Y Combinator Interview",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: YC_INTERVIEW_TIPS_VIDEO_URL,
-            title: "3 Tips to Nail the Y Combinator Interview",
-            thumb: "https://img.youtube.com/vi/rfTgzA6iKZc/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-yc-main-1",
-    sessionArtifacts,
-    canvasArtifactNodes,
-    canvasArtifactOrder,
-  );
   spawnWebsite(
     "initialized",
     "https://initialized.com",

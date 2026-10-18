@@ -50,6 +50,9 @@ export function usePlugDragSession(
   const addArtifactPlugConnection = useCanvasStore(
     (s) => s.addArtifactPlugConnection,
   );
+  const addAssetPlugConnection = useCanvasStore(
+    (s) => s.addAssetPlugConnection,
+  );
   const addSkillPlugConnection = useCanvasStore(
     (s) => s.addSkillPlugConnection,
   );
@@ -179,6 +182,12 @@ export function usePlugDragSession(
           setCardComposerAssetAttachment(hit.cardId, {
             assetId: drag.assetId,
           });
+          addAssetPlugConnection({
+            assetNodeId: drag.assetNodeId,
+            cardId: hit.cardId,
+            fromSide: drag.fromSide,
+            toSide: hit.side,
+          });
         } else if (drag.didDrag) {
           const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithAssetAttachment(
@@ -190,7 +199,15 @@ export function usePlugDragSession(
               assetId: drag.assetId,
             },
           );
-          if (cardId) requestCanvasFocus(() => focusCanvasCard(cardId));
+          if (cardId) {
+            addAssetPlugConnection({
+              assetNodeId: drag.assetNodeId,
+              cardId,
+              fromSide: drag.fromSide,
+              toSide: drag.fromSide === "left" ? "right" : "left",
+            });
+            requestCanvasFocus(() => focusCanvasCard(cardId));
+          }
         }
       } else if (drag.kind === "skill") {
         const nearest = findNearestComposerTarget(
@@ -309,6 +326,7 @@ export function usePlugDragSession(
     setCardComposerSkillAttachment,
     setCardComposerGroupAttachment,
     addArtifactPlugConnection,
+    addAssetPlugConnection,
     addSkillPlugConnection,
     addGroupPlugConnection,
   ]);

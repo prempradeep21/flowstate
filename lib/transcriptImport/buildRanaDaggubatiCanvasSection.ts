@@ -542,24 +542,6 @@ export function buildRanaDaggubatiCanvasSection(): TranscriptImportCanvasSection
 
   // Chapter 1 — D' stat x2, H quote, F claim.
   spawn(
-    "tip-art-rana-video",
-    {
-      type: "images",
-      title: "Rana Daggubati On Baahubali, His Health Crisis & The Reset",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: RANA_DAGGUBATI_VIDEO_URL,
-            title: "Rana Daggubati | InFocus | THR India",
-            thumb: "https://img.youtube.com/vi/lSRSF7l7-rg/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-rana-main-1",
-  );
-  spawn(
     "tip-art-rana-quote-vacation",
     quotePayload("Production is a camera and what's in front of it", {
       text:

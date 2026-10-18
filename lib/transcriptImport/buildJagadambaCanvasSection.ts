@@ -523,24 +523,6 @@ export function buildJagadambaCanvasSection(): TranscriptImportCanvasSection {
 
   // Chapter 1 — C timeline, D' stat x2, H quote.
   spawn(
-    "tip-art-jag-video",
-    {
-      type: "images",
-      title: "The Untold Story of Jagadamba Theatre",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: JAGADAMBA_THEATRE_VIDEO_URL,
-            title: "Mr. Jagadish | Rooted Stories E1",
-            thumb: "https://img.youtube.com/vi/mP94mZ5RxEU/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-jag-main-1",
-  );
-  spawn(
     "tip-art-jag-timeline",
     {
       type: "timeline",

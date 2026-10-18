@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { isFaviconServicePlaceholder } from "@/lib/transcriptArtifacts";
 import {
   AppWindow,
   AudioLines,
@@ -173,11 +175,42 @@ export function ArtifactTypeIcon({
     return <YouTubeMarkIcon className={className} />;
   }
   if (faviconUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={faviconUrl} alt="" className={`${className} object-contain`} />
-    );
+    return <FaviconOrKindIcon kind={kind} faviconUrl={faviconUrl} className={className} />;
   }
+  return <KindIcon kind={kind} className={className} />;
+}
+
+/** A favicon that steps down to the kind icon when it fails or is a stand-in. */
+function FaviconOrKindIcon({
+  kind,
+  faviconUrl,
+  className,
+}: {
+  kind: ArtifactKind;
+  faviconUrl: string;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [faviconUrl]);
+  if (failed) return <KindIcon kind={kind} className={className} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={faviconUrl}
+      alt=""
+      className={`${className} object-contain`}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      onLoad={(event) => {
+        if (isFaviconServicePlaceholder(event.currentTarget)) setFailed(true);
+      }}
+    />
+  );
+}
+
+function KindIcon({ kind, className }: { kind: ArtifactKind; className: string }) {
   const IconComponent = KIND_ICONS[kind];
   if (!IconComponent) return null;
   return (

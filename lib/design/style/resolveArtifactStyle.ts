@@ -72,6 +72,9 @@ function surfaceVars(tokens: ArtifactStyleSurfaceTokens): Record<string, string>
   }
   if (tokens.canvasDot) {
     vars["--canvas-dot"] = hexToRgbChannels(tokens.canvasDot);
+    // Pack dots are already tuned to ~1.6–2:1 on the pack backdrop, so the
+    // grid draws them at full strength.
+    vars["--canvas-grid-dot"] = hexToRgbChannels(tokens.canvasDot);
   }
   // Glass tokens — emitted only when a pack opts in, so opaque packs keep
   // their var payload unchanged and the stylesheet fallbacks (alpha 1, empty

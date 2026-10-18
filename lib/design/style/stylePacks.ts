@@ -59,69 +59,20 @@ const VANILLA: ArtifactStylePreset = {
 };
 
 /**
- * Neo — the marketing-landing language (public/landing/css/style.css):
- * ink wire strokes, solid no-blur chin, 14px corners, cream card fill,
- * cobalt #2066EB accent reserved for selected/active/highlight states.
- * Dark tokens are machine-derived placeholders (light-first), tuned later.
- */
-const NEO: ArtifactStylePreset = {
-  id: "neo",
-  name: "Neo",
-  description:
-    "Landing-page language — ink strokes, solid chin shadows, cobalt accents.",
-  accent: "#2066EB",
-  strokeWidth: "1.6px",
-  radius: "14px",
-  controlStrokeWidth: "1.3px",
-  checkboxStrokeWidth: "1.4px",
-  pillRadius: "999px",
-  density: 1,
-  showKindLabel: true,
-  selectedRing: "0 0 0 4px rgb(var(--canvas-accent) / 0.16)",
-  selectedChin: "0 2px 0 rgb(var(--canvas-accent-deep) / 0.55)",
-  tilt: "0deg",
-  hoverLift: "0px, 0px",
-  pressPush: "0px, 0px",
-  light: {
-    cardFill: "#F4F3EE",
-    stroke: "#232323",
-    ambientShadow: "0 10px 28px rgba(16, 16, 16, 0.14)",
-    chinShadow: "0 2px 0 rgba(16, 16, 16, 0.5)",
-    headerBg: "rgba(255, 255, 255, 0.5)",
-    headerRule: "1.4px solid rgba(16, 16, 16, 0.55)",
-    canvasBg: null,
-    canvasDot: null,
-    hardShadow: "none",
-  },
-  dark: {
-    cardFill: darkCanvasColors.card,
-    stroke: darkCanvasColors.ink,
-    ambientShadow: "0 10px 28px rgba(0, 0, 0, 0.5)",
-    chinShadow: "0 2px 0 rgba(0, 0, 0, 0.55)",
-    headerBg: "rgba(255, 255, 255, 0.06)",
-    headerRule: "1.4px solid rgba(236, 234, 227, 0.4)",
-    canvasBg: null,
-    canvasDot: null,
-    hardShadow: "none",
-  },
-};
-
-/**
- * Brut — neobrutalism: thick pure-black borders, hard zero-blur offset
- * shadows, flat opaque fills, and per-category loud sticker headers (colored
- * in app/styles/artifact-styles.css). The canvas backdrop is left to the
- * active theme (no pack recolor). Cards tilt a hair and physically lift on
- * hover / press down on click (the three-pillar formula: hard shadows, bold
- * borders, high contrast). Dark mode swaps ink for bone white and shadows for
- * hot pink.
+ * Brut — neobrutalism without the outline: no card stroke in either mode,
+ * just the hard zero-blur offset shadow, flat opaque fills, and per-category
+ * loud sticker headers (colored in app/styles/artifact-styles.css). The
+ * canvas backdrop is left to the active theme (no pack recolor). Cards tilt a
+ * hair and physically lift on hover / press down on click. Dark mode swaps
+ * ink for bone white and shadows for hot pink.
  */
 const NEOBRUTALISM: ArtifactStylePreset = {
   id: "neobrutalism",
   name: "Brut",
   description:
-    "Neobrutalism — thick ink borders, hard offset shadows, loud flat color.",
+    "Neobrutalism — no strokes, hard offset shadows, loud flat color.",
   accent: canvasColors.brutPop,
-  strokeWidth: "3px",
+  strokeWidth: "0px",
   radius: "4px",
   controlStrokeWidth: "2px",
   checkboxStrokeWidth: "2.5px",
@@ -163,8 +114,9 @@ const NEOBRUTALISM: ArtifactStylePreset = {
  * alpha (token contract) — translucency composes at consumption via
  * cardFillAlpha; the blur lives on --canvas-artifact-backdrop-filter and is
  * applied on exactly one element per node. No pack accent: glass adapts to
- * the active theme accent. The canvas backdrop is tinted (cool blue-grey /
- * deep charcoal) so the blur and saturation have content to refract.
+ * the active theme accent. Material and backdrop are pure greys (the canvas
+ * stays neutral in every pack); the backdrop sits a step off the default
+ * canvas grey so the frosted fill still separates from it.
  */
 const LIQUID_GLASS: ArtifactStylePreset = {
   id: "liquid-glass",
@@ -185,24 +137,24 @@ const LIQUID_GLASS: ArtifactStylePreset = {
   hoverLift: "0px, 0px",
   pressPush: "0px, 0px",
   light: {
-    cardFill: "#F7FAFF",
+    cardFill: "#FAFAFA",
     cardFillAlpha: 0.55,
     stroke: "#FFFFFF",
     ambientShadow:
-      "0 12px 32px rgba(24, 39, 75, 0.16), 0 2px 8px rgba(24, 39, 75, 0.08)",
+      "0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.07)",
     chinShadow: "none",
     innerHighlight:
       "inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 0 0 1px rgba(255, 255, 255, 0.3)",
     headerBg: "rgba(255, 255, 255, 0.35)",
     headerRule: "1px solid rgba(255, 255, 255, 0.55)",
-    canvasBg: "#DDE5EF",
-    canvasDot: "#93A0B4",
+    canvasBg: "#E3E3E3",
+    canvasDot: "#9D9D9D",
     hardShadow: "none",
   },
   dark: {
-    cardFill: "#232A36",
+    cardFill: "#2A2A2A",
     cardFillAlpha: 0.5,
-    stroke: "#8A93A6",
+    stroke: "#939393",
     ambientShadow:
       "0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35)",
     chinShadow: "none",
@@ -210,8 +162,8 @@ const LIQUID_GLASS: ArtifactStylePreset = {
       "inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.1)",
     headerBg: "rgba(255, 255, 255, 0.06)",
     headerRule: "1px solid rgba(255, 255, 255, 0.12)",
-    canvasBg: "#101319",
-    canvasDot: "#3A4252",
+    canvasBg: "#131313",
+    canvasDot: "#414141",
     hardShadow: "none",
   },
 };
@@ -286,18 +238,18 @@ const BENTO: ArtifactStylePreset = {
   previewSwatches: ["#5B2DEE", "#0E7C9A", "#F2C230"],
   light: {
     cardFill: "#E3E9FC",
-    stroke: "#D6D5DE",
+    stroke: "#D6D6D6",
     ambientShadow:
-      "0 8px 24px rgba(30, 25, 80, 0.10), 0 1px 2px rgba(30, 25, 80, 0.06)",
+      "0 8px 24px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.06)",
     chinShadow: "none",
     headerBg: "transparent",
     headerRule: "none",
-    canvasBg: "#DCDBE4",
-    canvasDot: "#9B99AA",
+    canvasBg: "#DCDCDC",
+    canvasDot: "#9C9C9C",
     hardShadow: "none",
     categories: BENTO_LIGHT_CATEGORIES,
-    surfaceBorder: "#D6D5DE",
-    canvasConnector: "#8E8C9E",
+    surfaceBorder: "#D6D6D6",
+    canvasConnector: "#8F8F8F",
     chart: {
       series: ["#0E7C9A", "#2B5BE0", "#5B2DEE", "#C92C6D", "#F2C230", "#1F7A4C", "#C93D36"],
       ink: "#0B3A48",
@@ -309,17 +261,17 @@ const BENTO: ArtifactStylePreset = {
   },
   dark: {
     cardFill: "#1C2340",
-    stroke: "#2A2937",
+    stroke: "#2B2B2B",
     ambientShadow: "0 10px 28px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4)",
     chinShadow: "none",
     headerBg: "transparent",
     headerRule: "none",
-    canvasBg: "#15141D",
-    canvasDot: "#3B3A4A",
+    canvasBg: "#161616",
+    canvasDot: "#3D3D3D",
     hardShadow: "none",
     categories: BENTO_DARK_CATEGORIES,
-    surfaceBorder: "#2A2937",
-    canvasConnector: "#5A5870",
+    surfaceBorder: "#2B2B2B",
+    canvasConnector: "#5F5F5F",
     chart: {
       series: ["#22B0D3", "#4F7BFF", "#8B6BFF", "#F0569A", "#F5C842", "#34B57A", "#F0655C"],
       ink: "#D6F1F9",
@@ -331,135 +283,11 @@ const BENTO: ArtifactStylePreset = {
   },
 };
 
-/**
- * Riso — paper, ink and printed color (lime-quote / outlined-stat / flowchart
- * poster references). Every card is the same warm paper with a UNIFORM 1.5px
- * ink outline and a 3px hard offset shadow (zero blur). Color is printed onto
- * the paper: a vivid category ink for glyphs, chips, chart series; a
- * text-safe deep tone for numerals and category text; a pastel tint for
- * fills and pill nodes. Type mixes a heavy grotesque (Archivo) with bracketed
- * mono eyebrows. Dark mode is the same print on charcoal paper — bone ink
- * lines, tints darkened, vivid inks lifted; the hard shadow turns bone so it
- * reads as misregistered print. `vivid` is never used for running text.
- */
-const RISO_LIGHT_INK = "#1E1B16";
-const RISO_LIGHT_PAPER = "#FFFDF7";
-const RISO_LIGHT_MUTED = "#6B655A";
-const RISO_DARK_INK = "#EDE6D6";
-const RISO_DARK_PAPER = "#262320";
-const RISO_DARK_MUTED = "#B0A896";
-
-const RISO_LIGHT_CATEGORIES: Record<ArtifactCategoryId, ArtifactStyleCategoryTones> = {
-  data:      { solid: "#2F55E6", onSolid: RISO_LIGHT_PAPER, onSolidMuted: RISO_LIGHT_PAPER, pale: "#DDE4FF", ink: "#1E3AA8", muted: RISO_LIGHT_MUTED, vivid: "#2F55E6" },
-  viz:       { solid: "#12A3B8", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#D3F0F4", ink: "#0C6572", muted: RISO_LIGHT_MUTED, vivid: "#12A3B8" },
-  geo:       { solid: "#2DB36A", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#D9F3E3", ink: "#1B6E42", muted: RISO_LIGHT_MUTED, vivid: "#2DB36A" },
-  media:     { solid: "#F0553C", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#FDE0D9", ink: "#A8331F", muted: RISO_LIGHT_MUTED, vivid: "#F0553C" },
-  docs:      { solid: "#FFC61A", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#FFEDA6", ink: "#7A5A00", muted: RISO_LIGHT_MUTED, vivid: "#FFC61A" },
-  dev:       { solid: "#6747E8", onSolid: RISO_LIGHT_PAPER, onSolidMuted: RISO_LIGHT_PAPER, pale: "#E6DFFD", ink: "#4B32B8", muted: RISO_LIGHT_MUTED, vivid: "#6747E8" },
-  planning:  { solid: "#FF4D8D", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#FFDCE9", ink: "#B0175A", muted: RISO_LIGHT_MUTED, vivid: "#FF4D8D" },
-  discourse: { solid: "#FF7A1A", onSolid: RISO_LIGHT_INK,   onSolidMuted: RISO_LIGHT_INK,   pale: "#FFE3CC", ink: "#9C4508", muted: RISO_LIGHT_MUTED, vivid: "#FF7A1A" },
-};
-
-const RISO_DARK_CATEGORIES: Record<ArtifactCategoryId, ArtifactStyleCategoryTones> = {
-  data:      { solid: "#6B8CFF", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#283152", ink: "#B7C6FF", muted: RISO_DARK_MUTED, vivid: "#6B8CFF" },
-  viz:       { solid: "#2FC4DA", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#173840", ink: "#A6E6F0", muted: RISO_DARK_MUTED, vivid: "#2FC4DA" },
-  geo:       { solid: "#45C784", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#193A2A", ink: "#A9E9C6", muted: RISO_DARK_MUTED, vivid: "#45C784" },
-  media:     { solid: "#FF7A62", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#4A2A25", ink: "#FFB8AA", muted: RISO_DARK_MUTED, vivid: "#FF7A62" },
-  docs:      { solid: "#FFD23F", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#3F3616", ink: "#F5DC8A", muted: RISO_DARK_MUTED, vivid: "#FFD23F" },
-  dev:       { solid: "#9C82FF", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#322B52", ink: "#CDBFFF", muted: RISO_DARK_MUTED, vivid: "#9C82FF" },
-  planning:  { solid: "#FF6FA5", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#4C2535", ink: "#FFB3CF", muted: RISO_DARK_MUTED, vivid: "#FF6FA5" },
-  discourse: { solid: "#FF9440", onSolid: RISO_LIGHT_INK, onSolidMuted: RISO_LIGHT_INK, pale: "#43291A", ink: "#FFC58F", muted: RISO_DARK_MUTED, vivid: "#FF9440" },
-};
-
-const RISO: ArtifactStylePreset = {
-  id: "riso",
-  name: "Riso",
-  description:
-    "Risograph print — warm paper, one uniform ink outline, hard offset shadows, vivid printed color.",
-  strokeWidth: "1.5px",
-  radius: "18px",
-  controlStrokeWidth: "1.5px",
-  checkboxStrokeWidth: "1.5px",
-  pillRadius: "8px",
-  density: 1,
-  showKindLabel: true,
-  // Selected chin + header tint are category-toned — expressed in CSS.
-  selectedRing: "none",
-  selectedChin: "none",
-  tilt: "0deg",
-  hoverLift: "-1px, -1px",
-  pressPush: "1px, 1px",
-  typography: {
-    // One face per canvas: display + eyebrow inherit the canvas font. The
-    // print voice comes from weight, tracking and the bracket devices.
-    displayFamily: "inherit",
-    displayWeight: "800",
-    displayTracking: "-0.025em",
-    displaySize: "120px",
-    quoteSize: "30px",
-    eyebrowFamily: "inherit",
-    eyebrowTracking: "0.1em",
-  },
-  previewSwatches: ["#FFC61A", "#FF4D8D", "#2F55E6"],
-  light: {
-    cardFill: RISO_LIGHT_PAPER,
-    stroke: RISO_LIGHT_INK,
-    ambientShadow: "none",
-    chinShadow: "none",
-    headerBg: "transparent",
-    headerRule: `1.5px solid ${RISO_LIGHT_INK}`,
-    canvasBg: "#F3EFE6",
-    canvasDot: "#B9B09E",
-    hardShadow: `3px 3px 0 ${RISO_LIGHT_INK}`,
-    categories: RISO_LIGHT_CATEGORIES,
-    surfaceCard: RISO_LIGHT_PAPER,
-    surfaceInk: RISO_LIGHT_INK,
-    surfaceMuted: RISO_LIGHT_MUTED,
-    surfaceBorder: RISO_LIGHT_INK,
-    canvasConnector: RISO_LIGHT_INK,
-    chart: {
-      series: ["#2F55E6", "#FF7A1A", "#2DB36A", "#FF4D8D", "#FFC61A", "#6747E8", "#12A3B8", "#F0553C"],
-      ink: RISO_LIGHT_INK,
-      muted: RISO_LIGHT_MUTED,
-      grid: "rgba(30, 27, 22, 0.18)",
-      bg: RISO_LIGHT_PAPER,
-    },
-    timeline: ["#FF4D8D", "#FFC61A", "#2F55E6", "#2DB36A"],
-  },
-  dark: {
-    cardFill: RISO_DARK_PAPER,
-    stroke: RISO_DARK_INK,
-    ambientShadow: "none",
-    chinShadow: "none",
-    headerBg: "transparent",
-    headerRule: `1.5px solid ${RISO_DARK_INK}`,
-    canvasBg: "#1B1915",
-    canvasDot: "#4A453B",
-    hardShadow: `3px 3px 0 ${RISO_DARK_INK}`,
-    categories: RISO_DARK_CATEGORIES,
-    surfaceCard: RISO_DARK_PAPER,
-    surfaceInk: RISO_DARK_INK,
-    surfaceMuted: RISO_DARK_MUTED,
-    surfaceBorder: RISO_DARK_INK,
-    canvasConnector: RISO_DARK_INK,
-    chart: {
-      series: ["#6B8CFF", "#FF9440", "#45C784", "#FF6FA5", "#FFD23F", "#9C82FF", "#2FC4DA", "#FF7A62"],
-      ink: RISO_DARK_INK,
-      muted: RISO_DARK_MUTED,
-      grid: "rgba(237, 230, 214, 0.18)",
-      bg: RISO_DARK_PAPER,
-    },
-    timeline: ["#FF6FA5", "#FFD23F", "#6B8CFF", "#45C784"],
-  },
-};
-
 export const ARTIFACT_STYLE_PACKS: readonly ArtifactStylePreset[] = [
   VANILLA,
-  NEO,
   NEOBRUTALISM,
   LIQUID_GLASS,
   BENTO,
-  RISO,
 ];
 
 export function getArtifactStylePack(id: string): ArtifactStylePreset {

@@ -183,3 +183,54 @@ export function computeTableColumnWidths(
     wrap,
   }));
 }
+
+/* Rendered metrics of a canvas table (text-canvas-body-sm, px-3 py-2.5 cells). */
+const TABLE_LINE_HEIGHT_PX = 19.5;
+/**
+ * Average rendered glyph width at 13px. Column widths budget a generous 7.5px a
+ * character so text rarely wraps; counting wrapped lines at that rate would
+ * predict wraps that never happen and leave a blank band under the last row.
+ */
+const TABLE_WRAP_CHAR_PX = 6.6;
+const TABLE_CELL_PAD_Y_PX = 20;
+const TABLE_ROW_BORDER_PX = 1;
+const TABLE_HEAD_HEIGHT_PX = 37;
+/** One caption-size tag pill, and the gap above/between pills. */
+const TABLE_TAG_HEIGHT_PX = 20;
+const TABLE_TAG_GAP_PX = 6;
+
+/**
+ * Height a canvas table renders at, wrapping each cell at its column's width.
+ *
+ * {@link computeTableIntrinsicSize} assumes one line per row, which is right for
+ * the auto-measure floor it feeds but undersizes any table with wrapped cells or
+ * tag pills. A node sized to content needs the real figure: text wraps at the
+ * column width (minus padding) and each tag stacks under the text.
+ */
+export function estimateTableHeightPx(
+  columns: TableColumn[],
+  rows: TableRow[],
+): number {
+  const widths = columns.map((col) => columnIntrinsicWidthPx(col, rows));
+  let total = TABLE_HEAD_HEIGHT_PX;
+  for (const row of rows) {
+    let rowH = TABLE_LINE_HEIGHT_PX;
+    columns.forEach((col, index) => {
+      const { text, tags } = normalizeTableCell(row[col.key]);
+      const usable = Math.max(1, widths[index]! - TABLE_COL_PAD_PX);
+      const lines = text
+        ? Math.max(1, Math.ceil((text.length * TABLE_WRAP_CHAR_PX) / usable))
+        : 0;
+      let cellH = lines * TABLE_LINE_HEIGHT_PX;
+      if (tags.length > 0) {
+        cellH +=
+          (lines > 0 ? TABLE_TAG_GAP_PX : 0) +
+          tags.length * TABLE_TAG_HEIGHT_PX +
+          (tags.length - 1) * TABLE_TAG_GAP_PX;
+      }
+      rowH = Math.max(rowH, cellH);
+    });
+    total += rowH + TABLE_CELL_PAD_Y_PX + TABLE_ROW_BORDER_PX;
+  }
+  return Math.ceil(total);
+}

@@ -633,24 +633,6 @@ export function buildLightconeEmergentCanvasSection(): TranscriptImportCanvasSec
 
   // Chapter 1 — D' stat, C timeline.
   spawn(
-    "tip-art-lc-video",
-    {
-      type: "images",
-      title: "AI Is Unlocking Millions Of New Builders",
-      data: {
-        items: [
-          {
-            kind: "youtube",
-            url: LIGHTCONE_EMERGENT_VIDEO_URL,
-            title: "The Lightcone · Emergent",
-            thumb: "https://img.youtube.com/vi/8SVocWnDHwE/hqdefault.jpg",
-          },
-        ],
-      },
-    },
-    "tip-c-lc-main-1",
-  );
-  spawn(
     "tip-art-lc-stat-apps",
     statPayload("Apps built since launch", {
       value: "7 million",

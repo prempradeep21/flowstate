@@ -26,12 +26,18 @@ export function useTimelineViewport(opts: {
   initialZoom?: number;
   scale: TimelineScale;
   enabled?: boolean;
+  /**
+   * Wheel zoom and drag-pan. Off while the canvas node is unselected so a
+   * trackpad scroll over the timeline pans the canvas instead.
+   */
+  inputEnabled?: boolean;
 }) {
   const {
     initialCenterMs,
     initialZoom = 1,
     scale,
     enabled = true,
+    inputEnabled = true,
   } = opts;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,6 +119,12 @@ export function useTimelineViewport(opts: {
 
     const ro = new ResizeObserver(syncViewportWidth);
     ro.observe(el);
+    return () => ro.disconnect();
+  }, [enabled]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !enabled || !inputEnabled) return;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -186,15 +198,16 @@ export function useTimelineViewport(opts: {
     el.addEventListener("pointercancel", endPan);
 
     return () => {
-      ro.disconnect();
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", endPan);
       el.removeEventListener("pointercancel", endPan);
+      panRef.current = null;
+      setIsPanning(false);
       if (wheelRaf.current != null) cancelAnimationFrame(wheelRaf.current);
     };
-  }, [enabled, queueZoomAt, scale]);
+  }, [enabled, inputEnabled, queueZoomAt, scale]);
 
   return {
     containerRef,

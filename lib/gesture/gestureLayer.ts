@@ -49,6 +49,9 @@ type NodeDragListener = (frame: NodeDragFrame | null) => void;
 interface ActiveDrag {
   nodes: GestureNodeRef[];
   els: HTMLElement[];
+  /** Refs with no DOM element yet — retried on the first few frames. */
+  unresolved: GestureNodeRef[];
+  resolveFramesLeft: number;
   totalDx: number;
   totalDy: number;
   pendingDx: number;
@@ -57,6 +60,15 @@ interface ActiveDrag {
 }
 
 let active: ActiveDrag | null = null;
+
+/**
+ * Frames to keep retrying refs whose element wasn't in the DOM at begin. An
+ * alt-drag duplicate is created in the same pointermove that begins the drag,
+ * before React has rendered it — without the retry the copy never follows the
+ * pointer and only jumps into place on drop. Bounded so culled offscreen nodes
+ * in a big selection don't cost a querySelector every frame.
+ */
+const RESOLVE_RETRY_FRAMES = 12;
 const listeners = new Set<NodeDragListener>();
 
 function nodeElement(ref: GestureNodeRef): HTMLElement | null {
@@ -122,17 +134,22 @@ export function beginNodeDrag(nodes: GestureNodeRef[]): void {
   if (active) endNodeDrag();
 
   const els: HTMLElement[] = [];
+  const unresolved: GestureNodeRef[] = [];
   for (const ref of nodes) {
     const el = nodeElement(ref);
     if (el) {
       els.push(el);
       applyWillChange(el);
+    } else {
+      unresolved.push(ref);
     }
   }
 
   active = {
     nodes,
     els,
+    unresolved,
+    resolveFramesLeft: unresolved.length > 0 ? RESOLVE_RETRY_FRAMES : 0,
     totalDx: 0,
     totalDy: 0,
     pendingDx: 0,
@@ -150,6 +167,17 @@ function flush(): void {
   const drag = active;
   if (!drag) return;
   drag.rafId = 0;
+  if (drag.resolveFramesLeft > 0) {
+    drag.resolveFramesLeft--;
+    drag.unresolved = drag.unresolved.filter((ref) => {
+      const el = nodeElement(ref);
+      if (!el) return true;
+      drag.els.push(el);
+      applyWillChange(el);
+      return false;
+    });
+    if (drag.unresolved.length === 0) drag.resolveFramesLeft = 0;
+  }
   drag.totalDx += drag.pendingDx;
   drag.totalDy += drag.pendingDy;
   drag.pendingDx = 0;

@@ -17,7 +17,6 @@ import {
   shouldCanvasWheelViewport,
   wheelTrackpadPanDelta,
 } from "@/lib/canvasWheel";
-import { filterPanWheelDelta } from "@/lib/wheelMomentum";
 
 /** Safari/WebKit pinch — scale is cumulative from gesture start. */
 type SafariGestureEvent = Event & {
@@ -55,11 +54,12 @@ export function useCanvasViewportInput(
       e.preventDefault();
 
       if (resolveCanvasWheelAction(e) === "pan") {
-        // Momentum suppression (Figma-style dead stop): macOS keeps emitting
-        // a decaying wheel tail after the fingers lift; the filter detects
-        // and attenuates it so the canvas stops when the fingers stop.
-        const raw = wheelTrackpadPanDelta(e);
-        const { dx, dy } = filterPanWheelDelta(raw.dx, raw.dy, e.timeStamp);
+        // Momentum passes through 1:1, like Figma: after the fingers lift,
+        // macOS (and Chrome's fling on other platforms) keeps emitting a
+        // decaying wheel tail — that tail IS the glide. Damping it (as an
+        // earlier momentum filter did) makes the canvas stop dead ~200ms
+        // after release, which reads as heavy and sticky.
+        const { dx, dy } = wheelTrackpadPanDelta(e);
         if (dx !== 0 || dy !== 0) queuePan(dx, dy);
         return;
       }

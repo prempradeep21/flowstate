@@ -8,6 +8,9 @@
 export const canvasColors = {
   bg: "#F0F0F0",
   dot: "#8B8A86",
+  /** Canvas dot-grid dots — drawn at full strength, ~2:1 on `bg` so a
+   * 1px-radius dot reads at every zoom without competing with content. */
+  gridDot: "#ABA9A3",
   card: "#FFFFFF",
   border: "#E6E4DF",
   ink: "#2C2A26",
@@ -71,6 +74,8 @@ export const canvasColors = {
 export const darkCanvasColors: Record<keyof typeof canvasColors, string> = {
   bg: "#181715",
   dot: "#3A3833",
+  /** ~2:1 on dark `bg` — the old dot at 28% alpha was ~1.1:1 (invisible). */
+  gridDot: "#4C4942",
   card: "#211F1C",
   border: "#34322D",
   ink: "#ECEAE3",
@@ -148,6 +153,7 @@ export const CANVAS_ACCENT = "rgb(var(--canvas-accent))";
 export const CANVAS_CONNECTOR = "rgb(var(--canvas-connector))";
 export const CANVAS_BG = "rgb(var(--canvas-bg))";
 export const CANVAS_DOT = "rgb(var(--canvas-dot))";
+export const CANVAS_GRID_DOT = "rgb(var(--canvas-grid-dot))";
 
 /** Thread accent palette — cycles per thread (OQ-01); first entry matches UI accent */
 export const THREAD_ACCENT_PALETTE = [
@@ -162,16 +168,33 @@ export const THREAD_ACCENT_PALETTE = [
 ] as const;
 
 /**
+ * One colour for every connector and plug — thread branches, artifact /
+ * skill / group plug links, plug rings — whatever its thread's accent. Set to
+ * null to go back to per-thread colours from THREAD_ACCENT_PALETTE (threads
+ * still carry their own accentColour; only the connector rendering ignores
+ * it). Image drag previews keep their own dashed blue.
+ */
+export const UNIFIED_CONNECTOR_COLOUR: string | null = THREAD_ACCENT_PALETTE[0];
+
+/** The stroke a connector or plug draws in — see UNIFIED_CONNECTOR_COLOUR. */
+export function connectorColour(
+  threadAccent: string | null | undefined,
+  fallback: string = CANVAS_CONNECTOR,
+): string {
+  return UNIFIED_CONNECTOR_COLOUR ?? threadAccent ?? fallback;
+}
+
+/**
  * Corner radius scale — a single tweakable base (px) drives every tier
  * through CSS variables (see globals.css / ThemeProvider). Tiers:
  * - xs: fixed 2px (resize handles, minimap)
  * - sm: 0.6× base (compact overlays, chips)
  * - md: 1× base (buttons, inputs, menu rows)
- * - lg: 1.4× base (panels, popovers, artifact windows)
+ * - lg: 0.8× base (panels, popovers, artifact windows)
  * - inner: lg − chrome padding, clamped (nested/clipped chrome, e.g. collapsed toolbar)
  */
 export const canvasRadiusBasePx = 10;
-export const canvasRadiusFactors = { sm: 0.6, md: 1, lg: 1.4 } as const;
+export const canvasRadiusFactors = { sm: 0.6, md: 1, lg: 0.8 } as const;
 
 export function resolveRadiusPx(
   step: keyof typeof canvasRadiusFactors | "xs",

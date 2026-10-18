@@ -108,7 +108,9 @@ export function TimelineEventNode({
       className="flex flex-col items-center transition-opacity duration-300 ease-out"
       style={{
         opacity: labelOpacity,
-        pointerEvents: labelInteractive ? "auto" : "none",
+        // Inherit (not force "auto") so the canvas inert layer still applies
+        // while the timeline node is unselected.
+        pointerEvents: labelInteractive ? undefined : "none",
       }}
     >
       {side === "above" ? (

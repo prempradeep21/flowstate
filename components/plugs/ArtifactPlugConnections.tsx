@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  useNodeDragFrame,
+  withNodeDragOffset,
+} from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import {
@@ -11,9 +15,8 @@ import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import { connectorColour } from "@/lib/design/tokens";
 
-const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
 
 export function ArtifactPlugConnections() {
@@ -28,6 +31,8 @@ export function ArtifactPlugConnections() {
   const clearRecentArtifactPlug = useCanvasStore((s) => s.clearRecentArtifactPlug);
   const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
+  // Follow live node drags — the store only moves on release.
+  const dragFrame = useNodeDragFrame();
   const hideForLoadReveal =
     canvasLoadReveal?.phase === "pending" ||
     canvasLoadReveal?.phase === "running";
@@ -56,6 +61,18 @@ export function ArtifactPlugConnections() {
         const node = canvasArtifactNodes[conn.artifactNodeId];
         const card = cards[conn.cardId];
         if (!node || !card) return null;
+        const nodePos = withNodeDragOffset(
+          dragFrame,
+          "artifact",
+          node.id,
+          node.position,
+        );
+        const cardPos = withNodeDragOffset(
+          dragFrame,
+          "card",
+          card.id,
+          card.position,
+        );
 
         const art = node.artifactId
           ? sessionArtifacts[node.artifactId]
@@ -64,8 +81,8 @@ export function ArtifactPlugConnections() {
         const { w: cardW, h: cardH } = getConnectionCardBounds(card, tuning);
 
         const fromAnchor = plugAnchorAt(
-          node.position.x,
-          node.position.y,
+          nodePos.x,
+          nodePos.y,
           artW,
           artH,
           conn.fromSide,
@@ -73,12 +90,12 @@ export function ArtifactPlugConnections() {
 
         const toPyOverride =
           conn.toSide === "left" || conn.toSide === "right"
-            ? branchTargetAnchorY(card.id, card.position.y, cardH)
+            ? branchTargetAnchorY(card.id, cardPos.y, cardH)
             : undefined;
 
         const toAnchor = plugAnchorAt(
-          card.position.x,
-          card.position.y,
+          cardPos.x,
+          cardPos.y,
           cardW,
           cardH,
           conn.toSide,
@@ -94,9 +111,9 @@ export function ArtifactPlugConnections() {
         );
 
         const artCard = cards[node.sourceCardId];
-        const stroke =
-          (artCard && threads[artCard.threadId]?.accentColour) ??
-          STROKE_FALLBACK;
+        const stroke = connectorColour(
+          artCard ? threads[artCard.threadId]?.accentColour : undefined,
+        );
 
         return (
           <ConnectorPathGroup
@@ -110,7 +127,7 @@ export function ArtifactPlugConnections() {
             viewportScale={viewportSettledScale}
             dashed
             opacity={conn.id === recentArtifactPlugId ? 1 : 0.85}
-            showTargetArrow={false}
+            showTargetPlug={false}
             drawIn={conn.id === recentArtifactPlugId}
             onDrawComplete={
               conn.id === recentArtifactPlugId

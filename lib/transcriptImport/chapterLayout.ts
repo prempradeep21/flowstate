@@ -1,9 +1,4 @@
-import {
-  getArtifactBounds,
-  getArtifactLayoutFloors,
-  getArtifactMaxSize,
-  getCardBounds,
-} from "@/lib/canvasNodeBounds";
+import { getArtifactBounds, getCardBounds } from "@/lib/canvasNodeBounds";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import {
   MASTHEAD_ARTIFACT_KINDS,
@@ -39,59 +34,65 @@ export const TILE_GAP = 48;
 export const DIVIDER_GAP_Y = 36;
 /** Gap between one chapter's box and the next. */
 export const CHAPTER_GAP_X = 260;
-/** Bento width — the full six-column grid. Only full-bleed tiles exceed it. */
+/** Widest a chapter's artifact block may run before a tile wraps to a new row. */
 export const CHAPTER_CONTENT_WIDTH = 520 * 3 + TILE_GAP * 2;
 
 /*
- * The bento grid.
+ * The bento — content first, grid second.
  *
- * Six columns across CHAPTER_CONTENT_WIDTH with one uniform TILE_GAP gutter, so
- * every tile edge lands on a shared lattice no matter its size. Column width is
- * exact: (1656 - 5*48) / 6 = 236.
+ * The first version of this packer forced every tile onto a six-column lattice
+ * of fixed spans (520 / 804 / 1088) and fixed row heights (240 / 528). That
+ * read as designed, but it sized tiles to slots rather than to what they hold:
+ * a two-column table sat in an 1088-wide slot with half the card empty, and a
+ * site with nothing but a favicon got a 520×528 hero slab.
  *
- * Span 1 (236) is below MIN_ARTIFACT_WIDTH, and spans 5 and 6 exceed
- * MAX_ARTIFACT_WIDTH, so the usable vocabulary is {2, 3, 4} = 520 / 804 / 1088 —
- * a third, a half, two thirds. Rows must sum to six columns, which admits
- * exactly the four splits in BAND_SPLITS. That closed vocabulary is what makes
- * the result read as designed rather than packed.
+ * Now each tile arrives at its CONTENT size — a table as wide as its columns
+ * and as tall as its wrapped rows, a website at its hero image's aspect or a
+ * fixed favicon square — and the bento is composed around those sizes:
+ *
+ * 1. Rows, in reading order. Tiles join the current row while they fit within
+ *    CHAPTER_CONTENT_WIDTH (text tiles may give up to a fifth of their width to
+ *    make room). A tile wider than most of the block takes a row of its own,
+ *    hoisted to the top — a timeline summarises its whole chapter.
+ * 2. Stacks. In a row that holds something tall, two consecutive short tiles
+ *    fuse into one column, one above the other, so the column matches the tall
+ *    tile instead of leaving a hole under a lone quote. Stacking frees width,
+ *    so the row then tries to take the next tile too.
+ * 3. Justify. Every row is stretched toward the block's widest row, but only
+ *    through tiles whose content reflows (quote, stat, chart …). Content-sized
+ *    tiles — tables, websites — never change size, so a row of them stays
+ *    ragged rather than padding air into a card or cropping a poster. That is
+ *    the rule the grid breaks.
+ * 4. Heights. Reflowing tiles grow to their row's height (within 1.5× of
+ *    their own); content-sized tiles keep theirs and top-align.
  */
-export const BENTO_COLS = 6;
-export const BENTO_COL_W =
-  (CHAPTER_CONTENT_WIDTH - TILE_GAP * (BENTO_COLS - 1)) / BENTO_COLS;
-/** Height of one short tile. A tall tile is two of these plus the gutter. */
-export const BENTO_ROW_H = 240;
-/** 240 + 48 + 240 — so one tall slot is exactly a stacked pair of short tiles. */
-export const BENTO_BAND_H = BENTO_ROW_H * 2 + TILE_GAP;
-/** The only legal column compositions of the six-column grid. */
-export const BAND_SPLITS: readonly (readonly number[])[] = [
-  [2, 2, 2],
-  [3, 3],
-  [4, 2],
-  [2, 4],
-];
-/**
- * A tile may be squeezed to at most this fraction of its natural height. The
- * artifact stage is overflow-hidden rather than scrollable, so an undersized
- * node truncates its content — this bound is correctness, not taste.
- */
-export const BENTO_SQUEEZE_FLOOR = 0.9;
-/** Cost of repeating the previous band's split — the "don't degrade into a table" term. */
-const BAND_REPEAT_PENALTY = 0.35;
-/** Cost of giving a tile a band to itself. A last resort, never a failure. */
-const ORPHAN_BAND_PENALTY = 3;
 
-export function bentoSpanWidth(cols: number): number {
-  return cols * BENTO_COL_W + (cols - 1) * TILE_GAP;
-}
+/** A tile at most this tall may stack with a neighbour inside a taller row. */
+export const BENTO_SHORT_H = 300;
+/** Text tiles may narrow to this share of their natural width to fit a row. */
+export const BENTO_SHRINK_FLOOR = 0.8;
+/** …and widen to this multiple of it when a row is justified. */
+export const BENTO_STRETCH_CEIL = 1.6;
+/** Reflowing tiles grow to their row's height by at most this multiple. */
+export const BENTO_HEIGHT_STRETCH_CEIL = 1.5;
+/**
+ * A stack may run this much taller than the row's tallest tile. Two quotes
+ * (528) beside a claim (420) is still a better row than a lone quote with a
+ * 180px hole under it; past this the stack, not the tall tile, sets the row.
+ */
+const STACK_OVERSHOOT = 1.3;
+/** A tile wider than this share of the block takes a row of its own. */
+const FULL_ROW_SHARE = 0.72;
 
 export interface BentoTile {
   id: string;
-  /** The size the kind wants — what it renders at with no layout pressure. */
+  /** The size its content wants — what it renders at with no layout pressure. */
   natural: { w: number; h: number };
-  /** Smallest box that shows its content without clipping. */
-  floor: { w: number; h: number };
-  /** Largest box it may be stretched to. */
-  max: { w: number; h: number };
+  /**
+   * Whether the tile's content reflows when its box changes (text, charts).
+   * A content-sized tile (table, website) is placed at exactly its natural size.
+   */
+  flexible: boolean;
 }
 
 export interface PackedTile {
@@ -108,292 +109,209 @@ export interface PackedBento {
   height: number;
 }
 
-/** Smallest legal span that clears a tile's width floor, or null if none does. */
-function minSpanFor(tile: BentoTile): number | null {
-  for (const cols of [2, 3, 4]) {
-    if (bentoSpanWidth(cols) >= tile.floor.w) return cols;
-  }
-  return null;
+interface Column {
+  tiles: BentoTile[];
 }
 
-/** A tile too wide for even a four-column slot takes a band of its own. */
-function isFullBleed(tile: BentoTile): boolean {
-  return minSpanFor(tile) === null;
+function isFullRow(tile: BentoTile, maxWidth: number): boolean {
+  return tile.natural.w > maxWidth * FULL_ROW_SHARE;
 }
 
-/** Lattice height for a band of `rows` short rows: 240, 528, 816, 1104 ... */
-export function bentoBandHeight(rows: number): number {
-  return rows * BENTO_ROW_H + (rows - 1) * TILE_GAP;
+function minW(tile: BentoTile): number {
+  return tile.flexible ? tile.natural.w * BENTO_SHRINK_FLOOR : tile.natural.w;
 }
 
-/**
- * Height for a tile that gets a band to itself: the smallest lattice height that
- * shows it whole. A solo tile is already a compromise, so it is never squeezed —
- * only the last resort of exceeding the kind's own maximum is clamped away.
- */
-function soloHeight(tile: BentoTile): number {
-  const needed = Math.max(tile.floor.h, tile.natural.h);
-  for (let rows = 1; rows <= 8; rows++) {
-    const h = bentoBandHeight(rows);
-    if (h >= needed) return Math.min(h, Math.max(tile.max.h, needed));
-  }
-  return Math.min(bentoBandHeight(8), Math.max(tile.max.h, needed));
+function maxW(tile: BentoTile): number {
+  return tile.flexible ? tile.natural.w * BENTO_STRETCH_CEIL : tile.natural.w;
 }
 
-/** Can this tile live in a 240px row without clipping or over-squeezing? */
-function isShortCapable(tile: BentoTile): boolean {
+function columnNaturalW(col: Column): number {
+  return Math.max(...col.tiles.map((t) => t.natural.w));
+}
+
+function columnMinW(col: Column): number {
+  return Math.max(...col.tiles.map(minW));
+}
+
+function columnMaxW(col: Column): number {
+  return Math.min(...col.tiles.map(maxW));
+}
+
+/** The height a row settles at: its tallest column. */
+function rowAnchorH(cols: Column[]): number {
+  return Math.max(...cols.map(columnNaturalH));
+}
+
+function columnNaturalH(col: Column): number {
   return (
-    tile.floor.h <= BENTO_ROW_H &&
-    tile.natural.h * BENTO_SQUEEZE_FLOOR <= BENTO_ROW_H
+    col.tiles.reduce((sum, t) => sum + t.natural.h, 0) +
+    (col.tiles.length - 1) * TILE_GAP
   );
 }
 
+function rowWidth(cols: Column[], width: (col: Column) => number): number {
+  return (
+    cols.reduce((sum, col) => sum + width(col), 0) +
+    Math.max(0, cols.length - 1) * TILE_GAP
+  );
+}
+
+/** Two tiles may share a column when both are short and both reflow — or are the same fixed width. */
+function canStack(a: BentoTile, b: BentoTile): boolean {
+  if (a.natural.h > BENTO_SHORT_H || b.natural.h > BENTO_SHORT_H) return false;
+  if (a.flexible && b.flexible) return true;
+  return !a.flexible && !b.flexible && a.natural.w === b.natural.w;
+}
+
 /**
- * What placing `tile` at this size costs. Infinity means it would clip or
- * exceed the kind's own maximum, so the packer must not choose it at all.
- *
- * Squeezing height is weighted far above stretching because stretching leaves
- * air inside a card while squeezing cuts content off.
+ * Fuse consecutive stackable singles into two-high columns, but only where the
+ * row has something tall enough to make a lone short tile look stranded.
  */
-function tileCost(tile: BentoTile, w: number, h: number): number {
-  if (w < tile.floor.w || h < tile.floor.h) return Infinity;
-  if (w > tile.max.w || h > tile.max.h) return Infinity;
-  if (h < tile.natural.h * BENTO_SQUEEZE_FLOOR) return Infinity;
-  const squeezeH = Math.max(0, (tile.natural.h - h) / tile.natural.h);
-  const stretchH = Math.max(0, (h - tile.natural.h) / tile.natural.h);
-  const stretchW = Math.max(0, (w - tile.natural.w) / tile.natural.w);
-  return 4 * squeezeH + stretchH + 0.6 * stretchW;
-}
-
-interface BandPlan {
-  /** Index into BAND_SPLITS, or -1 for a full-bleed or orphan band. */
-  splitIndex: number;
-  height: number;
-  consumed: number;
-  cost: number;
-  place: (originY: number) => PackedTile[];
-}
-
-/** Every band that could start at `start`, given the tiles that follow it. */
-function candidateBands(tiles: BentoTile[], start: number): BandPlan[] {
-  const out: BandPlan[] = [];
-  const head = tiles[start]!;
-
-  if (isFullBleed(head)) {
-    const w = Math.max(head.natural.w, head.floor.w);
-    const h = soloHeight(head);
-    out.push({
-      splitIndex: -1,
-      height: h,
-      consumed: 1,
-      cost: Number.isFinite(tileCost(head, w, h)) ? tileCost(head, w, h) : 0,
-      place: (originY) => [{ id: head.id, x: 0, y: originY, w, h }],
-    });
-    return out;
-  }
-
-  for (let splitIndex = 0; splitIndex < BAND_SPLITS.length; splitIndex++) {
-    const split = BAND_SPLITS[splitIndex]!;
-    const slots = split.length;
-
-    // Short band: one short tile per slot, the whole band only 240 tall.
-    if (start + slots <= tiles.length) {
-      let cost = 0;
-      let ok = true;
-      for (let k = 0; k < slots; k++) {
-        const tile = tiles[start + k]!;
-        if (isFullBleed(tile) || !isShortCapable(tile)) {
-          ok = false;
-          break;
-        }
-        cost += tileCost(tile, bentoSpanWidth(split[k]!), BENTO_ROW_H);
-      }
-      if (ok && cost < Infinity) {
-        out.push({
-          splitIndex,
-          height: BENTO_ROW_H,
-          consumed: slots,
-          cost,
-          place: (originY) => {
-            const placed: PackedTile[] = [];
-            let x = 0;
-            for (let k = 0; k < slots; k++) {
-              const w = bentoSpanWidth(split[k]!);
-              placed.push({
-                id: tiles[start + k]!.id,
-                x,
-                y: originY,
-                w,
-                h: BENTO_ROW_H,
-              });
-              x += w + TILE_GAP;
-            }
-            return placed;
-          },
-        });
-      }
-    }
-
-    // Tall band: each slot is either one full-height tile or a stacked pair.
-    for (let mask = 0; mask < 1 << slots; mask++) {
-      let cursor = start;
-      let cost = 0;
-      let ok = true;
-      const assignment: { tiles: BentoTile[]; cols: number }[] = [];
-      for (let k = 0; k < slots && ok; k++) {
-        const cols = split[k]!;
-        const w = bentoSpanWidth(cols);
-        const stacked = (mask >> k) & 1;
-        if (stacked) {
-          const a = tiles[cursor];
-          const b = tiles[cursor + 1];
-          if (!a || !b || !isShortCapable(a) || !isShortCapable(b)) {
-            ok = false;
-            break;
-          }
-          if (isFullBleed(a) || isFullBleed(b)) {
-            ok = false;
-            break;
-          }
-          cost += tileCost(a, w, BENTO_ROW_H) + tileCost(b, w, BENTO_ROW_H);
-          assignment.push({ tiles: [a, b], cols });
-          cursor += 2;
-        } else {
-          const a = tiles[cursor];
-          if (!a || isFullBleed(a)) {
-            ok = false;
-            break;
-          }
-          cost += tileCost(a, w, BENTO_BAND_H);
-          assignment.push({ tiles: [a], cols });
-          cursor += 1;
-        }
-      }
-      if (!ok || !Number.isFinite(cost)) continue;
-      const consumed = cursor - start;
-      out.push({
-        splitIndex,
-        height: BENTO_BAND_H,
-        consumed,
-        cost,
-        place: (originY) => {
-          const placed: PackedTile[] = [];
-          let x = 0;
-          for (const slot of assignment) {
-            const w = bentoSpanWidth(slot.cols);
-            if (slot.tiles.length === 2) {
-              placed.push({ id: slot.tiles[0]!.id, x, y: originY, w, h: BENTO_ROW_H });
-              placed.push({
-                id: slot.tiles[1]!.id,
-                x,
-                y: originY + BENTO_ROW_H + TILE_GAP,
-                w,
-                h: BENTO_ROW_H,
-              });
-            } else {
-              placed.push({
-                id: slot.tiles[0]!.id,
-                x,
-                y: originY,
-                w,
-                h: BENTO_BAND_H,
-              });
-            }
-            x += w + TILE_GAP;
-          }
-          return placed;
-        },
-      });
+function fuseStacks(cols: Column[]): Column[] {
+  const tallest = rowAnchorH(cols);
+  const out: Column[] = [];
+  for (const col of cols) {
+    const prev = out[out.length - 1];
+    if (
+      prev &&
+      prev.tiles.length === 1 &&
+      col.tiles.length === 1 &&
+      canStack(prev.tiles[0]!, col.tiles[0]!) &&
+      prev.tiles[0]!.natural.h + col.tiles[0]!.natural.h + TILE_GAP <=
+        tallest * STACK_OVERSHOOT
+    ) {
+      out[out.length - 1] = { tiles: [prev.tiles[0]!, col.tiles[0]!] };
+    } else {
+      out.push(col);
     }
   }
-
-  // A band holding this tile alone, always legal, so the search cannot fail and
-  // no artifact can ever be left unplaced at the origin.
-  const cols = minSpanFor(head)!;
-  const w = bentoSpanWidth(cols);
-  const h = isShortCapable(head) ? BENTO_ROW_H : soloHeight(head);
-  const orphanCost = tileCost(head, w, h);
-  out.push({
-    splitIndex: -1,
-    height: h,
-    consumed: 1,
-    cost: (Number.isFinite(orphanCost) ? orphanCost : 0) + ORPHAN_BAND_PENALTY,
-    place: (originY) => [{ id: head.id, x: 0, y: originY, w, h }],
-  });
   return out;
 }
 
+/** Greedy rows in reading order, each re-fused and refilled after stacking frees width. */
+function buildRows(tiles: BentoTile[], maxWidth: number): Column[][] {
+  const rows: Column[][] = [];
+  let i = 0;
+  while (i < tiles.length) {
+    const head = tiles[i]!;
+    if (isFullRow(head, maxWidth)) {
+      rows.push([{ tiles: [head] }]);
+      i += 1;
+      continue;
+    }
+    let cols: Column[] = [];
+    for (;;) {
+      const next = tiles[i];
+      if (!next || isFullRow(next, maxWidth)) break;
+      const trial = fuseStacks([...cols, { tiles: [next] }]);
+      if (cols.length > 0 && rowWidth(trial, columnMinW) > maxWidth) break;
+      cols = trial;
+      i += 1;
+    }
+    rows.push(cols);
+  }
+  return rows;
+}
+
+/** Spread `target` across columns: start natural, then shrink or grow flexible ones. */
+function columnWidths(cols: Column[], target: number): number[] {
+  const widths = cols.map(columnNaturalW);
+  const gaps = Math.max(0, cols.length - 1) * TILE_GAP;
+  for (let pass = 0; pass < 4; pass++) {
+    const delta = target - gaps - widths.reduce((a, b) => a + b, 0);
+    if (Math.abs(delta) < 0.5) break;
+    const movable = cols
+      .map((col, index) => ({ col, index }))
+      .filter(({ col, index }) =>
+        delta > 0
+          ? widths[index]! < columnMaxW(col) - 0.5
+          : widths[index]! > columnMinW(col) + 0.5,
+      );
+    if (movable.length === 0) break;
+    const weight = movable.reduce((sum, { col }) => sum + columnNaturalW(col), 0);
+    for (const { col, index } of movable) {
+      const share = (delta * columnNaturalW(col)) / weight;
+      widths[index] = Math.min(
+        columnMaxW(col),
+        Math.max(columnMinW(col), widths[index]! + share),
+      );
+    }
+  }
+  return widths.map((w) => Math.round(w));
+}
+
+/** Height a tile takes in a row of height `rowH`. */
+function fitHeight(tile: BentoTile, rowH: number): number {
+  if (!tile.flexible) return tile.natural.h;
+  return Math.round(
+    Math.max(tile.natural.h, Math.min(rowH, tile.natural.h * BENTO_HEIGHT_STRETCH_CEIL)),
+  );
+}
+
 /**
- * Lay tiles into bands, in order, choosing the cheapest legal program.
- *
- * The search is a small dynamic program over (tile index, previous split), which
- * is what lets the repeat penalty see the band before it. With at most a handful
- * of artifacts per chapter and four splits, the whole space is a few hundred
- * states — exhaustive, deterministic, and identical on every run.
- *
- * Full-bleed tiles are hoisted to the front. One sitting mid-sequence would cut
- * the chapter into two independently-tileable halves and strand the remainder in
- * orphan bands; a timeline summarises its whole chapter, so leading with it
- * reads as intentional. It is the one documented departure from transcript order.
+ * Lay tiles into content-sized rows. `minWidth` lets the caller ask rows to
+ * justify toward a width it already has (the chapter's conversation block), so
+ * the artifacts end where the cards above them do when the tiles can reflow.
  */
-export function packBentoGrid(input: BentoTile[]): PackedBento {
+export function packBentoGrid(
+  input: BentoTile[],
+  opts: { maxWidth?: number; minWidth?: number } = {},
+): PackedBento {
   if (input.length === 0) return { placed: [], width: 0, height: 0 };
+  const maxWidth = opts.maxWidth ?? CHAPTER_CONTENT_WIDTH;
 
   const tiles = [
-    ...input.filter((t) => isFullBleed(t)),
-    ...input.filter((t) => !isFullBleed(t)),
+    ...input.filter((t) => isFullRow(t, maxWidth)),
+    ...input.filter((t) => !isFullRow(t, maxWidth)),
   ];
+  const rows = buildRows(tiles, maxWidth);
 
-  const SPLIT_STATES = BAND_SPLITS.length + 1; // +1 for "no previous band"
-  const best: (number | null)[][] = tiles.map(() =>
-    new Array<number | null>(SPLIT_STATES).fill(null),
+  // Every row justifies toward the widest thing in the block — a timeline
+  // included — so the right edges line up as far as reflowing tiles allow.
+  const target = Math.min(
+    maxWidth,
+    Math.max(opts.minWidth ?? 0, ...rows.map((cols) => rowWidth(cols, columnNaturalW))),
   );
-  const choice: (BandPlan | null)[][] = tiles.map(() =>
-    new Array<BandPlan | null>(SPLIT_STATES).fill(null),
-  );
-
-  const solve = (i: number, prev: number): number => {
-    if (i >= tiles.length) return 0;
-    const cached = best[i]![prev];
-    if (cached !== null) return cached;
-    best[i]![prev] = Infinity; // guard; bands always consume >= 1 so no cycles
-    let bestCost = Infinity;
-    let bestPlan: BandPlan | null = null;
-    for (const band of candidateBands(tiles, i)) {
-      const penalty =
-        band.splitIndex >= 0 && band.splitIndex === prev - 1
-          ? BAND_REPEAT_PENALTY
-          : 0;
-      const nextPrev = band.splitIndex >= 0 ? band.splitIndex + 1 : 0;
-      const total =
-        band.cost + penalty + solve(i + band.consumed, nextPrev);
-      if (total < bestCost) {
-        bestCost = total;
-        bestPlan = band;
-      }
-    }
-    best[i]![prev] = bestCost;
-    choice[i]![prev] = bestPlan;
-    return bestCost;
-  };
-
-  solve(0, 0);
 
   const placed: PackedTile[] = [];
   let y = 0;
   let width = 0;
-  let i = 0;
-  let prev = 0;
-  while (i < tiles.length) {
-    const band = choice[i]![prev];
-    if (!band) break; // unreachable: an orphan band always exists
-    for (const tile of band.place(y)) {
-      placed.push(tile);
-      width = Math.max(width, tile.x + tile.w);
-    }
-    y += band.height + TILE_GAP;
-    i += band.consumed;
-    prev = band.splitIndex >= 0 ? band.splitIndex + 1 : 0;
+  for (const cols of rows) {
+    const widths = columnWidths(cols, target);
+    const rowH = rowAnchorH(cols);
+    let x = 0;
+    let bottom = 0;
+    cols.forEach((col, index) => {
+      const w = widths[index]!;
+      if (col.tiles.length === 1) {
+        const tile = col.tiles[0]!;
+        const h = fitHeight(tile, rowH);
+        placed.push({ id: tile.id, x, y, w: tile.flexible ? w : tile.natural.w, h });
+        bottom = Math.max(bottom, h);
+      } else {
+        // A stack shares the row's height between its pair in proportion to
+        // what each wants, so neither is squeezed below its natural height.
+        const [a, b] = col.tiles as [BentoTile, BentoTile];
+        const spare = Math.max(0, rowH - columnNaturalH(col));
+        const flexA = a.flexible ? a.natural.h : 0;
+        const flexB = b.flexible ? b.natural.h : 0;
+        const total = flexA + flexB || 1;
+        const hA = Math.round(a.natural.h + (spare * flexA) / total);
+        const hB = Math.round(b.natural.h + (spare * flexB) / total);
+        placed.push({ id: a.id, x, y, w: a.flexible ? w : a.natural.w, h: hA });
+        placed.push({
+          id: b.id,
+          x,
+          y: y + hA + TILE_GAP,
+          w: b.flexible ? w : b.natural.w,
+          h: hB,
+        });
+        bottom = Math.max(bottom, hA + TILE_GAP + hB);
+      }
+      width = Math.max(width, x + w);
+      x += w + TILE_GAP;
+    });
+    y += bottom + TILE_GAP;
   }
 
   return { placed, width, height: Math.max(0, y - TILE_GAP) };
@@ -455,7 +373,20 @@ export interface ChapterLayoutResult {
   contentCenter: { x: number; y: number };
 }
 
-/** Build the layout description of one artifact node: natural size, floor, max. */
+/**
+ * Kinds whose node is sized to what they hold, so the packer never resizes
+ * them: a table is as wide as its columns, a website is exactly its hero
+ * image's aspect ratio or a favicon square, a timeline spans its own dates.
+ * Stretching any of these pads empty space into the card; cropping a hero
+ * would throw away the shape of the thing it shows.
+ */
+const CONTENT_SIZED_KINDS: ReadonlySet<string> = new Set([
+  "table",
+  "website",
+  "timeline",
+]);
+
+/** Build the layout description of one artifact node: its content size, and whether it reflows. */
 function bentoTileFor(
   nodeId: string,
   canvasArtifactNodes: Record<string, CanvasArtifactNode>,
@@ -463,19 +394,11 @@ function bentoTileFor(
 ): BentoTile {
   const node = canvasArtifactNodes[nodeId]!;
   const artifact = sessionArtifacts[node.artifactId];
-  const payload = artifact?.versions.find(
-    (v) => v.id === artifact.latestVersionId,
-  )?.payload;
   const kind = artifact?.kind;
-  const natural = getArtifactBounds(node, artifact);
-  if (!kind) {
-    return { id: nodeId, natural, floor: natural, max: natural };
-  }
   return {
     id: nodeId,
-    natural,
-    floor: getArtifactLayoutFloors(kind, payload),
-    max: getArtifactMaxSize(kind),
+    natural: getArtifactBounds(node, artifact),
+    flexible: Boolean(kind) && !CONTENT_SIZED_KINDS.has(kind!),
   };
 }
 
@@ -639,7 +562,7 @@ export function layoutChapters(
     const tiles: BentoTile[] = gridIds.map((nodeId) =>
       bentoTileFor(nodeId, canvasArtifactNodes, sessionArtifacts),
     );
-    const bento = packBentoGrid(tiles);
+    const bento = packBentoGrid(tiles, { minWidth: chapterRight - chapterX });
     for (const tile of bento.placed) {
       const node = canvasArtifactNodes[tile.id]!;
       node.position = { x: chapterX + tile.x, y: y + tile.y };

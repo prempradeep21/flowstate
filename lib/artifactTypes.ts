@@ -334,6 +334,13 @@ export interface WebsiteArtifactData {
   faviconUrl?: string;
   previewImageUrl?: string;
   /**
+   * Intrinsic pixel size of the preview image, when known up front (baked
+   * previews). Lets the node be sized to the image's own aspect ratio instead
+   * of a fixed box the image letterboxes inside.
+   */
+  previewWidth?: number;
+  previewHeight?: number;
+  /**
    * Canvas asset holding the preview image's bytes, once it has been brought
    * into the canvas. Its signed URL expires, so previewImageUrl alone is not
    * enough — this is what lets the card re-mint one from the asset's

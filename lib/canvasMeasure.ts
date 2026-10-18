@@ -93,8 +93,29 @@ export function readCardQuestionCenterY(
   );
   if (!card) return null;
   const question = card.querySelector("[data-card-question]");
-  if (!(question instanceof HTMLElement)) return null;
-  return cardTopY + question.offsetTop + question.offsetHeight / 2;
+  if (!(question instanceof HTMLElement)) {
+    // An empty card is just its composer — the plug sits at its vertical
+    // centre rather than pinned to the input row near the top.
+    if (card instanceof HTMLElement && card.querySelector("[data-card-question-input]")) {
+      return cardTopY + card.offsetHeight / 2;
+    }
+    return null;
+  }
+  return cardTopY + offsetTopWithin(question, card) + question.offsetHeight / 2;
+}
+
+/** `el`'s top relative to `ancestor`, in unscaled layout px. */
+function offsetTopWithin(el: HTMLElement, ancestor: Element): number {
+  let top = 0;
+  let node: HTMLElement | null = el;
+  while (node && node !== ancestor) {
+    top += node.offsetTop;
+    const parent = node.offsetParent as HTMLElement | null;
+    // offsetParent skips static ancestors; stop once we've passed the card.
+    if (!parent || !ancestor.contains(parent)) break;
+    node = parent;
+  }
+  return top;
 }
 
 /** Fallback when question DOM is unavailable (SSR / tests). */
