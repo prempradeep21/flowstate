@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canvasLoadDelays, durations, easings, landingDelays, scales } from "./tokens";
+import { durations, easings, landingDelays, scales } from "./tokens";
 import {
   artifactPopUpVariants,
   dropVariants,
@@ -24,13 +24,6 @@ describe("motion tokens", () => {
     const lastTipStart = landingDelays.tipBase + landingDelays.tipStagger * 2;
     const lastEnd = lastTipStart + landingDelays.duration;
     expect(lastEnd).toBeLessThan(1000);
-  });
-
-  it("canvas load reveal completes in exactly 3 seconds", () => {
-    expect(canvasLoadDelays.totalMs).toBe(3000);
-    expect(
-      canvasLoadDelays.totalMs - canvasLoadDelays.slideDuration,
-    ).toBe(2380);
   });
 });
 

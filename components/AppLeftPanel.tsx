@@ -58,8 +58,10 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
       <div className="flex items-start gap-2">
         <aside
           className={[
-            "pointer-events-auto flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
-            collapsed ? "w-auto" : "w-[315px]",
+            "pointer-events-auto flex flex-col overflow-hidden border border-canvas-border bg-canvas-card shadow-card transition-[width,height,border-radius] duration-panel ease-panel",
+            // Collapsed, the chip wraps its 32px logo (p-1.5 + border = 7px);
+            // expanded, the panel keeps lg and its contents nest inside.
+            collapsed ? "w-auto rounded-canvas-wrap-7" : "w-[315px] rounded-canvas",
             // The published sub-line is a sentence, not a label — give the
             // collapsed chip room for it rather than truncating it to nothing.
             collapsed && published?.subtitle
@@ -116,7 +118,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
                   type="button"
                   onClick={toggleLeftPanel}
                   aria-label="Open sidebar"
-                  className="btn h-7 w-7 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                  className="btn h-7 w-7 shrink-0 rounded-canvas-nest-2 text-canvas-muted hover:text-canvas-ink"
                 >
                   <PanelChevronIcon direction="right" className="h-4 w-4" />
                 </button>
@@ -138,7 +140,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
                     type="button"
                     onClick={toggleLeftPanel}
                     aria-label="Collapse sidebar"
-                    className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                    className="btn h-10 w-10 shrink-0 rounded-canvas-nest-13 text-canvas-muted hover:text-canvas-ink"
                   >
                     <PanelChevronIcon direction="left" />
                   </button>

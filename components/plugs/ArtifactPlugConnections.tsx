@@ -29,13 +29,9 @@ export function ArtifactPlugConnections() {
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const recentArtifactPlugId = useCanvasStore((s) => s.recentArtifactPlugId);
   const clearRecentArtifactPlug = useCanvasStore((s) => s.clearRecentArtifactPlug);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (artifactPlugConnections.length === 0 || chatsGloballyHidden) return null;
@@ -51,7 +47,6 @@ export function ArtifactPlugConnections() {
       className="pointer-events-none absolute left-0 top-0 z-[14]"
       style={{
         overflow: "visible",
-        opacity: hideForLoadReveal ? 0 : 1,
       }}
       width={1}
       height={1}

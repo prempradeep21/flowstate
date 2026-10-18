@@ -59,6 +59,7 @@ export function ChatComposer({
   onSubmit,
   variant = "chat",
   trailingControls,
+  nested = false,
 }: {
   placeholder?: string;
   disabled?: boolean;
@@ -76,6 +77,9 @@ export function ChatComposer({
   variant?: "chat" | "canvas" | "landing";
   /** Rendered after the send button inside the composer row (e.g. card menu). */
   trailingControls?: ReactNode;
+  /** Inside a Q&A card's follow-up footer: the casing's corners yield to the
+   *  card's (concentric — R = card − 11px, the footer's inset). */
+  nested?: boolean;
 }) {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
@@ -491,7 +495,9 @@ export function ChatComposer({
       <div
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
-        className={`chat-composer-casing group/composer relative flex w-full min-w-0 flex-col rounded-canvas border border-canvas-border bg-canvas-card ${
+        className={`chat-composer-casing group/composer relative flex w-full min-w-0 flex-col border border-canvas-border bg-canvas-card ${
+          nested ? "rounded-canvas-nest-11" : "rounded-canvas"
+        } ${
           isLanding ? "shadow-artifactHover" : "shadow-card"
         }`}
       >
@@ -531,6 +537,7 @@ export function ChatComposer({
                   }
                 >
                   <ArtifactAttachmentPill
+                    nested
                     kind={art.kind}
                     title={artifactDisplayTitle(art, ver)}
                     versionNumber={ver.number}
@@ -548,6 +555,7 @@ export function ChatComposer({
               if (!asset) return null;
               return (
                 <AssetAttachmentPill
+                  nested
                   key={ref.assetId}
                   name={asset.name}
                   kind={asset.kind}
@@ -595,7 +603,7 @@ export function ChatComposer({
             {pendingImages.map((img, i) => (
               <div
                 key={i}
-                className="relative h-10 w-10 overflow-hidden rounded-canvas border border-canvas-border"
+                className="relative h-10 w-10 overflow-hidden rounded-canvas-nest-9 border border-canvas-border"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.thumb} alt="" className="h-full w-full object-cover" />
@@ -613,6 +621,7 @@ export function ChatComposer({
             ))}
             {pendingFiles.map((f, i) => (
               <AssetAttachmentPill
+                nested
                 key={i}
                 name={f.name}
                 kind="document"
@@ -638,7 +647,7 @@ export function ChatComposer({
           >
             {lockedPrefix && (
               <span
-                className="rounded-canvas bg-canvas-accent/15 px-2.5 py-1.5 text-canvas-body-sm font-medium leading-snug text-canvas-accent break-words"
+                className="rounded-canvas-nest-9 bg-canvas-accent/15 px-2.5 py-1.5 text-canvas-body-sm font-medium leading-snug text-canvas-accent break-words"
               >
                 {lockedPrefix}
               </span>

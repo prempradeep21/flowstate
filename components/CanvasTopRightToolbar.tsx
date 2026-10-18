@@ -80,7 +80,7 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
       aria-label="Canvas controls"
       className={`relative flex items-center ${
         framed
-          ? "rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+          ? "rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card p-1 shadow-card"
           : ""
       }`}
     >
@@ -104,7 +104,7 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
           {(viewMode === "canvas" || viewMode === "chat") && (
             <span
               aria-hidden
-              className="absolute left-0.5 top-0.5 h-8 w-8 rounded-canvas bg-canvas-card shadow-card transition-transform duration-motion-standard ease-motion-medium motion-reduce:transition-none"
+              className="absolute left-0.5 top-0.5 h-8 w-8 rounded-canvas-nest-2 bg-canvas-card shadow-card transition-transform duration-motion-standard ease-motion-medium motion-reduce:transition-none"
               style={{
                 transform: `translateX(${viewMode === "chat" ? "100%" : "0"})`,
               }}
@@ -112,7 +112,7 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
           )}
           <button
             type="button"
-            className={`btn relative h-8 w-8 rounded-canvas ${
+            className={`btn relative h-8 w-8 rounded-canvas-nest-2 ${
               viewMode === "canvas"
                 ? "text-canvas-ink"
                 : "text-canvas-muted hover:text-canvas-ink"
@@ -125,7 +125,7 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
           </button>
           <button
             type="button"
-            className={`btn relative h-8 w-8 rounded-canvas ${
+            className={`btn relative h-8 w-8 rounded-canvas-nest-2 ${
               viewMode === "chat"
                 ? "text-canvas-ink"
                 : "text-canvas-muted hover:text-canvas-ink"

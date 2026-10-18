@@ -23,12 +23,12 @@ function resetStore() {
   });
 }
 
-describe("processArtifactSpawnQueue permission dedupe", () => {
+describe("processArtifactSpawnQueue additional artifacts", () => {
   beforeEach(() => {
     resetStore();
   });
 
-  it("spawns only one permission preview per payload", () => {
+  it("creates an additional artifact directly, once, without a permission prompt", () => {
     const cardId = "card_1";
     useCanvasStore.setState({
       cards: {
@@ -59,15 +59,18 @@ describe("processArtifactSpawnQueue permission dedupe", () => {
     processArtifactSpawnQueue(cardId);
     processArtifactSpawnQueue(cardId);
 
-    const previews = Object.values(
-      useCanvasStore.getState().canvasArtifactNodes,
-    ).filter((n) => n.permissionPreview?.status === "pending");
+    const state = useCanvasStore.getState();
+    const nodes = Object.values(state.canvasArtifactNodes);
+    expect(nodes.filter((n) => n.permissionPreview)).toHaveLength(0);
 
-    expect(previews).toHaveLength(1);
-    expect(previews[0]?.permissionPreview?.title).toBe("GuitarTuner.jsx");
+    const created = nodes.filter((n) => n.id !== "existing");
+    expect(created).toHaveLength(1);
+    const art = state.sessionArtifacts[created[0]!.artifactId];
+    expect(art?.kind).toBe("code");
+    expect(art?.title).toBe("GuitarTuner.jsx");
   });
 
-  it("clears artifactPayload after spawning permission previews", () => {
+  it("clears artifactPayload after spawning additional artifacts", () => {
     const cardId = "card_1";
     useCanvasStore.setState({
       cards: {

@@ -102,7 +102,6 @@ export function useTranscriptImportPlaygroundCanvas(
         resetViewportBootstrap();
         hydrateFromSnapshot(buildCanvasSnapshot(restore), {
           applyViewport: true,
-          canvasReveal: false,
         });
       });
     };
@@ -113,7 +112,7 @@ export function useTranscriptImportPlaygroundCanvas(
     resetViewportBootstrap();
     hydrateFromSnapshot(
       getTranscriptImportCanvas(canvasId).buildSnapshot(),
-      { applyViewport: false, canvasReveal: false },
+      { applyViewport: false },
     );
 
     requestAnimationFrame(() => {

@@ -297,7 +297,7 @@ export const TABLE_INTENT_SYSTEM_NOTE = `
 MANDATORY — Table request detected:
 - You MUST call emit_artifact with type "table" in this turn.
 - Put the full table in data.columns and data.rows.
-- Do NOT also emit a map artifact unless the user explicitly asked for a map preview.
+- If another artifact type also clearly fits (e.g. a map for a list of places), emit it too in this turn — do not ask first.
 - Answer from your knowledge for evergreen lists and comparisons — do not use web_search.
 - Keep your text reply to 1–2 short sentences.
 `.trim();

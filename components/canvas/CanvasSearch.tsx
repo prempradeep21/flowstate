@@ -202,7 +202,7 @@ export function CanvasSearch() {
       className="pointer-events-auto relative"
     >
       <div
-        className="flex h-[46px] items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width] duration-motion-standard ease-motion-medium"
+        className="flex h-[46px] items-center overflow-hidden rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card shadow-card transition-[width] duration-motion-standard ease-motion-medium"
         style={{ width: open ? OPEN_WIDTH : CLOSED_WIDTH }}
       >
         <button
@@ -210,7 +210,7 @@ export function CanvasSearch() {
           aria-label="Search canvas"
           aria-expanded={open}
           onClick={() => (open ? inputRef.current?.focus() : openSearch())}
-          className="btn m-[4px] h-9 w-9 shrink-0 rounded-canvas-md text-canvas-muted hover:text-canvas-ink"
+          className="btn m-[4px] h-9 w-9 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
         >
           <Icon icon={Search} />
         </button>
@@ -252,7 +252,7 @@ export function CanvasSearch() {
 
       <MotionOverlayPopover
         isOpen={open && !(showHistory && history.length === 0)}
-        className={`absolute left-0 top-full z-[60] mt-2 w-[min(18rem,50vw)] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card`}
+        className={`absolute left-0 top-full z-[60] mt-2 w-[min(18rem,50vw)] rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card p-1 shadow-card`}
         style={{ transformOrigin: "top left" }}
       >
         {showHistory ? (

@@ -65,7 +65,6 @@ export function SampleCanvasPreviewApp({
     resetViewportBootstrap();
     hydrateFromSnapshot(def.buildSnapshot(), {
       applyViewport: true,
-      canvasReveal: false,
     });
     markViewportRestoredFromSnapshot();
     setTitle(def.title);
@@ -92,7 +91,6 @@ export function SampleCanvasPreviewApp({
           .getState()
           .hydrateFromSnapshot(buildCanvasSnapshot(restore), {
             applyViewport: true,
-            canvasReveal: false,
           });
       }
     };

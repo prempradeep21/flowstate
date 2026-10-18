@@ -7,15 +7,18 @@ export function WidgetCard({
   subtitle,
   children,
   className = "",
+  radius = "rounded-canvas",
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   className?: string;
+  /** Corner radius — concentric with a padded parent when nested in one. */
+  radius?: string;
 }) {
   return (
     <section
-      className={`flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card ${className}`}
+      className={`flex flex-col overflow-hidden ${radius} border border-canvas-border bg-canvas-card shadow-card ${className}`}
     >
       <header className="border-b border-canvas-border px-4 py-3">
         <h2 className="text-canvas-body-lg font-medium text-canvas-ink">{title}</h2>
@@ -30,7 +33,7 @@ export function WidgetCard({
 
 export function StatPill({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-canvas-sm bg-canvas-artifactStage px-3 py-2">
+    <div className="rounded-canvas-nest-17 bg-canvas-artifactStage px-3 py-2">
       <div className="text-canvas-caption uppercase tracking-wide text-canvas-muted">
         {label}
       </div>

@@ -2,12 +2,32 @@
 
 import { useCallback } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import { YoutubePosterCell } from "@/components/artifacts/ImagesArtifactContent";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { focusCanvasWorldRect } from "@/lib/canvasFocus";
 import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasStore } from "@/lib/store";
 import { parseYoutubeId } from "@/lib/youtube";
+
+function EpisodeThumb({ src }: { src: string }) {
+  const load = useMediaLoaded(src);
+  return (
+    <>
+      <MediaLoadingCover loaded={load.loaded} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={load.imgRef}
+        src={src}
+        alt=""
+        onLoad={load.onLoad}
+        onError={load.onError}
+        className="h-full w-full object-cover"
+      />
+    </>
+  );
+}
 
 /**
  * The masthead for an imported video, and the index you read before the spine.
@@ -87,10 +107,9 @@ export function EpisodeArtifactContent({
                     href={url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50"
+                    className="relative block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={thumb} alt="" className="h-full w-full object-cover" />
+                    <EpisodeThumb src={thumb} />
                   </a>
                 )}
               </div>

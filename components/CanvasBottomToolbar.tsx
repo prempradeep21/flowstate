@@ -146,7 +146,7 @@ export function CanvasBottomToolbar() {
   if (!mounted) {
     return (
       <div
-        className="pointer-events-none absolute bottom-5 left-1/2 z-50 h-[52px] w-[min(100%,420px)] -translate-x-1/2 rounded-canvas border border-transparent"
+        className="pointer-events-none absolute bottom-5 left-1/2 z-50 h-[52px] w-[min(100%,420px)] -translate-x-1/2 rounded-canvas-wrap-13 border border-transparent"
         aria-hidden
       />
     );
@@ -244,7 +244,7 @@ export function CanvasBottomToolbar() {
           onColorChange={setPencilColor}
         />
         <div
-          className="floating-chrome-padding flex items-center gap-1 rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+          className="floating-chrome-padding flex items-center gap-1 rounded-canvas-wrap-13 border border-canvas-border bg-canvas-card shadow-card"
           role="toolbar"
           aria-label="Canvas tools"
         >

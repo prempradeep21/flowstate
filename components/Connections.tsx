@@ -46,11 +46,6 @@ export function Connections() {
 
   const recentConnectionId = useCanvasStore((s) => s.recentConnectionId);
   const clearRecentConnection = useCanvasStore((s) => s.clearRecentConnection);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
-
   const tuning = RESOLVED_CANVAS_TUNING;
 
 
@@ -87,7 +82,6 @@ export function Connections() {
 
         style={{
           overflow: "visible",
-          opacity: hideForLoadReveal ? 0 : 1,
         }}
 
         width={1}

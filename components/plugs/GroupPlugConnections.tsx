@@ -27,14 +27,10 @@ export function GroupPlugConnections() {
   const groups = useCanvasStore((s) => s.groups);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
   const nodesState = useCanvasNodesState();
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (groupPlugConnections.length === 0 || chatsGloballyHidden) return null;
@@ -50,7 +46,6 @@ export function GroupPlugConnections() {
       className="pointer-events-none absolute left-0 top-0 z-[14]"
       style={{
         overflow: "visible",
-        opacity: hideForLoadReveal ? 0 : 1,
       }}
       width={1}
       height={1}

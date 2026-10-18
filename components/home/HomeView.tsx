@@ -90,8 +90,12 @@ export function HomeView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const handleOpen = useCallback(
     async (canvasId: string) => {
       if (isSwitchingCanvas) return;
-      await switchCanvas(canvasId);
+      // Go to the canvas straight away: the workspace shows the canvas's
+      // cached layout as skeletons (or the loader) while its data arrives,
+      // rather than leaving Home frozen until the fetch finishes.
+      const switching = switchCanvas(canvasId);
       onOpenCanvas();
+      await switching;
     },
     [isSwitchingCanvas, onOpenCanvas, switchCanvas],
   );

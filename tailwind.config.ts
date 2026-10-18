@@ -3,6 +3,7 @@ import {
   canvasColors,
   canvasFontSize,
   canvasRadii,
+  concentricRadii,
 } from "./lib/design/tokens";
 
 /**
@@ -50,6 +51,12 @@ const config: Config = {
         "canvas-sm": canvasRadii.sm,
         "canvas-xs": canvasRadii.xs,
         "canvas-inner": canvasRadii.inner,
+        ...Object.fromEntries(
+          Object.entries(concentricRadii).map(([key, value]) => [
+            `canvas-${key}`,
+            value,
+          ]),
+        ),
       },
       fontFamily: {
         sans: [

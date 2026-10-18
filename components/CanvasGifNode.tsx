@@ -5,6 +5,8 @@ import { memo,
   useRef,
 } from "react";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -35,6 +37,26 @@ import {
 
 const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle]";
+
+/** The GIF, shimmering in its frame until it has downloaded. */
+function GifImage({ src, alt }: { src: string; alt: string }) {
+  const load = useMediaLoaded(src);
+  return (
+    <div className="relative h-full w-full">
+      <MediaLoadingCover loaded={load.loaded} className="z-[2] rounded-canvas" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={load.imgRef}
+        src={src}
+        alt={alt}
+        draggable={false}
+        onLoad={load.onLoad}
+        onError={load.onError}
+        className="h-full w-full object-contain"
+      />
+    </div>
+  );
+}
 
 function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
   const raisedZIndex = useRaisedZIndex(node.id);
@@ -208,13 +230,7 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
           worldWidth={width}
           className={`h-full w-full ${!isSelected ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={node.url}
-            alt={node.title}
-            draggable={false}
-            className="h-full w-full object-contain"
-          />
+          <GifImage src={node.url} alt={node.title} />
         </CanvasSharpContent>
 
         {!canvasReadOnly && (

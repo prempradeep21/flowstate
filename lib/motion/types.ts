@@ -29,14 +29,3 @@ export interface SpawnMeta {
 export const SPAWN_META_TTL_MS = 2000;
 export const LANDING_ANIMATED_KEY = "flowstate-landing-animated";
 
-export type CanvasLoadRevealPhase = "pending" | "running";
-
-export interface CanvasLoadReveal {
-  phase: CanvasLoadRevealPhase;
-  delays: Record<string, number>;
-  maxDelayMs: number;
-  startedAt: number;
-}
-
-/** Delay ms when running, or pending before reveal starts. */
-export type CanvasLoadRevealDelay = number | "pending";

@@ -64,7 +64,7 @@ export function FocusArtifactPanel() {
       ) : artifact && activeVersion ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div
-            className={`rounded-canvas border bg-canvas-card p-5 shadow-card ${
+            className={`rounded-canvas-nest-17 border bg-canvas-card p-5 shadow-card ${
               todoEditing
                 ? "border-2 border-dashed border-canvas-accent"
                 : "border-canvas-border"

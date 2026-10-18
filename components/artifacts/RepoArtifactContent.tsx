@@ -118,7 +118,7 @@ function SpokeSkeleton({ lines = 5 }: { lines?: number }) {
 
 function StackRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-canvas-sm bg-canvas-artifactStage/70 px-2 py-1.5">
+    <div className="flex items-start gap-2 rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
       <span className="mt-0.5 text-canvas-compact" aria-hidden>
         {icon}
       </span>
@@ -140,7 +140,7 @@ function StatChip({
   value: string | number;
 }) {
   return (
-    <div className="rounded-canvas-sm bg-canvas-artifactStage px-2 py-1.5 text-center">
+    <div className="rounded-canvas-nest-13 bg-canvas-artifactStage px-2 py-1.5 text-center">
       <p className="text-canvas-micro" aria-hidden>
         {icon}
       </p>
@@ -336,7 +336,7 @@ function SpokeBody({
               target="_blank"
               rel="noopener noreferrer"
               data-no-drag
-              className="block overflow-hidden rounded-canvas-sm border border-canvas-border bg-canvas-artifactStage"
+              className="block overflow-hidden rounded-canvas-nest-13 border border-canvas-border bg-canvas-artifactStage"
             >
               <img
                 src={item.url}
@@ -389,7 +389,7 @@ function SpokeBody({
       return (
         <div className="space-y-2">
           {explorer.techDetails.ai?.architectureSummary ? (
-            <p className="rounded-canvas-sm border border-canvas-border/60 bg-canvas-artifactStage/80 px-2 py-1.5 text-canvas-compact leading-relaxed text-canvas-ink">
+            <p className="rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/80 px-2 py-1.5 text-canvas-compact leading-relaxed text-canvas-ink">
               {explorer.techDetails.ai.architectureSummary}
             </p>
           ) : null}
@@ -428,7 +428,7 @@ function SpokeBody({
             </div>
           ) : null}
           {t.dependencies.length ? (
-            <div className="rounded-canvas-sm bg-canvas-artifactStage/70 px-2 py-1.5">
+            <div className="rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
               <p className="text-canvas-micro uppercase tracking-wide text-canvas-muted">
                 Key dependencies
               </p>
@@ -438,7 +438,7 @@ function SpokeBody({
             </div>
           ) : null}
           {t.installationCommands.length ? (
-            <pre className="overflow-x-auto rounded-canvas-sm bg-canvas-codeBg px-2 py-1.5 font-mono text-canvas-micro text-canvas-ink">
+            <pre className="overflow-x-auto rounded-canvas-nest-13 bg-canvas-codeBg px-2 py-1.5 font-mono text-canvas-micro text-canvas-ink">
               {t.installationCommands[0]}
             </pre>
           ) : null}
@@ -450,7 +450,7 @@ function SpokeBody({
       if (!b) return <SpokeSkeleton />;
       return (
         <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5 rounded-canvas-sm border border-canvas-border/60 bg-canvas-artifactStage/70 p-2">
+          <div className="flex items-center gap-2.5 rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/70 p-2">
             <img
               src={b.avatarUrl}
               alt=""
@@ -467,7 +467,7 @@ function SpokeBody({
             </div>
           </div>
           {b.bio ? (
-            <p className="line-clamp-3 rounded-canvas-sm bg-canvas-artifactStage/50 px-2 py-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
+            <p className="line-clamp-3 rounded-canvas-nest-13 bg-canvas-artifactStage/50 px-2 py-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
               {b.bio}
             </p>
           ) : null}

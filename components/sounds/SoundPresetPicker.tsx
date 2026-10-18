@@ -37,7 +37,7 @@ function PlayButton({
         void playPreset(presetId, { force: true, gain: previewGain });
         onClick?.();
       }}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas-sm border border-canvas-border text-canvas-muted transition-colors hover:border-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas-nest-2 border border-canvas-border text-canvas-muted transition-colors hover:border-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
     >
       <span aria-hidden className="text-canvas-caption leading-none">
         ▶
@@ -156,7 +156,7 @@ export function SoundPresetPicker({
         <div
           role="listbox"
           aria-label="Sound presets"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-hidden rounded-canvas-wrap-7 border border-canvas-border bg-canvas-card shadow-card"
         >
           <div className="border-b border-canvas-border p-2">
             <input
@@ -164,7 +164,7 @@ export function SoundPresetPicker({
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Filter presets…"
-              className="w-full rounded-canvas-sm border border-canvas-border bg-canvas-bg px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus:border-canvas-ink"
+              className="w-full rounded-canvas-nest-2 border border-canvas-border bg-canvas-bg px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus:border-canvas-ink"
             />
           </div>
           <div className="max-h-56 overflow-y-auto p-1">
@@ -176,12 +176,12 @@ export function SoundPresetPicker({
                 <div
                   role="option"
                   aria-selected={isNone}
-                  className={`flex items-center gap-2 rounded-canvas-sm px-1 py-1 ${
+                  className={`flex items-center gap-2 rounded-canvas-wrap-2 px-1 py-1 ${
                     isNone ? "bg-canvas-bg" : "hover:bg-canvas-bg/70"
                   }`}
                 >
                   <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas-sm border border-dashed border-canvas-border text-canvas-micro text-canvas-muted"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-canvas-nest-2 border border-dashed border-canvas-border text-canvas-micro text-canvas-muted"
                     aria-hidden
                   >
                     —
@@ -218,7 +218,7 @@ export function SoundPresetPicker({
                       key={presetId}
                       role="option"
                       aria-selected={isSelected}
-                      className={`flex items-center gap-2 rounded-canvas-sm px-1 py-1 ${
+                      className={`flex items-center gap-2 rounded-canvas-wrap-2 px-1 py-1 ${
                         isSelected ? "bg-canvas-bg" : "hover:bg-canvas-bg/70"
                       }`}
                     >

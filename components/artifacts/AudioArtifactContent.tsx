@@ -249,7 +249,7 @@ export function AudioArtifactContent({
   const transportRow = (
     <div
       className={`flex min-w-0 items-stretch gap-3 ${
-        sidebar ? "" : "rounded-canvas-sm border border-canvas-border/40 bg-canvas-bg/50 p-2"
+        sidebar ? "" : "rounded-canvas-nest-13 border border-canvas-border/40 bg-canvas-bg/50 p-2"
       }`}
     >
       <button

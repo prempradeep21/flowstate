@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
 import { ArtifactMenuStreetViewControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import type { ArtifactPayload, StreetViewMode } from "@/lib/artifactTypes";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/streetViewArtifact";
 import { CANVAS_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
 import { useCanvasStore } from "@/lib/store";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 
 function StreetViewFrame({
   children,
@@ -66,10 +68,39 @@ function StreetViewFrame({
     >
       <div
         {...noDrag}
-        className="relative h-full w-full overflow-hidden rounded-2xl"
+        className="relative h-full w-full overflow-hidden rounded-canvas-nest-1"
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+/** The Street View embed, shimmering until Google's viewer has loaded. */
+function StreetViewIframe({
+  label,
+  src,
+  interactive,
+}: {
+  label: string;
+  src: string;
+  interactive: boolean;
+}) {
+  const frameLoad = useMediaLoaded(src);
+  return (
+    <div className="relative h-full w-full">
+      <MediaLoadingCover loaded={frameLoad.loaded} />
+      <iframe
+        title={`Street View: ${label}`}
+        src={src}
+        className="h-full w-full border-0"
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        onLoad={frameLoad.onLoad}
+        onError={frameLoad.onError}
+        style={{ pointerEvents: interactive ? "auto" : "none" }}
+      />
     </div>
   );
 }
@@ -206,16 +237,10 @@ export function StreetViewArtifactContent({
             </p>
           </div>
         ) : (
-          <iframe
-            title={`Street View: ${label}`}
+          <StreetViewIframe
+            label={label}
             src={embedUrl}
-            className="h-full w-full border-0"
-            allowFullScreen
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            style={{
-              pointerEvents: isCanvas && interactive ? "auto" : "none",
-            }}
+            interactive={isCanvas && interactive}
           />
         )}
       </StreetViewFrame>

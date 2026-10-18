@@ -209,7 +209,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
   return (
     <MotionOverlayPopover
       isOpen={open}
-      className="pointer-events-auto absolute bottom-full z-[60] mb-3 flex w-[min(92vw,420px)] flex-col rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="pointer-events-auto absolute bottom-full z-[60] mb-3 flex w-[min(92vw,420px)] flex-col rounded-canvas-wrap-13 border border-canvas-border bg-canvas-card shadow-card"
       style={{ transformOrigin: "bottom center", ...anchorStyle }}
     >
       <div ref={popoverRef} className="flex flex-col">
@@ -233,7 +233,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
                 type="button"
                 role="tab"
                 aria-selected={category === tab}
-                className={`flex-1 rounded-canvas px-2 py-1.5 text-canvas-compact font-medium transition-colors ${
+                className={`flex-1 rounded-canvas-nest-2 px-2 py-1.5 text-canvas-compact font-medium transition-colors ${
                   category === tab
                     ? "bg-canvas-card text-canvas-ink shadow-card"
                     : "text-canvas-muted hover:text-canvas-ink"
@@ -246,7 +246,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
           </div>
         </div>
 
-        <div className="max-h-[320px] min-h-[160px] overflow-y-auto p-2">
+        <div className="max-h-[320px] min-h-[160px] overflow-y-auto p-3">
           {loading && (
             <p className="px-2 py-6 text-center text-canvas-body-sm text-canvas-muted">
               Loading…

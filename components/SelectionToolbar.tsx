@@ -119,7 +119,7 @@ function ToolbarIconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="btn h-7 w-7 rounded-canvas-md text-canvas-muted hover:text-canvas-ink"
+      className="btn h-7 w-7 rounded-canvas text-canvas-muted hover:text-canvas-ink"
     >
       <Icon icon={icon} size="inline" />
     </button>
@@ -149,7 +149,7 @@ function GroupActionButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`btn flex h-7 items-center gap-1.5 rounded-canvas-md px-2 text-canvas-compact font-medium ${
+      className={`btn flex h-7 items-center gap-1.5 rounded-canvas px-2 text-canvas-compact font-medium ${
         accent
           ? "bg-canvas-accent text-canvas-onAccent"
           : "text-canvas-muted hover:text-canvas-ink"
@@ -228,7 +228,7 @@ export function SelectionToolbar() {
           anchor={anchor}
           className="pointer-events-auto absolute z-40"
         >
-          <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
+          <div className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
             {ALIGN_ACTIONS.map((a) => (
               <ToolbarIconButton
                 key={a.mode}
@@ -261,7 +261,7 @@ export function SelectionToolbar() {
       className="pointer-events-auto absolute z-40"
     >
       <div className="flex flex-col items-center gap-1">
-        <div className="flex items-center gap-0.5 rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-1.5 py-1 backdrop-blur-sm">
+        <div className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
           {activeGroup && (
             <>
               <GroupActionButton

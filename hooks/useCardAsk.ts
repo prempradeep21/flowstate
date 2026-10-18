@@ -11,6 +11,11 @@ import {
   shouldEarlySpawnArtifact,
 } from "@/lib/artifactGeneration";
 import { resolvePrimaryArtifactKind } from "@/lib/artifactIntent";
+import {
+  applyArtifactDraft,
+  applyFinalArtifactToDraft,
+  discardArtifactDraft,
+} from "@/lib/artifactDrafts";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import type { AskHandle } from "@/lib/dummyLLM";
 import { notifyExchangeComplete } from "@/lib/memory/canvasMemory";
@@ -141,8 +146,17 @@ export function useCardAsk(cardId: string, enabled: boolean) {
             ensureEarlyCanvasPlaceholder(cardId, responseType as ArtifactKind);
           }
         },
-        onArtifact: (artifact) => {
+        onArtifactDraft: (draft) => {
           if (generation !== askGenerationRef.current) return;
+          applyArtifactDraft(cardId, draft);
+        },
+        onArtifactDraftDiscard: (draftId) => {
+          if (generation !== askGenerationRef.current) return;
+          discardArtifactDraft(cardId, draftId);
+        },
+        onArtifact: (artifact, meta) => {
+          if (generation !== askGenerationRef.current) return;
+          applyFinalArtifactToDraft(cardId, meta?.draftId, artifact);
           handleStreamArtifact(cardId, artifact);
         },
         onMcpApproval: (approval) => {

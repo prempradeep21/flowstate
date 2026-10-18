@@ -140,7 +140,6 @@ import {
 } from "@/components/AuthProvider";
 import { CanvasPieMenu } from "@/components/CanvasPieMenu";
 import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
-import { canvasLoadRevealTotalMs } from "@/lib/motion/canvasLoadReveal";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 import { isConversationCard } from "@/lib/conversationCard";
 
@@ -406,10 +405,7 @@ export function Canvas({
     onlineUserIds,
     isSwitchingCanvas,
   } = useAuth();
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
-  const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
-  const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const connectionsBehindCards = useCanvasStore((s) =>
@@ -507,33 +503,6 @@ export function Canvas({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pencilToolActive, setPencilToolActive]);
-
-  useEffect(() => {
-    if (canvasLoadReveal?.phase !== "pending") return;
-    if (!persistenceReady || isSwitchingCanvas) return;
-    startCanvasLoadReveal();
-  }, [
-    canvasLoadReveal?.phase,
-    persistenceReady,
-    isSwitchingCanvas,
-    startCanvasLoadReveal,
-  ]);
-
-  useEffect(() => {
-    if (canvasLoadReveal?.phase !== "running") return;
-    const totalMs = canvasLoadRevealTotalMs({
-      delays: canvasLoadReveal.delays,
-      unitCount: 0,
-      maxDelayMs: canvasLoadReveal.maxDelayMs,
-    });
-    const timer = window.setTimeout(() => clearCanvasLoadReveal(), totalMs);
-    return () => window.clearTimeout(timer);
-  }, [
-    canvasLoadReveal?.phase,
-    canvasLoadReveal?.maxDelayMs,
-    canvasLoadReveal?.delays,
-    clearCanvasLoadReveal,
-  ]);
 
   useEffect(() => {
     if (cardOrder.length === 0) {

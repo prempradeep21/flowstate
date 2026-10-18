@@ -57,7 +57,7 @@ export function VideoCardBody({ card, isStreaming }: VideoCardBodyProps) {
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
+              className="group block overflow-hidden rounded-canvas-nest-17 border border-canvas-border/60 bg-black/[0.03]"
             >
               <div
                 className={

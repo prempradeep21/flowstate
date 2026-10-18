@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { GoogleWorkspaceConnectMenu } from "@/components/google/GoogleWorkspaceConnectMenu";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
@@ -85,10 +87,14 @@ function GoogleWorkspacePreviewFrame({
   interactive: boolean;
   onActivate?: () => void;
 }) {
+  const frameLoad = useMediaLoaded(previewUrl);
   return (
     <div className="relative flex h-full min-h-[200px] w-full flex-col overflow-hidden bg-canvas-bg">
+      <MediaLoadingCover loaded={frameLoad.loaded} />
       <iframe
         src={previewUrl}
+        onLoad={frameLoad.onLoad}
+        onError={frameLoad.onError}
         title={title}
         className={`h-full w-full flex-1 border-0 bg-white ${
           interactive ? "pointer-events-auto" : "pointer-events-none"

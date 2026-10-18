@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import { TabularPreviewTable } from "@/components/canvas/TabularPreviewTable";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import type { CanvasAsset } from "@/lib/store";
 import { officeOnlineEmbedUrl } from "@/lib/officeAssetKinds";
 import {
@@ -106,6 +108,8 @@ function OfficeEmbedPreview({
   onEmbedFailed: () => void;
 }) {
   const loadedRef = useRef(false);
+  const embedSrc = officeOnlineEmbedUrl(url);
+  const frameLoad = useMediaLoaded(embedSrc);
 
   useEffect(() => {
     loadedRef.current = false;
@@ -120,8 +124,9 @@ function OfficeEmbedPreview({
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white"
       {...(noDrag ? { "data-no-drag": true } : {})}
     >
+      <MediaLoadingCover loaded={frameLoad.loaded} />
       <iframe
-        src={officeOnlineEmbedUrl(url)}
+        src={embedSrc}
         title={title}
         className={`h-full w-full flex-1 border-0 bg-white ${
           interactive ? "pointer-events-auto" : "pointer-events-none"
@@ -130,8 +135,12 @@ function OfficeEmbedPreview({
         referrerPolicy="strict-origin-when-cross-origin"
         onLoad={() => {
           loadedRef.current = true;
+          frameLoad.onLoad();
         }}
-        onError={onEmbedFailed}
+        onError={() => {
+          frameLoad.onError();
+          onEmbedFailed();
+        }}
       />
       {!interactive && onActivate ? (
         <button

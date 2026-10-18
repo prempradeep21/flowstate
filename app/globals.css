@@ -101,7 +101,6 @@
   --motion-shift-sm: 12px;
   --motion-shift-md: 24px;
   --motion-shift-lg: 40px;
-  --motion-duration-canvas-load: 620ms;
   /* Button interaction tokens — consumed by .btn (@layer components).
      State layer per Material 3: a currentColor wash over any fill, so one
      rule yields the right hover tint on accent, card, ghost, and danger
@@ -978,40 +977,6 @@ html[data-theme="dark"] .timeline-band {
   animation: landing-rise 280ms var(--motion-ease-medium) both;
 }
 
-@keyframes canvas-load-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(var(--motion-shift-md));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes canvas-load-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.motion-canvas-load-in {
-  animation: canvas-load-slide-in var(--motion-duration-canvas-load)
-    var(--motion-ease-medium) both;
-}
-
-.motion-canvas-load-fade {
-  animation: canvas-load-fade-in var(--motion-duration-canvas-load)
-    var(--motion-ease-medium) both;
-}
-
-.motion-canvas-load-pending {
-  opacity: 0;
-}
-
 .motion-landing-skip .motion-landing-rise {
   animation: none;
   opacity: 1;
@@ -1145,21 +1110,12 @@ html[data-theme="dark"] .timeline-band {
   }
 
   .motion-landing-rise,
-  .motion-canvas-load-in,
-  .motion-canvas-load-fade,
   .thinking-accent-bar,
   .answer-reveal-in,
   .connection-draw-in,
   .motion-popover-in,
   .motion-fade-in {
     animation: none;
-  }
-
-  .motion-canvas-load-in,
-  .motion-canvas-load-fade,
-  .motion-canvas-load-pending {
-    opacity: 1;
-    transform: none;
   }
 
   .motion-landing-rise {

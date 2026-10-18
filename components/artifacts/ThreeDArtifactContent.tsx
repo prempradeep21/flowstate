@@ -30,7 +30,7 @@ export function ThreeDArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full w-full overflow-hidden rounded-canvas bg-transparent">
+      <div className="h-full w-full overflow-hidden rounded-canvas-nest-1 bg-transparent">
         {viewer}
       </div>
     );

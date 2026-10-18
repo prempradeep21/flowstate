@@ -181,7 +181,12 @@ export interface AskCallbacks {
   onThinking: (label: string) => void;
   onToken: (nextAnswer: string) => void;
   onImages?: (images: { url: string; thumb: string; alt: string }[]) => void;
-  onArtifact?: (artifact: EmittedArtifact) => void;
+  /** `draftId` ties the final artifact to the draft skeleton streamed for it. */
+  onArtifact?: (artifact: EmittedArtifact, meta?: { draftId?: string }) => void;
+  /** Half-written emit_artifact input — pop and fill a skeleton on the canvas. */
+  onArtifactDraft?: (draft: import("@/lib/llm/artifactDraftStream").ArtifactDraftEvent) => void;
+  /** The server rejected that emit_artifact call; drop its skeleton. */
+  onArtifactDraftDiscard?: (draftId: string) => void;
   onResponseType?: (type: ResponseType) => void;
   onSdkBuildStages?: (stages: import("@/lib/cursorSdk/buildProgressTypes").SdkBuildStage[]) => void;
   /** The model handed an MCP result to the custom-UI builder; spawn a follow-up card. */

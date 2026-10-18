@@ -59,7 +59,7 @@ export function CanvasArtifactMenu({
   return (
     <MotionOverlayPopover
       isOpen={open}
-      className="pointer-events-auto absolute bottom-full z-[60] mb-2 max-h-[min(70vh,420px)] min-w-[180px] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+      className="pointer-events-auto absolute bottom-full z-[60] mb-2 max-h-[min(70vh,420px)] min-w-[180px] overflow-y-auto rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card p-1 shadow-card"
       style={{ transformOrigin: "bottom center", ...anchorStyle }}
     >
       <div ref={popoverRef} role="menu" aria-label="Add artefact">

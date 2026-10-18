@@ -596,7 +596,6 @@ export function useCanvasPersistence({
 
       hydrateFromSnapshot(state, {
         applyViewport: true,
-        canvasReveal: true,
       });
       if (hasMeaningfulSavedViewport(state.viewport)) {
         markViewportRestoredFromSnapshot();
@@ -705,7 +704,6 @@ export function useCanvasPersistence({
 
             hydrateFromSnapshot(adoptedSnapshot, {
               applyViewport: true,
-              canvasReveal: true,
             });
             canvasIdRef.current = adopted.id;
             setActiveCanvasId(adopted.id);
@@ -754,7 +752,6 @@ export function useCanvasPersistence({
           const created = await createDefaultCanvas(supabase, nextUser.id);
           hydrateFromSnapshot(created.state, {
             applyViewport: true,
-            canvasReveal: true,
           });
           canvasIdRef.current = created.id;
           setActiveCanvasId(created.id);
@@ -888,7 +885,6 @@ export function useCanvasPersistence({
         sessionSnapshotsRef.current.set(id, empty);
         hydrateFromSnapshot(empty, {
           applyViewport: true,
-          canvasReveal: true,
         });
         canvasIdRef.current = id;
         setActiveCanvasId(id);
@@ -917,7 +913,6 @@ export function useCanvasPersistence({
 
       hydrateFromSnapshot(empty, {
         applyViewport: true,
-        canvasReveal: false,
       });
       canvasIdRef.current = created.id;
       setActiveCanvasId(created.id);
@@ -1057,7 +1052,6 @@ export function useCanvasPersistence({
             const created = await createDefaultCanvas(supabase, user.id);
             hydrateFromSnapshot(created.state, {
               applyViewport: true,
-              canvasReveal: true,
             });
             canvasIdRef.current = created.id;
             setActiveCanvasId(created.id);

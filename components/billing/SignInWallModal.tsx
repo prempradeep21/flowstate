@@ -85,7 +85,7 @@ export function SignInWallModal({
               aria-describedby="signin-wall-desc"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-canvas-md bg-canvas-accent/10 text-canvas-accent">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-canvas-nest-21 bg-canvas-accent/10 text-canvas-accent">
                 <Icon icon={Sparkles} size="hero" />
               </span>
 
@@ -119,11 +119,17 @@ export function SignInWallModal({
               </p>
 
               <div className="mt-5 flex justify-end gap-2">
-                <Button variant="ghost" disabled={busy} onClick={onDismiss}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={onDismiss}
+                  className="rounded-canvas-nest-21"
+                >
                   Not now
                 </Button>
                 <Button
                   variant="primary"
+                  className="rounded-canvas-nest-21"
                   icon={LogIn}
                   loading={busy}
                   onClick={handleSignIn}

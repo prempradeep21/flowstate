@@ -53,8 +53,7 @@ import {
   getArtifactStylePack,
 } from "@/lib/design/style/stylePacks";
 import type { ArtifactStyleId } from "@/lib/design/style/types";
-import { buildCanvasLoadRevealPlan } from "@/lib/motion/canvasLoadReveal";
-import type { CanvasLoadReveal, SpawnMeta } from "@/lib/motion/types";
+import type { SpawnMeta } from "@/lib/motion/types";
 import { isCardPending } from "@/lib/cardLayoutPolicy";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import {
@@ -588,6 +587,11 @@ export interface ArtifactPermissionPreview {
 export interface ArtifactGeneratingPreview {
   kind: import("@/lib/artifactTypes").ArtifactKind;
   title: string;
+  /**
+   * The streamed emit_artifact call filling this skeleton. Its live partial
+   * payload lives in useArtifactDraftStore (transient, never persisted).
+   */
+  draftId?: string;
 }
 
 export interface CanvasArtifactNode {
@@ -924,11 +928,6 @@ interface CanvasState {
   recentArtifactPlugId: string | null;
   clearRecentArtifactPlug: () => void;
 
-  /** Staggered slide-in after canvas hydrate (login / reload / switch). */
-  canvasLoadReveal: CanvasLoadReveal | null;
-  startCanvasLoadReveal: () => void;
-  clearCanvasLoadReveal: () => void;
-
   plugDrag: PlugDragState | null;
   plugComposerAttachments: Record<string, AttachedArtifactRef>;
   plugComposerAssetAttachments: Record<string, AttachedAssetRef>;
@@ -1235,7 +1234,15 @@ interface CanvasState {
     kind: import("@/lib/artifactTypes").ArtifactKind,
     title: string,
   ) => string | null;
-  removeGeneratingArtifactPreview: (cardId: string) => void;
+  /** With a kind, removes that kind's skeleton; without, every skeleton for the card. */
+  removeGeneratingArtifactPreview: (
+    cardId: string,
+    kind?: import("@/lib/artifactTypes").ArtifactKind,
+  ) => void;
+  claimGeneratingArtifactPreview: (
+    nodeId: string,
+    patch: { draftId: string; title?: string },
+  ) => void;
   saveTodoArtifactVersion: (
     artifactId: string,
     payload: Extract<ArtifactPayload, { type: "todo" }>,
@@ -1353,7 +1360,6 @@ interface CanvasState {
     snapshot: CanvasSnapshot,
     options?: {
       applyViewport?: boolean;
-      canvasReveal?: boolean;
       /** Keep selection, open panels, and composer drafts during collab sync. */
       preserveEphemeral?: boolean;
     },
@@ -2628,22 +2634,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   recentConnectionId: null,
   clearRecentArtifactPlug: () => set({ recentArtifactPlugId: null }),
   recentArtifactPlugId: null,
-
-  canvasLoadReveal: null,
-  startCanvasLoadReveal: () =>
-    set((state) => {
-      if (!state.canvasLoadReveal || state.canvasLoadReveal.phase !== "pending") {
-        return state;
-      }
-      return {
-        canvasLoadReveal: {
-          ...state.canvasLoadReveal,
-          phase: "running",
-          startedAt: Date.now(),
-        },
-      };
-    }),
-  clearCanvasLoadReveal: () => set({ canvasLoadReveal: null }),
 
   plugDrag: null,
   plugComposerAttachments: {},
@@ -4599,7 +4589,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const latest = getLatestVersion(art);
         if (latest) {
           get().spawnCanvasArtifact(targetId, latest.id);
-          get().removeGeneratingArtifactPreview(cardId);
+          get().removeGeneratingArtifactPreview(cardId, "table");
           return { artifactId: targetId, versionId: latest.id };
         }
       }
@@ -4641,7 +4631,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const latest = getLatestVersion(art);
         if (latest) {
           get().spawnCanvasArtifact(targetId, latest.id);
-          get().removeGeneratingArtifactPreview(cardId);
+          get().removeGeneratingArtifactPreview(cardId, "custom");
           return { artifactId: targetId, versionId: latest.id };
         }
       }
@@ -4701,11 +4691,47 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     return nodeId;
   },
 
-  removeGeneratingArtifactPreview: (cardId) => {
-    const preview = findGeneratingPreviewNode(get().canvasArtifactNodes, cardId);
-    if (!preview) return;
-    get().removeCanvasArtifact(preview.id);
+  removeGeneratingArtifactPreview: (cardId, kind) => {
+    if (kind) {
+      const preview = findGeneratingPreviewNode(
+        get().canvasArtifactNodes,
+        cardId,
+        kind,
+      );
+      if (preview) get().removeCanvasArtifact(preview.id);
+      return;
+    }
+    const previews = Object.values(get().canvasArtifactNodes).filter(
+      (n) => n.sourceCardId === cardId && n.generatingPreview && !n.artifactId,
+    );
+    for (const preview of previews) get().removeCanvasArtifact(preview.id);
   },
+
+  claimGeneratingArtifactPreview: (nodeId, patch) =>
+    set((state) => {
+      const node = state.canvasArtifactNodes[nodeId];
+      if (!node?.generatingPreview) return state;
+      const title = patch.title?.trim() || node.generatingPreview.title;
+      if (
+        node.generatingPreview.draftId === patch.draftId &&
+        node.generatingPreview.title === title
+      ) {
+        return state;
+      }
+      return {
+        canvasArtifactNodes: {
+          ...state.canvasArtifactNodes,
+          [nodeId]: {
+            ...node,
+            generatingPreview: {
+              ...node.generatingPreview,
+              draftId: patch.draftId,
+              title,
+            },
+          },
+        },
+      };
+    }),
 
   saveTodoArtifactVersion: (artifactId, payload) => {
     const { versionId } = get().createArtifactVersion(
@@ -4829,6 +4855,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     let nodeId: string | null = null;
     let isNewNode = false;
     let sourceCardId = "";
+    let spawnedKind: import("@/lib/artifactTypes").ArtifactKind | null = null;
+    let consumedPreview = false;
     let notifyReady = false;
     set((state) => {
       const art = state.sessionArtifacts[artifactId];
@@ -4836,6 +4864,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const ver = getVersionById(art, versionId) ?? getLatestVersion(art);
       if (!ver) return state;
       sourceCardId = ver.sourceCardId;
+      spawnedKind = art.kind;
 
       const existing = findCanvasNodeByArtifactId(
         state.canvasArtifactNodes,
@@ -4870,6 +4899,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       if (generatingNode) {
         nodeId = generatingNode.id;
         isNewNode = false;
+        consumedPreview = true;
         notifyReady = isCardSourcedArtifactBuild(
           ver.sourceCardId,
           state.cards,
@@ -4933,8 +4963,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         createdAt: Date.now(),
       });
     }
-    if (sourceCardId) {
-      get().removeGeneratingArtifactPreview(sourceCardId);
+    // A skeleton this spawn did not take over (e.g. the artifact already sat
+    // on the canvas and was updated in place) has nothing left to show.
+    // Skeletons of other kinds belong to sibling artifacts still on their way.
+    if (sourceCardId && spawnedKind && !consumedPreview) {
+      get().removeGeneratingArtifactPreview(sourceCardId, spawnedKind);
     }
     if (notifyReady && nodeId) {
       pushArtifactReadyUpdate(artifactId, nodeId);
@@ -6132,7 +6165,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       collaborationHasEdits: false,
       canvasReadOnly: false,
       publishedOrigin: null,
-      canvasLoadReveal: null,
     });
   },
 
@@ -6194,27 +6226,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           : null;
 
       const canvasArtifactOrder = [...(snapshotNorm.canvasArtifactOrder ?? [])];
-      let canvasLoadReveal: CanvasLoadReveal | null = null;
-      if (options?.canvasReveal) {
-        const plan = buildCanvasLoadRevealPlan({
-          cards,
-          cardOrder: nextCardOrder,
-          connections,
-          threads,
-          threadOrder,
-          canvasArtifactNodes,
-          canvasArtifactOrder,
-        });
-        if (plan.unitCount > 0) {
-          canvasLoadReveal = {
-            phase: "pending",
-            delays: plan.delays,
-            maxDelayMs: plan.maxDelayMs,
-            startedAt: 0,
-          };
-        }
-      }
-
       const preserveEphemeral = options?.preserveEphemeral === true;
 
       return {
@@ -6245,7 +6256,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         canvasSkills: { ...snapshotNorm.canvasSkills },
         canvasSkillNodes: { ...snapshotNorm.canvasSkillNodes },
         canvasSkillOrder: [...(snapshotNorm.canvasSkillOrder ?? [])],
-        canvasLoadReveal: preserveEphemeral ? state.canvasLoadReveal : canvasLoadReveal,
         activeThreadId: preserveEphemeral ? state.activeThreadId : (threadOrder[0] ?? null),
         focusArtifactId: preserveEphemeral ? state.focusArtifactId : null,
         focusDraftChat: preserveEphemeral ? state.focusDraftChat : null,

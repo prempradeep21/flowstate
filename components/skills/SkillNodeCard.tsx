@@ -43,6 +43,8 @@ export function SkillNodeCard({
   return (
     <div className="grid w-full grid-cols-2 gap-3 p-4">
       <WidgetCard
+        // The grid's p-4 + the node border put every widget 17px into a corner.
+        radius="rounded-canvas-nest-17"
         title={skill.title}
         subtitle={meta.author ? `by ${meta.author}` : undefined}
         className="col-span-2"
@@ -57,7 +59,7 @@ export function SkillNodeCard({
       </WidgetCard>
 
       {analyzing || meta.topics.length > 0 ? (
-        <WidgetCard title="Topics">
+        <WidgetCard title="Topics" radius="rounded-canvas-nest-17">
           {analyzing ? (
             <WidgetSkeleton lines={1} />
           ) : (
@@ -71,7 +73,7 @@ export function SkillNodeCard({
       ) : null}
 
       {analyzing || meta.restrictions.length > 0 ? (
-        <WidgetCard title="Restrictions">
+        <WidgetCard title="Restrictions" radius="rounded-canvas-nest-17">
           {analyzing ? (
             <WidgetSkeleton lines={1} />
           ) : (
@@ -84,7 +86,7 @@ export function SkillNodeCard({
         </WidgetCard>
       ) : null}
 
-      <WidgetCard title="Signals" className="col-span-2">
+      <WidgetCard title="Signals" className="col-span-2" radius="rounded-canvas-nest-17">
         <SkillMetaRow
           tokenCost={meta.tokenCost}
           security={meta.security}

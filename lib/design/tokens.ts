@@ -192,6 +192,9 @@ export function connectorColour(
  * - md: 1× base (buttons, inputs, menu rows)
  * - lg: 0.8× base (panels, popovers, artifact windows)
  * - inner: lg − chrome padding, clamped (nested/clipped chrome, e.g. collapsed toolbar)
+ *
+ * Nested corners are concentric: R2 = R1 + D, where D is the inset from the
+ * outer shape's edge to the inner one (padding + border). See concentricRadii.
  */
 export const canvasRadiusBasePx = 10;
 export const canvasRadiusFactors = { sm: 0.6, md: 1, lg: 0.8 } as const;
@@ -213,6 +216,30 @@ export const canvasRadii = {
   xs: "var(--canvas-radius-xs)",
   inner: "var(--canvas-radius-inner)",
 } as const;
+
+/**
+ * Concentric corners — R2 = R1 + D. Both directions key off the lg tier and
+ * the inset D in px (padding + border between the two edges):
+ * - `wrap-D`: a shell around lg controls (toolbar, chip, segmented track) —
+ *   lg + D. Compact chrome grows its own corners to fit what it holds.
+ * - `nest-D`: something sitting D inside an lg surface (artifact window,
+ *   panel, card, modal) — lg − D, clamped to xs so it never goes square.
+ *   Large surfaces keep their radius; what they hold yields.
+ * Tailwind: `rounded-canvas-wrap-5`, `rounded-canvas-nest-13`, …
+ */
+const concentricInsetsPx = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21,
+] as const;
+
+export const concentricRadii = Object.fromEntries(
+  concentricInsetsPx.flatMap((px) => [
+    [`wrap-${px}`, `calc(var(--canvas-radius-lg) + ${px}px)`],
+    [
+      `nest-${px}`,
+      `max(calc(var(--canvas-radius-lg) - ${px}px), var(--canvas-radius-xs))`,
+    ],
+  ]),
+) as Record<`${"wrap" | "nest"}-${(typeof concentricInsetsPx)[number]}`, string>;
 
 /**
  * Padding for floating canvas chrome (side panels, bottom toolbar shell).

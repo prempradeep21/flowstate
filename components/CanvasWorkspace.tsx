@@ -19,6 +19,7 @@ import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { GuestWall } from "@/components/billing/GuestWall";
 import { useAuth } from "@/components/AuthProvider";
+import { useCanvasLayoutOutlineCache } from "@/hooks/useCanvasLayoutOutlineCache";
 import { useCanvasSnapshotThumbnailCapture } from "@/hooks/useCanvasSnapshotThumbnailCapture";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
@@ -41,9 +42,15 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
   const viewMode = useCanvasStore((s) => s.viewMode);
   const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
-  const { activeCanvasId, isSwitchingCanvas, switchingCanvasTitle } = useAuth();
+  const {
+    activeCanvasId,
+    isSwitchingCanvas,
+    switchingCanvasId,
+    switchingCanvasTitle,
+  } = useAuth();
   const setLeftPanelCollapsed = useCanvasStore((s) => s.setLeftPanelCollapsed);
   useUndoKeyboard();
+  useCanvasLayoutOutlineCache(activeCanvasId, isSwitchingCanvas);
   useCanvasSnapshotThumbnailCapture(canvasContainerRef);
 
   const canvasKey = activeCanvasId ?? "local";
@@ -80,6 +87,7 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
         )}
         <CanvasSwitchOverlay
           visible={isSwitchingCanvas}
+          canvasId={switchingCanvasId}
           canvasTitle={switchingCanvasTitle}
         />
       </div>

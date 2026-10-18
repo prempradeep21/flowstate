@@ -55,14 +55,8 @@ html[data-demo-video] .thinking-accent-bar,
 html[data-demo-video] .answer-reveal-in,
 html[data-demo-video] .motion-popover-in,
 html[data-demo-video] .motion-fade-in,
-html[data-demo-video] .motion-landing-rise,
-html[data-demo-video] .motion-canvas-load-in,
-html[data-demo-video] .motion-canvas-load-fade {
+html[data-demo-video] .motion-landing-rise {
   animation: none !important;
-}
-html[data-demo-video] .motion-canvas-load-in,
-html[data-demo-video] .motion-canvas-load-fade {
-  opacity: 1;
 }
 html[data-demo-capture] *, html[data-demo-capture] *::before, html[data-demo-capture] *::after {
   transition: none !important;

@@ -32,7 +32,7 @@ export function TableArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full overflow-hidden rounded-canvas-sm bg-canvas-card m-1.5">
+      <div className="h-full overflow-hidden rounded-canvas-nest-7 bg-canvas-card m-1.5">
         {isLoading ? (
           <TableShaderSkeleton
             accentSeed={accentSeed}

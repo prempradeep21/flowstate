@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SkeletonBar } from "@/components/artifacts/ArtifactLoadingSkeleton";
 
 /**
  * Falls back to the static card if the frame hasn't signalled load by this
@@ -8,6 +9,34 @@ import { useEffect, useRef, useState } from "react";
  * render (or are pathologically slow).
  */
 const FRAME_LOAD_TIMEOUT_MS = 8000;
+
+/**
+ * A cross-origin page paints well after its load event (it renders in its own
+ * process), and there is no signal for when it does. So the skeleton sits
+ * BEHIND a transparent frame: it shows through until the page paints its own
+ * background over it. After this grace the skeleton goes and the frame gets a
+ * white backing, for the odd page that never paints a background.
+ */
+const PAINT_GRACE_MS = 3000;
+
+/** A generic page shape — header, headline, body copy — that shimmers. */
+function PageSkeleton() {
+  return (
+    <div className="flex h-full w-full flex-col gap-3 p-4">
+      <div className="flex items-center gap-3">
+        <SkeletonBar className="h-4 w-24" />
+        <div className="flex-1" />
+        <SkeletonBar className="h-4 w-4 rounded-full" />
+        <SkeletonBar className="h-4 w-4 rounded-full" />
+      </div>
+      <SkeletonBar className="mt-2 h-6 w-1/2" />
+      {[94, 88, 97, 72].map((w, i) => (
+        <SkeletonBar key={i} className="h-2.5" style={{ width: `${w}%` }} />
+      ))}
+      <SkeletonBar className="mt-1 min-h-0 w-full flex-1" />
+    </div>
+  );
+}
 
 /**
  * A live, interactive <iframe> for an arbitrary embeddable website. Mirrors the
@@ -31,6 +60,7 @@ export function InteractiveWebFrame({
   const isCanvas = layout === "canvas";
   const [active, setActive] = useState(forceInteractive);
   const [loaded, setLoaded] = useState(false);
+  const [settled, setSettled] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const onFailedRef = useRef(onFailed);
@@ -63,6 +93,12 @@ export function InteractiveWebFrame({
     };
   }, [isCanvas, active]);
 
+  useEffect(() => {
+    if (!loaded) return;
+    const timer = window.setTimeout(() => setSettled(true), PAINT_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [loaded]);
+
   // Watchdog — only reset when the load state flips, so a re-rendered onFailed
   // callback doesn't keep restarting the timer.
   useEffect(() => {
@@ -78,10 +114,19 @@ export function InteractiveWebFrame({
       ref={rootRef}
       className="relative flex h-full w-full items-center justify-center overflow-hidden bg-canvas-bg"
     >
+      {!settled ? (
+        <div
+          className="pointer-events-none absolute inset-0 bg-canvas-card"
+          role="status"
+          aria-label="Loading site"
+        >
+          <PageSkeleton />
+        </div>
+      ) : null}
       <iframe
         src={src}
         title={title}
-        className={`h-full w-full border-0 bg-white ${
+        className={`relative h-full w-full border-0 ${settled ? "bg-white" : "bg-transparent"} ${
           interactive ? "pointer-events-auto" : "pointer-events-none"
         }`}
         loading="lazy"
@@ -90,12 +135,6 @@ export function InteractiveWebFrame({
         allowFullScreen
         onLoad={() => setLoaded(true)}
       />
-      {!loaded ? (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-canvas-bg text-canvas-caption text-canvas-muted">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-canvas-border border-t-canvas-accent" />
-          <span>Loading site…</span>
-        </div>
-      ) : null}
       {isCanvas && !active ? (
         <button
           type="button"

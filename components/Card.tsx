@@ -956,6 +956,8 @@ function CardInner({ card }: CardProps) {
                     cardId={card.id}
                     canvas
                     layout="embedded"
+                    // Composer controls row: px-2 / py-1.5 + border.
+                    buttonRadius="rounded-canvas-nest-9"
                   />
                 ) : undefined
               }
@@ -1016,6 +1018,8 @@ function CardInner({ card }: CardProps) {
                           cardId={card.id}
                           canvas
                           layout="embedded"
+                          // Header row sits the question inset (16) + border in.
+                          buttonRadius="rounded-canvas-nest-17"
                         />
                       }
                     />
@@ -1041,6 +1045,8 @@ function CardInner({ card }: CardProps) {
                           cardId={card.id}
                           canvas
                           layout="embedded"
+                          // Header row sits the question inset (16) + border in.
+                          buttonRadius="rounded-canvas-nest-17"
                         />
                       }
                     />
@@ -1085,6 +1091,7 @@ function CardInner({ card }: CardProps) {
             >
               <ChatComposer
                 variant="canvas"
+                nested
                 cardId={card.id}
                 accentColour={plugAccent}
                 receivePlugsActive={receivePlugsActive}

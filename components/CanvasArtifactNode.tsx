@@ -415,7 +415,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     };
   };
 
-  if (!preview && !art) return null;
+  if (!preview && !art && !generatingPreview) return null;
 
   // Gesture-time stand-in: bordered rect + title at exact node bounds (same
   // helpers the culling index uses, so geometry never shifts on hydrate).
@@ -441,7 +441,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         }}
       >
         <div className="truncate px-6 pt-4 text-[22px] font-medium text-canvas-ink/70">
-          {art?.title ?? ""}
+          {art?.title ?? generatingPreview?.title ?? ""}
         </div>
       </div>
     );
@@ -449,10 +449,13 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
+  // A skeleton wears the chrome of the kind it is becoming, so it doesn't
+  // change shape when the real artifact replaces it.
+  const chromeKind = art?.kind ?? generatingPreview?.kind;
   const usesContainerFill =
-    !!art && artifactKindUsesCanvasContainerFill(art.kind);
+    !!chromeKind && artifactKindUsesCanvasContainerFill(chromeKind);
   const usesPaddingChrome =
-    !!art && artifactKindUsesCanvasPaddingChrome(art.kind);
+    !!chromeKind && artifactKindUsesCanvasPaddingChrome(chromeKind);
   const contentInteractive = isSelected || isPermissionPreview;
   /** Selection or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
   const chromeSelected = isSelected || isPermissionPreview;
@@ -468,9 +471,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
       {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
-      data-artifact-kind={art?.kind ?? preview?.kind}
+      data-artifact-kind={art?.kind ?? preview?.kind ?? generatingPreview?.kind}
       data-artifact-category={artifactCategoryOf(
-        (art?.kind ?? preview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
+        (art?.kind ?? preview?.kind ?? generatingPreview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
       )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
@@ -563,6 +566,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
           />
         ) : generatingPreview ? (
           <GeneratingArtifactContent
+            nodeId={node.id}
             kind={generatingPreview.kind}
             title={generatingPreview.title}
             sourceCard={sourceCard}

@@ -62,7 +62,7 @@ export function CanvasGridCard({
         {/* Open affordance — slides in with the branch animation. */}
         <span
           aria-hidden
-          className="absolute right-2.5 top-2.5 flex h-7 w-7 translate-y-1 items-center justify-center rounded-canvas border border-canvas-border bg-canvas-card text-canvas-ink opacity-0 shadow-card transition-all duration-motion-standard ease-motion-medium group-hover:translate-y-0 group-hover:opacity-100 motion-reduce:transition-none"
+          className="absolute right-2.5 top-2.5 flex h-7 w-7 translate-y-1 items-center justify-center rounded-canvas-nest-11 border border-canvas-border bg-canvas-card text-canvas-ink opacity-0 shadow-card transition-all duration-motion-standard ease-motion-medium group-hover:translate-y-0 group-hover:opacity-100 motion-reduce:transition-none"
         >
           <ArrowIcon />
         </span>

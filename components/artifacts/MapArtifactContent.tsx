@@ -3,6 +3,7 @@
 import L from "leaflet";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import type { ArtifactPayload, MapSavedPlace } from "@/lib/artifactTypes";
 import type { MapSearchResult } from "@/lib/geocoding";
 import { createMapSavedPlace } from "@/lib/mapArtifact";
@@ -654,6 +655,8 @@ function MapView({
   // map is a real viewing surface (canvas/panel pass `showLabel`).
   const showTooltipsRef = useRef(showLabel);
   const [addPinMode, setAddPinMode] = useState(false);
+  // Leaflet paints flat grey until the first tiles arrive; shimmer instead.
+  const [tilesLoaded, setTilesLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewingLabel, setViewingLabel] = useState<string | null>(null);
 
@@ -718,6 +721,7 @@ function MapView({
       attribution: initialStyle.attribution,
       maxZoom: initialStyle.maxZoom,
     }).addTo(map);
+    tileLayerRef.current.once("load", () => setTilesLoaded(true));
 
     const primaryMarker = L.marker([primaryLat, primaryLng], {
       icon: PRIMARY_PIN_ICON,
@@ -866,6 +870,8 @@ function MapView({
           className="h-full w-full"
         />
       </div>
+      {/* Above Leaflet's panes (z ≤ 400), below its controls (z-[500]). */}
+      <MediaLoadingCover loaded={tilesLoaded} className="z-[450]" />
       <div
         {...(interactive ? { "data-no-drag": true } : {})}
         className="absolute right-2 top-2 z-[500] flex max-w-[calc(100%-1rem)] flex-wrap items-start justify-end gap-2"

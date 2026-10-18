@@ -85,7 +85,6 @@ export function PublishedCanvasApp({
         resetViewportBootstrap();
         hydrateFromSnapshot(snapshot, {
           applyViewport: true,
-          canvasReveal: true,
         });
         markViewportRestoredFromSnapshot();
         setPublishedOrigin({
@@ -155,7 +154,6 @@ export function PublishedCanvasApp({
           .getState()
           .hydrateFromSnapshot(buildCanvasSnapshot(restore), {
             applyViewport: true,
-            canvasReveal: false,
           });
       }
     };

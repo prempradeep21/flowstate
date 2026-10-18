@@ -53,14 +53,6 @@ export const scales = {
 /** Artifact pop-in from chat — full bounce sequence (ms). */
 export const ARTIFACT_SPAWN_ANIMATION_MS = 1200;
 
-/** Canvas load reveal — stagger left-to-right; nodes slide up from below. */
-export const canvasLoadDelays = {
-  totalMs: 3000,
-  slideDuration: 620,
-  shift: distances.shiftMd,
-  buffer: 0,
-} as const;
-
 /** Pie menu (hold Z) — ring anchors first, pills pop clockwise from top. */
 export const pieDelays = {
   /** Per-pill clockwise stagger offset. */

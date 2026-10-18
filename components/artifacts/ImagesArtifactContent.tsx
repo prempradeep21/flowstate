@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import {
   isVideoArtifactPayload,
   type ArtifactPayload,
@@ -39,15 +41,20 @@ export function YoutubePosterCell({
   const isActive = useVideoPipStore((s) => s.active?.sessionId === sessionId);
   const play = useVideoPipStore((s) => s.play);
   const thumb = item.thumb || youtubeThumbUrl(videoId);
+  const thumbLoad = useMediaLoaded(thumb);
   return (
     <div
       className="relative h-full w-full bg-black"
       data-video-pip-active={isActive ? "" : undefined}
     >
+      <MediaLoadingCover loaded={thumbLoad.loaded} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={thumbLoad.imgRef}
         src={thumb}
         alt={item.title ?? "Video"}
+        onLoad={thumbLoad.onLoad}
+        onError={thumbLoad.onError}
         className="h-full w-full object-cover"
       />
       {!isActive ? (
@@ -63,7 +70,7 @@ export function YoutubePosterCell({
               artifactId,
             })
           }
-          className="group absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25 disabled:cursor-default"
+          className="group absolute inset-0 z-[3] flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25 disabled:cursor-default"
           aria-label={`Play ${item.title ?? "video"}`}
         >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/65 shadow-lg transition-transform group-hover:scale-105 group-disabled:scale-100">
@@ -112,13 +119,37 @@ function MediaCell({
       />
     );
   }
+  return <ImageCell src={item.thumb || item.url} alt={item.alt ?? ""} natural={natural} />;
+}
+
+/** An image that shimmers in its slot until it has downloaded. */
+function ImageCell({
+  src,
+  alt,
+  natural,
+}: {
+  src: string;
+  alt: string;
+  natural: boolean;
+}) {
+  const load = useMediaLoaded(src);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={item.thumb || item.url}
-      alt={item.alt ?? ""}
-      className={natural ? "block h-auto w-full" : "h-full w-full object-cover"}
-    />
+    <div
+      className={natural ? "relative" : "relative h-full w-full"}
+      // A natural-height image has no height until it arrives; hold a slot.
+      style={natural && !load.loaded ? { minHeight: 160 } : undefined}
+    >
+      <MediaLoadingCover loaded={load.loaded} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={load.imgRef}
+        src={src}
+        alt={alt}
+        onLoad={load.onLoad}
+        onError={load.onError}
+        className={natural ? "block h-auto w-full" : "h-full w-full object-cover"}
+      />
+    </div>
   );
 }
 
@@ -157,7 +188,7 @@ export function ImagesArtifactContent({
     return (
       <div className="grid h-full min-h-0 w-full grid-cols-3 grid-rows-2 gap-1 p-1.5">
         {items.slice(0, 6).map((item, i) => (
-          <div key={i} className="relative min-h-0 overflow-hidden rounded-canvas-sm bg-canvas-bg">
+          <div key={i} className="relative min-h-0 overflow-hidden rounded-canvas-nest-13 bg-canvas-bg">
             <div className="absolute inset-0">
               <MediaCell item={item} allowInteraction={allowMediaInteraction} />
             </div>
@@ -204,7 +235,7 @@ export function ImagesArtifactContent({
       }}
     >
       {items.map((item, i) => (
-        <div key={i} className="aspect-video overflow-hidden rounded-canvas-sm">
+        <div key={i} className="aspect-video overflow-hidden rounded-canvas-nest-13">
           <MediaCell
             item={item}
             allowInteraction={allowMediaInteraction}
@@ -223,7 +254,7 @@ export function ImagesArtifactContent({
       {items.map((item, i) => (
         <div
           key={i}
-          className="mb-2 break-inside-avoid overflow-hidden rounded-canvas-sm last:mb-0"
+          className="mb-2 break-inside-avoid overflow-hidden rounded-canvas-nest-13 last:mb-0"
         >
           <MediaCell
             item={item}

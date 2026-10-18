@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { retryEmbedArtifact } from "@/lib/createUrlArtifact";
@@ -82,12 +84,13 @@ function PreviewThumbnail({
   );
 }
 
-function EmbedHtmlFrame({ html }: { html: string }) {
+function EmbedHtmlFrame({ html, onLoad }: { html: string; onLoad?: () => void }) {
   const srcDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;overflow:hidden;}</style></head><body>${html}</body></html>`;
   return (
     <iframe
       srcDoc={srcDoc}
       title="Embed"
+      onLoad={onLoad}
       className="h-full w-full border-0"
       sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
     />
@@ -166,10 +169,13 @@ function EmbedFrame({
   const { iframeSrc, embedHtml, embedWidth, embedHeight, title, fallback } =
     payload.data;
   const previewImageUrl = fallback?.previewImageUrl;
+  const frameLoad = useMediaLoaded(iframeSrc ?? embedHtml);
 
   const frame = iframeSrc ? (
     <iframe
       src={iframeSrc}
+      onLoad={frameLoad.onLoad}
+      onError={frameLoad.onError}
       title={title}
       width={embedWidth}
       height={embedHeight}
@@ -186,7 +192,7 @@ function EmbedFrame({
       className={`relative z-[1] h-full w-full ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
       style={{ width: embedWidth, height: embedHeight, maxWidth: "100%", maxHeight: "100%" }}
     >
-      <EmbedHtmlFrame html={embedHtml} />
+      <EmbedHtmlFrame html={embedHtml} onLoad={frameLoad.onLoad} />
     </div>
   ) : null;
 
@@ -202,6 +208,7 @@ function EmbedFrame({
         </div>
       ) : null}
       {frame}
+      {frame && <MediaLoadingCover loaded={frameLoad.loaded} />}
       {!interactive && onActivate ? (
         <button
           type="button"

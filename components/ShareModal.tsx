@@ -123,7 +123,7 @@ export function ShareModal() {
           <h2 id="share-modal-title" className="text-canvas-heading font-semibold text-canvas-ink">
             Share canvas
           </h2>
-          <CloseButton onClick={close} />
+          <CloseButton onClick={close} className="rounded-canvas-nest-21" />
         </div>
 
 
@@ -134,7 +134,7 @@ export function ShareModal() {
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`flex-1 rounded-canvas px-3 py-1.5 text-canvas-body-sm font-medium transition ${
+                className={`flex-1 rounded-canvas-nest-5 px-3 py-1.5 text-canvas-body-sm font-medium transition ${
                   tab === t
                     ? "bg-canvas-card text-canvas-ink shadow-card"
                     : "text-canvas-muted hover:text-canvas-ink"
@@ -268,7 +268,11 @@ export function ShareModal() {
 
         <div className="flex flex-col gap-2 border-t border-canvas-border pt-4">
           {canDuplicate && (
-            <Button disabled={busy} onClick={() => void handleDuplicate()}>
+            <Button
+              disabled={busy}
+              onClick={() => void handleDuplicate()}
+              className="rounded-canvas-nest-21"
+            >
               Duplicate canvas
             </Button>
           )}
@@ -277,6 +281,7 @@ export function ShareModal() {
               tone="danger"
               disabled={busy}
               onClick={() => void leaveCanvas()}
+              className="rounded-canvas-nest-21"
             >
               Leave canvas
             </Button>

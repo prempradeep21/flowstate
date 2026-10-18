@@ -58,7 +58,7 @@ export function TimelineAddPopover({
         onChange={(e) => setLabel(e.target.value)}
         placeholder="Short label"
         maxLength={120}
-        className="mb-1 w-full rounded-canvas-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+        className="mb-1 w-full rounded-canvas-nest-13 border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
         data-no-drag
         onKeyDown={(e) => {
           if (e.key === "Enter" && valid) handleSave();
@@ -82,7 +82,7 @@ export function TimelineAddPopover({
           const iso = fromDateInputValue(e.target.value);
           if (iso) onAtChange?.(iso);
         }}
-        className="mb-3 w-full rounded-canvas-md border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+        className="mb-3 w-full rounded-canvas-nest-13 border border-canvas-border bg-canvas-artifactStage px-2 py-1.5 text-canvas-compact text-canvas-ink outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
         data-no-drag
       />
       <div className="flex items-center gap-2">

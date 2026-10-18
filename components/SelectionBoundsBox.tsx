@@ -141,12 +141,14 @@ export function SelectionBoundsBox({
     <div
       ref={elRef}
       aria-hidden
-      className="pointer-events-none absolute z-30 rounded-canvas-sm"
+      className="pointer-events-none absolute z-30"
       style={{
         left: initial.left,
         top: initial.top,
         width: initial.width,
         height: initial.height,
+        // Concentric with the selected nodes' corners at the current zoom.
+        borderRadius: `calc(var(--canvas-radius-lg) * var(--vp-scale, 1) + ${BOUNDS_PADDING_PX}px)`,
         // Accent hairline over a translucent halo, so the box holds its edge
         // against both pale artwork and dark canvas backgrounds.
         boxShadow:

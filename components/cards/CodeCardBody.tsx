@@ -50,7 +50,7 @@ export function CodeCardBody({ card, isStreaming }: CodeCardBodyProps) {
           </div>
         )}
         {active && (
-          <pre className="max-h-80 overflow-auto rounded-canvas bg-canvas-codeBg p-3 text-canvas-compact leading-relaxed text-canvas-ink">
+          <pre className="max-h-80 overflow-auto rounded-canvas-nest-17 bg-canvas-codeBg p-3 text-canvas-compact leading-relaxed text-canvas-ink">
             <code>{active.content}</code>
           </pre>
         )}

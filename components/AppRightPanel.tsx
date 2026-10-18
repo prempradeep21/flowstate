@@ -14,6 +14,7 @@ import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
+import { toolbarBtn } from "@/components/toolbarButtonClasses";
 import { McpSection } from "@/components/sidebar/McpSection";
 
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
@@ -104,7 +105,7 @@ export function AppRightPanel() {
       <div
         className={
           collapsed
-            ? "flex items-center gap-1 rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+            ? "flex items-center gap-1 rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card p-1 shadow-card"
             : "flex items-start gap-2"
         }
       >
@@ -119,8 +120,10 @@ export function AppRightPanel() {
         className={[
           "flex flex-col overflow-hidden rounded-canvas border shadow-card transition-[width,height] duration-panel ease-panel",
 
+          // Collapsed, the toggle is just another button in the shared pill —
+          // no frame of its own, so it reads like Share / Hide chats.
           collapsed
-            ? "w-auto border-canvas-border bg-canvas-card"
+            ? "w-auto border-transparent shadow-none"
             : "w-[462px] border-canvas-border bg-canvas-card",
 
         ].join(" ")}
@@ -135,7 +138,7 @@ export function AppRightPanel() {
 
         collapsed={collapsed}
 
-        collapsedClassName="h-[34px] px-2 sm:px-3"
+        collapsedClassName=""
 
         collapsedContent={
 
@@ -148,15 +151,13 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="btn gap-2 rounded-canvas text-canvas-ink"
+            className={toolbarBtn}
 
           >
 
             <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-ink" />
 
-            <span className="hidden text-canvas-body-sm font-medium text-canvas-ink sm:inline">
-              {tabLabels[activeTab]}
-            </span>
+            <span className="hidden sm:inline">{tabLabels[activeTab]}</span>
 
           </button>
 
@@ -185,7 +186,7 @@ export function AppRightPanel() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => setActiveTab(tab)}
-                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium ${
+                        className={`btn rounded-canvas-nest-2 px-3 py-1 text-canvas-body-sm font-medium ${
                           tab === "mcp" ? "uppercase" : "capitalize"
                         } ${
                           active
@@ -210,7 +211,7 @@ export function AppRightPanel() {
 
                 aria-label="Collapse artifacts panel"
 
-                className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                className="btn h-10 w-10 shrink-0 rounded-canvas-nest-13 text-canvas-muted hover:text-canvas-ink"
 
               >
 

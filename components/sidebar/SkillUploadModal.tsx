@@ -97,11 +97,17 @@ export function SkillUploadModal({
               )}
 
               <div className="mt-5 flex justify-end gap-2">
-                <Button variant="ghost" disabled={busy} onClick={onCancel}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={onCancel}
+                  className="rounded-canvas-nest-21"
+                >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
+                  className="rounded-canvas-nest-21"
                   disabled={!canConfirm}
                   loading={busy}
                   onClick={() => onConfirm(title.trim())}

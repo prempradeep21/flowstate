@@ -148,11 +148,6 @@ export function useCollaboration({
 
       if (isHydratingRef?.current) return;
 
-      const reveal = useCanvasStore.getState().canvasLoadReveal;
-      if (reveal?.phase === "pending" || reveal?.phase === "running") {
-        return;
-      }
-
       if (
         updatedAt &&
         canvasUpdatedAtRef?.current &&

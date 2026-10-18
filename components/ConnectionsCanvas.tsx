@@ -150,10 +150,6 @@ export function ConnectionsCanvas({
       scale: number;
     }) => {
       const state = useCanvasStore.getState();
-      const reveal = state.canvasLoadReveal;
-      const hideForLoadReveal =
-        reveal?.phase === "pending" || reveal?.phase === "running";
-
       const dpr = window.devicePixelRatio || 1;
       const width = container.clientWidth;
       const height = container.clientHeight;
@@ -164,7 +160,6 @@ export function ConnectionsCanvas({
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (hideForLoadReveal) return;
 
       if (geometryDirty) rebuildGeometry();
 
@@ -285,8 +280,7 @@ export function ConnectionsCanvas({
         state.connectorStyle !== prev.connectorStyle ||
         state.collapsedCardIds !== prev.collapsedCardIds ||
         state.collapsedBranchThreadIds !== prev.collapsedBranchThreadIds ||
-        state.chatsGloballyHidden !== prev.chatsGloballyHidden ||
-        state.canvasLoadReveal !== prev.canvasLoadReveal
+        state.chatsGloballyHidden !== prev.chatsGloballyHidden
       ) {
         invalidateGeometry();
         return;

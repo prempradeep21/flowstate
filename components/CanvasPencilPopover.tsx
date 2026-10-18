@@ -60,7 +60,7 @@ export function CanvasPencilPopover({
   return (
     <MotionOverlayPopover
       isOpen={open}
-      className="pointer-events-auto absolute bottom-full z-[60] mb-2 min-w-[160px] rounded-canvas border border-canvas-border bg-canvas-card p-2 shadow-card"
+      className="pointer-events-auto absolute bottom-full z-[60] mb-2 min-w-[160px] rounded-canvas-wrap-9 border border-canvas-border bg-canvas-card p-2 shadow-card"
       style={{ transformOrigin: "bottom center", ...anchorStyle }}
     >
       <div ref={popoverRef} className="flex flex-col gap-2">

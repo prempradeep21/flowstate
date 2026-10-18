@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { InteractiveWebFrame } from "@/components/artifacts/InteractiveWebFrame";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
@@ -104,30 +106,41 @@ function PreviewThumbnail({
   onNaturalSize?: (size: { width: number; height: number }) => void;
 }) {
   const imgRef = useRef<HTMLImageElement>(null);
+  const load = useMediaLoaded(previewImageUrl);
   const wantsSize = Boolean(onNaturalSize);
   // An image that finished loading before the size was wanted (cached, or the
   // payload changed under it) fires no further load event, so read it here.
   useEffect(() => {
     const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) load.onLoad();
     if (wantsSize && img?.complete && img.naturalWidth > 0) {
       onNaturalSize?.({ width: img.naturalWidth, height: img.naturalHeight });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsSize, previewImageUrl]);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      ref={imgRef}
-      src={previewImageUrl}
-      alt={alt}
-      className={className}
-      referrerPolicy="no-referrer"
-      onError={onFailed}
-      onLoad={(event) => {
-        const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
-        if (width > 0 && height > 0) onNaturalSize?.({ width, height });
-      }}
-    />
+    <>
+      {/* Unstacked, so overlays drawn after the image (the hero's title
+          strip) stay visible while it loads. */}
+      <MediaLoadingCover loaded={load.loaded} className="" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={imgRef}
+        src={previewImageUrl}
+        alt={alt}
+        className={className}
+        referrerPolicy="no-referrer"
+        onError={() => {
+          load.onError();
+          onFailed();
+        }}
+        onLoad={(event) => {
+          load.onLoad();
+          const { naturalWidth: width, naturalHeight: height } = event.currentTarget;
+          if (width > 0 && height > 0) onNaturalSize?.({ width, height });
+        }}
+      />
+    </>
   );
 }
 
@@ -238,7 +251,7 @@ export function WebsiteArtifactContent({
     return (
       <div className="flex h-full min-h-[80px] items-center gap-2 px-3 py-2">
         {showPreview ? (
-          <div className="h-10 w-16 shrink-0 overflow-hidden rounded-canvas bg-canvas-bg">
+          <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-canvas bg-canvas-bg">
             <PreviewThumbnail
               previewImageUrl={previewSrc!}
               alt={title}
@@ -331,7 +344,7 @@ export function WebsiteArtifactContent({
         title={url}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
-        className={`group/hero relative block w-full overflow-hidden rounded-canvas bg-canvas-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50 ${
+        className={`group/hero relative block w-full overflow-hidden rounded-canvas-nest-13 bg-canvas-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/50 ${
           fill ? "min-h-0 flex-1" : "aspect-[4/3]"
         }`}
       >

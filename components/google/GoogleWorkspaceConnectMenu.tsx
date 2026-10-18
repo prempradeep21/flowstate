@@ -55,7 +55,7 @@ export function GoogleWorkspaceConnectMenu({
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full z-[999] mt-1 min-w-[220px] rounded-canvas border border-canvas-border bg-canvas-card p-2 shadow-card">
+          <div className="absolute right-0 top-full z-[999] mt-1 min-w-[220px] rounded-canvas-wrap-9 border border-canvas-border bg-canvas-card p-2 shadow-card">
             <p className="px-2 py-1 text-canvas-micro text-canvas-muted">
               Only files you pick are accessed. Flowstate never scans your entire
               Drive.
