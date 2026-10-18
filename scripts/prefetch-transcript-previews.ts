@@ -19,10 +19,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { buildAllariNareshCanvasSection } from "../lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildDesignToolsCanvasSection } from "../lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "../lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "../lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "../lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "../lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "../lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "../lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "../lib/transcriptImport/buildYcInterviewCanvasSection";
 import { fetchLinkPreview, validateLinkPreviewUrl } from "../lib/linkPreview";
@@ -41,10 +44,13 @@ const EXT: Record<string, string> = {
 };
 
 const BUILDERS = [
+  buildAllariNareshCanvasSection,
   buildDesignToolsCanvasSection,
   buildHubermanCanvasSection,
   buildJagadambaCanvasSection,
+  buildKunalShahHiringCanvasSection,
   buildLightconeEmergentCanvasSection,
+  buildNithinKamathRiskCanvasSection,
   buildRanaDaggubatiCanvasSection,
   buildYcInterviewCanvasSection,
 ];
