@@ -599,6 +599,13 @@ export interface CanvasArtifactNode {
    * as manually resized.
    */
   layoutSetSize?: boolean;
+  /**
+   * Draw this node at MASTHEAD_ARTIFACT_SCALE, like the episode masthead —
+   * node box and content zoomed together. Set by the transcript-import layout
+   * for masthead nodes whose kind is not already scaled (an episode-level
+   * chart), so the masthead column reads as one size.
+   */
+  mastheadScale?: boolean;
   /** Permission gate — artifact not materialized until user approves. */
   permissionPreview?: ArtifactPermissionPreview;
   /** Canvas placeholder while a version is still generating. */

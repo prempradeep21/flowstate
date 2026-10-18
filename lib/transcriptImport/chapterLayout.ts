@@ -5,6 +5,10 @@ import {
   getCardBounds,
 } from "@/lib/canvasNodeBounds";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
+import {
+  MASTHEAD_ARTIFACT_KINDS,
+  MASTHEAD_ARTIFACT_SCALE,
+} from "@/lib/transcriptArtifacts";
 import type {
   BranchGroup,
   CanvasArtifactNode,
@@ -548,7 +552,20 @@ export function layoutChapters(
     for (const nodeId of input.mastheadNodeIds ?? []) {
       const node = canvasArtifactNodes[nodeId];
       if (!node) continue;
-      const { w, h } = getArtifactBounds(node, sessionArtifacts[node.artifactId]);
+      const artifact = sessionArtifacts[node.artifactId];
+      // Episode and link group are drawn at masthead scale by kind; anything
+      // else in the column (an episode-level chart) opts in here, so the
+      // column reads as one size instead of a normal tile beside giant cards.
+      if (artifact && !MASTHEAD_ARTIFACT_KINDS.has(artifact.kind)) {
+        const base = getArtifactBounds(node, artifact);
+        node.size = {
+          w: base.w * MASTHEAD_ARTIFACT_SCALE,
+          h: base.h * MASTHEAD_ARTIFACT_SCALE,
+        };
+        node.layoutSetSize = true;
+        node.mastheadScale = true;
+      }
+      const { w, h } = getArtifactBounds(node, artifact);
       node.position = { x: originX, y: mastheadY };
       mastheadY += h + TILE_GAP;
       mastheadRight = Math.max(mastheadRight, originX + w);
