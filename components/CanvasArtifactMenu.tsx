@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
-import { QuestionIcon } from "@/components/MenuIcons";
 import { MotionOverlayPopover } from "@/components/motion/MotionOverlay";
 import { useToolbarPopoverAnchor } from "@/hooks/useToolbarPopoverAnchor";
 import {
@@ -73,7 +72,6 @@ export function CanvasArtifactMenu({
             className={menuBtn}
             onPointerDown={(e) => {
               if (disabled) return;
-              if (entry.pick.kind === "question") return;
               e.preventDefault();
               draggingRef.current = true;
               (e.currentTarget as HTMLButtonElement).setPointerCapture(
@@ -88,18 +86,9 @@ export function CanvasArtifactMenu({
             onPointerCancel={() => {
               draggingRef.current = false;
             }}
-            onClick={() => {
-              if (disabled || entry.pick.kind !== "question") return;
-              onPick(entry.pick);
-              onClose();
-            }}
           >
             <span className="text-canvas-muted">
-              {entry.iconKind === "question" ? (
-                <QuestionIcon />
-              ) : (
-                <ArtifactTypeIcon kind={entry.iconKind} />
-              )}
+              <ArtifactTypeIcon kind={entry.iconKind} />
             </span>
             {entry.label}
           </button>

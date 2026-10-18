@@ -5,7 +5,14 @@ import { useAuth } from "@/components/AuthProvider";
 import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { CanvasSettingsPopover } from "@/components/CanvasSettingsPopover";
 import { CollaboratorAvatarStack } from "@/components/CollaboratorAvatarStack";
-import { EyeIcon, EyeOffIcon, GearIcon, ShareIcon } from "@/components/MenuIcons";
+import {
+  BranchForkIcon,
+  ChatBubbleIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GearIcon,
+  ShareIcon,
+} from "@/components/MenuIcons";
 import {
   iconToggleBtn,
   toolbarActive,
@@ -19,8 +26,9 @@ function Divider() {
 }
 
 /**
- * Search, sharing, hide-chats and canvas settings — the canvas-wide controls
- * that sit in the top-right unit beside the Artifacts toggle. Search and
+ * View switch, search, sharing, hide-chats and canvas settings — the
+ * canvas-wide controls that sit in the top-right unit beside the Artifacts
+ * toggle. Search and
  * hide-chats only act on the canvas surface, so the chat view drops them.
  *
  * `framed` gives the group its own pill; AppRightPanel turns it off while the
@@ -39,6 +47,7 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
     onlineUserIds,
   } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
+  const setViewMode = useCanvasStore((s) => s.setViewMode);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const toggleChatsGloballyHidden = useCanvasStore(
     (s) => s.toggleChatsGloballyHidden,
@@ -68,6 +77,40 @@ export function CanvasTopRightToolbar({ framed }: { framed: boolean }) {
         containerRef={shellRef}
         placement="below"
       />
+
+      <div
+        className="flex rounded-canvas bg-canvas-bg p-0.5"
+        role="group"
+        aria-label="View mode"
+      >
+        <button
+          type="button"
+          className={`${iconToggleBtn} ${
+            viewMode === "canvas"
+              ? "bg-canvas-accent text-canvas-onAccent shadow-card"
+              : "text-canvas-muted hover:text-canvas-ink"
+          }`}
+          aria-label="Canvas view"
+          aria-pressed={viewMode === "canvas"}
+          onClick={() => setViewMode("canvas")}
+        >
+          <BranchForkIcon />
+        </button>
+        <button
+          type="button"
+          className={`${iconToggleBtn} ${
+            viewMode === "chat"
+              ? "bg-canvas-accent text-canvas-onAccent shadow-card"
+              : "text-canvas-muted hover:text-canvas-ink"
+          }`}
+          aria-label="Chat view"
+          aria-pressed={viewMode === "chat"}
+          onClick={() => setViewMode("chat")}
+        >
+          <ChatBubbleIcon />
+        </button>
+      </div>
+      <Divider />
 
       {canvasTools && (
         <>

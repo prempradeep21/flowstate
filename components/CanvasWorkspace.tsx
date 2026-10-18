@@ -8,11 +8,7 @@ import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { Canvas } from "@/components/Canvas";
 import { CanvasMinimap } from "@/components/CanvasMinimap";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
-import {
-  CHAT_RIGHT_PANEL_CLEARANCE_PX,
-  CHAT_SIDEBAR_WIDTH_PX,
-  ChatView,
-} from "@/components/ChatView";
+import { ChatView } from "@/components/ChatView";
 import { FocusView } from "@/components/FocusView";
 import { CardAskOrchestrator } from "@/components/CardAskOrchestrator";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
@@ -43,7 +39,6 @@ const CanvasSwitchOverlay = dynamic(
 export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
   const viewMode = useCanvasStore((s) => s.viewMode);
   const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
-  const rightPanelCollapsed = useCanvasStore((s) => s.rightPanelCollapsed);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   const { activeCanvasId, isSwitchingCanvas, switchingCanvasTitle } = useAuth();
   const setLeftPanelCollapsed = useCanvasStore((s) => s.setLeftPanelCollapsed);
@@ -99,19 +94,7 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
           canvasKey={canvasKey}
         />
       )}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center"
-        // In chat view, center the toolbar on the message column (past the
-        // thread sidebar and any open panel) so it lines up with the composer.
-        style={
-          viewMode === "chat"
-            ? {
-                left: CHAT_SIDEBAR_WIDTH_PX,
-                right: rightPanelCollapsed ? 0 : CHAT_RIGHT_PANEL_CLEARANCE_PX,
-              }
-            : undefined
-        }
-      >
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center">
         <CanvasBottomToolbar />
       </div>
       <McpApprovalDock />

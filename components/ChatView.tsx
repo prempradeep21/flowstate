@@ -14,7 +14,7 @@ import {
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 import { isConversationCard } from "@/lib/conversationCard";
 
-/** Thread sidebar width; the workspace centers the bottom toolbar past it. */
+/** Thread sidebar width. */
 export const CHAT_SIDEBAR_WIDTH_PX = 304;
 /** Room the open artifacts panel takes: 462px panel + 12px inset + 12px gap. */
 export const CHAT_RIGHT_PANEL_CLEARANCE_PX = 486;
@@ -47,9 +47,7 @@ function ThreadChatComposer({ threadId }: { threadId: string }) {
   };
 
   return (
-    // Bottom padding clears the floating bottom toolbar (bottom-5 + its height),
-    // which stays put across views — the composer sits above it, never under.
-    <div className="shrink-0 px-8 pb-[104px] pt-2">
+    <div className="shrink-0 px-8 pb-6 pt-2">
       <ChatComposer
         placeholder={
           importedThread
@@ -168,7 +166,7 @@ export function ChatView() {
             the buttons beside it remain in this column. */}
         <header
           className={`flex h-[70px] shrink-0 items-center pl-8 ${
-            rightPanelCollapsed ? "pr-[min(26rem,35vw)]" : "pr-[min(16rem,25vw)]"
+            rightPanelCollapsed ? "pr-[min(32rem,42vw)]" : "pr-[min(22rem,30vw)]"
           }`}
         >
           {activeTitle ? (

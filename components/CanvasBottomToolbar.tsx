@@ -3,10 +3,9 @@
 import { useRef, useState } from "react";
 import {
   ArtefactIcon,
-  BranchForkIcon,
-  ChatBubbleIcon,
   PencilIcon,
   PlusIcon,
+  QuestionIcon,
   TextBoxIcon,
 } from "@/components/MenuIcons";
 import { CanvasAddMenu } from "@/components/CanvasAddMenu";
@@ -37,7 +36,6 @@ export function CanvasBottomToolbar() {
   const canEdit = useCanEditCanvas();
   const { user, activeCanvasId } = useAuth();
   const viewMode = useCanvasStore((s) => s.viewMode);
-  const setViewMode = useCanvasStore((s) => s.setViewMode);
   const requestCanvasPlacement = useCanvasStore((s) => s.requestCanvasPlacement);
   const requestArtifactPlacement = useCanvasStore((s) => s.requestArtifactPlacement);
   const activeCanvasPlacement = useCanvasStore((s) => s.activeCanvasPlacement);
@@ -53,9 +51,9 @@ export function CanvasBottomToolbar() {
   const setPencilToolActive = useCanvasStore((s) => s.setPencilToolActive);
   const setPencilColor = useCanvasStore((s) => s.setPencilColor);
 
-  // Add, artefact and pencil only act on the canvas surface — the chat view
-  // keeps just the view switch. Sharing, hide-chats and canvas settings live in
-  // the top-right unit (CanvasTopRightToolbar).
+  // Every tool here acts on the canvas surface, so other views drop the bar.
+  // The view switch, sharing, hide-chats and canvas settings live in the
+  // top-right unit (CanvasTopRightToolbar).
   const canvasTools = viewMode === "canvas";
 
   const closeSubpanels = () => {
@@ -141,8 +139,9 @@ export function CanvasBottomToolbar() {
     }
   };
 
-  const artefactPlacementActive =
-    activeCanvasPlacement === "question" || activeCanvasPlacement === "artifact";
+  const artefactPlacementActive = activeCanvasPlacement === "artifact";
+
+  if (!canvasTools) return null;
 
   if (!mounted) {
     return (
@@ -219,11 +218,7 @@ export function CanvasBottomToolbar() {
           disabled={!canEdit}
           onPick={(pick) => {
             closeSubpanels();
-            if (pick.kind === "question") {
-              requestCanvasPlacement("question");
-            } else {
-              requestArtifactPlacement(pick);
-            }
+            requestArtifactPlacement(pick);
           }}
         />
         <CanvasGifPicker
@@ -253,138 +248,118 @@ export function CanvasBottomToolbar() {
           role="toolbar"
           aria-label="Canvas tools"
         >
-          {canvasTools && (
-            <>
-              <button
-                ref={addBtnRef}
-                type="button"
-                data-coach-target="add-btn"
-                disabled={!canEdit}
-                className={`${toolbarBtn} ${
-                  addMenuOpen || gifPickerOpen
-                    ? "bg-canvas-accentSoft text-canvas-accent"
-                    : ""
-                }`}
-                aria-expanded={addMenuOpen || gifPickerOpen}
-                aria-haspopup="menu"
-                onClick={() => {
-                  deactivatePencil();
-                  setGifPickerOpen(false);
-                  setArtifactMenuOpen(false);
-                  setAddMenuOpen((v) => !v);
-                }}
-              >
-                <span className="text-canvas-muted">
-                  <PlusIcon />
-                </span>
-                Add
-              </button>
-              <button
-                ref={artefactBtnRef}
-                type="button"
-                data-coach-target="artefact-btn"
-                disabled={!canEdit}
-                className={`${toolbarBtn} ${
-                  artifactMenuOpen || artefactPlacementActive
-                    ? "bg-canvas-accentSoft text-canvas-accent"
-                    : ""
-                }`}
-                aria-pressed={artifactMenuOpen || artefactPlacementActive}
-                aria-expanded={artifactMenuOpen}
-                aria-haspopup="menu"
-                onClick={() => {
-                  deactivatePencil();
-                  setGifPickerOpen(false);
-                  setArtifactMenuOpen((v) => !v);
-                }}
-              >
-                <span className="text-canvas-muted">
-                  <ArtefactIcon />
-                </span>
-                Add artefact
-              </button>
-
-              <button
-                ref={pencilBtnRef}
-                type="button"
-                disabled={!canEdit}
-                className={`${iconToggleBtn} ${
-                  pencilOpen || pencilToolActive
-                    ? "bg-canvas-accentSoft text-canvas-accent"
-                    : "text-canvas-muted hover:text-canvas-ink"
-                }`}
-                aria-label="Pencil tool"
-                aria-expanded={pencilOpen}
-                aria-pressed={pencilToolActive}
-                aria-haspopup="dialog"
-                onClick={() => {
-                  if (pencilToolActive) {
-                    setPencilOpen((v) => !v);
-                    return;
-                  }
-                  setAddMenuOpen(false);
-                  setGifPickerOpen(false);
-                  setArtifactMenuOpen(false);
-                  setPencilToolActive(true);
-                  setPencilOpen(true);
-                }}
-              >
-                <PencilIcon />
-              </button>
-              <button
-                type="button"
-                disabled={!canEdit}
-                className={`${iconToggleBtn} ${
-                  activeCanvasPlacement === "text"
-                    ? "bg-canvas-accentSoft text-canvas-accent"
-                    : "text-canvas-muted hover:text-canvas-ink"
-                }`}
-                aria-label="Text tool"
-                aria-pressed={activeCanvasPlacement === "text"}
-                onClick={() => {
-                  closeSubpanels();
-                  deactivatePencil();
-                  requestCanvasPlacement("text");
-                }}
-              >
-                <TextBoxIcon />
-              </button>
-              <div className="mx-1 h-7 w-px shrink-0 bg-canvas-border" aria-hidden />
-            </>
-          )}
-
-          <div
-            className="flex rounded-canvas bg-canvas-bg p-0.5"
-            role="group"
-            aria-label="View mode"
+          <button
+            ref={addBtnRef}
+            type="button"
+            data-coach-target="add-btn"
+            disabled={!canEdit}
+            className={`${toolbarBtn} ${
+              addMenuOpen || gifPickerOpen
+                ? "bg-canvas-accentSoft text-canvas-accent"
+                : ""
+            }`}
+            aria-expanded={addMenuOpen || gifPickerOpen}
+            aria-haspopup="menu"
+            onClick={() => {
+              deactivatePencil();
+              setGifPickerOpen(false);
+              setArtifactMenuOpen(false);
+              setAddMenuOpen((v) => !v);
+            }}
           >
-            <button
-              type="button"
-              className={`${iconToggleBtn} ${
-                viewMode === "canvas"
-                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
-                  : "text-canvas-muted hover:text-canvas-ink"
-              }`}
-              aria-label="Canvas view"
-              aria-pressed={viewMode === "canvas"}
-              onClick={() => setViewMode("canvas")}
-            >
-              <BranchForkIcon />
-            </button>
-            <button
-              type="button"
-              className={`${iconToggleBtn} ${
-                viewMode === "chat"
-                  ? "bg-canvas-accent text-canvas-onAccent shadow-card"
-                  : "text-canvas-muted hover:text-canvas-ink"
-              }`}
-              aria-label="Chat view"
-              aria-pressed={viewMode === "chat"}
-              onClick={() => setViewMode("chat")}
-            >
-              <ChatBubbleIcon />
-            </button>
-          </div>
+            <span className="text-canvas-muted">
+              <PlusIcon />
+            </span>
+            Add
+          </button>
+          <button
+            ref={artefactBtnRef}
+            type="button"
+            data-coach-target="artefact-btn"
+            disabled={!canEdit}
+            className={`${toolbarBtn} ${
+              artifactMenuOpen || artefactPlacementActive
+                ? "bg-canvas-accentSoft text-canvas-accent"
+                : ""
+            }`}
+            aria-pressed={artifactMenuOpen || artefactPlacementActive}
+            aria-expanded={artifactMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => {
+              deactivatePencil();
+              setGifPickerOpen(false);
+              setArtifactMenuOpen((v) => !v);
+            }}
+          >
+            <span className="text-canvas-muted">
+              <ArtefactIcon />
+            </span>
+            Add artefact
+          </button>
+
+          <button
+            type="button"
+            disabled={!canEdit}
+            className={`${iconToggleBtn} ${
+              activeCanvasPlacement === "question"
+                ? "bg-canvas-accentSoft text-canvas-accent"
+                : "text-canvas-muted hover:text-canvas-ink"
+            }`}
+            aria-label="Add question"
+            aria-pressed={activeCanvasPlacement === "question"}
+            onClick={() => {
+              closeSubpanels();
+              deactivatePencil();
+              requestCanvasPlacement("question");
+            }}
+          >
+            <QuestionIcon />
+          </button>
+          <button
+            ref={pencilBtnRef}
+            type="button"
+            disabled={!canEdit}
+            className={`${iconToggleBtn} ${
+              pencilOpen || pencilToolActive
+                ? "bg-canvas-accentSoft text-canvas-accent"
+                : "text-canvas-muted hover:text-canvas-ink"
+            }`}
+            aria-label="Pencil tool"
+            aria-expanded={pencilOpen}
+            aria-pressed={pencilToolActive}
+            aria-haspopup="dialog"
+            onClick={() => {
+              if (pencilToolActive) {
+                setPencilOpen((v) => !v);
+                return;
+              }
+              setAddMenuOpen(false);
+              setGifPickerOpen(false);
+              setArtifactMenuOpen(false);
+              setPencilToolActive(true);
+              setPencilOpen(true);
+            }}
+          >
+            <PencilIcon />
+          </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            className={`${iconToggleBtn} ${
+              activeCanvasPlacement === "text"
+                ? "bg-canvas-accentSoft text-canvas-accent"
+                : "text-canvas-muted hover:text-canvas-ink"
+            }`}
+            aria-label="Text tool"
+            aria-pressed={activeCanvasPlacement === "text"}
+            onClick={() => {
+              closeSubpanels();
+              deactivatePencil();
+              requestCanvasPlacement("text");
+            }}
+          >
+            <TextBoxIcon />
+          </button>
         </div>
       </div>
     </div>
