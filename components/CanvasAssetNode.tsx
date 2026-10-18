@@ -45,6 +45,7 @@ import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { showAppErrorToast } from "@/lib/appToastStore";
 import { downloadCanvasAsset } from "@/lib/assetDownload";
 import { connectorColour } from "@/lib/design/tokens";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const DRAG_THRESHOLD_PX = 0;
 /**
@@ -56,6 +57,7 @@ const INTERACTIVE =
   'button, a, textarea, input, select, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll]';
 
 function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const assets = useCanvasStore((s) => s.canvasAssets);
   // Crossing-only subscription: re-renders when the god-view boolean flips,
   // not on every settled-scale change (the post-zoom "settle storm").
@@ -265,6 +267,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         onPointerCancel={handlePointerUp}
         className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -299,6 +302,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
           isSelected ? "select-text" : ""
         }`}
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,

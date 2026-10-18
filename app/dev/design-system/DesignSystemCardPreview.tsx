@@ -65,7 +65,6 @@ function CardBody({ sample }: { sample: DesignSystemCardSample }) {
       return (
         <DesignSystemCardStoreSeed sample={sample}>
           <PendingAnswerPlaceholder
-            cardId={sample.card.id}
             thinkingLabel={sample.card.thinkingLabel}
             className="py-8"
           />

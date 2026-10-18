@@ -249,28 +249,22 @@ export function CanvasBottomToolbar() {
           aria-label="Canvas tools"
         >
           <button
-            ref={addBtnRef}
             type="button"
-            data-coach-target="add-btn"
             disabled={!canEdit}
-            className={`${toolbarBtn} ${
-              addMenuOpen || gifPickerOpen
-                ? "bg-canvas-accentSoft text-canvas-accent"
+            className={`${toolbarBtn} bg-canvas-accent text-canvas-onAccent ${
+              activeCanvasPlacement === "question"
+                ? "ring-2 ring-canvas-accent ring-offset-2 ring-offset-canvas-card"
                 : ""
             }`}
-            aria-expanded={addMenuOpen || gifPickerOpen}
-            aria-haspopup="menu"
+            aria-pressed={activeCanvasPlacement === "question"}
             onClick={() => {
+              closeSubpanels();
               deactivatePencil();
-              setGifPickerOpen(false);
-              setArtifactMenuOpen(false);
-              setAddMenuOpen((v) => !v);
+              requestCanvasPlacement("question");
             }}
           >
-            <span className="text-canvas-muted">
-              <PlusIcon />
-            </span>
-            Add
+            <QuestionIcon />
+            Drop a question
           </button>
           <button
             ref={artefactBtnRef}
@@ -296,25 +290,33 @@ export function CanvasBottomToolbar() {
             </span>
             Add artefact
           </button>
-
           <button
+            ref={addBtnRef}
             type="button"
+            data-coach-target="add-btn"
             disabled={!canEdit}
-            className={`${iconToggleBtn} ${
-              activeCanvasPlacement === "question"
+            className={`${toolbarBtn} ${
+              addMenuOpen || gifPickerOpen
                 ? "bg-canvas-accentSoft text-canvas-accent"
-                : "text-canvas-muted hover:text-canvas-ink"
+                : ""
             }`}
-            aria-label="Add question"
-            aria-pressed={activeCanvasPlacement === "question"}
+            aria-expanded={addMenuOpen || gifPickerOpen}
+            aria-haspopup="menu"
             onClick={() => {
-              closeSubpanels();
               deactivatePencil();
-              requestCanvasPlacement("question");
+              setGifPickerOpen(false);
+              setArtifactMenuOpen(false);
+              setAddMenuOpen((v) => !v);
             }}
           >
-            <QuestionIcon />
+            <span className="text-canvas-muted">
+              <PlusIcon />
+            </span>
+            Add
           </button>
+
+          <div className="mx-1 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+
           <button
             ref={pencilBtnRef}
             type="button"

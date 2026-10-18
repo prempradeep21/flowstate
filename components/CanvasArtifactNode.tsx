@@ -69,6 +69,7 @@ import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const DRAG_THRESHOLD_PX = 0;
 
@@ -80,6 +81,7 @@ interface CanvasArtifactNodeProps {
 }
 
 function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
@@ -431,6 +433,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         onPointerCancel={handlePointerUp}
         className="absolute z-20 cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -478,6 +481,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         isRepoArtifact ? "cursor-default" : "cursor-grab active:cursor-grabbing"
       } ${isSelected ? "z-30" : "z-20"}`}
       style={{
+        zIndex: raisedZIndex,
         left: node.position.x,
         top: node.position.y,
         width,

@@ -61,7 +61,7 @@ export function CanvasAddMenu({
   return (
     <MotionOverlayPopover
       isOpen={open}
-      className="pointer-events-auto absolute bottom-full z-[60] mb-2 min-w-[160px] -translate-x-1/2 rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
+      className="pointer-events-auto absolute bottom-full z-[60] mb-2 min-w-[160px] rounded-canvas border border-canvas-border bg-canvas-card p-1 shadow-card"
       style={{ transformOrigin: "bottom center", ...anchorStyle }}
     >
       <div ref={popoverRef} role="menu" aria-label="Add to canvas">

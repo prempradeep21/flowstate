@@ -120,7 +120,7 @@ export function AppRightPanel() {
           "flex flex-col overflow-hidden rounded-canvas border shadow-card transition-[width,height] duration-panel ease-panel",
 
           collapsed
-            ? "w-auto border-canvas-accent bg-canvas-accent"
+            ? "w-auto border-canvas-border bg-canvas-card"
             : "w-[462px] border-canvas-border bg-canvas-card",
 
         ].join(" ")}
@@ -148,13 +148,13 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="btn gap-2 rounded-canvas text-canvas-onAccent"
+            className="btn gap-2 rounded-canvas text-canvas-ink"
 
           >
 
-            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-onAccent" />
+            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-ink" />
 
-            <span className="hidden text-canvas-body-sm font-medium text-canvas-onAccent sm:inline">
+            <span className="hidden text-canvas-body-sm font-medium text-canvas-ink sm:inline">
               {tabLabels[activeTab]}
             </span>
 

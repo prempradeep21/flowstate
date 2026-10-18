@@ -27,6 +27,7 @@ import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { connectorColour } from "@/lib/design/tokens";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const INTERACTIVE =
   "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
@@ -35,6 +36,7 @@ const INTERACTIVE =
 const inFlightAnalysis = new Set<string>();
 
 function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const skills = useCanvasStore((s) => s.canvasSkills);
   // Crossing-only subscription: re-renders when the god-view boolean flips,
   // not on every settled-scale change (the post-zoom "settle storm").
@@ -194,6 +196,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
         onPointerCancel={handlePointerUp}
         className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -229,6 +232,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
             : "border-canvas-border hover:shadow-artifactHover"
         }`}
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,

@@ -8,15 +8,25 @@ import {
 } from "react";
 
 const VIEWPORT_EDGE_PAD = 8;
+const CENTER_TRANSLATE = "-50% 0";
 
-/** Horizontally centers a popover above an anchor button within a positioned container. */
+/**
+ * Horizontally centers a popover above an anchor button within a positioned container.
+ *
+ * Centering uses the standalone CSS `translate` property rather than a
+ * `-translate-x-1/2` class: framer-motion writes an inline `transform` while it
+ * animates the popover in, which would silently wipe out a transform-based offset.
+ */
 export function useToolbarPopoverAnchor(
   anchorRef: RefObject<HTMLElement | null>,
   containerRef: RefObject<HTMLElement | null>,
   open: boolean,
   popoverRef?: RefObject<HTMLElement | null>,
 ): CSSProperties {
-  const [style, setStyle] = useState<CSSProperties>({ left: "50%" });
+  const [style, setStyle] = useState<CSSProperties>({
+    left: "50%",
+    translate: CENTER_TRANSLATE,
+  });
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -42,7 +52,7 @@ export function useToolbarPopoverAnchor(
         centerX = clampedViewportX - containerRect.left;
       }
 
-      setStyle({ left: centerX });
+      setStyle({ left: centerX, translate: CENTER_TRANSLATE });
     };
 
     update();

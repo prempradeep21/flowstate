@@ -82,7 +82,7 @@ export function CanvasSettingsPopover({
       aria-label="Canvas controls"
       className={`absolute z-[60] ${
         placement === "below" ? "top-full mt-3" : "bottom-full mb-3"
-      } max-h-[min(70vh,480px)] w-[min(calc(100vw-2rem),300px)] -translate-x-1/2 overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card`}
+      } max-h-[min(70vh,480px)] w-[min(calc(100vw-2rem),300px)] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card p-3 shadow-card`}
       style={anchorStyle}
     >
       <h3 className="mb-2 text-canvas-body-sm font-semibold text-canvas-ink">

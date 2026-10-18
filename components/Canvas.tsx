@@ -264,6 +264,34 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
   const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
 
+  // Whatever the user clicks or selects stacks above everything else.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const raise = useCanvasStore.getState().raiseCanvasNodes;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      const hit = target?.closest<HTMLElement>(
+        "[data-canvas-card], [data-canvas-node-id]",
+      );
+      const id = hit?.dataset.canvasCard ?? hit?.dataset.canvasNodeId;
+      if (id) raise([id]);
+    };
+    container.addEventListener("pointerdown", onPointerDown, true);
+    const unsubscribe = useCanvasStore.subscribe((state, prev) => {
+      if (state.canvasSelection === prev.canvasSelection) return;
+      const before = new Set(prev.canvasSelection.map((item) => item.id));
+      const added = state.canvasSelection
+        .filter((item) => !before.has(item.id))
+        .map((item) => item.id);
+      if (added.length > 0) raise(added);
+    });
+    return () => {
+      container.removeEventListener("pointerdown", onPointerDown, true);
+      unsubscribe();
+    };
+  }, [containerRef]);
+
   return (
     <>
       {cardOrder.map((id) => {

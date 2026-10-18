@@ -209,7 +209,7 @@ export function CanvasGifPicker({ anchorRef, containerRef }: Props) {
   return (
     <MotionOverlayPopover
       isOpen={open}
-      className="pointer-events-auto absolute bottom-full z-[60] mb-3 flex w-[min(92vw,420px)] -translate-x-1/2 flex-col rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
+      className="pointer-events-auto absolute bottom-full z-[60] mb-3 flex w-[min(92vw,420px)] flex-col rounded-canvas border border-canvas-border bg-canvas-card shadow-card"
       style={{ transformOrigin: "bottom center", ...anchorStyle }}
     >
       <div ref={popoverRef} className="flex flex-col">

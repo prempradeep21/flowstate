@@ -384,8 +384,9 @@ export function getArtifactBounds(
  * hero image at its own aspect, a favicon-only site as a square) are design,
  * so they have to reach those canvases too.
  *
- * They never outgrow the stored box: content shrinks into it (a hero scales
+ * Most never outgrow the stored box: content shrinks into it (a hero scales
  * whole, keeping its ratio), so nothing on a saved canvas moves or overlaps.
+ * A table is the exception — it always takes its full content size.
  * A user-resized node is left exactly as the user sized it.
  */
 function contentSizeWithin(
@@ -406,11 +407,10 @@ function contentSizeWithin(
   if (payload.type === "table") {
     const { columns, rows } = normalizeTableArtifactData(payload.data);
     if (columns.length === 0 || rows.length === 0) return null;
-    const content = getDefaultArtifactSize("table", payload);
-    return {
-      w: Math.min(content.w, stored.w),
-      h: Math.min(content.h, stored.h),
-    };
+    // A table always fits its content exactly, growing as well as shrinking:
+    // it spawns at the default box while still streaming, so capping it at
+    // the stored box would leave a wide or tall table cropped.
+    return getDefaultArtifactSize("table", payload);
   }
   return null;
 }

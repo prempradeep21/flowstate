@@ -89,7 +89,7 @@ describe("content sizing on saved canvases", () => {
     }
   });
 
-  it("narrows a table to its columns but never past its old box", () => {
+  it("sizes a table to its content whatever its old box", () => {
     const art = createSessionArtifactFromPayload(
       {
         type: "table",
@@ -108,7 +108,7 @@ describe("content sizing on saved canvases", () => {
     expect(w).toBeLessThan(1088);
     expect(h).toBeLessThan(528);
     const cramped = getArtifactBounds({ size: { w: 200, h: 100 } }, art);
-    expect(cramped).toEqual({ w: 200, h: 100 });
+    expect(cramped).toEqual({ w, h });
   });
 
   it("leaves a node the user resized exactly as they sized it", () => {

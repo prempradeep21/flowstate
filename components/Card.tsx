@@ -99,10 +99,9 @@ import {
 } from "@/lib/store";
 import { useAuth, useCanEditCanvas } from "@/components/AuthProvider";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
-import { QaStatusBadge } from "@/components/QaStatusBadge";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 import {
-  isQaResponseFinalError,
   isQaTurnInProgress,
   resolveQaStatusLabel,
   shouldShowQaAnswerText,
@@ -117,6 +116,7 @@ interface CardProps {
  */
 
 function CardInner({ card }: CardProps) {
+  const raisedZIndex = useRaisedZIndex(card.id);
   const { user, members, accessInfo, stampContributor, onlineUserIds } = useAuth();
   const canEdit = useCanEditCanvas();
   const collaborationHasEdits = useCanvasStore((s) => s.collaborationHasEdits);
@@ -546,8 +546,6 @@ function CardInner({ card }: CardProps) {
     return () => clearQaTurnTimeout(card.id);
   }, [turnInProgress, card.id]);
 
-  const showStatusBadge =
-    turnInProgress || isQaResponseFinalError(card, canvasArtifactNodes);
   const qaStatusLabel = resolveQaStatusLabel(card, canvasArtifactNodes);
 
   const pendingMinHeight = turnInProgress
@@ -815,6 +813,7 @@ function CardInner({ card }: CardProps) {
           isDraggable ? "cursor-grab active:cursor-grabbing" : ""
         }`}
         style={{
+          zIndex: raisedZIndex,
           left: card.position.x,
           top: card.position.y,
           width: cardWidth,
@@ -861,6 +860,7 @@ function CardInner({ card }: CardProps) {
         isDraggable ? "cursor-grab active:cursor-grabbing" : ""
       } ${hideForLanding ? "pointer-events-none invisible" : ""}`}
       style={{
+        zIndex: raisedZIndex,
         left: card.position.x,
         top: card.position.y,
         width: cardWidth,
@@ -1004,21 +1004,11 @@ function CardInner({ card }: CardProps) {
                   <>
                     <QaQuestionHeaderRow
                       collaborators={
-                        showContributors || showStatusBadge ? (
-                          <div className="flex min-w-0 items-center gap-2">
-                            {showContributors && (
-                              <ContributorAvatarStack
-                                profiles={contributorProfiles}
-                                onlineUserIds={onlineUserIds}
-                              />
-                            )}
-                            {showStatusBadge && (
-                              <QaStatusBadge
-                                card={card}
-                                canvasArtifactNodes={canvasArtifactNodes}
-                              />
-                            )}
-                          </div>
+                        showContributors ? (
+                          <ContributorAvatarStack
+                            profiles={contributorProfiles}
+                            onlineUserIds={onlineUserIds}
+                          />
                         ) : null
                       }
                       controls={
@@ -1039,21 +1029,11 @@ function CardInner({ card }: CardProps) {
                   <>
                     <QaQuestionHeaderRow
                       collaborators={
-                        showContributors || showStatusBadge ? (
-                          <div className="flex min-w-0 items-center gap-2">
-                            {showContributors && (
-                              <ContributorAvatarStack
-                                profiles={contributorProfiles}
-                                onlineUserIds={onlineUserIds}
-                              />
-                            )}
-                            {showStatusBadge && (
-                              <QaStatusBadge
-                                card={card}
-                                canvasArtifactNodes={canvasArtifactNodes}
-                              />
-                            )}
-                          </div>
+                        showContributors ? (
+                          <ContributorAvatarStack
+                            profiles={contributorProfiles}
+                            onlineUserIds={onlineUserIds}
+                          />
                         ) : null
                       }
                       controls={

@@ -25,6 +25,7 @@ import {
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 import {
   CANVAS_CONTENT_INERT_CLASS,
   CANVAS_NODE_INTERACTIVE_ATTR,
@@ -38,6 +39,7 @@ const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle], canvas";
 
 function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvas3DId === node.id ||
@@ -192,6 +194,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
         onPointerCancel={handlePointerUp}
         className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -226,6 +229,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
         onPointerCancel={handlePointerUp}
         className={`group/3d absolute overflow-hidden rounded-canvas transition-shadow ${borderClass}`}
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,

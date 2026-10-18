@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown } from "lucide-react";
+import { menuItemClass } from "@/components/MenuIcons";
 import { useSelectableModels } from "@/hooks/useSelectableModels";
-import { DEFAULT_MODEL_ID } from "@/lib/models";
+import { DEFAULT_MODEL_ID, type ModelInfo } from "@/lib/models";
 import { useCanvasStore } from "@/lib/store";
 
 /**
@@ -47,45 +49,155 @@ export function ComposerModelPicker({
     if (fallback) setModel(fallback.id);
   }, [restrictToAnthropic, selectedModel, models, setModel]);
 
-  // The native arrow hugs the right edge of the pill, so it's hidden
-  // (appearance-none) and drawn here with matching inset on both sides.
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{
+    right: number;
+    top: number;
+    above: boolean;
+    maxHeight: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Portaled + fixed so the menu escapes the composer's overflow; opens above
+  // the pill unless there's more room below.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const update = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const above = rect.top > window.innerHeight - rect.bottom;
+      setPos({
+        right: window.innerWidth - rect.right,
+        top: above ? rect.top - 8 : rect.bottom + 8,
+        above,
+        maxHeight: Math.min(
+          420,
+          (above ? rect.top : window.innerHeight - rect.bottom) - 24,
+        ),
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const current = models.find((m) => m.id === selectedModel);
+
+  const renderItem = (m: ModelInfo) => {
+    const selected = m.id === selectedModel;
+    return (
+      <button
+        key={m.id}
+        type="button"
+        role="menuitemradio"
+        aria-checked={selected}
+        onClick={() => {
+          setModel(m.id);
+          setOpen(false);
+        }}
+        className={menuItemClass}
+      >
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-canvas-accent">
+          {selected && <Check className="h-4 w-4" strokeWidth={2} />}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{m.label}</span>
+        {m.provider === "openrouter" && !m.supportsTools && (
+          <span className="shrink-0 text-canvas-micro text-canvas-muted">
+            Text only
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const sectionLabelClass =
+    "px-3 pb-1 pt-2 text-canvas-micro font-medium uppercase tracking-wide text-canvas-muted";
+
   return (
     <div className="relative shrink-0">
-      <select
-        value={selectedModel}
-        onChange={(e) => setModel(e.target.value)}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
         disabled={disabled}
         aria-label="Model"
+        aria-haspopup="menu"
+        aria-expanded={open}
         title={
           restrictToAnthropic
             ? "A PDF is attached — only Claude models can read PDFs"
             : "Model for this and future questions (Claude → Anthropic, others → OpenRouter)"
         }
-        className="block max-w-[9.5rem] cursor-pointer appearance-none truncate rounded-full border border-canvas-border bg-canvas-bg py-1 pl-2.5 pr-7 text-canvas-micro text-canvas-muted outline-none transition-colors hover:border-canvas-muted hover:text-canvas-ink focus:border-canvas-muted disabled:opacity-40"
+        className={`flex max-w-[9.5rem] items-center gap-1.5 rounded-full border bg-canvas-bg py-1 pl-2.5 pr-2 text-canvas-micro outline-none transition-colors hover:border-canvas-muted hover:text-canvas-ink focus-visible:border-canvas-muted disabled:opacity-40 ${
+          open
+            ? "border-canvas-muted text-canvas-ink"
+            : "border-canvas-border text-canvas-muted"
+        }`}
       >
-        <optgroup label="Anthropic">
-          {anthropic.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </optgroup>
-        {openrouter.length > 0 && (
-          <optgroup label="OpenRouter">
-            {openrouter.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-                {m.supportsTools ? "" : " (text only)"}
-              </option>
-            ))}
-          </optgroup>
+        <span className="min-w-0 truncate">{current?.label ?? "Model"}</span>
+        <ChevronDown
+          aria-hidden
+          className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          strokeWidth={2}
+        />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            // Portaled, but React still bubbles events to the card — whose
+            // pointerdown starts a drag and swallows the click.
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label="Model"
+            className="fixed z-[9999] w-[300px] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
+            style={{
+              right: pos.right,
+              top: pos.top,
+              maxHeight: pos.maxHeight,
+              transform: pos.above ? "translateY(-100%)" : undefined,
+            }}
+          >
+            <div className={sectionLabelClass}>Anthropic</div>
+            {anthropic.map(renderItem)}
+            {openrouter.length > 0 && (
+              <>
+                <div className="mx-3 my-1 border-t border-canvas-border" />
+                <div className={sectionLabelClass}>OpenRouter</div>
+                {openrouter.map(renderItem)}
+              </>
+            )}
+          </div>,
+          document.body,
         )}
-      </select>
-      <ChevronDown
-        aria-hidden
-        className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-canvas-muted"
-        strokeWidth={2}
-      />
     </div>
   );
 }

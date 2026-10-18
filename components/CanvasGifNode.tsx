@@ -23,6 +23,7 @@ import {
   groupRefsForItemDrag,
 } from "@/lib/groupMembership";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 import {
   CANVAS_CONTENT_INERT_CLASS,
   CANVAS_NODE_INTERACTIVE_ATTR,
@@ -36,6 +37,7 @@ const DRAG_THRESHOLD_PX = 0;
 const INTERACTIVE = "button, a, [data-no-drag], [data-resize-handle]";
 
 function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasGifId === node.id ||
@@ -195,6 +197,7 @@ function CanvasGifNodeInner({ node }: { node: CanvasGifNodeType }) {
         onPointerCancel={handlePointerUp}
         className={`group/gif absolute rounded-canvas transition-shadow ${borderClass}`}
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,

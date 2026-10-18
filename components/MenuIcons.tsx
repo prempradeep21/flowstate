@@ -16,6 +16,7 @@ import {
   Lightbulb,
   MessageCircleQuestionMark,
   MessageSquare,
+  Paperclip,
   Pencil,
   Plus,
   Settings,
@@ -127,6 +128,10 @@ export function PlusIcon({ className = "h-4 w-4 shrink-0" }: { className?: strin
 
 export function ImageIcon() {
   return <Icon icon={Image} className={DEFAULT_CLASS} />;
+}
+
+export function PaperclipIcon() {
+  return <Icon icon={Paperclip} className={DEFAULT_CLASS} />;
 }
 
 export function Model3DIcon() {

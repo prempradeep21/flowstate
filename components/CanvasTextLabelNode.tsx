@@ -36,6 +36,7 @@ import {
   type CanvasTextLabel,
 } from "@/lib/store";
 import { fetchYoutubeMeta, isYoutubeUrl } from "@/lib/youtube";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 /** Screen px of movement before a press on the label becomes a drag. */
 const DRAG_THRESHOLD_PX = 3;
@@ -240,6 +241,7 @@ function CanvasTextLabelNodeInner({
   label,
   startEditing = false,
 }: CanvasTextLabelNodeProps) {
+  const raisedZIndex = useRaisedZIndex(label.id);
   const isSelected = useCanvasStore(
     (s) =>
       s.selectedCanvasTextLabelId === label.id ||
@@ -575,6 +577,7 @@ function CanvasTextLabelNodeInner({
         editing ? "cursor-text" : "cursor-grab active:cursor-grabbing"
       } ${isSelected ? "z-30" : "z-20"} ${hasFixedWidth ? "" : "w-max"}`}
       style={{
+        zIndex: raisedZIndex,
         left: label.position.x,
         top: label.position.y,
         width: hasFixedWidth ? label.width : undefined,

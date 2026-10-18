@@ -234,3 +234,153 @@ export function estimateTableHeightPx(
   }
   return Math.ceil(total);
 }
+
+/*
+ * Responsive column fitting for canvas tables.
+ *
+ * Each column has two widths: its IDEAL (every cell on one line, capped like
+ * the intrinsic estimate) and its MIN (its longest unbreakable word or tag
+ * pill — narrower than that and words split mid-letter). Fitting a node width:
+ *
+ *  - wider than every ideal: the spare goes to the text columns in proportion
+ *    to their ideal, so a wide node reads as a balanced table, not one huge
+ *    last column. Narrow columns (ids, ranks) stay at their ideal.
+ *  - between the mins and the ideals: each column gives up width in proportion
+ *    to its slack (ideal − min), the CSS auto-table rule — long prose columns
+ *    wrap first, short columns stay on one line.
+ *  - narrower than every min: columns hold their mins and the table scrolls
+ *    sideways inside the node (rows that wrap taller scroll vertically).
+ *
+ * A column the user dragged is pinned at that width; the rest fit around it.
+ */
+
+/** No column is squeezed below this, however short its content. */
+export const TABLE_COLUMN_FLOOR_PX = 64;
+/** A single very long word (a URL) breaks rather than forcing a huge min. */
+export const TABLE_COLUMN_MIN_CAP_PX = 200;
+/**
+ * Cells this short ("Dec – Mar", "$1.2M", "High") read as one unit, so they
+ * never wrap — only longer prose is allowed to break between words.
+ */
+const TABLE_UNBREAKABLE_CELL_CHARS = 14;
+/** Bold header glyphs run wider than body text. */
+const TABLE_HEADER_CHAR_PX = 8.2;
+/** Tag pill horizontal padding (px-2) plus a little breathing room. */
+const TABLE_TAG_PAD_PX = 20;
+
+function longestWordLength(text: string): number {
+  let max = 0;
+  for (const word of text.split(/\s+/)) max = Math.max(max, word.length);
+  return max;
+}
+
+/** Characters that must sit on one line: a short cell whole, else its longest word. */
+function unbreakableLength(text: string): number {
+  const trimmed = text.trim();
+  return trimmed.length <= TABLE_UNBREAKABLE_CELL_CHARS
+    ? trimmed.length
+    : longestWordLength(trimmed);
+}
+
+function columnMinWidthPx(col: TableColumn, rows: TableRow[]): number {
+  // Headers truncate rather than wrap; their longest word keeps them legible.
+  let minPx =
+    longestWordLength(col.label) * TABLE_HEADER_CHAR_PX + TABLE_COL_PAD_PX;
+  for (const row of rows) {
+    const { text, tags } = normalizeTableCell(row[col.key]);
+    minPx = Math.max(
+      minPx,
+      unbreakableLength(text) * TABLE_COL_CHAR_PX + TABLE_COL_PAD_PX,
+    );
+    for (const tag of tags) {
+      minPx = Math.max(
+        minPx,
+        unbreakableLength(tag.label) * TABLE_COL_CHAR_PX +
+          TABLE_TAG_PAD_PX +
+          TABLE_COL_PAD_PX,
+      );
+    }
+  }
+  return Math.min(TABLE_COLUMN_MIN_CAP_PX, Math.max(TABLE_COLUMN_FLOOR_PX, minPx));
+}
+
+export interface TableColumnFitSpec {
+  key: string;
+  minPx: number;
+  idealPx: number;
+  /** Short id/rank-style column: never stretched past its ideal. */
+  narrow: boolean;
+}
+
+export function computeTableColumnFitSpecs(
+  columns: TableColumn[],
+  rows: TableRow[],
+): TableColumnFitSpec[] {
+  return columns.map((col) => {
+    const narrow = isNarrowColumn(col, rows);
+    const idealPx = columnIntrinsicWidthPx(col, rows);
+    // A narrow column's content is short enough that wrapping it only hurts.
+    const minPx = narrow ? idealPx : Math.min(idealPx, columnMinWidthPx(col, rows));
+    return { key: col.key, minPx, idealPx, narrow };
+  });
+}
+
+/**
+ * Pixel widths for every column at `availablePx` of table width. The result
+ * sums to exactly `availablePx` unless the mins don't fit, in which case it
+ * sums to more and the caller's container scrolls. `pinnedPx[i]`, when set,
+ * fixes column i at that width.
+ */
+export function fitTableColumnWidthsPx(
+  specs: TableColumnFitSpec[],
+  availablePx: number,
+  pinnedPx: ReadonlyArray<number | undefined> = [],
+): number[] {
+  if (specs.length === 0) return [];
+  const widths = specs.map((s, i) => pinnedPx[i] ?? s.idealPx);
+  const free = specs
+    .map((_, i) => i)
+    .filter((i) => pinnedPx[i] == null);
+  const pinnedTotal = specs.reduce(
+    (sum, _, i) => sum + (pinnedPx[i] ?? 0),
+    0,
+  );
+  const room = availablePx - pinnedTotal;
+  const idealTotal = free.reduce((sum, i) => sum + specs[i]!.idealPx, 0);
+  const minTotal = free.reduce((sum, i) => sum + specs[i]!.minPx, 0);
+
+  if (free.length === 0 || !Number.isFinite(availablePx)) {
+    return widths.map(Math.round);
+  }
+
+  if (room >= idealTotal) {
+    const growers = free.filter((i) => !specs[i]!.narrow);
+    const takers = growers.length > 0 ? growers : free;
+    const weight = takers.reduce((sum, i) => sum + specs[i]!.idealPx, 0) || 1;
+    const spare = room - idealTotal;
+    for (const i of takers) {
+      widths[i] = specs[i]!.idealPx + (spare * specs[i]!.idealPx) / weight;
+    }
+  } else if (room > minTotal) {
+    const t = (room - minTotal) / (idealTotal - minTotal || 1);
+    for (const i of free) {
+      const s = specs[i]!;
+      widths[i] = s.minPx + (s.idealPx - s.minPx) * t;
+    }
+  } else {
+    for (const i of free) widths[i] = specs[i]!.minPx;
+    return widths.map(Math.round);
+  }
+
+  // Whole pixels that still sum to the room exactly — a stray fractional
+  // pixel would show a one-pixel horizontal scrollbar.
+  const rounded = widths.map(Math.floor);
+  const target = Math.round(availablePx);
+  let leftover = target - rounded.reduce((sum, w) => sum + w, 0);
+  // Flooring loses under 1px per column, so one pass covers it.
+  for (let k = free.length - 1; leftover > 0 && k >= 0; k -= 1) {
+    rounded[free[k]!]! += 1;
+    leftover -= 1;
+  }
+  return rounded;
+}

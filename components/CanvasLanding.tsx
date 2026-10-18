@@ -57,6 +57,9 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
+      attachedSkills: options?.attachedSkills,
+      attachedGroups: options?.attachedGroups,
       pendingFiles: options?.pendingFiles,
       ...turnMetricsOnSubmit(),
     });

@@ -3,7 +3,9 @@ import {
   TABLE_COLUMN_MAX_PERCENT,
   TABLE_NARROW_COLUMN_MAX_PERCENT,
   computeTableColumnWidths,
+  computeTableColumnFitSpecs,
   computeTableIntrinsicSize,
+  fitTableColumnWidthsPx,
 } from "@/lib/tableColumnWidths";
 
 describe("computeTableColumnWidths", () => {
@@ -94,5 +96,59 @@ describe("computeTableColumnWidths", () => {
     const size = computeTableIntrinsicSize(columns, rows);
     expect(size.widthPx).toBeGreaterThanOrEqual(192);
     expect(size.heightPx).toBeGreaterThan(100);
+  });
+});
+
+describe("fitTableColumnWidthsPx", () => {
+  const columns = [
+    { key: "rank", label: "#" },
+    { key: "name", label: "Name" },
+    { key: "notes", label: "Notes" },
+  ];
+  const rows = [
+    {
+      rank: "1",
+      name: "Ministry of Crab",
+      notes: "Famous Colombo seafood restaurant in an old Dutch hospital building",
+    },
+    { rank: "2", name: "Nuga Gama", notes: "Village-style Sri Lankan rice and curry" },
+  ];
+  const specs = computeTableColumnFitSpecs(columns, rows);
+  const idealTotal = specs.reduce((sum, s) => sum + s.idealPx, 0);
+  const minTotal = specs.reduce((sum, s) => sum + s.minPx, 0);
+  const sum = (ws: number[]) => ws.reduce((a, b) => a + b, 0);
+
+  it("keeps each column's min at or below its ideal", () => {
+    for (const s of specs) expect(s.minPx).toBeLessThanOrEqual(s.idealPx);
+    expect(minTotal).toBeLessThan(idealTotal);
+  });
+
+  it("fills a wider node exactly, stretching text columns but not narrow ones", () => {
+    const widths = fitTableColumnWidthsPx(specs, idealTotal + 300);
+    expect(sum(widths)).toBe(idealTotal + 300);
+    expect(widths[0]).toBe(Math.round(specs[0]!.idealPx));
+    expect(widths[1]!).toBeGreaterThan(specs[1]!.idealPx);
+    expect(widths[2]!).toBeGreaterThan(specs[2]!.idealPx);
+  });
+
+  it("shrinks the column with the most slack first", () => {
+    const widths = fitTableColumnWidthsPx(specs, (idealTotal + minTotal) / 2);
+    expect(sum(widths)).toBe(Math.round((idealTotal + minTotal) / 2));
+    const lost = widths.map((w, i) => specs[i]!.idealPx - w);
+    // The long Notes column gives up more than the short Name column.
+    expect(lost[2]!).toBeGreaterThan(lost[1]!);
+    widths.forEach((w, i) => expect(w).toBeGreaterThanOrEqual(Math.floor(specs[i]!.minPx)));
+  });
+
+  it("holds every column at its min below that, so the table scrolls", () => {
+    const widths = fitTableColumnWidthsPx(specs, minTotal - 100);
+    expect(widths).toEqual(specs.map((s) => Math.round(s.minPx)));
+    expect(sum(widths)).toBeGreaterThan(minTotal - 100);
+  });
+
+  it("keeps a dragged column at its pinned width and fits the rest around it", () => {
+    const widths = fitTableColumnWidthsPx(specs, idealTotal, [undefined, 300]);
+    expect(widths[1]).toBe(300);
+    expect(sum(widths)).toBe(idealTotal);
   });
 });

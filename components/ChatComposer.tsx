@@ -9,10 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "@/components/AuthProvider";
 import { ArtifactAttachmentPill } from "@/components/artifacts/ArtifactAttachmentPill";
 import { AssetAttachmentPill } from "@/components/AssetAttachmentPill";
 import { ComposerModelPicker } from "@/components/ComposerModelPicker";
-import { menuItemClass } from "@/components/MenuIcons";
+import { ContextMenuItem, ImageIcon, PaperclipIcon } from "@/components/MenuIcons";
 import { SkillAttachmentPill } from "@/components/SkillAttachmentPill";
 import { GroupAttachmentPill } from "@/components/GroupAttachmentPill";
 import { ReceivePlugs } from "@/components/plugs/ReceivePlugs";
@@ -25,6 +26,8 @@ import {
 import { useGoogleConnection } from "@/hooks/useGoogleConnection";
 import { useGooglePicker } from "@/hooks/useGooglePicker";
 import { useSidebarDropTarget } from "@/hooks/useSidebarDropTarget";
+import { uploadAssetFiles } from "@/lib/attachments";
+import { showUploadErrorsToast } from "@/lib/uploadErrorToast";
 import { useAutoResizeTextarea } from "@/lib/useAutoResizeTextarea";
 import {
   decrementLocalEditGuard,
@@ -74,9 +77,10 @@ export function ChatComposer({
   /** Rendered after the send button inside the composer row (e.g. card menu). */
   trailingControls?: ReactNode;
 }) {
-  const listSessionArtifacts = useCanvasStore((s) => s.listSessionArtifacts);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
+  const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
+  const { user, activeCanvasId } = useAuth();
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const plugAttachment = useCanvasStore((s) =>
     cardId ? s.plugComposerAttachments[cardId] : undefined,
@@ -128,15 +132,14 @@ export function ChatComposer({
     ],
   );
   const [menuOpen, setMenuOpen] = useState(false);
-  const [artifactMenuOpen, setArtifactMenuOpen] = useState(false);
   const [attached, setAttached] = useState<AttachedArtifactRef[]>([]);
   const [attachedAssets, setAttachedAssets] = useState<AttachedAssetRef[]>([]);
   const [attachedSkills, setAttachedSkills] = useState<AttachedSkillRef[]>([]);
   const [attachedGroups, setAttachedGroups] = useState<AttachedGroupRef[]>([]);
   const [pendingImages, setPendingImages] = useState<CardImage[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
-  const { connected: googleConnected, connect: connectGoogle } = useGoogleConnection();
-  const { openPicker: openGooglePicker, busy: googlePickerBusy } = useGooglePicker();
+  const { connect: connectGoogle } = useGoogleConnection();
+  const { openPicker: openGooglePicker } = useGooglePicker();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const textarea = useAutoResizeTextarea(draft);
@@ -253,7 +256,6 @@ export function ChatComposer({
       if (menuRef.current?.contains(target)) return;
       if (menuPortalRef.current?.contains(target)) return;
       setMenuOpen(false);
-      setArtifactMenuOpen(false);
     };
 
     document.addEventListener("pointerdown", onPointerDown);
@@ -286,7 +288,6 @@ export function ChatComposer({
     setPendingImages([]);
     setPendingFiles([]);
     setMenuOpen(false);
-    setArtifactMenuOpen(false);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -357,18 +358,6 @@ export function ChatComposer({
     }
   }, [connectGoogle]);
 
-  const attachGoogleDriveFile = () => {
-    setMenuOpen(false);
-    setArtifactMenuOpen(false);
-    if (!googleConnected) {
-      connectGoogle({ intent: "picker" });
-      return;
-    }
-    void openGooglePicker((doc) => {
-      void importPickedDriveFile(doc);
-    });
-  };
-
   useEffect(() => {
     const onResumePicker = () => {
       void openGooglePicker((doc) => {
@@ -400,12 +389,50 @@ export function ChatComposer({
     setPendingImages((prev) => [...prev, ...next]);
   };
 
+  // Picked files become canvas assets (so they show in the Assets sidebar) and
+  // attach to this question as asset pills — never placed on the canvas. Files
+  // that can't be assets (guest canvas, unsupported type) fall back to inline
+  // attachments so the pick still reaches the model.
+  const attachPickedFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    const fallback = async (rest: File[]) => {
+      const images = rest.filter((f) => f.type.startsWith("image/"));
+      const others = rest.filter((f) => !f.type.startsWith("image/"));
+      if (images.length > 0) await addImageFiles(images);
+      if (others.length > 0) {
+        const next = await Promise.all(others.map(readFileAsBase64));
+        setPendingFiles((prev) => [...prev, ...next]);
+      }
+    };
+    if (!user || !activeCanvasId) {
+      await fallback(files);
+      return;
+    }
+    const result = await uploadAssetFiles(files, {
+      userId: user.id,
+      canvasId: activeCanvasId,
+    });
+    for (const asset of result.assets) {
+      addCanvasAsset(asset);
+      addAssetAttachment({ assetId: asset.id });
+    }
+    const unsupported = new Set(
+      result.errors
+        .filter((err) => err.code === "unsupported-type" && err.fileName)
+        .map((err) => err.fileName),
+    );
+    await fallback(files.filter((f) => unsupported.has(f.name)));
+    const shown = result.errors.filter((err) => err.code !== "unsupported-type");
+    if (shown.length > 0) showUploadErrorsToast(shown);
+  };
+
   const onImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    await addImageFiles(Array.from(files));
+    const picked = Array.from(files);
     e.target.value = "";
     setMenuOpen(false);
+    await attachPickedFiles(picked);
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -425,22 +452,12 @@ export function ChatComposer({
   const onFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const next: PendingFileAttachment[] = [];
-    for (const file of Array.from(files)) {
-      next.push(await readFileAsBase64(file));
-    }
-    setPendingFiles((prev) => [...prev, ...next]);
+    const picked = Array.from(files);
     e.target.value = "";
     setMenuOpen(false);
+    await attachPickedFiles(picked);
   };
 
-  const attachArtifact = (artifactId: string, versionId: string) => {
-    addAttachment({ artifactId, versionId });
-    setArtifactMenuOpen(false);
-    setMenuOpen(false);
-  };
-
-  const artifacts = listSessionArtifacts();
   const isCanvas = variant === "canvas";
   const isLanding = variant === "landing";
 
@@ -664,6 +681,10 @@ export function ChatComposer({
               createPortal(
                 <div
                   ref={menuPortalRef}
+                  role="menu"
+                  // Portaled, but React still bubbles events to the card —
+                  // whose pointerdown starts a drag and swallows the click.
+                  onPointerDown={(e) => e.stopPropagation()}
                   className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
                   style={{
                     left: menuPos.left,
@@ -671,63 +692,16 @@ export function ChatComposer({
                     transform: "translateY(-100%)",
                   }}
                 >
-                  <button
-                    type="button"
-                    className={menuItemClass}
+                  <ContextMenuItem
+                    icon={<ImageIcon />}
+                    label="Image"
                     onClick={() => imageInputRef.current?.click()}
-                  >
-                    Image
-                  </button>
-                  <button
-                    type="button"
-                    className={menuItemClass}
+                  />
+                  <ContextMenuItem
+                    icon={<PaperclipIcon />}
+                    label="File"
                     onClick={() => fileInputRef.current?.click()}
-                  >
-                    File
-                  </button>
-                  <button
-                    type="button"
-                    disabled={googlePickerBusy}
-                    className={menuItemClass}
-                    onClick={attachGoogleDriveFile}
-                  >
-                    Google Drive…
-                  </button>
-                  <button
-                    type="button"
-                    className={menuItemClass}
-                    onClick={() => {
-                      setArtifactMenuOpen((o) => !o);
-                    }}
-                  >
-                    Artifact…
-                  </button>
-                  {artifactMenuOpen && (
-                    <div className="max-h-40 overflow-y-auto border-t border-canvas-border">
-                      {artifacts.length === 0 ? (
-                        <p className="px-3 py-2 text-canvas-compact text-canvas-muted">
-                          No artifacts yet
-                        </p>
-                      ) : (
-                        artifacts.map((art) => {
-                          const ver = getLatestVersion(art);
-                          if (!ver) return null;
-                          return (
-                            <button
-                              key={art.id}
-                              type="button"
-                              className={menuItemClass}
-                              onClick={() =>
-                                attachArtifact(art.id, ver.id)
-                              }
-                            >
-                              {artifactDisplayTitle(art, ver)}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
+                  />
                 </div>,
                 document.body,
               )}
@@ -736,9 +710,13 @@ export function ChatComposer({
           <div className="ml-auto">
             <ComposerModelPicker
               disabled={disabled}
-              restrictToAnthropic={pendingFiles.some(
-                (f) => f.mimeType === "application/pdf",
-              )}
+              restrictToAnthropic={
+                pendingFiles.some((f) => f.mimeType === "application/pdf") ||
+                attachedAssets.some(
+                  (ref) =>
+                    canvasAssets[ref.assetId]?.mimeType === "application/pdf",
+                )
+              }
             />
           </div>
 

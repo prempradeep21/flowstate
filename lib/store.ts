@@ -952,6 +952,14 @@ interface CanvasState {
   collapsedCardIds: string[];
   /** Session-only: hide every chat card on the canvas. */
   chatsGloballyHidden: boolean;
+  /**
+   * Session-only stacking order: ids of cards/nodes the user last clicked or
+   * selected, oldest first. These render above everything else on the canvas,
+   * most recent on top (see useRaisedZIndex).
+   */
+  raisedNodeIds: string[];
+  /** Bring a card or canvas node to the top of the stack. */
+  raiseCanvasNodes: (ids: string[]) => void;
   groups: Record<string, BranchGroup>;
   activeGroupId: string | null;
 
@@ -1587,6 +1595,9 @@ function normalizeLoadedArtifactNodes(
  * "focused" ids in sync with the unified multi-selection (single id is set
  * only when exactly one node and no families are selected).
  */
+/** Cap on the remembered stacking order — older entries fall back to default z. */
+const MAX_RAISED_NODES = 64;
+
 function unifiedSelectionPatch(selection: CanvasSelection) {
   const single =
     selection.familyRootIds.length === 0 && selection.items.length === 1
@@ -2666,8 +2677,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   collapsedBranchThreadIds: [],
   collapsedCardIds: [],
   chatsGloballyHidden: false,
+  raisedNodeIds: [],
   groups: {},
   activeGroupId: null,
+
+  raiseCanvasNodes: (ids) =>
+    set((state) => {
+      const current = state.raisedNodeIds;
+      const tail = current.slice(-ids.length);
+      if (ids.length === 0 || ids.every((id, i) => tail[i] === id)) {
+        return state;
+      }
+      const raised = new Set(ids);
+      const next = [...current.filter((id) => !raised.has(id)), ...ids];
+      return { raisedNodeIds: next.slice(-MAX_RAISED_NODES) };
+    }),
 
   setSelectedFamilyRootIds: (rootThreadIds) =>
     set({ selectedFamilyRootIds: rootThreadIds }),
