@@ -838,6 +838,40 @@ export interface Database {
         >;
         Relationships: [];
       };
+      outreach_podcasters: {
+        Row: {
+          id: string;
+          host_name: string;
+          podcast_name: string;
+          podcast_url: string | null;
+          canvas_url: string | null;
+          video_path: string | null;
+          email_copy: string;
+          dm_copy: string;
+          social_copy: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          host_name: string;
+          podcast_name: string;
+          podcast_url?: string | null;
+          canvas_url?: string | null;
+          video_path?: string | null;
+          email_copy?: string;
+          dm_copy?: string;
+          social_copy?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["outreach_podcasters"]["Insert"]
+        >;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
