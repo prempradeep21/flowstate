@@ -6,6 +6,7 @@ import {
   spawnPayload,
   spawnWebsite,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 import { HUBERMAN_NEUROPLASTICITY_SOURCE_URL } from "@/lib/transcriptImport/hubermanNeuroplasticity";
@@ -37,6 +38,31 @@ export const TIP_THREAD_HUB_PROTOCOL = "tip-thread-hub-protocol";
 export const TIP_THREAD_HUB_SLEEP = "tip-thread-hub-sleep";
 
 /** Andrew Huberman neuroplasticity conversation graph for the playground. */
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_HUB_MAIN]:
+    "Neuroplasticity end to end: what it is, why babies are wired crudely and customised by experience, which circuits stay fixed, why plasticity is gated after 25, the chemical recipe for change, and why it is consolidated in sleep.",
+  [TIP_THREAD_HUB_SENSORY]:
+    "How blindness rewires the cortex — in people blind from birth the visual cortex is taken over by hearing and Braille touch, producing heightened auditory and tactile acuity and a much higher incidence of perfect pitch.",
+  [TIP_THREAD_HUB_AWARE]:
+    "Awareness as the first step in plasticity: naming what you want to change, even an uncomfortable reaction, is what makes the prefrontal cortex flag the rest of the nervous system that what is coming is worth attending to.",
+  [TIP_THREAD_HUB_ATTENTION]:
+    "Attention, not exposure, decides what changes: Merzenich's spinning-drum experiment showed the same touch drives auditory or tactile plasticity depending on what the subject attended to — so 'everything rewires your brain' is false.",
+  [TIP_THREAD_HUB_CHEM]:
+    "The three molecules of change — epinephrine from the locus coeruleus for alertness, acetylcholine from a brainstem source for signal-to-noise, and a second acetylcholine source in the nucleus basalis that makes change obligatory.",
+  [TIP_THREAD_HUB_PROTOCOL]:
+    "The practical protocol: get alert on purpose via sleep and caffeine, narrow your visual focus for 60–120 seconds to trigger the plasticity chemicals, then run one 90-minute ultradian bout with distractions off.",
+  [TIP_THREAD_HUB_SLEEP]:
+    "Why learning is locked in during sleep: acetylcholine stamps the active synapses and deep sleep strengthens them over following nights — and a 20-minute NSDR or shallow nap right after a hard task beat a full night in a Cell Reports study.",
+};
+
 export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -59,6 +85,9 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
     TIP_THREAD_HUB_PROTOCOL,
     TIP_THREAD_HUB_SLEEP,
   ];
+  const threadGists = Object.fromEntries(
+    threadOrder.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
   const sessionArtifacts: Record<string, SessionArtifact> = {};
   const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
   const canvasArtifactOrder: string[] = [];
@@ -748,6 +777,7 @@ export function buildHubermanCanvasSection(): TranscriptImportCanvasSection {
     connections: layout.connections,
     threads,
     threadOrder,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

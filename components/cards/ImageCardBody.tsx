@@ -40,7 +40,7 @@ export function ImageCardBody({
               href={img.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
+              className="block overflow-hidden rounded-canvas-nest-17 border border-canvas-border/60 bg-black/[0.03]"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <img
@@ -80,7 +80,7 @@ export function ImageCardBody({
               href={img.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block overflow-hidden rounded-canvas border border-canvas-border/60 bg-black/[0.03]"
+              className="block overflow-hidden rounded-canvas-nest-17 border border-canvas-border/60 bg-black/[0.03]"
             >
               <img
                 src={img.thumb}

@@ -10,8 +10,8 @@ import { PanelChevronIcon } from "@/components/PanelChrome";
 import { SaveStatusBadge } from "@/components/SaveStatusBadge";
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 import { ArtifactUpdateCenter } from "@/components/ArtifactUpdateCenter";
-import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { CanvasesSection } from "@/components/sidebar/CanvasesSection";
+import { usePublishedCanvasIdentity } from "@/components/published/usePublishedCanvasIdentity";
 import {
   LEFT_PANEL_SECTIONS,
   PANEL_LINE_STAGGER_MS,
@@ -23,8 +23,15 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
   const viewMode = useCanvasStore((s) => s.viewMode);
   const toggleLeftPanel = useCanvasStore((s) => s.toggleLeftPanel);
   const { activeCanvasId, canvases } = useAuth();
-  const activeCanvasTitle =
-    canvases.find((c) => c.id === activeCanvasId)?.title ?? "Canvas";
+  // On a published link the visitor's own canvas is stashed, not open, so the
+  // canvas list would name the wrong canvas here. `published` takes over the
+  // chip for that surface and folds in what used to be a second floating
+  // header: publisher, and what asking a question does.
+  const published = usePublishedCanvasIdentity();
+  const canvasTitle =
+    published?.title ??
+    canvases.find((c) => c.id === activeCanvasId)?.title ??
+    "Canvas";
   const [lineStaggerActive, setLineStaggerActive] = useState(false);
   const [staggerKey, setStaggerKey] = useState(0);
   const prevCollapsedRef = useRef<boolean | null>(null);
@@ -51,31 +58,67 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
       <div className="flex items-start gap-2">
         <aside
           className={[
-            "pointer-events-auto flex max-w-[min(20rem,40vw)] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-card transition-[width,height] duration-panel ease-panel",
-            collapsed ? "w-auto" : "w-[315px]",
+            "pointer-events-auto flex flex-col overflow-hidden border border-canvas-border bg-canvas-card shadow-card transition-[width,height,border-radius] duration-panel ease-panel",
+            // Collapsed, the chip wraps its 32px logo (p-1.5 + border = 7px);
+            // expanded, the panel keeps lg and its contents nest inside.
+            collapsed ? "w-auto rounded-canvas-wrap-7" : "w-[315px] rounded-canvas",
+            // The published sub-line is a sentence, not a label — give the
+            // collapsed chip room for it rather than truncating it to nothing.
+            collapsed && published?.subtitle
+              ? "max-w-[min(30rem,72vw)]"
+              : "max-w-[min(20rem,40vw)]",
           ].join(" ")}
           style={collapsed ? undefined : { height: "calc(100vh - 24px)" }}
         >
           <MotionPanelContent
             side="left"
             collapsed={collapsed}
+            // p-1.5 around the 32px logo lands the chip at the same 46px as
+            // the search button beside it (36px button + m-1).
+            collapsedClassName="p-1.5 pr-2"
             collapsedContent={
               <div
                 data-coach-target="left-sidebar-entry"
                 className="flex min-w-0 items-center gap-2"
               >
                 <FlowstateBrand compact onLogoClick={onGoHome} />
-                <span
-                  className="min-w-0 max-w-[min(12rem,28vw)] truncate text-canvas-body-sm font-medium text-canvas-ink"
-                  title={activeCanvasTitle}
+                <div
+                  className={[
+                    "min-w-0",
+                    published?.subtitle
+                      ? "max-w-[min(22rem,52vw)]"
+                      : "max-w-[min(12rem,28vw)]",
+                  ].join(" ")}
                 >
-                  {activeCanvasTitle}
-                </span>
+                  <span
+                    className="block truncate text-canvas-body-sm font-medium text-canvas-ink"
+                    title={canvasTitle}
+                  >
+                    {canvasTitle}
+                  </span>
+                  {published?.subtitle ? (
+                    <span
+                      className="block truncate text-canvas-micro text-canvas-muted"
+                      title={published.subtitle}
+                    >
+                      {published.subtitle}
+                    </span>
+                  ) : null}
+                </div>
+                {published?.action ? (
+                  <button
+                    type="button"
+                    onClick={published.action.run}
+                    className="shrink-0 rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-micro font-semibold text-canvas-card transition hover:opacity-90"
+                  >
+                    {published.action.label}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={toggleLeftPanel}
                   aria-label="Open sidebar"
-                  className="btn h-7 w-7 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                  className="btn h-7 w-7 shrink-0 rounded-canvas-nest-2 text-canvas-muted hover:text-canvas-ink"
                 >
                   <PanelChevronIcon direction="right" className="h-4 w-4" />
                 </button>
@@ -97,11 +140,42 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
                     type="button"
                     onClick={toggleLeftPanel}
                     aria-label="Collapse sidebar"
-                    className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                    className="btn h-10 w-10 shrink-0 rounded-canvas-nest-13 text-canvas-muted hover:text-canvas-ink"
                   >
                     <PanelChevronIcon direction="left" />
                   </button>
                 </MotionPanelLine>
+
+                {published ? (
+                  <MotionPanelLine
+                    key={`published-${staggerKey}`}
+                    section={LEFT_PANEL_SECTIONS.header}
+                    item={1}
+                    staggerActive={lineStaggerActive}
+                    className="border-b border-canvas-border px-3 py-2.5"
+                  >
+                    <p
+                      className="m-0 truncate text-canvas-body-sm font-medium text-canvas-ink"
+                      title={published.title}
+                    >
+                      {published.title}
+                    </p>
+                    {published.subtitle ? (
+                      <p className="m-0 mt-0.5 text-canvas-micro leading-snug text-canvas-muted">
+                        {published.subtitle}
+                      </p>
+                    ) : null}
+                    {published.action ? (
+                      <button
+                        type="button"
+                        onClick={published.action.run}
+                        className="mt-2 rounded-canvas bg-canvas-ink px-2.5 py-1 text-canvas-micro font-semibold text-canvas-card transition hover:opacity-90"
+                      >
+                        {published.action.label}
+                      </button>
+                    ) : null}
+                  </MotionPanelLine>
+                ) : null}
 
                 <div className="flex-1 overflow-y-auto">
                   <CanvasesSection
@@ -137,7 +211,6 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
             }
           />
         </aside>
-        {viewMode === "canvas" ? <CanvasSearch /> : null}
       </div>
       {collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
     </div>

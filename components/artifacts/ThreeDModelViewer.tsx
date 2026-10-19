@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SkeletonBar } from "@/components/artifacts/ArtifactLoadingSkeleton";
 
 export function ThreeDModelViewer({
   modelUrl,
@@ -193,7 +194,8 @@ export function ThreeDModelViewer({
           className="pointer-events-none absolute inset-0 flex items-center justify-center text-canvas-compact text-canvas-muted"
           aria-live="polite"
         >
-          Loading model…
+          <SkeletonBar className="absolute inset-0 rounded-none" />
+          <span className="relative">Loading model…</span>
         </div>
       )}
       {status === "error" && (

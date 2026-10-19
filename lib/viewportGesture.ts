@@ -198,6 +198,12 @@ function commit(): void {
 }
 
 function releaseOwnership(final: TransientViewport): void {
+  // Paint the final value ourselves: after a rubber-band snap-back the store
+  // already holds it (overshoot commits send the in-range viewport), so the
+  // commit below is a no-op CanvasViewport skips — the visual would stay
+  // parked a hair past the limit, off from what hit-testing assumes.
+  transient = { ...final };
+  paint();
   // Release BEFORE the final commit so CanvasViewport's store subscription
   // applies it — store is the source of truth again.
   transient = null;

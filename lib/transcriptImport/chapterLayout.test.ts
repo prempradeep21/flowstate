@@ -5,26 +5,20 @@ import type { CanvasNodesState } from "@/lib/canvasSelection";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
+import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import {
-  BAND_SPLITS,
-  BENTO_BAND_H,
-  BENTO_COL_W,
-  BENTO_ROW_H,
-  BENTO_SQUEEZE_FLOOR,
   CHAPTER_CONTENT_WIDTH,
   TILE_GAP,
-  bentoSpanWidth,
-  packBentoGrid,
-  type BentoTile,
+  packJustifiedRows,
+  tileZoomRange,
+  type PackedRows,
+  type RowTile,
 } from "@/lib/transcriptImport/chapterLayout";
-import {
-  getArtifactLayoutFloors,
-  getArtifactMaxSize,
-  getDefaultArtifactSize,
-} from "@/lib/canvasNodeBounds";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 interface Rect {
@@ -94,139 +88,153 @@ const SECTIONS: [string, () => TranscriptImportCanvasSection][] = [
   ["rana daggubati", buildRanaDaggubatiCanvasSection],
   ["jagadamba", buildJagadambaCanvasSection],
   ["lightcone emergent", buildLightconeEmergentCanvasSection],
+  ["kunal shah", buildKunalShahHiringCanvasSection],
+  ["nithin kamath", buildNithinKamathRiskCanvasSection],
+  ["allari naresh", buildAllariNareshCanvasSection],
 ];
 
-const LEGAL_SPANS = [2, 3, 4].map(bentoSpanWidth);
-const COL_PITCH = BENTO_COL_W + TILE_GAP;
-const ROW_PITCH = BENTO_ROW_H + TILE_GAP;
-
-function tile(
-  id: string,
-  natural: { w: number; h: number },
-  floor = natural,
-  max = { w: 1200, h: 1170 },
-): BentoTile {
-  return { id, natural, floor, max };
+function tile(id: string, kind: string, natural: { w: number; h: number }): RowTile {
+  return { id, kind, natural };
 }
 
-/** The only artifacts allowed to sit outside every chapter — the masthead. */
-const MASTHEAD_KINDS = new Set(["episode", "linkgroup"]);
+/**
+ * The only artifacts allowed to sit outside every chapter — the masthead. A
+ * chart is allowed there for the episode-level measured series (airtime per
+ * chapter, theme counts per chapter), which belong to no single chapter.
+ */
+const MASTHEAD_KINDS = new Set(["episode", "linkgroup", "chart"]);
 
-describe("packBentoGrid", () => {
-  const quote = (id: string) => tile(id, { w: 520, h: 240 });
-  const website = (id: string) => tile(id, { w: 520, h: 400 });
-  const table = (id: string) =>
-    tile(id, { w: 680, h: 512 }, { w: 680, h: 512 });
+describe("packJustifiedRows", () => {
+  const quote = (id: string) => tile(id, "quote", { w: 520, h: 240 });
+  const stat = (id: string) => tile(id, "stat", { w: 380, h: 260 });
+  const claim = (id: string) => tile(id, "claim", { w: 680, h: 420 });
+  const table = (id: string, w = 584) => tile(id, "table", { w, h: 423 });
+  const favicon = (id: string) => tile(id, "website", { w: 280, h: 280 });
+  const poster = (id: string) => tile(id, "website", { w: 448, h: 648 });
+  const sticky = (id: string) => tile(id, "stickynote", { w: 240, h: 248 });
+  const timeline = (id: string) => tile(id, "timeline", { w: 1920, h: 480 });
+
+  const byId = (packed: PackedRows, id: string) =>
+    packed.placed.find((t) => t.id === id)!;
+
+  /** Tiles grouped into rows by their shared top edge. */
+  const rowsOf = (packed: PackedRows) => {
+    const rows = new Map<number, PackedRows["placed"]>();
+    for (const t of packed.placed) rows.set(t.y, [...(rows.get(t.y) ?? []), t]);
+    return [...rows.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, tiles]) => tiles.sort((a, b) => a.x - b.x));
+  };
+
+  const mixed = () => [
+    quote("q1"),
+    poster("p1"),
+    stat("s1"),
+    table("t1"),
+    sticky("n1"),
+    quote("q2"),
+    claim("c1"),
+    favicon("f1"),
+    poster("p2"),
+    stat("s2"),
+  ];
 
   it("is empty for no tiles", () => {
-    expect(packBentoGrid([])).toEqual({ placed: [], width: 0, height: 0 });
+    expect(packJustifiedRows([])).toEqual({ placed: [], width: 0, height: 0 });
   });
 
-  it("hugs a lone tile instead of padding out the full grid", () => {
-    const packed = packBentoGrid([quote("solo")]);
-    expect(packed.placed).toHaveLength(1);
-    expect(packed.width).toBe(bentoSpanWidth(2));
-    expect(packed.width).toBeLessThan(CHAPTER_CONTENT_WIDTH);
-  });
-
-  it("lands every tile on the column and row lattice", () => {
-    const packed = packBentoGrid([
-      quote("a"),
-      website("b"),
-      table("c"),
-      quote("d"),
-      website("e"),
-    ]);
-    for (const t of packed.placed) {
-      expect(t.x % COL_PITCH).toBe(0);
-      expect(t.y % ROW_PITCH).toBe(0);
-      expect(LEGAL_SPANS).toContain(t.w);
-      expect([BENTO_ROW_H, BENTO_BAND_H]).toContain(t.h);
+  it("keeps every tile at its own aspect ratio, scaled within its range", () => {
+    const tiles = mixed();
+    const packed = packJustifiedRows(tiles, { minWidth: 1356 });
+    for (const t of tiles) {
+      const p = byId(packed, t.id);
+      const [min, max] = tileZoomRange(t);
+      expect(p.zoom).toBeGreaterThanOrEqual(min - 0.01);
+      expect(p.zoom).toBeLessThanOrEqual(max + 0.01);
+      // Rounded to whole pixels, so allow a pixel either way.
+      expect(Math.abs(p.w - t.natural.w * p.zoom)).toBeLessThanOrEqual(1);
+      expect(Math.abs(p.h - t.natural.h * p.zoom)).toBeLessThanOrEqual(1);
     }
   });
 
-  it("fills every band to exactly six columns", () => {
-    const packed = packBentoGrid([
-      quote("a"),
-      quote("b"),
-      quote("c"),
-      website("d"),
-      table("e"),
-      quote("f"),
-    ]);
-    const byBand = new Map<number, typeof packed.placed>();
-    for (const t of packed.placed) {
-      const band = Math.floor(t.y / ROW_PITCH);
-      byBand.set(band, [...(byBand.get(band) ?? []), t]);
+  it("gives every tile in a row one height, with exact gutters across and down", () => {
+    const packed = packJustifiedRows(mixed(), { minWidth: 1356 });
+    const rows = rowsOf(packed);
+    for (const row of rows) {
+      for (const t of row) expect(t.h).toBe(row[0]!.h);
+      for (let i = 1; i < row.length; i++) {
+        expect(row[i]!.x).toBe(row[i - 1]!.x + row[i - 1]!.w + TILE_GAP);
+      }
     }
-    // A band is full when its distinct column starts tile the six columns.
-    for (const tiles of byBand.values()) {
-      const columns = new Map<number, number>();
-      for (const t of tiles) columns.set(t.x, t.w);
-      const cols = [...columns.values()].reduce(
-        (sum, w) => sum + Math.round((w + TILE_GAP) / COL_PITCH),
-        0,
-      );
-      expect([6, 2, 3, 4]).toContain(cols);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i]![0]!.y).toBe(rows[i - 1]![0]!.y + rows[i - 1]![0]!.h + TILE_GAP);
     }
   });
 
-  it("never places a tile below its floor or above its max", () => {
-    const packed = packBentoGrid([table("t1"), quote("q1"), table("t2")]);
-    const floors: Record<string, { w: number; h: number }> = {
-      t1: { w: 680, h: 512 },
-      t2: { w: 680, h: 512 },
-      q1: { w: 520, h: 240 },
-    };
-    for (const t of packed.placed) {
-      expect(t.w).toBeGreaterThanOrEqual(floors[t.id]!.w);
-      expect(t.h).toBeGreaterThanOrEqual(floors[t.id]!.h);
+  it("runs rows flush to the card block when the tiles can fill it", () => {
+    const tiles = Array.from({ length: 6 }, (_, i) => quote(`q${i}`));
+    const packed = packJustifiedRows(tiles, { minWidth: 1356 });
+    const rows = rowsOf(packed);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) {
+      const last = row[row.length - 1]!;
+      expect(Math.abs(last.x + last.w - 1356)).toBeLessThanOrEqual(row.length);
     }
   });
 
-  it("gives a full-bleed tile its own band and widens the grid", () => {
-    const timeline = tile(
-      "timeline",
-      { w: 1920, h: 480 },
-      { w: 1920, h: 480 },
-      { w: 2800, h: 1170 },
-    );
-    const packed = packBentoGrid([quote("a"), timeline, quote("b")]);
-    const placedTimeline = packed.placed.find((t) => t.id === "timeline")!;
-    expect(placedTimeline.y).toBe(0); // hoisted to the front
-    expect(placedTimeline.w).toBe(1920);
-    expect(packed.width).toBe(1920);
-    for (const other of packed.placed.filter((t) => t.id !== "timeline")) {
+  it("heads the block with a full-width strip", () => {
+    const packed = packJustifiedRows([quote("a"), timeline("tl"), quote("b")], {
+      minWidth: CHAPTER_CONTENT_WIDTH,
+    });
+    expect(byId(packed, "tl")).toMatchObject({ x: 0, y: 0 });
+    for (const other of packed.placed.filter((t) => t.id !== "tl")) {
       expect(other.y).toBeGreaterThan(0);
     }
   });
 
-  it("stacks two short tiles inside one tall slot, gutter exact", () => {
-    const packed = packBentoGrid([
-      website("tall"),
-      quote("short-a"),
-      quote("short-b"),
-    ]);
-    const a = packed.placed.find((t) => t.id === "short-a")!;
-    const b = packed.placed.find((t) => t.id === "short-b")!;
-    expect(a.x).toBe(b.x);
-    expect(a.w).toBe(b.w);
-    expect(a.h).toBe(BENTO_ROW_H);
-    expect(b.y - (a.y + a.h)).toBe(TILE_GAP);
+  it("starts with the text cards, and only pulls pictures forward to share a row", () => {
+    const packed = packJustifiedRows(
+      [sticky("n"), poster("p"), quote("q"), stat("s")],
+      { minWidth: 900 },
+    );
+    const first = [...packed.placed].sort((a, b) => a.y - b.y || a.x - b.x)[0]!;
+    expect(first.id).toBe("q");
+    // A picture or sticky never opens a row while text is still unplaced.
+    const rows = rowsOf(packed);
+    const textRows = rows.filter((row) => row.some((t) => t.id === "q" || t.id === "s"));
+    expect(rows.indexOf(textRows[textRows.length - 1]!)).toBeLessThanOrEqual(textRows.length - 1);
+  });
+
+  it("pairs height-compatible tiles rather than leaving each on its own row", () => {
+    // In shape order the to-do sits between quotes it can't share a height
+    // with; the poster further down can.
+    const todo = tile("todo", "todo", { w: 520, h: 440 });
+    const packed = packJustifiedRows(
+      [quote("q1"), quote("q2"), todo, quote("q3"), poster("p")],
+      { minWidth: 1104 },
+    );
+    const rows = rowsOf(packed);
+    const todoRow = rows.find((row) => row.some((t) => t.id === "todo"))!;
+    expect(todoRow.map((t) => t.id)).toContain("p");
+  });
+
+  it("never runs wider than the block it chose", () => {
+    const packed = packJustifiedRows(mixed(), { minWidth: 1356 });
+    for (const t of packed.placed) expect(t.x + t.w).toBeLessThanOrEqual(packed.width);
   });
 
   it("is deterministic", () => {
-    const build = () => [quote("a"), website("b"), table("c"), quote("d")];
-    expect(packBentoGrid(build())).toEqual(packBentoGrid(build()));
+    expect(packJustifiedRows(mixed(), { minWidth: 1356 })).toEqual(
+      packJustifiedRows(mixed(), { minWidth: 1356 }),
+    );
   });
 
   it("never overlaps", () => {
-    const packed = packBentoGrid(
-      Array.from({ length: 9 }, (_, i) =>
-        i % 3 === 0 ? website(`w${i}`) : quote(`q${i}`),
-      ),
+    const tiles = Array.from({ length: 13 }, (_, i) =>
+      [quote, claim, table, favicon, poster, stat, sticky][i % 7]!(`n${i}`),
     );
-    expect(packed.placed).toHaveLength(9);
+    const packed = packJustifiedRows(tiles, { minWidth: 1824 });
+    expect(packed.placed).toHaveLength(13);
     for (let i = 0; i < packed.placed.length; i++) {
       for (let j = i + 1; j < packed.placed.length; j++) {
         expect(overlaps(packed.placed[i]!, packed.placed[j]!)).toBe(false);
@@ -248,6 +256,20 @@ describe.each(SECTIONS)("%s chapter layout", (_name, build) => {
           overlaps(a, b),
           `${a.id} overlaps ${b.id}`,
         ).toBe(false);
+      }
+    }
+  });
+
+  it("draws every chapter artifact whole: box = natural size × its zoom", () => {
+    for (const group of Object.values(section.groups)) {
+      for (const item of group.items ?? []) {
+        const node = section.canvasArtifactNodes[item.id]!;
+        const art = section.sessionArtifacts[node.artifactId];
+        const natural = getArtifactBounds({ size: undefined }, art);
+        const zoom = node.contentZoom ?? 1;
+        const drawn = getArtifactBounds(node, art);
+        expect(Math.abs(drawn.w - natural.w * zoom), item.id).toBeLessThanOrEqual(1);
+        expect(Math.abs(drawn.h - natural.h * zoom), item.id).toBeLessThanOrEqual(1);
       }
     }
   });

@@ -131,7 +131,7 @@ export const DESIGN_SYSTEM_CARD_SAMPLES: DesignSystemCardSample[] = [
     id: "pending",
     kind: "pending",
     title: "Pending answer",
-    description: "Thinking dots, elapsed time, and token usage while waiting.",
+    description: "Thinking dots and status label while waiting.",
     tags: ["loading", "pending", "Q&A"],
     componentPath: "components/cards/PendingAnswerPlaceholder.tsx",
     card: baseCard("ds-card-pending", {

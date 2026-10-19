@@ -136,7 +136,7 @@ export function AnswerSelectionMenu({
     <div
       ref={menuRef}
       data-answer-selection-menu
-      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas border border-canvas-border/60 bg-canvas-ink px-1 py-1 shadow-card"
+      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas-wrap-5 border border-canvas-border/60 bg-canvas-ink p-1 shadow-card"
       style={{ left, top }}
       onPointerDown={(e) => {
         e.preventDefault();

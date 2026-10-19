@@ -136,7 +136,7 @@ export function StickyNoteArtifactContent({
   const noteBody = (
     <div
       className={`artifact-sticky-surface relative flex flex-col overflow-hidden shadow-[2px_3px_8px_rgb(0_0_0/0.12)] ${
-        fill ? "min-h-0 flex-1 rounded-canvas-sm" : "rounded-canvas"
+        fill ? "min-h-0 flex-1 rounded-canvas-nest-1" : "rounded-canvas"
       }`}
       style={{
         backgroundColor: colors.bg,

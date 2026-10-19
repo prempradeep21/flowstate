@@ -4,7 +4,6 @@ import { AmbientGradientBackground } from "@/components/canvasBackgrounds/Ambien
 import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
 import { StaticImageBackground } from "@/components/canvasBackgrounds/StaticImageBackground";
 import type { BackgroundOption, BackgroundRenderProps } from "@/components/canvasBackgrounds/types";
-import { isBackgroundAllowedForTheme } from "@/lib/canvasBackgroundTheme";
 import type { CanvasBackgroundStyle, CanvasTheme } from "@/lib/store";
 import type { ComponentType } from "react";
 
@@ -53,11 +52,3 @@ export const BACKGROUND_COMPONENTS: Record<
   "ambient-gradient": AmbientGradientBackground,
   "static-image": StaticImageBackground,
 };
-
-export function getBackgroundOptionsForTheme(
-  theme: CanvasTheme,
-): BackgroundOption[] {
-  return BACKGROUND_OPTIONS.filter((option) =>
-    isBackgroundAllowedForTheme(option.id, theme),
-  );
-}

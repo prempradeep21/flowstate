@@ -68,7 +68,7 @@ export function CustomUiBuildProgress({
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="switch-dot h-2 w-2 rounded-full bg-canvas-muted"
+            className="answer-dot h-2 w-2 rounded-full"
             style={{ animationDelay: `${i * 0.15}s` }}
             aria-hidden
           />
@@ -79,7 +79,7 @@ export function CustomUiBuildProgress({
           {thinkingLabel}
         </p>
       ) : null}
-      <ol className="flex flex-col gap-1.5 rounded-canvas border border-canvas-border bg-canvas-card/60 px-3 py-2.5 text-left">
+      <ol className="flex flex-col gap-1.5 rounded-canvas-nest-17 border border-canvas-border bg-canvas-card/60 px-3 py-2.5 text-left">
         {stages.map((stage) => (
           <li
             key={stage.id}

@@ -34,7 +34,7 @@ import {
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { computeTableIntrinsicSize } from "@/lib/tableColumnWidths";
 import { clampStickyNoteArtifactSize } from "@/lib/stickyNoteArtifact";
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
 import { REPO_DRAG_HANDLE_ATTR } from "@/lib/repoArtifactLayout";
 import { isCanvasItemSelected } from "@/lib/canvasSelection";
@@ -69,6 +69,7 @@ import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
 import { playSound } from "@/lib/sounds/engine";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const DRAG_THRESHOLD_PX = 0;
 
@@ -80,6 +81,7 @@ interface CanvasArtifactNodeProps {
 }
 
 function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
@@ -234,9 +236,13 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
           : artForBounds?.kind === "table"
             ? clampTableArtifactSize(targetW, targetH)
             : clampArtifactSize(targetW, targetH, clampOpts);
+      // Compare with what is stored, not what is drawn: content sizing may
+      // draw a node smaller than its stored box (see getArtifactBounds), and
+      // measuring against that would rewrite the same stored size forever.
+      const stored = current.size ?? bounds;
       if (
-        Math.abs(next.w - bounds.w) > 1 ||
-        Math.abs(next.h - bounds.h) > 1
+        Math.abs(next.w - stored.w) > 1 ||
+        Math.abs(next.h - stored.h) > 1
       ) {
         st.setCanvasArtifactSize(node.id, next);
       }
@@ -246,8 +252,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const sourceCard = cards[node.sourceCardId];
   const remoteUpdatingCard =
     remoteUpdatingCardId != null ? cards[remoteUpdatingCardId] : undefined;
-  const plugAccent =
-    (sourceCard && threads[sourceCard.threadId]?.accentColour) ?? CANVAS_ACCENT;
+  const plugAccent = connectorColour(
+    sourceCard ? threads[sourceCard.threadId]?.accentColour : undefined,
+    CANVAS_ACCENT,
+  );
   const remoteUpdateAccent =
     (remoteUpdatingCard &&
       threads[remoteUpdatingCard.threadId]?.accentColour) ??
@@ -407,7 +415,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     };
   };
 
-  if (!preview && !art) return null;
+  if (!preview && !art && !generatingPreview) return null;
 
   // Gesture-time stand-in: bordered rect + title at exact node bounds (same
   // helpers the culling index uses, so geometry never shifts on hydrate).
@@ -425,6 +433,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         onPointerCancel={handlePointerUp}
         className="absolute z-20 cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -432,7 +441,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         }}
       >
         <div className="truncate px-6 pt-4 text-[22px] font-medium text-canvas-ink/70">
-          {art?.title ?? ""}
+          {art?.title ?? generatingPreview?.title ?? ""}
         </div>
       </div>
     );
@@ -440,10 +449,13 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
   const isRepoArtifact = art?.kind === "repo";
   const isPermissionPreview = !!preview;
+  // A skeleton wears the chrome of the kind it is becoming, so it doesn't
+  // change shape when the real artifact replaces it.
+  const chromeKind = art?.kind ?? generatingPreview?.kind;
   const usesContainerFill =
-    !!art && artifactKindUsesCanvasContainerFill(art.kind);
+    !!chromeKind && artifactKindUsesCanvasContainerFill(chromeKind);
   const usesPaddingChrome =
-    !!art && artifactKindUsesCanvasPaddingChrome(art.kind);
+    !!chromeKind && artifactKindUsesCanvasPaddingChrome(chromeKind);
   const contentInteractive = isSelected || isPermissionPreview;
   /** Selection or permission suggestion keeps chrome, fill, plugs, and resize grips visible. */
   const chromeSelected = isSelected || isPermissionPreview;
@@ -459,9 +471,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       {...(chromeSelected ? { "data-chrome-hover": "" } : {})}
       {...(isSelected ? { "data-selected": "" } : {})}
       {...(!usesContainerFill ? { "data-naked-artifact": "" } : {})}
-      data-artifact-kind={art?.kind ?? preview?.kind}
+      data-artifact-kind={art?.kind ?? preview?.kind ?? generatingPreview?.kind}
       data-artifact-category={artifactCategoryOf(
-        (art?.kind ?? preview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
+        (art?.kind ?? preview?.kind ?? generatingPreview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
       )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
       onPointerDown={handlePointerDown}
@@ -472,6 +484,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         isRepoArtifact ? "cursor-default" : "cursor-grab active:cursor-grabbing"
       } ${isSelected ? "z-30" : "z-20"}`}
       style={{
+        zIndex: raisedZIndex,
         left: node.position.x,
         top: node.position.y,
         width,
@@ -553,6 +566,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
           />
         ) : generatingPreview ? (
           <GeneratingArtifactContent
+            nodeId={node.id}
             kind={generatingPreview.kind}
             title={generatingPreview.title}
             sourceCard={sourceCard}
@@ -564,11 +578,15 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
              * The masthead pair is drawn at 2.5× — node box and everything in
              * it, header chrome included, so the blow-up is uniform. Zoom (not
              * transform) so layout inside still resolves against the node box.
+             * Any other kind placed in a masthead opts in per node, and a
+             * chapter layout scales individual tiles the same way.
              */
             style={
-              MASTHEAD_ARTIFACT_KINDS.has(art.kind)
+              MASTHEAD_ARTIFACT_KINDS.has(art.kind) || node.mastheadScale
                 ? { zoom: MASTHEAD_ARTIFACT_SCALE }
-                : undefined
+                : node.contentZoom && node.contentZoom !== 1
+                  ? { zoom: node.contentZoom }
+                  : undefined
             }
           >
           <ArtifactShell

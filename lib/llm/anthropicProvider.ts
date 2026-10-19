@@ -10,6 +10,7 @@ import {
 } from "@/lib/llm/provider";
 import { toAnthropicTools } from "@/lib/llm/tools";
 import { buildWebSearchTool, getMaxPauseTurns } from "@/lib/anthropicWebSearch";
+import { createArtifactDraftStreamer } from "@/lib/llm/artifactDraftStream";
 
 function toAnthropicMessages(messages: NeutralMessage[]): Anthropic.MessageParam[] {
   return messages.map((m) => {
@@ -120,6 +121,7 @@ export const anthropicProvider: LLMProvider = {
     // Distinguishes "model finished" from "ran out of tool turns" — the latter
     // otherwise falls out of the loop having emitted no final text at all.
     let stoppedNaturally = false;
+    const drafts = createArtifactDraftStreamer(emit);
 
     for (let turn = 0; turn < maxTurns; turn++) {
       const stream = anthropic.messages.stream(
@@ -136,12 +138,29 @@ export const anthropicProvider: LLMProvider = {
         signal ? { signal } : undefined,
       );
 
+      // Tool-use block index → tool call id, for streaming artifact drafts.
+      const toolBlockIds = new Map<number, string>();
       for await (const event of stream) {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
           emit({ text: event.delta.text });
         }
+        if (
+          event.type === "content_block_delta" &&
+          event.delta.type === "input_json_delta"
+        ) {
+          const id = toolBlockIds.get(event.index);
+          if (id) drafts.append(id, event.delta.partial_json);
+        }
+        if (event.type === "content_block_stop") {
+          const id = toolBlockIds.get(event.index);
+          if (id) drafts.end(id);
+        }
         if (event.type === "content_block_start") {
-          const block = event.content_block as { type?: string; name?: string };
+          const block = event.content_block as { type?: string; name?: string; id?: string };
+          if (block.type === "tool_use" && block.id && block.name) {
+            toolBlockIds.set(event.index, block.id);
+            drafts.start(block.id, block.name);
+          }
           if (block.type === "server_tool_use" && block.name === "web_search") {
             webSearchBlocks += 1;
             if (!searchThinkingEmitted) {
@@ -151,6 +170,7 @@ export const anthropicProvider: LLMProvider = {
           }
         }
       }
+      drafts.endAll();
 
       const msg = await stream.finalMessage();
       // Anthropic reports cache hits/writes separately: `input_tokens` is the

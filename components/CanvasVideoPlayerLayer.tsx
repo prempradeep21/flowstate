@@ -181,6 +181,8 @@ export function CanvasVideoPlayerLayer() {
   const modeRef = useRef<Mode>("hidden");
   const playingRef = useRef(false);
   const pipPosRef = useRef<Rect | null>(null);
+  /** Once playback has popped out to the corner, it stays there until closed. */
+  const pipEngagedRef = useRef(false);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
   const [mode, setMode] = useState<Mode>("hidden");
@@ -274,11 +276,14 @@ export function CanvasVideoPlayerLayer() {
       host.replaceChildren();
       modeRef.current = "hidden";
       pipPosRef.current = null;
+      pipEngagedRef.current = false;
     };
   }, [active?.sessionId, active?.videoId]);
 
   // Position loop: track the node's placeholder while docked, snap to a corner
-  // PiP when it scrolls out (only while playing), hide when paused off-screen.
+  // PiP when it scrolls out while playing. A PiP is a window the user owns:
+  // pausing it keeps it on screen (paused), and only its close button ends the
+  // session. A video paused while still docked does not pop out on scroll.
   useEffect(() => {
     if (!active) return;
     let raf = 0;
@@ -322,13 +327,15 @@ export function CanvasVideoPlayerLayer() {
         let appliedRect: Rect | null = null;
         if (docked) {
           nextMode = "docked";
+          pipEngagedRef.current = false;
           appliedRect = docked;
           setRect(host, docked);
           host.style.zIndex = "34";
           host.style.borderRadius = "0px";
           host.style.boxShadow = "none";
-        } else if (playingRef.current) {
+        } else if (playingRef.current || pipEngagedRef.current) {
           nextMode = "pip";
+          pipEngagedRef.current = true;
           appliedRect = pipPosRef.current ?? defaultPipRect();
           pipPosRef.current = appliedRect;
           setRect(host, appliedRect);

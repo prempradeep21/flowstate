@@ -6,6 +6,7 @@ import {
   AskHandle,
 } from "@/lib/dummyLLM";
 import type { EmittedArtifact, ResponseType } from "@/lib/artifactTypes";
+import type { ArtifactDraftEvent } from "@/lib/llm/artifactDraftStream";
 import { collectAskAttachments } from "@/lib/askAttachments";
 import { buildAncestorHistory } from "@/lib/buildAncestorHistory";
 import { collectSiblingGists } from "@/lib/memory/canvasMemory";
@@ -264,7 +265,18 @@ export function askClaude(
               };
               responseType = artifact.type;
               cb.onResponseType?.(artifact.type);
-              cb.onArtifact?.(artifact);
+              cb.onArtifact?.(artifact, {
+                draftId:
+                  typeof parsed.draftId === "string" ? parsed.draftId : undefined,
+              });
+            } else if (parsed.artifactDraft) {
+              const draft = parsed.artifactDraft as ArtifactDraftEvent;
+              if (typeof draft.id === "string" && typeof draft.type === "string") {
+                cb.onArtifactDraft?.(draft);
+              }
+            } else if (parsed.artifactDraftDiscard) {
+              const id = (parsed.artifactDraftDiscard as { id?: unknown }).id;
+              if (typeof id === "string") cb.onArtifactDraftDiscard?.(id);
             } else if (parsed.responseType === "image") {
               responseType = "image";
               cb.onResponseType?.("image");

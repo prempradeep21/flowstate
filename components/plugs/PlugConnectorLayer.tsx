@@ -15,7 +15,11 @@ import {
 } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-import { CANVAS_ACCENT, CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import {
+  CANVAS_ACCENT,
+  CANVAS_CONNECTOR,
+  connectorColour,
+} from "@/lib/design/tokens";
 
 const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
@@ -70,7 +74,7 @@ export function PlugConnectorLayer() {
       h,
       fromSide,
     );
-    stroke = threads[card.threadId]?.accentColour ?? STROKE_FALLBACK;
+    stroke = connectorColour(threads[card.threadId]?.accentColour);
   } else if (plugDrag.kind === "artifact") {
     const node = canvasArtifactNodes[plugDrag.artifactNodeId];
     if (!node) return null;
@@ -86,9 +90,9 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     const artCard = cards[node.sourceCardId];
-    stroke =
-      (artCard && threads[artCard.threadId]?.accentColour) ??
-      STROKE_FALLBACK;
+    stroke = connectorColour(
+      artCard ? threads[artCard.threadId]?.accentColour : undefined,
+    );
     dashed = true;
   } else if (plugDrag.kind === "asset") {
     const node = canvasAssetNodes[plugDrag.assetNodeId];
@@ -120,7 +124,7 @@ export function PlugConnectorLayer() {
       h,
       fromSide,
     );
-    stroke = STROKE_FALLBACK;
+    stroke = connectorColour(undefined);
     dashed = true;
   } else {
     // Group container bounds derive from every member node — read the full
@@ -133,7 +137,7 @@ export function PlugConnectorLayer() {
     fromSide = plugDrag.fromSide;
     toSide = plugDrag.fromSide === "left" ? "right" : "left";
     fromAnchor = plugAnchorAt(bounds.x, bounds.y, bounds.w, bounds.h, fromSide);
-    stroke = CANVAS_ACCENT;
+    stroke = connectorColour(undefined, CANVAS_ACCENT);
     dashed = true;
   }
 
@@ -163,7 +167,7 @@ export function PlugConnectorLayer() {
         viewportScale={viewportSettledScale}
         dashed={dashed}
         opacity={0.85}
-        showTargetArrow={false}
+        showTargetPlug={false}
       />
     </svg>
   );

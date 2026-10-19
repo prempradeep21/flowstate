@@ -10,20 +10,14 @@ import {
 import { SAMPLE_CANVAS_REGISTRY } from "@/lib/sampleCanvases/registry";
 import type { SampleCanvasDefinition } from "@/lib/sampleCanvases/types";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
+import { dedupeTitle } from "@/lib/canvasTitles";
 
 type AddState =
   | { status: "idle" }
   | { status: "adding" }
   | { status: "added"; canvasId: string }
   | { status: "error"; message: string };
-
-/** "Henry Ford", "Henry Ford (2)", "Henry Ford (3)" … */
-function dedupeTitle(base: string, existingTitles: string[]): string {
-  if (!existingTitles.includes(base)) return base;
-  let n = 2;
-  while (existingTitles.includes(`${base} (${n})`)) n += 1;
-  return `${base} (${n})`;
-}
 
 function statsLine(def: SampleCanvasDefinition): string {
   const { stats } = def;
@@ -40,6 +34,7 @@ function statsLine(def: SampleCanvasDefinition): string {
 }
 
 function SampleCanvasCard({ def }: { def: SampleCanvasDefinition }) {
+  const { refreshCanvasList } = useAuth();
   const [state, setState] = useState<AddState>({ status: "idle" });
 
   const handleAdd = async () => {
@@ -70,6 +65,9 @@ function SampleCanvasCard({ def }: { def: SampleCanvasDefinition }) {
         title,
         snapshot,
       );
+      // Same reason as the transcript playground: this inserted behind the
+      // provider's back, so the sidebar would not show it until a reload.
+      await refreshCanvasList();
       setState({ status: "added", canvasId: created.id });
     } catch (error) {
       setState({

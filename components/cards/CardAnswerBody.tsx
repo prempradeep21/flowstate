@@ -74,7 +74,7 @@ export function CardAnswerBody({
       thinkingLabel={pendingLabel}
     />
   ) : showActiveTurn ? (
-    <PendingAnswerPlaceholder cardId={card.id} thinkingLabel={pendingLabel} />
+    <PendingAnswerPlaceholder thinkingLabel={pendingLabel} />
   ) : showError ? (
     <QaRetryPlaceholder
       message={formatQaResponseErrorMessage(card.answer)}

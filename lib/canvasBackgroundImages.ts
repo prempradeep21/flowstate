@@ -74,6 +74,15 @@ export const CANVAS_STATIC_BACKGROUND_IMAGES: readonly CanvasBackgroundImage[] =
     },
   ] as const;
 
+/** Photos offered in the settings picker, in order. The full list above stays
+ * resolvable so canvases saved with an older photo keep rendering it. */
+export const CANVAS_PICKER_BACKGROUND_IMAGE_IDS: readonly string[] = [
+  "grok-ec82cfab",
+  "generated-image",
+  "gulab-image-dafdcf4d",
+  "image-jpg",
+];
+
 export const DEFAULT_CANVAS_BACKGROUND_IMAGE_ID =
   CANVAS_STATIC_BACKGROUND_IMAGES[0]!.id;
 

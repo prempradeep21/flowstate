@@ -16,6 +16,7 @@ import {
   Lightbulb,
   MessageCircleQuestionMark,
   MessageSquare,
+  Paperclip,
   Pencil,
   Plus,
   Settings,
@@ -98,12 +99,39 @@ export function TypeIcon() {
   return <Icon icon={Text} className={DEFAULT_CLASS} />;
 }
 
+/** Text box with corner handles — the toolbar's standalone Text tool. */
+export function TextBoxIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="h-4 w-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2.75" y="2.75" width="4" height="4" rx="0.5" />
+      <rect x="17.25" y="2.75" width="4" height="4" rx="0.5" />
+      <rect x="2.75" y="17.25" width="4" height="4" rx="0.5" />
+      <rect x="17.25" y="17.25" width="4" height="4" rx="0.5" />
+      <path d="M6.75 4.75h10.5M6.75 19.25h10.5M4.75 6.75v10.5M19.25 6.75v10.5" />
+      <path d="M9 9h6M12 9v6.5" />
+    </svg>
+  );
+}
+
 export function PlusIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
   return <Icon icon={Plus} className={className} />;
 }
 
 export function ImageIcon() {
   return <Icon icon={Image} className={DEFAULT_CLASS} />;
+}
+
+export function PaperclipIcon() {
+  return <Icon icon={Paperclip} className={DEFAULT_CLASS} />;
 }
 
 export function Model3DIcon() {

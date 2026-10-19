@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { isConversationCard } from "@/lib/conversationCard";
 import {
   CanvasFloatingMenuPortal,
   useCanvasFloatingMenuPosition,
@@ -23,6 +24,9 @@ interface CardQaMenuProps {
   hideDelete?: boolean;
   /** Inline in the question header row instead of overlaying the card. */
   layout?: "overlay" | "embedded" | "cta";
+  /** Button corners — concentric with the card corner they sit in when they
+   *  sit in one (e.g. `rounded-canvas-nest-17` in the Q&A header). */
+  buttonRadius?: string;
 }
 
 function DotsIcon() {
@@ -66,6 +70,7 @@ export function CardQaMenu({
   canvas = false,
   hideDelete = false,
   layout = "overlay",
+  buttonRadius = "rounded-canvas",
 }: CardQaMenuProps) {
   const card = useCanvasStore((s) => s.cards[cardId]);
   const createBranch = useCanvasStore((s) => s.createBranch);
@@ -108,7 +113,10 @@ export function CardQaMenu({
 
   const isEmpty = card.status === "empty";
   if (isEmpty && hideDelete) return null;
-  const canBranch = card.status === "done";
+  // A conversation card is always "done" — it was never asked — so the status
+  // check alone would offer Pull branch on imported content. Mirrors the
+  // showBranchPlugs guard on the canvas surface.
+  const canBranch = card.status === "done" && !isConversationCard(card);
   const turnInProgress = isQaTurnInProgress(card);
   const showCollapseToggle = isCanvas && !isEmpty;
 
@@ -200,7 +208,7 @@ export function CardQaMenu({
             toggleCardCollapsed(cardId);
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex h-8 w-8 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+          className={`flex h-8 w-8 items-center justify-center ${buttonRadius} text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink`}
         >
           <ChatCollapseIcon collapsed={isChatCollapsed} />
         </button>
@@ -216,7 +224,7 @@ export function CardQaMenu({
           setOpen((v) => !v);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className={`flex h-8 w-8 items-center justify-center rounded-canvas text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
+        className={`flex h-8 w-8 items-center justify-center ${buttonRadius} text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink ${
           open ? "bg-canvas-accentSoft text-canvas-accent" : ""
         }`}
       >

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { SampleCanvasPreviewApp } from "@/components/sampleCanvases/SampleCanvasPreviewApp";
+import { OutlinePreviewToggle } from "./OutlinePreviewToggle";
 
 /**
  * Dev-only mirror of the admin Sample Canvases preview — renders a registry
@@ -12,5 +13,10 @@ export default function SampleCanvasesDevPage() {
     notFound();
   }
 
-  return <SampleCanvasPreviewApp exposeStoreForTooling />;
+  return (
+    <>
+      <SampleCanvasPreviewApp exposeStoreForTooling />
+      <OutlinePreviewToggle />
+    </>
+  );
 }

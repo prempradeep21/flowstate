@@ -21,10 +21,14 @@ export function AssetAttachmentPill({
   name,
   kind,
   onRemove,
+  nested = false,
 }: {
   name: string;
   kind: CanvasAsset["kind"];
   onRemove?: () => void;
+  /** In the composer's padded attachment row: corners yield to the
+   *  composer's (concentric — R = composer − 9px). */
+  nested?: boolean;
 }) {
   const iconKind = assetKindLabel(kind);
   const kindLabel =
@@ -42,10 +46,17 @@ export function AssetAttachmentPill({
 
   return (
     <div
-      className="inline-flex max-w-full items-center gap-3 rounded-canvas border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5"
+      // self-start: hugs its contents in the canvas composer's column list,
+      // which otherwise stretches every chip to the full composer width.
+      className={`inline-flex max-w-full items-center gap-3 self-start border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5 ${
+        nested ? "rounded-canvas-nest-9" : "rounded-canvas"
+      }`}
     >
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-canvas bg-canvas-artifactIconBg text-canvas-muted"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center bg-canvas-artifactIconBg text-canvas-muted ${
+          // py-1.5 + border = 7px into the pill's corners.
+          nested ? "rounded-canvas-nest-16" : "rounded-canvas-nest-7"
+        }`}
       >
         <AssetKindIcon kind={iconKind} className="h-5 w-5" />
       </span>

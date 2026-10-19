@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { memo,
   PointerEvent as ReactPointerEvent,
   useEffect,
@@ -41,12 +42,22 @@ import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { previewRequiresClickToInteract, resolvePreviewKind } from "@/lib/documentPreview";
 import { canvasSidePlugWrapperClass } from "@/lib/canvasPlugChrome";
+import { showAppErrorToast } from "@/lib/appToastStore";
+import { downloadCanvasAsset } from "@/lib/assetDownload";
+import { connectorColour } from "@/lib/design/tokens";
+import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const DRAG_THRESHOLD_PX = 0;
+/**
+ * Targets that own their own pointer behaviour — chrome controls plus the
+ * preview's selectable/scrollable regions. A press here must not start a node
+ * drag (and must not `preventDefault`, which would kill text selection).
+ */
 const INTERACTIVE =
-  "button, a, [data-no-drag], [data-plug], [data-resize-handle]";
+  'button, a, textarea, input, select, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll]';
 
 function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
+  const raisedZIndex = useRaisedZIndex(node.id);
   const assets = useCanvasStore((s) => s.canvasAssets);
   // Crossing-only subscription: re-renders when the god-view boolean flips,
   // not on every settled-scale change (the post-zoom "settle storm").
@@ -67,6 +78,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const [contentInteractive, setContentInteractive] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const asset = assets[node.assetId];
   // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
@@ -210,6 +222,14 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
     nodeDrag.end(e);
   };
 
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    const result = await downloadCanvasAsset(asset);
+    setDownloading(false);
+    if (!result.ok) showAppErrorToast(result.error ?? "Could not download file.");
+  };
+
   const handleResizePointerDown = (
     corner: NodeResizeCorner,
     e: ReactPointerEvent<HTMLButtonElement>,
@@ -247,6 +267,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         onPointerCancel={handlePointerUp}
         className="absolute cursor-grab overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card active:cursor-grabbing"
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -277,8 +298,11 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="group/asset group/artifact absolute"
+        className={`group/asset group/artifact absolute ${
+          isSelected ? "select-text" : ""
+        }`}
         style={{
+          zIndex: raisedZIndex,
           left: node.position.x,
           top: node.position.y,
           width,
@@ -290,7 +314,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             <div className={canvasSidePlugWrapperClass("left", "asset")}>
               <Plug
                 side="left"
-                accentColour="#7C9EFF"
+                accentColour={connectorColour(undefined, "#7C9EFF")}
                 visible
                 ariaLabel="Attach asset to question from left"
                 onPointerDown={handleAssetPlugPointerDown("left")}
@@ -299,7 +323,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             <div className={canvasSidePlugWrapperClass("right", "asset")}>
               <Plug
                 side="right"
-                accentColour="#7C9EFF"
+                accentColour={connectorColour(undefined, "#7C9EFF")}
                 visible
                 ariaLabel="Attach asset to question from right"
                 onPointerDown={handleAssetPlugPointerDown("right")}
@@ -314,7 +338,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         >
           {/* `.artifact-casing` opts this frame into the artifact style packs,
               so the stroke, radius, and shadow adapt to the active style
-              (Neo / Brut / Liquid Glass) instead of staying constant. Vanilla
+              (Brut / Liquid Glass / Bento) instead of staying constant. Vanilla
               falls back to the theme classes below. */}
           <div
             className={`artifact-casing flex h-full w-full flex-col overflow-hidden rounded-canvas border bg-canvas-card transition-shadow ${
@@ -347,6 +371,28 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
             </div>
           </div>
         </CanvasSharpContent>
+
+        {/* Download stays available on read-only canvases — collaborators with
+            view access still need the original file. */}
+        <button
+          type="button"
+          data-no-drag
+          disabled={downloading}
+          aria-label={`Download ${asset.name}`}
+          title={`Download ${asset.name}`}
+          onClick={() => {
+            void handleDownload();
+          }}
+          className={`absolute z-40 flex items-center justify-center rounded-full bg-canvas-card/90 p-1 text-canvas-muted shadow-sm transition-opacity hover:text-canvas-ink disabled:opacity-50 ${
+            canvasReadOnly ? "right-2 top-2" : "right-8 top-2"
+          } ${
+            isSelected
+              ? "opacity-100"
+              : "opacity-0 group-hover/asset:opacity-100"
+          }`}
+        >
+          <Download className="h-3 w-3" aria-hidden />
+        </button>
 
         {!canvasReadOnly && (
           <button

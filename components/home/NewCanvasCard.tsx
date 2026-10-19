@@ -14,7 +14,7 @@ export function NewCanvasCard({
       type="button"
       disabled={disabled}
       onClick={onCreate}
-      className="group flex h-full w-full min-h-[13rem] flex-col items-center justify-center gap-2.5 rounded-canvas-lg border border-dashed border-canvas-border bg-canvas-card/50 text-canvas-muted transition-all duration-motion-standard ease-motion-medium hover:-translate-y-1 hover:border-canvas-accent/60 hover:bg-canvas-accent/5 hover:text-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent disabled:cursor-default disabled:opacity-60 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group flex h-full w-full min-h-[13rem] flex-col items-center justify-center gap-2.5 rounded-canvas-lg border border-dashed border-canvas-accent bg-canvas-card/50 text-canvas-muted transition-all duration-motion-standard ease-motion-medium hover:-translate-y-1 hover:bg-canvas-accent/5 hover:text-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent disabled:cursor-default disabled:opacity-60 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
       {busy ? (
         <span
@@ -22,7 +22,7 @@ export function NewCanvasCard({
           aria-label="Creating canvas"
         />
       ) : (
-        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-muted shadow-card transition-all duration-motion-standard ease-motion-settle group-hover:rotate-90 group-hover:border-canvas-accent/40 group-hover:text-canvas-accent motion-reduce:transition-none">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-canvas-accent text-canvas-onAccent shadow-card transition-all duration-motion-standard ease-motion-settle group-hover:rotate-90 motion-reduce:transition-none">
           <PlusIcon />
         </span>
       )}

@@ -134,7 +134,6 @@ export function useMobileSdlcSandboxCanvas(
       resetViewportBootstrap();
       hydrateFromSnapshot(snapshot, {
         applyViewport: false,
-        canvasReveal: false,
       });
 
       if (opts?.fit !== false) {
@@ -155,7 +154,6 @@ export function useMobileSdlcSandboxCanvas(
     if (stored) {
       hydrateFromSnapshot(stored, {
         applyViewport: false,
-        canvasReveal: false,
       });
     } else {
       const snapshot = buildMobileSdlcSnapshot({
@@ -164,7 +162,6 @@ export function useMobileSdlcSandboxCanvas(
       });
       hydrateFromSnapshot(snapshot, {
         applyViewport: false,
-        canvasReveal: false,
       });
     }
 
@@ -252,7 +249,6 @@ export function useMobileSdlcSandboxCanvas(
         resetViewportBootstrap();
         useCanvasStore.getState().hydrateFromSnapshot(buildCanvasSnapshot(restore), {
           applyViewport: true,
-          canvasReveal: false,
         });
       }
     };

@@ -9,6 +9,7 @@ export {
   shouldEarlySpawnArtifact,
 } from "@/lib/processArtifactSpawnQueue";
 import { isCardAskInFlight } from "@/lib/cardAskRegistry";
+import { pruneArtifactDrafts } from "@/lib/artifactDrafts";
 import { notifyArtifactFailureForCard } from "@/lib/artifactUpdateNotify";
 import { isQaTurnInProgress } from "@/lib/qaStreamDisplay";
 import {
@@ -122,12 +123,14 @@ export function finalizeCardResponse(
       };
     });
     useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
+    pruneArtifactDrafts();
     notifyArtifactFailureForCard(cardId);
     return null;
   }
 
   const artifactId = processArtifactSpawnQueue(cardId);
   useCanvasStore.getState().removeGeneratingArtifactPreview(cardId);
+  pruneArtifactDrafts();
 
   if (opts.responseType) {
     useCanvasStore.getState().updateCard(cardId, {

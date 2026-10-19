@@ -11,6 +11,7 @@ import {
   EMBED_LOADING_WIDTH,
 } from "@/lib/embedArtifact";
 import { matchEmbedProviderId } from "@/lib/embed/registry";
+import { markWebsiteEnriching } from "@/lib/websiteArtifact";
 import type { EmbedResolveResult } from "@/lib/embed/types";
 import {
   fetchGoogleConnectionGate,
@@ -114,8 +115,12 @@ async function persistPreviewImage(
 }
 
 function enrichWebsiteTitle(artifactId: string, url: string): void {
+  // While this runs the card is genuinely "pending" and keeps its default box;
+  // once it ends, an unresolved site is final and sizes as a favicon card.
+  markWebsiteEnriching(artifactId, true);
   const applyPreview = (preview: LinkPreviewClientResult | null): boolean => {
     if (!preview?.title) return false;
+    markWebsiteEnriching(artifactId, false);
     useCanvasStore.getState().patchWebsiteArtifactTitle(artifactId, {
       title: preview.title,
       faviconUrl: preview.faviconUrl,
@@ -131,7 +136,9 @@ function enrichWebsiteTitle(artifactId: string, url: string): void {
   void fetchLinkPreviewClient(url).then((preview) => {
     if (applyPreview(preview)) return;
     window.setTimeout(() => {
-      void fetchLinkPreviewClient(url).then(applyPreview);
+      void fetchLinkPreviewClient(url).then((retry) => {
+        if (!applyPreview(retry)) markWebsiteEnriching(artifactId, false);
+      });
     }, 2000);
   });
 }

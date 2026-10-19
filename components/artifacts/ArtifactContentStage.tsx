@@ -78,8 +78,10 @@ export function ArtifactContentStage({
   return (
     <div
       ref={stageRef}
+      // Concentric with what holds it: the canvas frame's 1px border (fill),
+      // or the panel card's p-5 + border (ArtifactPanel / FocusArtifactPanel).
       className={`artifact-content-stage overflow-hidden bg-canvas-card ${
-        fill ? "rounded-b-canvas" : "rounded-canvas-sm"
+        fill ? "rounded-b-canvas-nest-1" : "rounded-canvas-nest-21"
       } ${fill ? "flex min-h-0 w-full flex-1 flex-col" : ""} ${className}`}
       style={stageStyle}
     >

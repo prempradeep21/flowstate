@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  nodeDragOffset,
+  useNodeDragFrame,
+  withNodeDragOffset,
+} from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
 import {
   branchTargetAnchorY,
@@ -12,7 +17,7 @@ import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-import { CANVAS_ACCENT } from "@/lib/design/tokens";
+import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 
 const BASE_STROKE_SCREEN = 1.75;
 
@@ -22,12 +27,10 @@ export function GroupPlugConnections() {
   const groups = useCanvasStore((s) => s.groups);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
+  // Follow live node drags — the store only moves on release.
+  const dragFrame = useNodeDragFrame();
   const nodesState = useCanvasNodesState();
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (groupPlugConnections.length === 0 || chatsGloballyHidden) return null;
@@ -43,7 +46,6 @@ export function GroupPlugConnections() {
       className="pointer-events-none absolute left-0 top-0 z-[14]"
       style={{
         overflow: "visible",
-        opacity: hideForLoadReveal ? 0 : 1,
       }}
       width={1}
       height={1}
@@ -56,11 +58,18 @@ export function GroupPlugConnections() {
 
         const bounds = computeGroupBounds(nodesState, group);
         if (!bounds) return null;
+        const groupOffset = nodeDragOffset(dragFrame, "group", group.id);
+        const cardPos = withNodeDragOffset(
+          dragFrame,
+          "card",
+          card.id,
+          card.position,
+        );
         const { w: cardW, h: cardH } = getConnectionCardBounds(card, tuning);
 
         const fromAnchor = plugAnchorAt(
-          bounds.x,
-          bounds.y,
+          bounds.x + groupOffset.dx,
+          bounds.y + groupOffset.dy,
           bounds.w,
           bounds.h,
           conn.fromSide,
@@ -68,12 +77,12 @@ export function GroupPlugConnections() {
 
         const toPyOverride =
           conn.toSide === "left" || conn.toSide === "right"
-            ? branchTargetAnchorY(card.id, card.position.y, cardH)
+            ? branchTargetAnchorY(card.id, cardPos.y, cardH)
             : undefined;
 
         const toAnchor = plugAnchorAt(
-          card.position.x,
-          card.position.y,
+          cardPos.x,
+          cardPos.y,
           cardW,
           cardH,
           conn.toSide,
@@ -92,7 +101,7 @@ export function GroupPlugConnections() {
           <ConnectorPathGroup
             key={conn.id}
             d={d}
-            stroke={CANVAS_ACCENT}
+            stroke={connectorColour(undefined, CANVAS_ACCENT)}
             strokeWidth={strokeWidth}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
@@ -100,7 +109,7 @@ export function GroupPlugConnections() {
             viewportScale={viewportSettledScale}
             dashed
             opacity={0.85}
-            showTargetArrow={false}
+            showTargetPlug={false}
           />
         );
       })}

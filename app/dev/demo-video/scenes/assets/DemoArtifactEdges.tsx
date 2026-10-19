@@ -80,7 +80,7 @@ export function DemoArtifactEdges({
             viewportScale={viewportScale}
             dashed
             opacity={0.85 * e.opacity}
-            showTargetArrow={false}
+            showTargetPlug={false}
           />
         );
       })}

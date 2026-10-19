@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  dotGridPaint,
   patternDotRadius,
   patternOffset,
   patternTileSize,
@@ -47,5 +48,30 @@ describe("patternDotRadius", () => {
       const radius = patternDotRadius(baseRadius, scale);
       expect(radius / tile).toBeCloseTo(expectedRatio, 5);
     }
+  });
+});
+
+describe("dotGridPaint", () => {
+  const sizes = (scale: number) =>
+    dotGridPaint({ x: 0, y: 0, scale })
+      .backgroundSize.split(", ")
+      .map((s) => parseFloat(s));
+
+  it("keeps the fine level at least 10px apart on screen", () => {
+    for (const scale of [0.1, 0.2, 0.33, 0.5, 0.75, 1, 2, 4]) {
+      const [coarse, fine] = sizes(scale);
+      expect(fine).toBeGreaterThanOrEqual(10 - 1e-9);
+      expect(coarse).toBeCloseTo(fine! * 2);
+    }
+  });
+
+  it("never subdivides below the world spacing when zoomed in", () => {
+    expect(sizes(3)[1]).toBeCloseTo(66);
+  });
+
+  it("draws the fine level at full strength at 100%", () => {
+    expect(dotGridPaint({ x: 0, y: 0, scale: 1 }).backgroundImage).toContain(
+      "/ 1.000)",
+    );
   });
 });

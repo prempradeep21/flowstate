@@ -84,6 +84,8 @@ export interface SpotlightRect {
   left: number;
   width: number;
   height: number;
+  /** Concentric with the target: its corner radius + SPOTLIGHT_PAD. */
+  radius: number;
 }
 
 export function measureCoachTarget(
@@ -95,6 +97,9 @@ export function measureCoachTarget(
   const nodes = Array.from(document.querySelectorAll(selector));
   for (const node of nodes) {
     if (!(node instanceof HTMLElement)) continue;
+    // Culled canvas nodes are hidden with content-visibility (not
+    // display:none), so they still measure a real rect — skip them.
+    if (node.checkVisibility?.() === false) continue;
     const style = window.getComputedStyle(node);
     if (
       style.display === "none" ||
@@ -105,11 +110,17 @@ export function measureCoachTarget(
     }
     const rect = node.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) continue;
+    const targetRadius = Math.min(
+      parseFloat(style.borderTopLeftRadius) || 0,
+      rect.width / 2,
+      rect.height / 2,
+    );
     return {
       top: rect.top - SPOTLIGHT_PAD,
       left: rect.left - SPOTLIGHT_PAD,
       width: rect.width + SPOTLIGHT_PAD * 2,
       height: rect.height + SPOTLIGHT_PAD * 2,
+      radius: targetRadius + SPOTLIGHT_PAD,
     };
   }
   return null;
@@ -245,7 +256,7 @@ export function CoachMarkPopover({
           <button
             type="button"
             onClick={onSkip}
-            className="btn rounded-canvas px-2 py-1 text-canvas-caption text-canvas-muted hover:text-canvas-ink"
+            className="btn rounded-canvas-nest-17 px-2 py-1 text-canvas-caption text-canvas-muted hover:text-canvas-ink"
           >
             Skip tour
           </button>
@@ -253,7 +264,7 @@ export function CoachMarkPopover({
             <button
               type="button"
               onClick={onBack}
-              className="btn rounded-canvas border border-canvas-border px-3 py-1.5 text-canvas-caption font-medium text-canvas-ink"
+              className="btn rounded-canvas-nest-17 border border-canvas-border px-3 py-1.5 text-canvas-caption font-medium text-canvas-ink"
             >
               Back
             </button>
@@ -261,7 +272,7 @@ export function CoachMarkPopover({
           <button
             type="button"
             onClick={onNext}
-            className="btn rounded-canvas bg-canvas-accent px-3 py-1.5 text-canvas-caption font-medium text-canvas-onAccent"
+            className="btn rounded-canvas-nest-17 bg-canvas-accent px-3 py-1.5 text-canvas-caption font-medium text-canvas-onAccent"
           >
             {isLastStep ? "Done" : "Next"}
           </button>
@@ -275,22 +286,24 @@ export function CoachMarkSpotlight({ rect }: { rect: SpotlightRect }) {
   return (
     <>
       <div
-        className="pointer-events-none fixed z-[71] rounded-canvas-md ring-2 ring-canvas-card ring-offset-2 ring-offset-transparent"
+        className="pointer-events-none fixed z-[71] ring-2 ring-canvas-card ring-offset-2 ring-offset-transparent"
         style={{
           top: rect.top,
           left: rect.left,
           width: rect.width,
           height: rect.height,
+          borderRadius: rect.radius,
         }}
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed z-[70] rounded-canvas-md shadow-[0_0_0_9999px_rgba(15,15,15,0.55)]"
+        className="pointer-events-none fixed z-[70] shadow-[0_0_0_9999px_rgba(15,15,15,0.55)]"
         style={{
           top: rect.top,
           left: rect.left,
           width: rect.width,
           height: rect.height,
+          borderRadius: rect.radius,
         }}
         aria-hidden
       />

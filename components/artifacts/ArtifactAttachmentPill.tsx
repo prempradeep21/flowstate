@@ -9,18 +9,27 @@ export function ArtifactAttachmentPill({
   title,
   versionNumber,
   onRemove,
+  nested = false,
 }: {
   kind: ArtifactKind;
   title: string;
   versionNumber: number;
   onRemove?: () => void;
+  /** In the composer's padded attachment row: corners yield to the
+   *  composer's (concentric — R = composer − 9px). */
+  nested?: boolean;
 }) {
   return (
     <div
-      className="inline-flex max-w-full items-center gap-3 rounded-canvas border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5"
+      className={`inline-flex max-w-full items-center gap-3 border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5 ${
+        nested ? "rounded-canvas-nest-9" : "rounded-canvas"
+      }`}
     >
+      {/* Icon sits py-1.5 + border = 7px into the pill's corners. */}
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-canvas text-canvas-ink"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center text-canvas-ink ${
+          nested ? "rounded-canvas-nest-16" : "rounded-canvas-nest-7"
+        }`}
         style={artifactCategoryStyle(kind)}
       >
         <ArtifactTypeIcon kind={kind} className="h-4 w-4" />

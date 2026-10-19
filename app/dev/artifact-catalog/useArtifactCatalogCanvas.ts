@@ -104,7 +104,6 @@ export function useArtifactCatalogCanvas(
       resetViewportBootstrap();
       hydrateFromSnapshot(snapshot, {
         applyViewport: false,
-        canvasReveal: false,
       });
 
       requestAnimationFrame(() => {
@@ -137,7 +136,6 @@ export function useArtifactCatalogCanvas(
         resetViewportBootstrap();
         useCanvasStore.getState().hydrateFromSnapshot(buildCanvasSnapshot(restore), {
           applyViewport: true,
-          canvasReveal: false,
         });
       }
     };

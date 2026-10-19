@@ -70,7 +70,6 @@ export function PerfFixtureApp() {
     resetViewportBootstrap();
     useCanvasStore.getState().hydrateFromSnapshot(snapshot, {
       applyViewport: false,
-      canvasReveal: false,
     });
 
     // Center the viewport on the fixture at a scale where a good chunk of
@@ -105,7 +104,6 @@ export function PerfFixtureApp() {
           .getState()
           .hydrateFromSnapshot(buildCanvasSnapshot(restore), {
             applyViewport: true,
-            canvasReveal: false,
           });
       }
     };

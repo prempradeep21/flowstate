@@ -45,6 +45,7 @@ export function TimelineArtifactContent({
   fill = false,
   sidebar = false,
   layout = "panel",
+  canvasInteractive = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "timeline" }>;
   artifactId?: string;
@@ -52,6 +53,8 @@ export function TimelineArtifactContent({
   fill?: boolean;
   sidebar?: boolean;
   layout?: "canvas" | "panel" | "sidebar";
+  /** False until the canvas node is selected: wheel/drag pass through to the canvas. */
+  canvasInteractive?: boolean;
 }) {
   const saveTimelineArtifactVersion = useCanvasStore(
     (s) => s.saveTimelineArtifactVersion,
@@ -73,6 +76,10 @@ export function TimelineArtifactContent({
   }, [data.scale, payload]);
 
   useEffect(() => {
+    if (!canvasInteractive) setPopover(null);
+  }, [canvasInteractive]);
+
+  useEffect(() => {
     const el = trackAreaRef.current;
     if (!el) return;
     const minTrackHeight = fill ? TIMELINE_ARTIFACT_BODY_MIN_HEIGHT : 240;
@@ -87,7 +94,7 @@ export function TimelineArtifactContent({
   }, [fill]);
 
   const isCanvas = layout === "canvas";
-  const interactive = canEdit && isCanvas && !sidebar;
+  const interactive = canEdit && isCanvas && !sidebar && canvasInteractive;
   const viewportEnabled = isCanvas && !sidebar;
 
   const persist = useCallback(
@@ -122,6 +129,7 @@ export function TimelineArtifactContent({
     initialZoom: 1,
     scale,
     enabled: viewportEnabled,
+    inputEnabled: canvasInteractive,
   });
 
   const ticks = useMemo(
@@ -301,9 +309,13 @@ export function TimelineArtifactContent({
       >
         <div
           ref={containerRef}
-          data-canvas-scroll
+          {...(canvasInteractive ? { "data-canvas-scroll": true } : {})}
           className={`min-h-0 flex-1 overflow-hidden ${
-            isPanning ? "cursor-grabbing" : "cursor-grab"
+            !canvasInteractive
+              ? ""
+              : isPanning
+                ? "cursor-grabbing"
+                : "cursor-grab"
           }`}
         >
           <div

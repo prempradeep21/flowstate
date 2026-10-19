@@ -377,7 +377,7 @@ export function CanvasMinimap({
       aria-label="Canvas minimap"
     >
       <div
-        className="relative cursor-pointer"
+        className="relative cursor-pointer overflow-hidden rounded-canvas-nest-5"
         style={{ width: MINIMAP_W, height: MINIMAP_H }}
         onPointerDown={handlePointerDown}
       >

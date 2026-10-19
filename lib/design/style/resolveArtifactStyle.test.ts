@@ -22,26 +22,15 @@ describe("resolveArtifactStyle", () => {
     expect(resolveArtifactStyle("does-not-exist").isDefault).toBe(true);
   });
 
-  it("emits both scoped mode blocks for neo", () => {
-    const resolved = resolveArtifactStyle("neo");
-    expect(resolved.isDefault).toBe(false);
-    expect(resolved.css).toContain('[data-artifact-style="neo"] {');
-    expect(resolved.css).toContain(
-      'html[data-theme="dark"] [data-artifact-style="neo"] {',
-    );
+  it("falls back to vanilla for the retired neo and riso packs", () => {
+    for (const id of ["neo", "riso"]) {
+      expect(getArtifactStylePack(id).id).toBe(DEFAULT_ARTIFACT_STYLE_ID);
+      expect(resolveArtifactStyle(id).isDefault).toBe(true);
+    }
   });
 
-  it("scopes the #2066EB accent (32 102 235) inside neo only", () => {
-    const resolved = resolveArtifactStyle("neo");
-    expect(resolved.lightVars["--canvas-accent"]).toBe("32 102 235");
-    expect(resolved.lightVars["--canvas-accent-deep"]).toBeTruthy();
-    // Dark accent is derived, not the light hex verbatim.
-    expect(resolved.darkVars["--canvas-accent"]).toBeTruthy();
-    expect(resolved.darkVars["--canvas-accent"]).not.toBe("32 102 235");
-  });
-
-  it("emits the full structural + surface variable set for neo", () => {
-    const resolved = resolveArtifactStyle("neo");
+  it("emits the full structural + surface variable set for neobrutalism", () => {
+    const resolved = resolveArtifactStyle("neobrutalism");
     for (const name of [
       "--canvas-artifact-stroke-w",
       "--canvas-artifact-radius",
@@ -89,15 +78,10 @@ describe("resolveArtifactStyle", () => {
     }
   });
 
-  it("keeps the quirk tokens inert on neo (present but disabled)", () => {
-    const resolved = resolveArtifactStyle("neo");
+  it("keeps the quirk tokens inert on liquid glass (present but disabled)", () => {
+    const resolved = resolveArtifactStyle("liquid-glass");
     expect(resolved.lightVars["--canvas-artifact-tilt"]).toBe("0deg");
     expect(resolved.lightVars["--canvas-artifact-hard-shadow"]).toBe("none");
-    // No canvas recolor unless a pack opts in.
-    expect(resolved.lightVars["--canvas-bg"]).toBeUndefined();
-    expect(resolved.darkVars["--canvas-bg"]).toBeUndefined();
-    expect(resolved.lightVars["--canvas-dot"]).toBeUndefined();
-    expect(resolved.darkVars["--canvas-dot"]).toBeUndefined();
   });
 
   it("leaves the canvas backdrop to the theme for neobrutalism", () => {
@@ -116,18 +100,16 @@ describe("resolveArtifactStyle", () => {
     );
   });
 
-  it("registers packs in picker order with the color-led packs last", () => {
+  it("registers packs in picker order with the color-led pack last", () => {
     expect(ARTIFACT_STYLE_PACKS.map((pack) => pack.id)).toEqual([
       "vanilla",
-      "neo",
       "neobrutalism",
       "liquid-glass",
       "bento",
-      "riso",
     ]);
   });
 
-  it("emits the full category tone set for the color-led packs", () => {
+  it("emits the full category tone set for the color-led pack", () => {
     const roles = [
       "solid",
       "on-solid",
@@ -151,7 +133,7 @@ describe("resolveArtifactStyle", () => {
       "planning",
       "discourse",
     ];
-    for (const id of ["bento", "riso"]) {
+    for (const id of ["bento"]) {
       const resolved = resolveArtifactStyle(id);
       expect(resolved.isDefault).toBe(false);
       for (const category of categories) {
@@ -177,24 +159,19 @@ describe("resolveArtifactStyle", () => {
       ]) {
         expect(resolved.lightVars[name], `${id} ${name}`).toBeTruthy();
       }
-      // Both packs recolor the canvas backdrop.
+      // The pack recolors the canvas backdrop.
       expect(resolved.lightVars["--canvas-bg"]).toBeTruthy();
       expect(resolved.darkVars["--canvas-bg"]).toBeTruthy();
     }
   });
 
-  it("re-declares the neutral ink inside riso but not bento", () => {
-    const riso = resolveArtifactStyle("riso");
-    expect(riso.lightVars["--canvas-ink"]).toBe("30 27 22");
-    expect(riso.darkVars["--canvas-ink"]).toBe("237 230 214");
-    expect(riso.lightVars["--canvas-card"]).toBe("255 253 247");
-    // Bento binds ink per node (category-scoped), never at the scope level.
+  it("binds ink per node in bento, never at the scope level", () => {
     const bento = resolveArtifactStyle("bento");
     expect(bento.lightVars["--canvas-ink"]).toBeUndefined();
   });
 
   it("keeps the category tones and typography off the existing packs", () => {
-    for (const id of ["neo", "neobrutalism", "liquid-glass"]) {
+    for (const id of ["neobrutalism", "liquid-glass"]) {
       const resolved = resolveArtifactStyle(id);
       expect(resolved.lightVars["--art-cat-data-solid"]).toBeUndefined();
       expect(resolved.lightVars["--canvas-artifact-display-size"]).toBeUndefined();
@@ -216,15 +193,15 @@ describe("resolveArtifactStyle", () => {
     expect(resolved.darkVars["--canvas-artifact-card-alpha"]).toBe("0.5");
     expect(resolved.lightVars["--canvas-artifact-inner-highlight"]).toBeTruthy();
     expect(resolved.darkVars["--canvas-artifact-inner-highlight"]).toBeTruthy();
-    // Tinted canvas backdrop so the blur has content to refract.
-    expect(resolved.lightVars["--canvas-bg"]).toBe("221 229 239");
-    expect(resolved.darkVars["--canvas-bg"]).toBe("16 19 25");
+    // Pure-grey backdrop: the canvas stays neutral in every pack.
+    expect(resolved.lightVars["--canvas-bg"]).toBe("227 227 227");
+    expect(resolved.darkVars["--canvas-bg"]).toBe("19 19 19");
     // No pack accent — glass adapts to the active theme accent.
     expect(resolved.lightVars["--canvas-accent"]).toBeUndefined();
   });
 
   it("keeps the glass tokens off non-glass packs", () => {
-    const resolved = resolveArtifactStyle("neo");
+    const resolved = resolveArtifactStyle("neobrutalism");
     expect(
       resolved.lightVars["--canvas-artifact-backdrop-filter"],
     ).toBeUndefined();
@@ -235,12 +212,13 @@ describe("resolveArtifactStyle", () => {
     expect(resolved.darkVars["--canvas-artifact-card-alpha"]).toBeUndefined();
   });
 
-  it("gives neobrutalism hard zero-blur shadows and thick strokes", () => {
+  it("gives neobrutalism hard zero-blur shadows and no stroke", () => {
     const resolved = resolveArtifactStyle("neobrutalism");
     expect(resolved.lightVars["--canvas-artifact-hard-shadow"]).toBe(
       "6px 6px 0 #000000",
     );
-    expect(resolved.lightVars["--canvas-artifact-stroke-w"]).toBe("3px");
+    expect(resolved.lightVars["--canvas-artifact-stroke-w"]).toBe("0px");
+    expect(resolved.darkVars["--canvas-artifact-stroke-w"] ?? "0px").toBe("0px");
     expect(resolved.lightVars["--canvas-artifact-tilt"]).toBe("-0.5deg");
     // Dark shadow is the hot-pink pop, not black.
     expect(resolved.darkVars["--canvas-artifact-hard-shadow"]).toBe(

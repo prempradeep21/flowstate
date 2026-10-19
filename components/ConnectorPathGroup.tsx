@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import type { CardSide } from "@/lib/store";
 import type { PlugAnchor } from "@/lib/plugConnector";
 import {
-  connectorArrowPath,
   connectorMarkerSizes,
   connectorPlugCirclePath,
 } from "@/lib/plugConnector";
@@ -18,12 +17,11 @@ export function ConnectorPathGroup({
   strokeWidth,
   fromAnchor,
   toAnchor,
-  toSide,
   viewportScale,
   dashed,
   opacity = 0.85,
   showSourcePlug = true,
-  showTargetArrow = true,
+  showTargetPlug = true,
   hitWidth,
   onPointerEnter,
   onPointerLeave,
@@ -35,12 +33,13 @@ export function ConnectorPathGroup({
   strokeWidth: number;
   fromAnchor: PlugAnchor;
   toAnchor: PlugAnchor;
-  toSide: CardSide;
+  /** Unused since both ends draw the same ring; kept so callers needn't change. */
+  toSide?: CardSide;
   viewportScale: number;
   dashed?: boolean;
   opacity?: number;
   showSourcePlug?: boolean;
-  showTargetArrow?: boolean;
+  showTargetPlug?: boolean;
   hitWidth?: number;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
@@ -48,7 +47,7 @@ export function ConnectorPathGroup({
   onDrawComplete?: () => void;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
-  const { plugRadius, arrowSize } = connectorMarkerSizes(viewportScale);
+  const { plugRadius, plugRingWidth } = connectorMarkerSizes(viewportScale);
 
   useEffect(() => {
     if (!drawIn || !pathRef.current) return;
@@ -98,24 +97,43 @@ export function ConnectorPathGroup({
         pointerEvents="none"
       />
       {showSourcePlug && (
-        <path
-          d={connectorPlugCirclePath(fromAnchor.px, fromAnchor.py, plugRadius)}
-          style={{ fill: PLUG_FILL, stroke }}
-          strokeWidth={strokeWidth}
-          strokeOpacity={opacity}
-          pointerEvents="none"
+        <PlugRing
+          anchor={fromAnchor}
+          radius={plugRadius}
+          ringWidth={plugRingWidth}
+          stroke={stroke}
         />
       )}
-      {showTargetArrow &&
-        (toSide === "left" || toSide === "right") && (
-        <path
-          d={connectorArrowPath(toAnchor.px, toAnchor.py, toSide, arrowSize)}
-          style={{ fill: stroke }}
-          fillOpacity={opacity}
-          stroke="none"
-          pointerEvents="none"
+      {showTargetPlug && (
+        <PlugRing
+          anchor={toAnchor}
+          radius={plugRadius}
+          ringWidth={plugRingWidth}
+          stroke={stroke}
         />
       )}
     </>
+  );
+}
+
+/** Same ring as the DOM <Plug>, centred on the card edge at `anchor`. */
+function PlugRing({
+  anchor,
+  radius,
+  ringWidth,
+  stroke,
+}: {
+  anchor: PlugAnchor;
+  radius: number;
+  ringWidth: number;
+  stroke: string;
+}) {
+  return (
+    <path
+      d={connectorPlugCirclePath(anchor.px, anchor.py, radius)}
+      style={{ fill: PLUG_FILL, stroke }}
+      strokeWidth={ringWidth}
+      pointerEvents="none"
+    />
   );
 }

@@ -15,7 +15,7 @@ const tablePayload: ArtifactPayload = {
 };
 
 describe("pickAutoSpawnPayload", () => {
-  it("auto-spawns only the user-requested kind when intent is known", () => {
+  it("leads with the user-requested kind when intent is known", () => {
     expect(
       pickAutoSpawnPayload([tablePayload, mapPayload], "map", 0),
     ).toEqual(mapPayload);
@@ -25,6 +25,12 @@ describe("pickAutoSpawnPayload", () => {
     expect(
       pickAutoSpawnPayload([mapPayload], "map", 1),
     ).toBeNull();
+  });
+
+  it("falls back to the highest-priority payload when the requested kind is absent", () => {
+    expect(pickAutoSpawnPayload([tablePayload, mapPayload], "todo", 0)).toEqual(
+      tablePayload,
+    );
   });
 
   it("auto-spawns the highest-priority payload when there is no user intent", () => {

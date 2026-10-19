@@ -97,19 +97,10 @@ Hover affordances work **independently** of selection — they preview interacti
 
 ---
 
-## 10. Thread auto-collapse (idle)
-
-- [ ] **After 5 minutes** of thread inactivity, thread **collapses** to question-only summary. `lib/threadInactivity.ts` — `INACTIVITY_MS = 5 * 60 * 1000`
-- [ ] **Does not collapse** while streaming/thinking, if already collapsed, or if root is empty with no question text. `shouldAutoCollapseThread`
-- [ ] **Activity on branch** resets timer for parent thread chain. `touchThreadActivity`
-
----
-
 ## 11. Sidebar, panels & iconography
 
 - [ ] **Left panel** defaults **collapsed**; shows Flowstate logo, **canvas title** (truncated), and expand chevron. `AppLeftPanel.tsx`
 - [ ] **Right panel** defaults collapsed; **Artifacts / Assets / Skills** tabs when expanded. `AppRightPanel.tsx`
-- [ ] **Live activity indicator** (top-right): **icon + count only** for chats and artifacts in progress — no redundant “Chats” / “Artifacts” text labels. `LiveDrakkar.tsx`
 - [ ] **Panel expand** uses motion stagger (lines/tiles); respects reduced motion. `lib/motion/variants.ts`, `MotionPanel`
 
 ---

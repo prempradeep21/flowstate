@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import { OfficeAssetPreview } from "@/components/canvas/OfficeAssetPreview";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 import { TabularPreviewTable } from "@/components/canvas/TabularPreviewTable";
 import { highlightCode, languageFromPath } from "@/lib/codeHighlight";
 import {
@@ -95,13 +97,18 @@ function PdfAssetPreview({
   noDrag?: boolean;
   compact?: boolean;
 }) {
+  const pdfSrc = pdfEmbedUrl(asset.publicUrl);
+  const frameLoad = useMediaLoaded(pdfSrc);
   return (
     <div
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-white"
       {...(noDrag ? { "data-no-drag": true } : {})}
     >
+      <MediaLoadingCover loaded={frameLoad.loaded} />
       <iframe
-        src={pdfEmbedUrl(asset.publicUrl)}
+        src={pdfSrc}
+        onLoad={frameLoad.onLoad}
+        onError={frameLoad.onError}
         title={asset.name}
         className={`w-full flex-1 border-0 bg-white ${
           compact ? "min-h-[36px]" : "min-h-[360px]"
@@ -204,10 +211,13 @@ function TextAssetPreview({
       <pre
         data-canvas-scroll
         className={`min-h-0 flex-1 overflow-auto font-mono leading-[1.45] text-canvas-ink ${
+          interactive ? "cursor-text select-text" : ""
+        } ${
           compact
             ? "p-0.5 text-[6px] leading-[1.3]"
             : "p-3 text-canvas-body-sm"
         }`}
+        {...(interactive ? { "data-selectable-text": true } : {})}
         {...(noDrag && interactive ? { "data-no-drag": true } : {})}
       >
         <code dangerouslySetInnerHTML={{ __html: html }} />
@@ -452,6 +462,7 @@ function ImageAssetPreview({
   const [src, setSrc] = useState(asset.publicUrl);
   const [failed, setFailed] = useState(false);
   const refreshedRef = useRef(false);
+  const load = useMediaLoaded(src);
 
   useEffect(() => {
     setSrc(asset.publicUrl);
@@ -486,14 +497,19 @@ function ImageAssetPreview({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={asset.name}
-      draggable={false}
-      className={`h-full w-full ${compact ? "object-cover" : "object-contain"}`}
-      onError={handleError}
-    />
+    <div className="relative h-full w-full">
+      <MediaLoadingCover loaded={load.loaded} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={load.imgRef}
+        src={src}
+        alt={asset.name}
+        draggable={false}
+        className={`h-full w-full ${compact ? "object-cover" : "object-contain"}`}
+        onLoad={load.onLoad}
+        onError={handleError}
+      />
+    </div>
   );
 }
 

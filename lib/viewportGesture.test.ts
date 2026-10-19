@@ -2,10 +2,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyViewportPan,
+  applyViewportZoom,
   cancelViewportGesture,
   isViewportGestureActive,
   onGestureSettleHydrate,
+  registerViewportElement,
+  shouldApplyStoreViewport,
+  VIEWPORT_MAX_SCALE,
 } from "@/lib/viewportGesture";
+import { useCanvasStore } from "@/lib/store";
 
 /**
  * Manual rAF queue: drain-by-hand so tests control exactly which frames run.
@@ -120,5 +125,41 @@ describe("onGestureSettleHydrate", () => {
     cancelViewportGesture();
     flushRafFrame();
     expect(cb).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("rubber-band snap-back", () => {
+  it("lands the painted transform exactly on the clamped viewport", () => {
+    useCanvasStore.setState({ viewport: { x: 0, y: 0, scale: 2.5 } });
+    const el = { style: { transform: "" } } as unknown as HTMLElement;
+    registerViewportElement(el);
+    // Mirror CanvasViewport's store subscription (value-equal writes skip).
+    const unsubscribe = useCanvasStore.subscribe((state, prev) => {
+      const v = state.viewport;
+      const pv = prev.viewport;
+      if (v.x === pv.x && v.y === pv.y && v.scale === pv.scale) return;
+      if (!shouldApplyStoreViewport(v)) return;
+      el.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.scale})`;
+    });
+
+    // Pinch well past MAX: the visual overshoots, commits stay clamped.
+    for (let i = 0; i < 60; i++) {
+      applyViewportZoom(1.05, 400, 300);
+      flushRafFrame();
+    }
+    expect(el.style.transform).not.toMatch(/scale\(3\)$/);
+
+    vi.advanceTimersByTime(120); // idle → snap-back starts
+    for (let i = 0; i < 60; i++) flushRafFrame();
+
+    const { x, y, scale } = useCanvasStore.getState().viewport;
+    expect(scale).toBe(VIEWPORT_MAX_SCALE);
+    expect(el.style.transform).toBe(
+      `translate(${x}px, ${y}px) scale(${scale})`,
+    );
+    expect(isViewportGestureActive()).toBe(true); // attr not yet cleared
+
+    unsubscribe();
+    registerViewportElement(null);
   });
 });

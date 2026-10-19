@@ -49,7 +49,15 @@ export function collectPrivateAssetPaths(snapshot: unknown): Set<string> {
     if (typeof node === "string") {
       for (const p of privatePathsInString(node)) paths.add(p);
       // A bare storagePath carries no bucket prefix, so the URL regex misses it.
-      if (key === "storagePath" && node.trim()) paths.add(node.trim());
+      // A LEADING SLASH means it is not a bucket object at all but a path this
+      // app serves itself — an imported transcript canvas registers its baked
+      // website previews (/transcript-import/previews/*.png) as assets so they
+      // travel with the snapshot. Those need no copying, and treating one as a
+      // bucket object makes copyAssetsToPublicBucket throw on a download miss,
+      // failing the whole publish. Real bucket paths are "<uid>/<canvasId>/…".
+      if (key === "storagePath" && node.trim() && !node.trim().startsWith("/")) {
+        paths.add(node.trim());
+      }
       return;
     }
     if (Array.isArray(node)) {

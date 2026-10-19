@@ -1,4 +1,5 @@
 import { isConnectionHidden } from "@/lib/chatThreads";
+import { isConversationCard } from "@/lib/conversationCard";
 import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import {
   buildPlugConnectorPath,
@@ -9,7 +10,7 @@ import {
   resolveConnectionAnchors,
   type PlugAnchor,
 } from "@/lib/plugConnector";
-import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import { connectorColour } from "@/lib/design/tokens";
 import type { ResolvedCanvasTuning } from "@/lib/canvasTuning";
 import type {
   Card,
@@ -19,7 +20,6 @@ import type {
   Thread,
 } from "@/lib/store";
 
-const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const COLLAPSED_STUB_LENGTH = 48;
 
 export interface ConnectionGeometryState {
@@ -43,7 +43,7 @@ export interface RenderableConnection {
   dashed: boolean;
   opacity: number;
   showSourcePlug: boolean;
-  showTargetArrow: boolean;
+  showTargetPlug: boolean;
   /** Hoverable connections expose a midpoint for the style picker. */
   midX: number | null;
   midY: number | null;
@@ -81,6 +81,8 @@ export function resolveConnectionRender(
   const from = offsetCard(rawFrom);
   const to = offsetCard(rawTo);
 
+  const { plugOuterRadius } = connectorMarkerSizes(viewportScale);
+
   if (isConnectionHidden(state.hiddenCheckState, conn)) {
     if (state.hiddenCardIds.has(conn.to) && !state.hiddenCardIds.has(conn.from)) {
       const { w, h } = getConnectionCardBounds(from, tuning);
@@ -108,18 +110,19 @@ export function resolveConnectionRender(
           fromSide,
           toSide,
           state.connectorStyle,
+          { startInset: plugOuterRadius },
         );
         return {
           connId: conn.id,
           d,
-          stroke: state.threads[from.threadId]?.accentColour ?? STROKE_FALLBACK,
+          stroke: connectorColour(state.threads[from.threadId]?.accentColour),
           fromAnchor,
           toAnchor: stubEnd,
           toSide,
           dashed: true,
           opacity: 0.55,
           showSourcePlug: true,
-          showTargetArrow: false,
+          showTargetPlug: false,
           midX: null,
           midY: null,
           hoverable: false,
@@ -153,18 +156,19 @@ export function resolveConnectionRender(
           fromSide,
           toSide,
           state.connectorStyle,
+          { startInset: plugOuterRadius },
         );
         return {
           connId: conn.id,
           d,
-          stroke: state.threads[from.threadId]?.accentColour ?? STROKE_FALLBACK,
+          stroke: connectorColour(state.threads[from.threadId]?.accentColour),
           fromAnchor,
           toAnchor: stubEnd,
           toSide,
           dashed: true,
           opacity: 0.55,
           showSourcePlug: true,
-          showTargetArrow: false,
+          showTargetPlug: false,
           midX: null,
           midY: null,
           hoverable: false,
@@ -175,7 +179,7 @@ export function resolveConnectionRender(
   }
 
   const isConversationLink =
-    from.cardKind === "conversation" && to.cardKind === "conversation";
+    isConversationCard(from) && isConversationCard(to);
 
   const {
     fromAnchor: a,
@@ -184,7 +188,8 @@ export function resolveConnectionRender(
     toSide,
   } = resolveConnectionAnchors(conn, from, to, tuning);
 
-  const { arrowSize } = connectorMarkerSizes(viewportScale);
+  // Both ends get a plug ring centred on the card edge; the stroke stops at
+  // each ring's outside so it never runs through the ring or into the card.
   const { d, midX, midY } = buildPlugConnectorPath(
     a,
     b,
@@ -193,20 +198,20 @@ export function resolveConnectionRender(
     state.connectorStyle,
     isConversationLink
       ? undefined
-      : { trimTargetArrowInset: arrowSize * 1.35 },
+      : { startInset: plugOuterRadius, endInset: plugOuterRadius },
   );
 
   return {
     connId: conn.id,
     d,
-    stroke: state.threads[from.threadId]?.accentColour ?? STROKE_FALLBACK,
+    stroke: connectorColour(state.threads[from.threadId]?.accentColour),
     fromAnchor: a,
     toAnchor: b,
     toSide,
     dashed: false,
     opacity: 0.85,
     showSourcePlug: !isConversationLink,
-    showTargetArrow: !isConversationLink && (toSide === "left" || toSide === "right"),
+    showTargetPlug: !isConversationLink,
     midX: midX ?? (a.px + b.px) / 2,
     midY: midY ?? (a.py + b.py) / 2,
     hoverable: !isConversationLink,

@@ -1,16 +1,32 @@
 import { describe, expect, it } from "vitest";
 import type { SessionArtifact } from "@/lib/sessionArtifacts";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
+import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { buildDesignToolsCanvasSection } from "@/lib/transcriptImport/buildDesignToolsCanvasSection";
 import { buildHubermanCanvasSection } from "@/lib/transcriptImport/buildHubermanCanvasSection";
 import { buildJagadambaCanvasSection } from "@/lib/transcriptImport/buildJagadambaCanvasSection";
+import { buildCazualTalkSahilAggarwalCanvasSection } from "@/lib/transcriptImport/buildCazualTalkSahilAggarwalCanvasSection";
+import { buildHubermanRajShamaniCanvasSection } from "@/lib/transcriptImport/buildHubermanRajShamaniCanvasSection";
+import { buildSchoolCastVanitaUppalCanvasSection } from "@/lib/transcriptImport/buildSchoolCastVanitaUppalCanvasSection";
+import { buildMeenakshiAnantramCanvasSection } from "@/lib/transcriptImport/buildMeenakshiAnantramCanvasSection";
 import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buildLightconeEmergentCanvasSection";
+import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
+import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
+import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
+import { ALLARI_NARESH_TRANSCRIPT } from "@/lib/transcriptImport/allariNareshInterview";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import { HUBERMAN_NEUROPLASTICITY_TRANSCRIPT } from "@/lib/transcriptImport/hubermanNeuroplasticity";
 import { JAGADAMBA_THEATRE_TRANSCRIPT } from "@/lib/transcriptImport/jagadambaTheatre";
+import { KUNAL_SHAH_HIRING_TRANSCRIPT } from "@/lib/transcriptImport/kunalShahHiring";
 import { LIGHTCONE_EMERGENT_TRANSCRIPT } from "@/lib/transcriptImport/lightconeEmergent";
+import { PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/prashantKishorInterview";
+import { HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/hubermanRajShamaniInterview";
+import { CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/cazualTalkSahilAggarwalInterview";
+import { SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
+import { MEENAKSHI_ANANTRAM_TRANSCRIPT } from "@/lib/transcriptImport/meenakshiAnantramInterview";
+import { NITHIN_KAMATH_RISK_TRANSCRIPT } from "@/lib/transcriptImport/nithinKamathRisk";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -119,9 +135,49 @@ const CASES = [
     transcript: LIGHTCONE_EMERGENT_TRANSCRIPT,
   },
   {
+    name: "Kunal Shah — hiring & retention",
+    build: buildKunalShahHiringCanvasSection,
+    transcript: KUNAL_SHAH_HIRING_TRANSCRIPT,
+  },
+  {
+    name: "Nithin Kamath — moats & risk",
+    build: buildNithinKamathRiskCanvasSection,
+    transcript: NITHIN_KAMATH_RISK_TRANSCRIPT,
+  },
+  {
+    name: "Allari Naresh — Raw Talks with VK",
+    build: buildAllariNareshCanvasSection,
+    transcript: ALLARI_NARESH_TRANSCRIPT,
+  },
+  {
     name: "Design tools history",
     build: buildDesignToolsCanvasSection,
     transcript: DESIGN_TOOLS_HISTORY_TRANSCRIPT,
+  },
+  {
+    name: "Prashant Kishor — Unfiltered by Samdish",
+    build: buildPrashantKishorCanvasSection,
+    transcript: PRASHANT_KISHOR_INTERVIEW_TRANSCRIPT,
+  },
+  {
+    name: "Andrew Huberman — Figuring Out",
+    build: buildHubermanRajShamaniCanvasSection,
+    transcript: HUBERMAN_RAJ_SHAMANI_TRANSCRIPT_EXCERPTS,
+  },
+  {
+    name: "Sahil Aggarwal — Cazual Talk",
+    build: buildCazualTalkSahilAggarwalCanvasSection,
+    transcript: CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS,
+  },
+  {
+    name: "Vanita Uppal — Schoolcast with Avyakt",
+    build: buildSchoolCastVanitaUppalCanvasSection,
+    transcript: SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS,
+  },
+  {
+    name: "Dr. Meenakshi Anantram — Rooted Stories",
+    build: buildMeenakshiAnantramCanvasSection,
+    transcript: MEENAKSHI_ANANTRAM_TRANSCRIPT,
   },
 ];
 

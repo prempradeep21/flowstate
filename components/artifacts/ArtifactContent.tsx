@@ -25,6 +25,7 @@ import { MechanismArtifactContent } from "@/components/artifacts/MechanismArtifa
 import { QuoteArtifactContent } from "@/components/artifacts/QuoteArtifactContent";
 import { StatArtifactContent } from "@/components/artifacts/StatArtifactContent";
 import { StickyNoteArtifactContent } from "@/components/artifacts/StickyNoteArtifactContent";
+import { ArtifactLoadingSkeleton } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 
@@ -33,7 +34,7 @@ const MapArtifactContent = dynamic(
     import("@/components/artifacts/MapArtifactContent").then(
       (m) => m.MapArtifactContent,
     ),
-  { ssr: false },
+  { ssr: false, loading: () => <ArtifactLoadingSkeleton kind="map" /> },
 );
 
 const StreetViewArtifactContent = dynamic(
@@ -41,7 +42,7 @@ const StreetViewArtifactContent = dynamic(
     import("@/components/artifacts/StreetViewArtifactContent").then(
       (m) => m.StreetViewArtifactContent,
     ),
-  { ssr: false },
+  { ssr: false, loading: () => <ArtifactLoadingSkeleton kind="streetview" /> },
 );
 
 const ChartArtifactContent = dynamic(
@@ -49,7 +50,7 @@ const ChartArtifactContent = dynamic(
     import("@/components/artifacts/ChartArtifactContent").then(
       (m) => m.ChartArtifactContent,
     ),
-  { ssr: false },
+  { ssr: false, loading: () => <ArtifactLoadingSkeleton kind="chart" /> },
 );
 
 export type ArtifactLayout = "canvas" | "panel" | "sidebar" | "sidebar-preview";
@@ -178,6 +179,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={contentLayout}
+            interactive={canvasInteractive}
           />
         );
         return contentLayout === "canvas" ? (
@@ -319,6 +321,7 @@ export function ArtifactContent({
             fill={fill}
             sidebar={isSidebar}
             layout={contentLayout}
+            canvasInteractive={canvasInteractive}
           />
         );
       }

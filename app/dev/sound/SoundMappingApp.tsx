@@ -185,10 +185,6 @@ function SpecimenDemo({
             eventId={eventId}
             onTrigger={onTrigger}
           />
-          <p className="text-canvas-compact text-canvas-muted">
-            Auto-collapse after 5 minutes of thread inactivity does not play this
-            sound — only manual collapse toggles do.
-          </p>
         </div>
       );
     case "branch-create":

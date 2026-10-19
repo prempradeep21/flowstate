@@ -5,7 +5,6 @@ import type { Card as CardType, CardSide, ConnectorStyle } from "@/lib/store";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import {
   buildPlugConnectorPath,
-  connectorArrowPath,
   connectorMarkerSizes,
   connectorPlugCirclePath,
   plugAnchorAt,
@@ -41,7 +40,7 @@ export function DemoConnector({
   progress: number;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
-  const { arrowSize } = connectorMarkerSizes(viewportScale);
+  const { plugOuterRadius } = connectorMarkerSizes(viewportScale);
   const {
     fromAnchor,
     toAnchor,
@@ -54,7 +53,8 @@ export function DemoConnector({
     RESOLVED_CANVAS_TUNING,
   );
   const { d } = buildPlugConnectorPath(fromAnchor, toAnchor, fs, ts, style, {
-    trimTargetArrowInset: arrowSize * 1.35,
+    startInset: plugOuterRadius,
+    endInset: plugOuterRadius,
   });
 
   // Deterministic draw-in: dashoffset from timeline progress.
@@ -90,10 +90,9 @@ export function DemoConnector({
       <ConnectorMarkers
         fromAnchor={fromAnchor}
         toAnchor={toAnchor}
-        toSide={ts}
         stroke={stroke}
         viewportScale={viewportScale}
-        showArrow={progress >= 0.98 && (ts === "left" || ts === "right")}
+        showTargetPlug={progress >= 0.98}
       />
     </g>
   );
@@ -102,38 +101,29 @@ export function DemoConnector({
 function ConnectorMarkers({
   fromAnchor,
   toAnchor,
-  toSide,
   stroke,
   viewportScale,
-  showArrow,
+  showTargetPlug,
 }: {
   fromAnchor: { px: number; py: number };
   toAnchor: { px: number; py: number };
-  toSide: CardSide;
   stroke: string;
   viewportScale: number;
-  showArrow: boolean;
+  showTargetPlug: boolean;
 }) {
-  const { plugRadius, arrowSize } = connectorMarkerSizes(viewportScale);
+  const { plugRadius, plugRingWidth } = connectorMarkerSizes(viewportScale);
+  const ring = (anchor: { px: number; py: number }) => (
+    <path
+      d={connectorPlugCirclePath(anchor.px, anchor.py, plugRadius)}
+      style={{ fill: PLUG_FILL, stroke }}
+      strokeWidth={plugRingWidth}
+      pointerEvents="none"
+    />
+  );
   return (
     <>
-      <path
-        d={connectorPlugCirclePath(fromAnchor.px, fromAnchor.py, plugRadius)}
-        style={{ fill: PLUG_FILL, stroke }}
-        strokeWidth={BASE_STROKE_SCREEN}
-        strokeOpacity={0.85}
-        vectorEffect="non-scaling-stroke"
-        pointerEvents="none"
-      />
-      {showArrow && (
-        <path
-          d={connectorArrowPath(toAnchor.px, toAnchor.py, toSide, arrowSize)}
-          style={{ fill: stroke }}
-          fillOpacity={0.85}
-          stroke="none"
-          pointerEvents="none"
-        />
-      )}
+      {ring(fromAnchor)}
+      {showTargetPlug && ring(toAnchor)}
     </>
   );
 }
@@ -187,10 +177,9 @@ export function DemoGhostConnector({
       <ConnectorMarkers
         fromAnchor={fromAnchor}
         toAnchor={end}
-        toSide={fromSide === "left" ? "right" : "left"}
         stroke={stroke}
         viewportScale={viewportScale}
-        showArrow={false}
+        showTargetPlug={false}
       />
     </g>
   );

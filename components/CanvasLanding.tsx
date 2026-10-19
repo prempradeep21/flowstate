@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
 import { useAuth } from "@/components/AuthProvider";
-import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import { ChatComposer } from "@/components/ChatComposer";
 import { LandingTipCard } from "@/components/landing/LandingTipCard";
 import { RotatingLandingTitle } from "@/components/landing/RotatingLandingTitle";
@@ -17,18 +16,15 @@ import {
   markLandingAnimated,
 } from "@/lib/motion/performance";
 import { LANDING_STACK_WIDTH } from "@/lib/canvasLandingState";
-import { LANDING_ARTIFACT_SUGGESTIONS } from "@/lib/landingSuggestions";
 import { turnMetricsOnSubmit } from "@/lib/qaTurnMetrics";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
 
-const PILL_DELAYS = [280, 320, 360, 400] as const;
-const TIP_DELAYS = [640, 675, 710, 745] as const;
+const TIP_DELAYS = [460, 495, 530, 565] as const;
 
 export function CanvasLanding({ cardId }: { cardId: string }) {
   const { user, authLoading } = useAuth();
   const recordUndo = useCanvasStore((s) => s.recordUndo);
   const updateCard = useCanvasStore((s) => s.updateCard);
-  const setComposerDraft = useCanvasStore((s) => s.setComposerDraft);
   const clearComposerDraft = useCanvasStore((s) => s.clearComposerDraft);
   const card = useCanvasStore((s) => s.cards[cardId]);
   const [skipMotion, setSkipMotion] = useState(false);
@@ -61,18 +57,13 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
       outputArtifactId: undefined,
       outputArtifactVersionId: undefined,
       attachedArtifacts: options?.attachedArtifacts,
+      attachedAssets: options?.attachedAssets,
+      attachedSkills: options?.attachedSkills,
+      attachedGroups: options?.attachedGroups,
       pendingFiles: options?.pendingFiles,
       ...turnMetricsOnSubmit(),
     });
     clearComposerDraft(cardId);
-  };
-
-  const focusComposer = () => {
-    requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLTextAreaElement>("[data-composer] textarea")
-        ?.focus();
-    });
   };
 
   const riseProps = (delay: number) =>
@@ -114,30 +105,9 @@ export function CanvasLanding({ cardId }: { cardId: string }) {
         </div>
       )}
 
-      <div className="flex w-full max-w-full flex-nowrap justify-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {LANDING_ARTIFACT_SUGGESTIONS.map((suggestion, i) => (
-          <button
-            key={suggestion.kind}
-            type="button"
-            onClick={() => {
-              setComposerDraft(cardId, suggestion.prompt);
-              focusComposer();
-            }}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-canvas-ink/20 bg-canvas-card px-3 py-1.5 text-canvas-compact text-canvas-muted transition-colors hover:border-canvas-ink/35 hover:text-canvas-ink ${riseProps(PILL_DELAYS[i]).className ?? ""}`}
-            style={riseProps(PILL_DELAYS[i]).style}
-          >
-            <ArtifactTypeIcon
-              kind={suggestion.kind}
-              className="h-3.5 w-3.5 shrink-0"
-            />
-            {suggestion.label}
-          </button>
-        ))}
-      </div>
-
       <div
-        className={riseProps(500).className}
-        style={{ width: "100%", ...riseProps(500).style }}
+        className={riseProps(280).className}
+        style={{ width: "100%", ...riseProps(280).style }}
         data-coach-target="ask-composer"
       >
         <ChatComposer

@@ -72,7 +72,13 @@ export function buttonClasses(
   } = opts;
   return [
     "btn select-none font-medium",
-    shape === "pill" ? "rounded-full" : "rounded-canvas-md",
+    // A caller's rounded-* (e.g. a concentric nest-* in a padded surface)
+    // replaces the default rather than racing it in the cascade.
+    /\brounded-/.test(className)
+      ? ""
+      : shape === "pill"
+        ? "rounded-full"
+        : "rounded-canvas-md",
     SIZE_CLASS[size],
     VARIANT_CLASS[tone][variant],
     className,

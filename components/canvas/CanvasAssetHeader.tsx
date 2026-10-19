@@ -16,7 +16,7 @@ type AssetIconKind = "document" | "code" | "spreadsheet" | "word" | "presentatio
  * `kindTag` and `category` feed the artifact style packs exactly like a real
  * artifact header: `category` picks the icon-circle fill, and the packs render
  * `kindTag` as the corner chip (see app/styles/artifact-styles.css) so this
- * header adapts to the active style (Neo / Brut / Liquid Glass).
+ * header adapts to the active style (Brut / Liquid Glass / Bento).
  */
 function documentHeaderMeta(
   asset: CanvasAsset,

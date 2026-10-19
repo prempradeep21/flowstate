@@ -71,7 +71,6 @@ export function useLandingCanvasDemo(
     resetViewportBootstrap();
     hydrateFromSnapshot(snapshot, {
       applyViewport: false,
-      canvasReveal: false,
     });
     requestAnimationFrame(() => {
       const el = containerRef.current;
@@ -101,7 +100,6 @@ export function useLandingCanvasDemo(
         resetViewportBootstrap();
         useCanvasStore.getState().hydrateFromSnapshot(buildCanvasSnapshot(restore), {
           applyViewport: true,
-          canvasReveal: false,
         });
       }
     };

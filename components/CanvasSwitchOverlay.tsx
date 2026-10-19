@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CanvasLoadingOutline } from "@/components/canvas-loading/CanvasLoadingOutline";
 import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
 import { useReducedMotion } from "@/components/canvasBackgrounds/useReducedMotion";
 import { SCENES, pickScene } from "@/components/canvas-loading/scenes";
 import { LOADER_LINES } from "@/components/canvas-loading/tips";
 import styles from "@/components/canvas-loading/scenes.module.css";
+import {
+  readCanvasLayoutOutline,
+  type CanvasLayoutOutline,
+} from "@/lib/canvasLayoutOutline";
 
 const MIN_DISPLAY_MS = 300;
 const LINE_INTERVAL_MS = 2800;
@@ -13,6 +18,11 @@ const LINE_INTERVAL_MS = 2800;
 interface CanvasSwitchOverlayProps {
   visible: boolean;
   canvasTitle?: string | null;
+  /**
+   * Canvas being opened. When this device has its layout outline cached, the
+   * overlay shows that layout as skeletons instead of a generic scene.
+   */
+  canvasId?: string | null;
   /** Dev-only: pin a specific scene (see /dev/loading-scenes). */
   forceSceneIndex?: number;
 }
@@ -20,6 +30,7 @@ interface CanvasSwitchOverlayProps {
 export function CanvasSwitchOverlay({
   visible,
   canvasTitle,
+  canvasId,
   forceSceneIndex,
 }: CanvasSwitchOverlayProps) {
   const reducedMotion = useReducedMotion();
@@ -27,6 +38,15 @@ export function CanvasSwitchOverlay({
   const [lineIndex, setLineIndex] = useState(0);
   const [sceneIndex, setSceneIndex] = useState(0);
   const shownAtRef = useRef(0);
+  const [outlineFor, setOutlineFor] = useState<string | null>(null);
+  const [outline, setOutline] = useState<CanvasLayoutOutline | null>(null);
+
+  // Read once per open, during render so the generic scene never flashes
+  // first. The outline is the canvas as it was last seen on this device.
+  if (visible && canvasId && canvasId !== outlineFor) {
+    setOutlineFor(canvasId);
+    setOutline(readCanvasLayoutOutline(canvasId));
+  }
 
   useEffect(() => {
     if (visible) {
@@ -39,12 +59,25 @@ export function CanvasSwitchOverlay({
       return;
     }
     if (!shown) return;
+    // The outline sits exactly where the real nodes land, so it hands over
+    // the moment the canvas is ready — no minimum display or fade.
+    if (outline) {
+      setShown(false);
+      setOutline(null);
+      setOutlineFor(null);
+      return;
+    }
 
     const elapsed = Date.now() - shownAtRef.current;
     const delay = Math.max(0, MIN_DISPLAY_MS - elapsed);
     const timer = setTimeout(() => setShown(false), delay);
     return () => clearTimeout(timer);
-  }, [visible, shown, forceSceneIndex]);
+  }, [visible, shown, forceSceneIndex, outline]);
+
+  // Re-read on the next open, which may follow edits made in between.
+  useEffect(() => {
+    if (!visible) setOutlineFor(null);
+  }, [visible]);
 
   useEffect(() => {
     if (forceSceneIndex != null) setSceneIndex(forceSceneIndex);
@@ -58,6 +91,11 @@ export function CanvasSwitchOverlay({
     return () => clearInterval(interval);
   }, [shown, reducedMotion]);
 
+  if (outline) {
+    return visible ? (
+      <CanvasLoadingOutline outline={outline} canvasTitle={canvasTitle} />
+    ) : null;
+  }
   if (!shown) return null;
 
   const heading = canvasTitle

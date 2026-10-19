@@ -21,7 +21,8 @@ interface GroupBoundsProps {
 }
 
 const SCREEN_STROKE = 1.5;
-const CORNER_RADIUS = 30;
+/** Concentric with the nodes it frames: their lg corner + the frame padding. */
+const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
 
 /** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
@@ -133,8 +134,8 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
           y={inset}
           width={Math.max(0, bounds.w - stroke)}
           height={Math.max(0, bounds.h - stroke)}
-          rx={CORNER_RADIUS}
-          ry={CORNER_RADIUS}
+          // CSS geometry properties, so the radius can follow the theme var.
+          style={{ rx: CORNER_RADIUS, ry: CORNER_RADIUS }}
           fill="rgb(var(--canvas-card) / 0.3)"
           stroke={
             isActive

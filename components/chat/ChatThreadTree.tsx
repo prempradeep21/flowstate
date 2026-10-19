@@ -23,21 +23,26 @@ function ThreadTreeItem({
       <button
         type="button"
         onClick={() => onSelect(node.threadId)}
-        className={`flex w-full items-start gap-2 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm transition-colors ${
+        title={node.title}
+        className={`flex w-full items-center gap-2.5 rounded-canvas px-2.5 py-2 text-left text-canvas-body-sm transition-colors ${
           isActive
-            ? "bg-canvas-accentSoft text-canvas-accent"
-            : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+            ? "bg-canvas-accentSoft font-medium text-canvas-accent"
+            : "text-canvas-ink hover:bg-canvas-ink/5"
         }`}
-        style={{ paddingLeft: 10 + depth * 14 }}
+        style={{ paddingLeft: 10 + depth * 16 }}
       >
         {accent && (
           <span
-            className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+            className="h-2 w-2 shrink-0 rounded-full"
             style={{ background: accent }}
           />
         )}
-        <span className="line-clamp-2 min-w-0 flex-1 leading-snug">
-          {depth > 0 ? "↳ " : ""}
+        <span className="min-w-0 flex-1 truncate leading-snug">
+          {depth > 0 ? (
+            <span className="text-canvas-muted" aria-hidden>
+              ↳{" "}
+            </span>
+          ) : null}
           {node.title}
         </span>
       </button>

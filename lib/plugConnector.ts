@@ -18,10 +18,6 @@ export interface PlugPathGeometry {
   midY?: number;
 }
 
-function clamp(v: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, v));
-}
-
 function isVerticalSide(side: CardSide) {
   return side === "top" || side === "bottom";
 }
@@ -162,21 +158,69 @@ function buildStraightPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
   return { d, midX: (a.px + b.px) / 2, midY: (a.py + b.py) / 2 };
 }
 
-function buildCurvyPath(a: PlugAnchor, b: PlugAnchor): PlugPathGeometry {
+/** Outward unit tangent of a card side. */
+function sideTangent(side: CardSide): { tx: number; ty: number } {
+  switch (side) {
+    case "top":
+      return { tx: 0, ty: -1 };
+    case "bottom":
+      return { tx: 0, ty: 1 };
+    case "left":
+      return { tx: -1, ty: 0 };
+    case "right":
+      return { tx: 1, ty: 0 };
+  }
+}
+
+/** Below this the control handles are too short to read as a curve. */
+const CURVY_MIN_PULL = 24;
+/** How hard a backward connection loops out before turning around. */
+const CURVY_BACKWARD_CURVATURE = 0.25;
+
+/**
+ * How far a control point sits out along its plug's tangent — the node-editor
+ * bezier (React Flow / Weavy). `ahead` is how far the other end lies along
+ * the tangent: half of that when the target is in front, so the curve leaves
+ * flat and sweeps across in a long S; a sqrt-growing loop when it's behind.
+ */
+function curvyPull(ahead: number): number {
+  if (ahead >= 0) return Math.max(ahead * 0.5, CURVY_MIN_PULL);
+  return Math.max(
+    CURVY_BACKWARD_CURVATURE * 25 * Math.sqrt(-ahead),
+    CURVY_MIN_PULL,
+  );
+}
+
+function buildCurvyPath(
+  a: PlugAnchor,
+  b: PlugAnchor,
+  fromSide: CardSide,
+  toSide: CardSide,
+): PlugPathGeometry {
+  // Tangents come from the sides, not the anchors: a drag-preview cursor end
+  // carries the source's exit tangent, which would hook the curve backwards.
+  const ta = sideTangent(fromSide);
+  const tb = sideTangent(toSide);
   const dx = b.px - a.px;
   const dy = b.py - a.py;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  // Cap pull at half the distance so the curve's hull never overshoots
-  // past the target edge into the node when two cards sit close together.
-  const pull = Math.min(clamp(dist * 0.45, 60, 200), dist / 2);
+  const dist = Math.hypot(dx, dy);
+  // Cap at the anchor distance so close, collinear plugs (collapsed stubs)
+  // can't overshoot past their end.
+  const pullA = Math.min(curvyPull(dx * ta.tx + dy * ta.ty), dist);
+  const pullB = Math.min(curvyPull(-dx * tb.tx - dy * tb.ty), dist);
 
-  const cp1x = a.px + a.tx * pull;
-  const cp1y = a.py + a.ty * pull;
-  const cp2x = b.px + b.tx * pull;
-  const cp2y = b.py + b.ty * pull;
+  const cp1x = a.px + ta.tx * pullA;
+  const cp1y = a.py + ta.ty * pullA;
+  const cp2x = b.px + tb.tx * pullB;
+  const cp2y = b.py + tb.ty * pullB;
 
   const d = `M ${a.px} ${a.py} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${b.px} ${b.py}`;
-  return { d, midX: (a.px + b.px) / 2, midY: (a.py + b.py) / 2 };
+  // B(0.5) — the picker sits on the stroke, not the chord between plugs.
+  return {
+    d,
+    midX: (a.px + 3 * cp1x + 3 * cp2x + b.px) / 8,
+    midY: (a.py + 3 * cp1y + 3 * cp2y + b.py) / 8,
+  };
 }
 
 function routeOrthogonalPoints(
@@ -289,23 +333,15 @@ function buildOrthogonalPath(
   return { d, midX: mid.x, midY: mid.y };
 }
 
-/** Move an anchor inward so the stroke stops at the arrow base. */
-export function trimPlugAnchorForArrow(
+/** Move an anchor out of its card, along the side's outward normal. */
+export function offsetPlugAnchorOutward(
   anchor: PlugAnchor,
   side: CardSide,
-  inset: number,
+  distance: number,
 ): PlugAnchor {
-  if (inset <= 0) return anchor;
-  switch (side) {
-    case "top":
-      return { ...anchor, py: anchor.py + inset };
-    case "bottom":
-      return { ...anchor, py: anchor.py - inset };
-    case "left":
-      return { ...anchor, px: anchor.px + inset };
-    case "right":
-      return { ...anchor, px: anchor.px - inset };
-  }
+  if (distance <= 0) return anchor;
+  const { tx, ty } = sideTangent(side);
+  return { ...anchor, px: anchor.px + tx * distance, py: anchor.py + ty * distance };
 }
 
 export function buildPlugConnectorPath(
@@ -314,53 +350,51 @@ export function buildPlugConnectorPath(
   fromSide: CardSide,
   toSide: CardSide,
   style: ConnectorStyle,
-  options?: { trimTargetArrowInset?: number },
+  options?: {
+    /** Start the stroke this far out from the source edge (its plug ring). */
+    startInset?: number;
+    /** End the stroke this far out from the target edge (its plug ring). */
+    endInset?: number;
+  },
 ): PlugPathGeometry {
-  const target =
-    options?.trimTargetArrowInset != null && options.trimTargetArrowInset > 0
-      ? trimPlugAnchorForArrow(b, toSide, options.trimTargetArrowInset)
-      : b;
+  const source = offsetPlugAnchorOutward(a, fromSide, options?.startInset ?? 0);
+  const target = offsetPlugAnchorOutward(b, toSide, options?.endInset ?? 0);
   if (style === "straight") {
-    return buildStraightPath(a, target);
+    return buildStraightPath(source, target);
   }
   if (style === "orthogonal") {
-    return buildOrthogonalPath(a, target, fromSide, toSide);
+    return buildOrthogonalPath(source, target, fromSide, toSide);
   }
-  return buildCurvyPath(a, target);
+  return buildCurvyPath(source, target, fromSide, toSide);
 }
 
-/** Screen-constant marker sizes in world px. */
-export function connectorMarkerSizes(viewportScale: number) {
-  const scale = viewportScale > 0 ? viewportScale : 1;
+/**
+ * The plug ring every connector end draws — the same 10px ring with a 2px
+ * border as the DOM <Plug> (components/plugs/Plug.tsx), so a drawn end and a
+ * live plug at the same anchor coincide exactly.
+ */
+export const PLUG_DIAMETER_PX = 10;
+export const PLUG_RING_PX = 2;
+
+/**
+ * Plug ring sizes in world px. A fixed world size at every zoom, like the DOM
+ * <Plug> — the ring scales with the cards rather than staying screen-constant,
+ * which ballooned plugs over the cards when zoomed out. `_viewportScale` is
+ * kept so callers' per-scale marker caching stays untouched.
+ */
+export function connectorMarkerSizes(_viewportScale: number) {
   return {
-    plugRadius: 2.5 / scale,
-    arrowSize: 5 / scale,
+    /** Radius to the middle of the ring's stroke. */
+    plugRadius: (PLUG_DIAMETER_PX - PLUG_RING_PX) / 2,
+    plugRingWidth: PLUG_RING_PX,
+    /** Radius to the ring's outside edge — where the connector line stops. */
+    plugOuterRadius: PLUG_DIAMETER_PX / 2,
   };
 }
 
-/** Filled circle path for the source plug dot. */
+/** Closed circle path for a plug ring centred on a card edge. */
 export function connectorPlugCirclePath(cx: number, cy: number, r: number): string {
   return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0`;
-}
-
-/** Triangle arrowhead at the target plug, pointing into the card. */
-export function connectorArrowPath(
-  px: number,
-  py: number,
-  side: CardSide,
-  size: number,
-): string {
-  const s = size;
-  switch (side) {
-    case "top":
-      return `M ${px} ${py} L ${px - s} ${py + s * 1.35} L ${px + s} ${py + s * 1.35} Z`;
-    case "bottom":
-      return `M ${px} ${py} L ${px - s} ${py - s * 1.35} L ${px + s} ${py - s * 1.35} Z`;
-    case "left":
-      return `M ${px} ${py} L ${px + s * 1.35} ${py - s} L ${px + s * 1.35} ${py + s} Z`;
-    case "right":
-      return `M ${px} ${py} L ${px - s * 1.35} ${py - s} L ${px - s * 1.35} ${py + s} Z`;
-  }
 }
 
 /** Free end of a drag preview — cursor with horizontal exit tangent. */

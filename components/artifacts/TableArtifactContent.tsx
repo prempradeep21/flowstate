@@ -32,10 +32,9 @@ export function TableArtifactContent({
 
   if (sidebar) {
     return (
-      <div className="h-full overflow-hidden rounded-canvas-sm bg-canvas-card m-1.5">
+      <div className="h-full overflow-hidden rounded-canvas-nest-7 bg-canvas-card m-1.5">
         {isLoading ? (
           <TableShaderSkeleton
-            accentSeed={accentSeed}
             columnCount={columnCount}
             compact
             maxHeightClassName="h-full max-h-[188px]"
@@ -63,7 +62,6 @@ export function TableArtifactContent({
       >
         {isLoading ? (
           <TableShaderSkeleton
-            accentSeed={accentSeed}
             columnCount={columnCount}
             maxHeightClassName={CANVAS_TABLE_BODY_CLASS}
             minHeightPx={TABLE_ARTIFACT_BODY_MIN_HEIGHT}
@@ -92,7 +90,6 @@ export function TableArtifactContent({
     >
       {isLoading ? (
         <TableShaderSkeleton
-          accentSeed={accentSeed}
           columnCount={columnCount}
         />
       ) : (

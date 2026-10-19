@@ -7,12 +7,15 @@ import {
   getConnectionCardBounds,
 } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
-import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import { connectorColour } from "@/lib/design/tokens";
 import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
+import {
+  useNodeDragFrame,
+  withNodeDragOffset,
+} from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-const STROKE_FALLBACK = CANVAS_CONNECTOR;
 const BASE_STROKE_SCREEN = 1.75;
 
 export function SkillPlugConnections() {
@@ -22,11 +25,9 @@ export function SkillPlugConnections() {
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
+  // Follow live node drags — the store only moves on release.
+  const dragFrame = useNodeDragFrame();
   const tuning = RESOLVED_CANVAS_TUNING;
 
   if (skillPlugConnections.length === 0 || chatsGloballyHidden) return null;
@@ -42,7 +43,6 @@ export function SkillPlugConnections() {
       className="pointer-events-none absolute left-0 top-0 z-[14]"
       style={{
         overflow: "visible",
-        opacity: hideForLoadReveal ? 0 : 1,
       }}
       width={1}
       height={1}
@@ -52,14 +52,26 @@ export function SkillPlugConnections() {
         const node = canvasSkillNodes[conn.skillNodeId];
         const card = cards[conn.cardId];
         if (!node || !card) return null;
+        const nodePos = withNodeDragOffset(
+          dragFrame,
+          "skill",
+          node.id,
+          node.position,
+        );
+        const cardPos = withNodeDragOffset(
+          dragFrame,
+          "card",
+          card.id,
+          card.position,
+        );
 
         const skill = canvasSkills[node.skillId];
         const { w: skillW, h: skillH } = getCanvasSkillBounds(node, skill);
         const { w: cardW, h: cardH } = getConnectionCardBounds(card, tuning);
 
         const fromAnchor = plugAnchorAt(
-          node.position.x,
-          node.position.y,
+          nodePos.x,
+          nodePos.y,
           skillW,
           skillH,
           conn.fromSide,
@@ -67,12 +79,12 @@ export function SkillPlugConnections() {
 
         const toPyOverride =
           conn.toSide === "left" || conn.toSide === "right"
-            ? branchTargetAnchorY(card.id, card.position.y, cardH)
+            ? branchTargetAnchorY(card.id, cardPos.y, cardH)
             : undefined;
 
         const toAnchor = plugAnchorAt(
-          card.position.x,
-          card.position.y,
+          cardPos.x,
+          cardPos.y,
           cardW,
           cardH,
           conn.toSide,
@@ -91,7 +103,7 @@ export function SkillPlugConnections() {
           <ConnectorPathGroup
             key={conn.id}
             d={d}
-            stroke={STROKE_FALLBACK}
+            stroke={connectorColour(undefined)}
             strokeWidth={strokeWidth}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
@@ -99,7 +111,7 @@ export function SkillPlugConnections() {
             viewportScale={viewportSettledScale}
             dashed
             opacity={0.85}
-            showTargetArrow={false}
+            showTargetPlug={false}
           />
         );
       })}

@@ -5,14 +5,10 @@ import { QuestionAttachments } from "@/components/QuestionAttachments";
 import { getQuestionAttachedImages } from "@/lib/questionAttachments";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQaMenu } from "@/components/CardQaMenu";
+import { isConversationCard } from "@/lib/conversationCard";
 import { ContributorAvatarStack } from "@/components/ContributorAvatarStack";
 import { QaStatusBadge } from "@/components/QaStatusBadge";
-import {
-  QaQuestionHeaderRow,
-  QaQuestionSection,
-  QaTranslucentSurface,
-} from "@/components/QaQuestionSection";
-import { qaInsetStyle } from "@/lib/design/canvasInsets";
+import { QaQuestionSection } from "@/components/QaQuestionSection";
 import { useAuth } from "@/components/AuthProvider";
 import { useContributorProfiles } from "@/lib/contributorProfiles";
 import {
@@ -42,6 +38,9 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
 
   const handleTryAgain = useCallback(() => {
     if (!card?.question.trim()) return;
+    // Retrying a conversation card would re-ask its heading as a question.
+    // createFollowUp refuses it anyway; this keeps the intent at the call site.
+    if (isConversationCard(card)) return;
     const attachedImages = card ? getQuestionAttachedImages(card) : [];
     createFollowUp(cardId, card.question, {
       pendingImages: attachedImages.length > 0 ? attachedImages : undefined,
@@ -63,53 +62,53 @@ export function QnaTurnBlock({ cardId }: { cardId: string }) {
     card.artifactPayload != null ||
     card.outputArtifactId != null;
 
+  // Chat reads like a transcript: the question is a right-aligned bubble, the
+  // answer runs full-width beneath it with no card around it. Turn controls
+  // sit beside the bubble and surface on hover so a long thread stays quiet.
   return (
-    <div className="relative border-t border-canvas-border/80 first:border-t-0">
-      <QaTranslucentSurface>
-        <QaQuestionSection style={qaInsetStyle("chatPanel")}>
-          <QaQuestionHeaderRow
-            collaborators={
-              showContributors || showStatusBadge ? (
-                <div className="flex min-w-0 items-center gap-2">
-                  {showContributors && (
-                    <ContributorAvatarStack
-                      profiles={contributorProfiles}
-                      onlineUserIds={onlineUserIds}
-                    />
-                  )}
-                  {showStatusBadge && (
-                    <QaStatusBadge
-                      card={card}
-                      canvasArtifactNodes={canvasArtifactNodes}
-                    />
-                  )}
-                </div>
-              ) : null
-            }
-            controls={<CardQaMenu cardId={cardId} layout="embedded" />}
-          />
+    <article className="group/turn flex min-w-0 flex-col gap-4">
+      <QaQuestionSection className="flex min-w-0 items-start justify-end gap-2">
+        <div className="flex h-8 shrink-0 items-center gap-2">
+          {showContributors && (
+            <ContributorAvatarStack
+              profiles={contributorProfiles}
+              onlineUserIds={onlineUserIds}
+            />
+          )}
+          {showStatusBadge && (
+            <QaStatusBadge
+              card={card}
+              canvasArtifactNodes={canvasArtifactNodes}
+            />
+          )}
+          {/* z-10 lifts the open menu above the answer that follows; it stays
+              shown while open even once the pointer leaves the turn. */}
+          <div className="relative z-10 opacity-0 transition-opacity focus-within:opacity-100 group-hover/turn:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+            <CardQaMenu cardId={cardId} layout="embedded" />
+          </div>
+        </div>
+        <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-2">
           <QuestionAttachments card={card} />
-
-          <p className="text-canvas-body-lg font-medium leading-snug text-canvas-ink">
+          <p className="whitespace-pre-wrap break-words rounded-canvas bg-canvas-bg px-4 py-2.5 text-canvas-body leading-relaxed text-canvas-ink">
             {card.question}
           </p>
-        </QaQuestionSection>
+        </div>
+      </QaQuestionSection>
 
-        {showAnswer && (
-          <div style={qaInsetStyle("answer")}>
-            <CardAnswerBody
-              card={card}
-              isStreaming={card.status === "streaming"}
-              showPendingPlaceholder={
-                turnInProgress && !shouldShowQaAnswerText(card)
-              }
-              pendingLabel={qaStatusLabel}
-              onTryAgain={handleTryAgain}
-            />
-          </div>
-        )}
-      </QaTranslucentSurface>
-    </div>
+      {showAnswer && (
+        <div className="min-w-0">
+          <CardAnswerBody
+            card={card}
+            isStreaming={card.status === "streaming"}
+            showPendingPlaceholder={
+              turnInProgress && !shouldShowQaAnswerText(card)
+            }
+            pendingLabel={qaStatusLabel}
+            onTryAgain={handleTryAgain}
+          />
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -155,14 +154,17 @@ export function ChatThreadMessages({
   return (
     <div
       ref={scrollRef}
-      className={className ?? "flex-1 overflow-y-auto px-4 py-6 md:px-8"}
+      className={
+        className ??
+        // Soft fade top and bottom so turns slip under the header and composer
+        // instead of being cut at a hard edge.
+        "flex-1 overflow-y-auto px-8 pb-10 pt-6 [mask-image:linear-gradient(to_bottom,transparent,black_24px,black_calc(100%-24px),transparent)]"
+      }
     >
-      <div className="relative mx-auto max-w-3xl">
-        <div className="chat-casing overflow-hidden rounded-canvas border border-canvas-border bg-transparent shadow-card">
-          {visibleChain.map((cardId) => (
-            <QnaTurnBlock key={cardId} cardId={cardId} />
-          ))}
-        </div>
+      <div className="mx-auto flex max-w-3xl flex-col gap-10">
+        {visibleChain.map((cardId) => (
+          <QnaTurnBlock key={cardId} cardId={cardId} />
+        ))}
       </div>
     </div>
   );

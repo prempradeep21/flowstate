@@ -5,6 +5,7 @@ import {
   MutableRefObject,
   ReactNode,
   RefObject,
+  memo,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -75,7 +76,10 @@ import { CanvasAssetNode } from "@/components/CanvasAssetNode";
 import { CanvasGifNode } from "@/components/CanvasGifNode";
 import { Canvas3DNode } from "@/components/Canvas3DNode";
 import { CanvasSkillNode } from "@/components/CanvasSkillNode";
-import { CanvasTextLabelNode } from "@/components/CanvasTextLabelNode";
+import {
+  CANVAS_TEXT_EDITOR_ATTR,
+  CanvasTextLabelNode,
+} from "@/components/CanvasTextLabelNode";
 import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
@@ -85,6 +89,7 @@ import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 /** Kill-switch: restore the legacy SVG connections renderer for one release. */
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
 import { ArtifactPlugConnections } from "@/components/plugs/ArtifactPlugConnections";
+import { AssetPlugConnections } from "@/components/plugs/AssetPlugConnections";
 import { SkillPlugConnections } from "@/components/plugs/SkillPlugConnections";
 import { GroupPlugConnections } from "@/components/plugs/GroupPlugConnections";
 import { PlugConnectorLayer } from "@/components/plugs/PlugConnectorLayer";
@@ -94,6 +99,7 @@ import { getCanvasFontPreviewStyles } from "@/lib/canvasFonts/previewStyles";
 import { useCanvasPan } from "@/hooks/useCanvasPan";
 import { useCanvasViewportInput } from "@/hooks/useCanvasViewportInput";
 import { useViewportCulling } from "@/hooks/useViewportCulling";
+import { useCaptureMountAllNodes } from "@/lib/canvasSnapshotThumbnail/captureMountAll";
 import { focusCanvasArtifact } from "@/lib/canvasArtifacts";
 import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import {
@@ -134,8 +140,9 @@ import {
 } from "@/components/AuthProvider";
 import { CanvasPieMenu } from "@/components/CanvasPieMenu";
 import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
-import { canvasLoadRevealTotalMs } from "@/lib/motion/canvasLoadReveal";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
+import { isConversationCard } from "@/lib/conversationCard";
+
 const MARQUEE_MIN_DRAG_PX = 6;
 
 interface PlacementState {
@@ -164,11 +171,18 @@ interface ArtifactPlacementState extends PlacementState {
  * reloaded from the network, WebGL contexts rebuilt, media playback reset,
  * and content visibly "re-rendered" on pan/zoom. Now such a node mounts the
  * first time it becomes visible and is thereafter only hidden with
- * display:none — zero raster/layout cost while offscreen, but DOM (and
- * iframe/player state) survives, so revisiting a region shows content
- * instantly, exactly as it was.
- * `display: contents` keeps the wrapper layout-transparent while visible
- * (children are absolutely positioned against the viewport).
+ * content-visibility:hidden — zero style/layout/raster cost while offscreen,
+ * but DOM (and iframe/player state) survives, so revisiting a region shows
+ * content instantly, exactly as it was.
+ *
+ * NOT display:none: that collapses every box to 0×0, so ResizeObservers fire
+ * with zero size (ParentSize unmounted ECharts, Leaflet re-laid its tiles)
+ * and CSS animations restart — charts, maps and staggered table/todo rows
+ * replayed their load-in every time they scrolled back into view.
+ * content-visibility keeps the last layout, so a node animates once per page
+ * load. The wrapper is a zero-size box pinned at the viewport origin (same
+ * as CanvasViewport), so children resolve their absolute positions exactly
+ * as before; with z-index auto it adds no stacking context while visible.
  *
  * Deliberately NOT used for cards/skills/labels: they are plain DOM with no
  * external state, remount cheaply through the gesture-time placeholder
@@ -181,18 +195,198 @@ interface ArtifactPlacementState extends PlacementState {
  */
 function CulledKeepAlive({
   visible,
+  captureMount,
   children,
 }: {
   visible: boolean;
+  /**
+   * Shown only for a dashboard-thumbnail capture. Deliberately does NOT count
+   * as "seen": otherwise one capture would pin every artifact on the canvas
+   * (and load every offscreen iframe/player) for the rest of the session.
+   */
+  captureMount: boolean;
   children: ReactNode;
 }) {
   const seenRef = useRef(false);
   if (visible) seenRef.current = true;
-  if (!seenRef.current) return null;
+  if (!seenRef.current && !captureMount) return null;
   return (
-    <div style={{ display: visible ? "contents" : "none" }}>{children}</div>
+    <div
+      className="absolute left-0 top-0"
+      style={{
+        contentVisibility: visible || captureMount ? "visible" : "hidden",
+      }}
+    >
+      {children}
+    </div>
   );
 }
+
+/**
+ * The culled node list, isolated from Canvas. Culling commits a new visible
+ * set every time a node crosses the padding band — several times a second
+ * during a steady pan. Owning that state here means those commits re-render
+ * only this list (memoized nodes bail out; only entering/leaving ones do
+ * work) instead of the whole 2k-line Canvas and every chrome layer under it
+ * (pie menu, selection toolbar, cursors, plug layers, drawing layer).
+ */
+const CanvasNodeLayer = memo(function CanvasNodeLayer({
+  containerRef,
+  landingCardId,
+  autoEditLabelId,
+}: {
+  containerRef: RefObject<HTMLDivElement | null>;
+  landingCardId: string | null;
+  autoEditLabelId: string | null;
+}) {
+  const { enabled: cullingEnabled, visible: visibleNodes } = useViewportCulling(
+    containerRef,
+    { landingCardId },
+  );
+  // A dashboard-thumbnail capture renders the whole canvas — mount every node
+  // for its duration (see captureMountAll).
+  const captureMountAll = useCaptureMountAllNodes();
+  const cullCards = cullingEnabled && !captureMountAll;
+  const hiddenCardIds = useHiddenCardIds();
+  const cards = useCanvasStore((s) => s.cards);
+  const cardOrder = useCanvasStore((s) => s.cardOrder);
+  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
+  const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
+  const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
+  const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
+  const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
+  const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
+  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
+  const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
+  const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
+  const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
+  const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
+  const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
+
+  // Whatever the user clicks or selects stacks above everything else.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const raise = useCanvasStore.getState().raiseCanvasNodes;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      const hit = target?.closest<HTMLElement>(
+        "[data-canvas-card], [data-canvas-node-id]",
+      );
+      const id = hit?.dataset.canvasCard ?? hit?.dataset.canvasNodeId;
+      if (id) raise([id]);
+    };
+    container.addEventListener("pointerdown", onPointerDown, true);
+    const unsubscribe = useCanvasStore.subscribe((state, prev) => {
+      if (state.canvasSelection === prev.canvasSelection) return;
+      const before = new Set(prev.canvasSelection.map((item) => item.id));
+      const added = state.canvasSelection
+        .filter((item) => !before.has(item.id))
+        .map((item) => item.id);
+      if (added.length > 0) raise(added);
+    });
+    return () => {
+      container.removeEventListener("pointerdown", onPointerDown, true);
+      unsubscribe();
+    };
+  }, [containerRef]);
+
+  return (
+    <>
+      {cardOrder.map((id) => {
+        const card = cards[id];
+        if (!card) return null;
+        if (hiddenCardIds.has(id)) return null;
+        if (cullCards && visibleNodes && !visibleNodes.cards.has(id)) {
+          return null;
+        }
+        return <Card key={id} card={card} />;
+      })}
+      {canvasArtifactOrder.map((id) => {
+        const node = canvasArtifactNodes[id];
+        if (!node) return null;
+        return (
+          <CulledKeepAlive
+            key={id}
+            captureMount={captureMountAll}
+            visible={
+              !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
+            }
+          >
+            <CanvasArtifactNode node={node} />
+          </CulledKeepAlive>
+        );
+      })}
+      {canvasAssetOrder.map((id) => {
+        const node = canvasAssetNodes[id];
+        if (!node) return null;
+        return (
+          <CulledKeepAlive
+            key={id}
+            captureMount={captureMountAll}
+            visible={
+              !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
+            }
+          >
+            <CanvasAssetNode node={node} />
+          </CulledKeepAlive>
+        );
+      })}
+      {canvasGifOrder.map((id) => {
+        const node = canvasGifNodes[id];
+        if (!node) return null;
+        return (
+          <CulledKeepAlive
+            key={id}
+            captureMount={captureMountAll}
+            visible={
+              !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
+            }
+          >
+            <CanvasGifNode node={node} />
+          </CulledKeepAlive>
+        );
+      })}
+      {canvas3DOrder.map((id) => {
+        const node = canvas3DNodes[id];
+        if (!node) return null;
+        return (
+          <CulledKeepAlive
+            key={id}
+            captureMount={captureMountAll}
+            visible={
+              !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
+            }
+          >
+            <Canvas3DNode node={node} />
+          </CulledKeepAlive>
+        );
+      })}
+      {canvasSkillOrder.map((id) => {
+        const node = canvasSkillNodes[id];
+        if (!node) return null;
+        if (cullCards && visibleNodes && !visibleNodes.skills.has(id)) {
+          return null;
+        }
+        return <CanvasSkillNode key={id} node={node} />;
+      })}
+      {canvasTextLabelOrder.map((id) => {
+        const label = canvasTextLabels[id];
+        if (!label) return null;
+        if (cullCards && visibleNodes && !visibleNodes.labels.has(id)) {
+          return null;
+        }
+        return (
+          <CanvasTextLabelNode
+            key={id}
+            label={label}
+            startEditing={autoEditLabelId === id}
+          />
+        );
+      })}
+    </>
+  );
+});
 
 export function Canvas({
   containerRef: externalContainerRef,
@@ -211,31 +405,24 @@ export function Canvas({
     onlineUserIds,
     isSwitchingCanvas,
   } = useAuth();
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
   const canvasBackgroundStyle = useCanvasStore((s) => s.canvasBackgroundStyle);
-  const startCanvasLoadReveal = useCanvasStore((s) => s.startCanvasLoadReveal);
-  const clearCanvasLoadReveal = useCanvasStore((s) => s.clearCanvasLoadReveal);
   const cards = useCanvasStore((s) => s.cards);
   const cardOrder = useCanvasStore((s) => s.cardOrder);
   const connectionsBehindCards = useCanvasStore((s) =>
-    s.cardOrder.some((id) => s.cards[id]?.cardKind === "conversation"),
+    s.cardOrder.some((id) => isConversationCard(s.cards[id])),
   );
   const createRootCard = useCanvasStore((s) => s.createRootCard);
   const updateCard = useCanvasStore((s) => s.updateCard);
   const setViewport = useCanvasStore((s) => s.setViewport);
   const uploadedAttachments = useCanvasStore((s) => s.uploadedAttachments);
   const canvasAssets = useCanvasStore((s) => s.canvasAssets);
-  const canvasAssetNodes = useCanvasStore((s) => s.canvasAssetNodes);
   const canvasAssetOrder = useCanvasStore((s) => s.canvasAssetOrder);
   const addCanvasAsset = useCanvasStore((s) => s.addCanvasAsset);
   const spawnCanvasAsset = useCanvasStore((s) => s.spawnCanvasAsset);
   const canvasSkillOrder = useCanvasStore((s) => s.canvasSkillOrder);
-  const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const spawnCanvasSkill = useCanvasStore((s) => s.spawnCanvasSkill);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
-  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const canvasArtifactOrder = useCanvasStore((s) => s.canvasArtifactOrder);
-  const canvasTextLabels = useCanvasStore((s) => s.canvasTextLabels);
   const canvasTextLabelOrder = useCanvasStore((s) => s.canvasTextLabelOrder);
   const canvasStrokes = useCanvasStore((s) => s.canvasStrokes);
   const canvasStrokeOrder = useCanvasStore((s) => s.canvasStrokeOrder);
@@ -245,9 +432,7 @@ export function Canvas({
   const beginCanvasStroke = useCanvasStore((s) => s.beginCanvasStroke);
   const appendCanvasStrokePoint = useCanvasStore((s) => s.appendCanvasStrokePoint);
   const finishCanvasStroke = useCanvasStore((s) => s.finishCanvasStroke);
-  const canvasGifNodes = useCanvasStore((s) => s.canvasGifNodes);
   const canvasGifOrder = useCanvasStore((s) => s.canvasGifOrder);
-  const canvas3DNodes = useCanvasStore((s) => s.canvas3DNodes);
   const canvas3DOrder = useCanvasStore((s) => s.canvas3DOrder);
   const removeSelectedFromCanvas = useCanvasStore(
     (s) => s.removeSelectedFromCanvas,
@@ -275,7 +460,6 @@ export function Canvas({
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const groups = useCanvasStore((s) => s.groups);
   const groupList = Object.values(groups);
-  const hiddenCardIds = useHiddenCardIds();
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   const bodyFontId = useCanvasStore((s) => s.canvasPreviewBodyFontId);
   const displayFontId = useCanvasStore((s) => s.canvasPreviewDisplayFontId);
@@ -297,10 +481,6 @@ export function Canvas({
   const landingCardId = getLandingCardId(cards, cardOrder);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const { enabled: cullingEnabled, visible: visibleNodes } = useViewportCulling(
-    containerRef,
-    { landingCardId: showLanding ? landingCardId : null },
-  );
   const setContainerRef = (node: HTMLDivElement | null) => {
     containerRef.current = node;
     if (externalContainerRef) {
@@ -323,33 +503,6 @@ export function Canvas({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pencilToolActive, setPencilToolActive]);
-
-  useEffect(() => {
-    if (canvasLoadReveal?.phase !== "pending") return;
-    if (!persistenceReady || isSwitchingCanvas) return;
-    startCanvasLoadReveal();
-  }, [
-    canvasLoadReveal?.phase,
-    persistenceReady,
-    isSwitchingCanvas,
-    startCanvasLoadReveal,
-  ]);
-
-  useEffect(() => {
-    if (canvasLoadReveal?.phase !== "running") return;
-    const totalMs = canvasLoadRevealTotalMs({
-      delays: canvasLoadReveal.delays,
-      unitCount: 0,
-      maxDelayMs: canvasLoadReveal.maxDelayMs,
-    });
-    const timer = window.setTimeout(() => clearCanvasLoadReveal(), totalMs);
-    return () => window.clearTimeout(timer);
-  }, [
-    canvasLoadReveal?.phase,
-    canvasLoadReveal?.maxDelayMs,
-    canvasLoadReveal?.delays,
-    clearCanvasLoadReveal,
-  ]);
 
   useEffect(() => {
     if (cardOrder.length === 0) {
@@ -967,6 +1120,15 @@ export function Canvas({
   // canvas tool shortcut even when an empty question field is focused.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // A text label being edited owns its keys: Escape closes the editor
+      // (keeping the label selected) and Cmd/Ctrl+C copies the selected text.
+      if (
+        (e.target as HTMLElement | null)?.closest?.(
+          `[${CANVAS_TEXT_EDITOR_ATTR}]`,
+        )
+      ) {
+        return;
+      }
       if (e.key === "Escape") {
         // Closing the pie consumes the press — it must not also clear the
         // canvas selection in the same keystroke.
@@ -1028,12 +1190,8 @@ export function Canvas({
 
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.code === "KeyC" && !e.altKey && !e.shiftKey) {
-        const st = useCanvasStore.getState();
-        if (canCopyCanvasSelection(st)) {
-          e.preventDefault();
-          void st.copySelectedCanvasItems();
-          return;
-        }
+        // A focused field copies its own text selection, never the canvas
+        // nodes that happen to be selected around it.
         const target = e.target as HTMLElement | null;
         if (target) {
           const tag = target.tagName;
@@ -1044,6 +1202,11 @@ export function Canvas({
           ) {
             return;
           }
+        }
+        const st = useCanvasStore.getState();
+        if (canCopyCanvasSelection(st)) {
+          e.preventDefault();
+          void st.copySelectedCanvasItems();
         }
         return;
       }
@@ -1998,12 +2161,12 @@ export function Canvas({
         imagePlacement ||
         gifPlacement ||
         artifactPlacement
-          ? "cursor-crosshair"
+          ? "cursor-add"
           : pencilToolActive
             ? "canvas-pencil-cursor"
             : spaceHeld
               ? "cursor-grab active:cursor-grabbing"
-              : "cursor-crosshair"
+              : "cursor-default"
       }`}
     >
       <CanvasBackgroundLayer />
@@ -2011,104 +2174,23 @@ export function Canvas({
           zero React work per frame). NEXT_PUBLIC_SVG_CONNECTIONS=1 restores
           the legacy SVG renderer for one release as a kill-switch. */}
       {!SVG_CONNECTIONS && connectionsBehindCards && (
-        <ConnectionsCanvas containerRef={containerRef} />
+        <ConnectionsCanvas containerRef={containerRef} layer="lines" />
       )}
       <CanvasViewport>
         <PlugConnectorLayer />
         <ArtifactPlugConnections />
+        <AssetPlugConnections />
         <SkillPlugConnections />
         <GroupPlugConnections />
         {groupList.map((group) => (
           <GroupBounds key={group.id} group={group} />
         ))}
         {SVG_CONNECTIONS && connectionsBehindCards && <Connections />}
-        {cardOrder.map((id) => {
-          const card = cards[id];
-          if (!card) return null;
-          if (hiddenCardIds.has(id)) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.cards.has(id)) {
-            return null;
-          }
-          return <Card key={id} card={card} />;
-        })}
-        {canvasArtifactOrder.map((id) => {
-          const node = canvasArtifactNodes[id];
-          if (!node) return null;
-          return (
-            <CulledKeepAlive
-              key={id}
-              visible={
-                !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
-              }
-            >
-              <CanvasArtifactNode node={node} />
-            </CulledKeepAlive>
-          );
-        })}
-        {canvasAssetOrder.map((id) => {
-          const node = canvasAssetNodes[id];
-          if (!node) return null;
-          return (
-            <CulledKeepAlive
-              key={id}
-              visible={
-                !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
-              }
-            >
-              <CanvasAssetNode node={node} />
-            </CulledKeepAlive>
-          );
-        })}
-        {canvasGifOrder.map((id) => {
-          const node = canvasGifNodes[id];
-          if (!node) return null;
-          return (
-            <CulledKeepAlive
-              key={id}
-              visible={
-                !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
-              }
-            >
-              <CanvasGifNode node={node} />
-            </CulledKeepAlive>
-          );
-        })}
-        {canvas3DOrder.map((id) => {
-          const node = canvas3DNodes[id];
-          if (!node) return null;
-          return (
-            <CulledKeepAlive
-              key={id}
-              visible={
-                !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
-              }
-            >
-              <Canvas3DNode node={node} />
-            </CulledKeepAlive>
-          );
-        })}
-        {canvasSkillOrder.map((id) => {
-          const node = canvasSkillNodes[id];
-          if (!node) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.skills.has(id)) {
-            return null;
-          }
-          return <CanvasSkillNode key={id} node={node} />;
-        })}
-        {canvasTextLabelOrder.map((id) => {
-          const label = canvasTextLabels[id];
-          if (!label) return null;
-          if (cullingEnabled && visibleNodes && !visibleNodes.labels.has(id)) {
-            return null;
-          }
-          return (
-            <CanvasTextLabelNode
-              key={id}
-              label={label}
-              startEditing={autoEditLabelId === id}
-            />
-          );
-        })}
+        <CanvasNodeLayer
+          containerRef={containerRef}
+          landingCardId={showLanding ? landingCardId : null}
+          autoEditLabelId={autoEditLabelId}
+        />
         {!chatsGloballyHidden &&
           groupList.map((group) =>
             group.summaryMarkdown ? (
@@ -2127,8 +2209,14 @@ export function Canvas({
         {gifPlacement && <GhostGif world={gifPlacement} />}
         {threeDPlacement && <Ghost3D world={threeDPlacement} />}
       </CanvasViewport>
-      {!SVG_CONNECTIONS && !connectionsBehindCards && (
-        <ConnectionsCanvas containerRef={containerRef} />
+      {/* Plug rings straddle card edges, so even when the lines sit behind
+          the cards the rings draw above them — otherwise each card hides
+          half of its own plug. */}
+      {!SVG_CONNECTIONS && (
+        <ConnectionsCanvas
+          containerRef={containerRef}
+          layer={connectionsBehindCards ? "markers" : "all"}
+        />
       )}
       {showLanding &&
         !chatsGloballyHidden &&

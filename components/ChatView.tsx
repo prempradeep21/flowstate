@@ -6,10 +6,18 @@ import { ChatThreadTree } from "@/components/chat/ChatThreadTree";
 import { ChatThreadMessages } from "@/components/chat/QnaThreadMessages";
 import {
   buildSidebarTree,
+  getBranchParentThreadId,
   getThreadTailCardId,
+  getThreadTitle,
   pickDefaultThreadId,
 } from "@/lib/chatThreads";
 import { FollowUpOptions, useCanvasStore } from "@/lib/store";
+import { isConversationCard } from "@/lib/conversationCard";
+
+/** Thread sidebar width. */
+export const CHAT_SIDEBAR_WIDTH_PX = 304;
+/** Room the open artifacts panel takes: 462px panel + 12px inset + 12px gap. */
+export const CHAT_RIGHT_PANEL_CLEARANCE_PX = 486;
 
 function ThreadChatComposer({ threadId }: { threadId: string }) {
   const createFollowUp = useCanvasStore((s) => s.createFollowUp);
@@ -27,7 +35,11 @@ function ThreadChatComposer({ threadId }: { threadId: string }) {
   );
 
   const tail = tailId ? cards[tailId] : null;
-  const disabled = tail?.status !== "done";
+  // An imported transcript thread ends on a conversation card, whose status is
+  // always "done" — so the status check alone leaves this composer looking live
+  // while createFollowUp refuses the write, swallowing whatever was typed.
+  const importedThread = isConversationCard(tail);
+  const disabled = tail?.status !== "done" || importedThread;
 
   const onSubmit = (question: string, options?: FollowUpOptions) => {
     if (!tailId) return;
@@ -35,9 +47,15 @@ function ThreadChatComposer({ threadId }: { threadId: string }) {
   };
 
   return (
-    <div className="shrink-0 border-t border-canvas-border bg-canvas-bg px-4 py-4 md:px-8">
+    <div className="shrink-0 px-8 pb-6 pt-2">
       <ChatComposer
-        placeholder={disabled ? "Waiting for the current reply…" : "Follow up"}
+        placeholder={
+          importedThread
+            ? "Imported transcript — branching from it is coming soon"
+            : disabled
+              ? "Waiting for the current reply…"
+              : "Follow up"
+        }
         disabled={disabled}
         onSubmit={onSubmit}
       />
@@ -53,6 +71,7 @@ export function ChatView() {
   const threadOrder = useCanvasStore((s) => s.threadOrder);
   const activeThreadId = useCanvasStore((s) => s.activeThreadId);
   const setActiveThreadId = useCanvasStore((s) => s.setActiveThreadId);
+  const rightPanelCollapsed = useCanvasStore((s) => s.rightPanelCollapsed);
 
   const sidebar = useMemo(
     () =>
@@ -86,16 +105,39 @@ export function ChatView() {
     setActiveThreadId,
   ]);
 
+  const threadState = { cards, connections, cardOrder, threads, threadOrder };
+  const activeTitle = activeThreadId
+    ? getThreadTitle(threadState, activeThreadId)
+    : null;
+  const parentThreadId = activeThreadId
+    ? getBranchParentThreadId(threadState, activeThreadId)
+    : null;
+  const parentTitle = parentThreadId
+    ? getThreadTitle(threadState, parentThreadId)
+    : null;
+  const activeAccent = activeThreadId
+    ? threads[activeThreadId]?.accentColour
+    : undefined;
+
   return (
-    <div className="flex h-full w-full bg-canvas-bg">
-      <aside className="chat-thread-panel flex w-[260px] shrink-0 flex-col border-r border-canvas-border bg-canvas-card">
-        <div className="border-b border-canvas-border px-4 py-3">
-          <h2 className="text-canvas-body-sm font-semibold text-canvas-ink">Chats</h2>
-          <p className="mt-0.5 text-canvas-caption text-canvas-muted">
-            Branches appear nested under their parent.
-          </p>
+    <div className="flex h-full w-full bg-canvas-card">
+      <aside
+        className="chat-thread-panel flex shrink-0 flex-col border-r border-canvas-border bg-canvas-bg"
+        style={{ width: CHAT_SIDEBAR_WIDTH_PX }}
+      >
+        {/* The floating canvas chip (AppLeftPanel) sits here in every view. */}
+        <div className="h-[82px] shrink-0" aria-hidden />
+        <div className="flex items-baseline justify-between px-5 pb-2">
+          <h2 className="text-canvas-caption font-medium text-canvas-muted">
+            Chats
+          </h2>
+          {threadOrder.length > 0 ? (
+            <span className="text-canvas-caption tabular-nums text-canvas-muted">
+              {threadOrder.length}
+            </span>
+          ) : null}
         </div>
-        <nav className="flex-1 overflow-y-auto p-2">
+        <nav className="flex-1 overflow-y-auto px-3 pb-6">
           {sidebar.length === 0 ? (
             <p className="px-2 py-4 text-canvas-body-sm text-canvas-muted">
               Start a conversation on the canvas (press Q) to see it here.
@@ -111,18 +153,60 @@ export function ChatView() {
         </nav>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <section
+        className="flex min-w-0 flex-1 flex-col transition-[padding] duration-panel ease-panel"
+        // An open artifacts panel floats over the right edge; make room for it
+        // instead of hiding text behind it.
+        style={{
+          paddingRight: rightPanelCollapsed ? 0 : CHAT_RIGHT_PANEL_CLEARANCE_PX,
+        }}
+      >
+        {/* Header row shares its band with the floating top-right chrome, so
+            the title keeps clear of it on the right. With the panel open only
+            the buttons beside it remain in this column. */}
+        <header
+          className={`flex h-[70px] shrink-0 items-center pl-8 ${
+            rightPanelCollapsed ? "pr-[min(32rem,42vw)]" : "pr-[min(22rem,30vw)]"
+          }`}
+        >
+          {activeTitle ? (
+            <div className="flex min-w-0 items-center gap-2.5">
+              {activeAccent ? (
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: activeAccent }}
+                  aria-hidden
+                />
+              ) : null}
+              <h1
+                className="truncate text-canvas-body font-medium text-canvas-ink"
+                title={activeTitle}
+              >
+                {activeTitle}
+              </h1>
+              {parentTitle ? (
+                <span
+                  className="hidden min-w-0 truncate text-canvas-body-sm text-canvas-muted lg:inline"
+                  title={parentTitle}
+                >
+                  ↳ branched from {parentTitle}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </header>
+
         {activeThreadId ? (
           <>
             <ChatThreadMessages threadId={activeThreadId} />
             <ThreadChatComposer threadId={activeThreadId} />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-canvas-body text-canvas-muted">
+          <div className="flex flex-1 items-center justify-center pb-[104px] text-canvas-body text-canvas-muted">
             Select or start a chat from the canvas.
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

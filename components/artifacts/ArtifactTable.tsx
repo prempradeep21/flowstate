@@ -12,10 +12,12 @@ import { useArtifactCanvasSizeReport } from "@/components/artifacts/ArtifactCanv
 import type { TableColumn, TableRow } from "@/lib/artifactTypes";
 import { tableAccentStyles } from "@/lib/tableAccentColor";
 import {
+  computeTableColumnFitSpecs,
   computeTableColumnWidths,
-  computeTableColumnWidthsPx,
   computeTableIntrinsicSize,
+  fitTableColumnWidthsPx,
   sumTableColumnWidthsPx,
+  TABLE_COLUMN_FLOOR_PX,
   TABLE_COLUMN_MIN_PX,
   TABLE_COLUMN_MIN_RESIZE_PERCENT,
 } from "@/lib/tableColumnWidths";
@@ -85,6 +87,7 @@ export function ArtifactTable({
   // subscription re-rendered every table artifact on every zoom frame.
   const animatedVersionRef = useRef<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const userAdjustedRef = useRef(false);
   const lastSchemaRef = useRef("");
   const lastVersionRef = useRef<string | undefined>(undefined);
@@ -100,7 +103,6 @@ export function ArtifactTable({
     colIndex: number;
     startX: number;
     startColWidth: number;
-    startTableWidth: number;
   } | null>(null);
   const reportCanvasSize = useArtifactCanvasSizeReport();
 
@@ -114,8 +116,8 @@ export function ArtifactTable({
     [columns, rows],
   );
 
-  const defaultColumnWidthsPx = useMemo(
-    () => computeTableColumnWidthsPx(columns, rows),
+  const fitSpecs = useMemo(
+    () => computeTableColumnFitSpecs(columns, rows),
     [columns, rows],
   );
 
@@ -125,14 +127,44 @@ export function ArtifactTable({
   );
 
   const [columnPercents, setColumnPercents] = useState<number[]>([]);
-  const [columnWidthsPx, setColumnWidthsPx] = useState<number[]>([]);
+  /** Canvas: columns the user dragged, held at that width (px). */
+  const [pinnedWidthsPx, setPinnedWidthsPx] = useState<(number | undefined)[]>(
+    [],
+  );
+  /** Canvas: the node's drawable width — what the columns fit into. */
+  const [availableWidthPx, setAvailableWidthPx] = useState<number | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!canvasSurface) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    // clientWidth is layout width, unaffected by the canvas zoom transform.
+    const measure = () => setAvailableWidthPx(el.clientWidth || null);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canvasSurface]);
+
+  /** Every column at its ideal (or pinned) width — the table's natural size. */
+  const naturalWidthPx = useMemo(
+    () =>
+      sumTableColumnWidthsPx(
+        fitSpecs.map((spec, i) => pinnedWidthsPx[i] ?? spec.idealPx),
+      ),
+    [fitSpecs, pinnedWidthsPx],
+  );
 
   const activeColumnWidthsPx = useMemo(
     () =>
-      columnWidthsPx.length > 0
-        ? columnWidthsPx
-        : defaultColumnWidthsPx.map((c) => c.widthPx),
-    [columnWidthsPx, defaultColumnWidthsPx],
+      fitTableColumnWidthsPx(
+        fitSpecs,
+        availableWidthPx ?? naturalWidthPx,
+        pinnedWidthsPx,
+      ),
+    [fitSpecs, availableWidthPx, naturalWidthPx, pinnedWidthsPx],
   );
 
   const tableWidthPx = useMemo(
@@ -148,22 +180,23 @@ export function ArtifactTable({
       lastVersionRef.current = versionId;
       userAdjustedRef.current = false;
       setColumnPercents(defaultColumnWidths.map((c) => c.percent));
-      setColumnWidthsPx(defaultColumnWidthsPx.map((c) => c.widthPx));
+      setPinnedWidthsPx([]);
       return;
     }
     if (!userAdjustedRef.current) {
       setColumnPercents(defaultColumnWidths.map((c) => c.percent));
-      setColumnWidthsPx(defaultColumnWidthsPx.map((c) => c.widthPx));
     }
-  }, [columnSchemaKey, versionId, defaultColumnWidths, defaultColumnWidthsPx]);
+  }, [columnSchemaKey, versionId, defaultColumnWidths]);
 
+  // Report the natural size, not the fitted one: the fitted width follows the
+  // node, so reporting it back would pin the node to whatever it is now.
   useEffect(() => {
     if (!canvasSurface || !reportCanvasSize) return;
     reportCanvasSize({
-      w: tableWidthPx,
+      w: naturalWidthPx,
       h: intrinsicSize.heightPx,
     });
-  }, [canvasSurface, reportCanvasSize, tableWidthPx, intrinsicSize.heightPx]);
+  }, [canvasSurface, reportCanvasSize, naturalWidthPx, intrinsicSize.heightPx]);
 
   const widthByKey = useMemo(() => {
     const wrapDefaults = new Map(
@@ -177,10 +210,7 @@ export function ArtifactTable({
             columnPercents[index] ??
             defaultColumnWidths[index]?.percent ??
             100 / Math.max(columns.length, 1),
-          widthPx:
-            activeColumnWidthsPx[index] ??
-            defaultColumnWidthsPx[index]?.widthPx ??
-            TABLE_COLUMN_MIN_PX,
+          widthPx: activeColumnWidthsPx[index] ?? TABLE_COLUMN_MIN_PX,
           wrap: wrapDefaults.get(col.key) ?? false,
         },
       ]),
@@ -190,7 +220,6 @@ export function ArtifactTable({
     columnPercents,
     defaultColumnWidths,
     activeColumnWidthsPx,
-    defaultColumnWidthsPx,
   ]);
 
   const { columnStagger, rowStagger } = useMemo(
@@ -224,7 +253,6 @@ export function ArtifactTable({
           colIndex,
           startX: e.clientX,
           startColWidth: activeColumnWidthsPx[colIndex] ?? TABLE_COLUMN_MIN_PX,
-          startTableWidth: tableWidthPx,
         };
         return;
       }
@@ -246,7 +274,6 @@ export function ArtifactTable({
       columnPercents,
       columns.length,
       compact,
-      tableWidthPx,
     ],
   );
 
@@ -258,29 +285,19 @@ export function ArtifactTable({
         const scale = vpScale > 0 ? vpScale : 1;
         const deltaPx = (e.clientX - pxRs.startX) / scale;
         const newColWidth = Math.max(
-          TABLE_COLUMN_MIN_PX,
+          TABLE_COLUMN_FLOOR_PX,
           Math.round(pxRs.startColWidth + deltaPx),
         );
-        const appliedDelta = newColWidth - pxRs.startColWidth;
-        if (appliedDelta === 0) return;
 
+        // Pin the dragged column; the others re-fit around it (and the
+        // natural-size report lets an auto-sized node grow to hold it).
         userAdjustedRef.current = true;
-        setColumnWidthsPx((prev) => {
-          const base =
-            prev.length > 0
-              ? prev
-              : defaultColumnWidthsPx.map((c) => c.widthPx);
-          const next = [...base];
+        setPinnedWidthsPx((prev) => {
+          if (prev[pxRs.colIndex] === newColWidth) return prev;
+          const next = [...prev];
           next[pxRs.colIndex] = newColWidth;
           return next;
         });
-
-        if (reportCanvasSize) {
-          reportCanvasSize({
-            w: pxRs.startTableWidth + appliedDelta,
-            h: intrinsicSize.heightPx,
-          });
-        }
         return;
       }
 
@@ -303,12 +320,7 @@ export function ArtifactTable({
         return next;
       });
     },
-    [
-      canvasSurface,
-      defaultColumnWidthsPx,
-      intrinsicSize.heightPx,
-      reportCanvasSize,
-    ],
+    [canvasSurface],
   );
 
   const handleResizePointerUp = useCallback(
@@ -356,6 +368,7 @@ export function ArtifactTable({
 
   return (
     <div
+      ref={scrollRef}
       {...(canvasSurface ? { "data-canvas-scroll": "" } : {})}
       className={`${overflowClass} ${surfaceBg} ${maxHeightClassName}`}
       style={{
@@ -372,9 +385,10 @@ export function ArtifactTable({
           canvasSurface ? "" : "w-full"
         }`}
         style={
-          canvasSurface
-            ? { width: tableWidthPx, minWidth: tableWidthPx }
-            : undefined
+          // Columns are fitted to the node (see fitTableColumnWidthsPx), so
+          // the table is exactly the node's width — or wider, and scrolls,
+          // once every column is at its minimum.
+          canvasSurface ? { width: tableWidthPx } : undefined
         }
       >
         <colgroup>
@@ -418,7 +432,11 @@ export function ArtifactTable({
                     data-table-col-resize
                     data-no-drag
                     aria-label={`Resize ${col.label} column`}
-                    className="table-col-resize-handle absolute -right-1 top-0 z-20 h-full w-2 cursor-col-resize touch-none border-0 bg-transparent p-0"
+                    // The last handle sits inside the table: hanging past
+                    // its edge would scroll the node by 4px.
+                    className={`table-col-resize-handle absolute ${
+                      colIndex === columns.length - 1 ? "right-0" : "-right-1"
+                    } top-0 z-20 h-full w-2 cursor-col-resize touch-none border-0 bg-transparent p-0`}
                     onPointerDown={(e) => handleResizePointerDown(colIndex, e)}
                     onPointerMove={handleResizePointerMove}
                     onPointerUp={handleResizePointerUp}

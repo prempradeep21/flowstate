@@ -53,3 +53,13 @@ export function tableAccentStyles(seed: string): Record<string, string> {
     ["--table-accent-border" as string]: `rgba(${r}, ${g}, ${b}, 0.35)`,
   };
 }
+
+/** The same variables as `tableAccentStyles`, but on the theme's primary accent. */
+export function primaryAccentStyles(): Record<string, string> {
+  return {
+    ["--table-accent" as string]: "rgb(var(--canvas-accent))",
+    ["--table-accent-soft" as string]: "rgb(var(--canvas-accent) / 0.12)",
+    ["--table-accent-hover" as string]: "rgb(var(--canvas-accent) / 0.042)",
+    ["--table-accent-border" as string]: "rgb(var(--canvas-accent) / 0.35)",
+  };
+}

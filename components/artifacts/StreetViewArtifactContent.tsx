@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import { useArtifactMenuDisplayExtras } from "@/components/artifacts/ArtifactMenuControlsContext";
 import { ArtifactMenuStreetViewControls } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import type { ArtifactPayload, StreetViewMode } from "@/lib/artifactTypes";
@@ -16,18 +17,24 @@ import {
 } from "@/lib/streetViewArtifact";
 import { CANVAS_ARTIFACT_WIDTH } from "@/lib/canvasNodeBounds";
 import { useCanvasStore } from "@/lib/store";
+import { useMediaLoaded } from "@/hooks/useMediaLoaded";
 
 function StreetViewFrame({
   children,
   fill,
   minHeight,
   circle,
+  interactive,
 }: {
   children: ReactNode;
   fill: boolean;
   minHeight?: string;
   circle: boolean;
+  interactive: boolean;
 }) {
+  // Only claim pointer input (exempt from the canvas inert layer) once the
+  // node is selected; until then a click selects and a scroll pans the canvas.
+  const noDrag = interactive ? { "data-no-drag": true } : {};
   const panelSizeStyle =
     !fill && minHeight ? { minHeight, height: minHeight } : undefined;
 
@@ -43,7 +50,7 @@ function StreetViewFrame({
       >
         <div className="flex h-full w-full items-center justify-center">
           <div
-            data-no-drag
+            {...noDrag}
             className="relative aspect-square max-h-full max-w-full shrink-0 overflow-hidden rounded-full [width:min(100cqw,100cqh)]"
           >
             {children}
@@ -60,11 +67,40 @@ function StreetViewFrame({
       style={panelSizeStyle}
     >
       <div
-        data-no-drag
-        className="relative h-full w-full overflow-hidden rounded-2xl"
+        {...noDrag}
+        className="relative h-full w-full overflow-hidden rounded-canvas-nest-1"
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+/** The Street View embed, shimmering until Google's viewer has loaded. */
+function StreetViewIframe({
+  label,
+  src,
+  interactive,
+}: {
+  label: string;
+  src: string;
+  interactive: boolean;
+}) {
+  const frameLoad = useMediaLoaded(src);
+  return (
+    <div className="relative h-full w-full">
+      <MediaLoadingCover loaded={frameLoad.loaded} />
+      <iframe
+        title={`Street View: ${label}`}
+        src={src}
+        className="h-full w-full border-0"
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        onLoad={frameLoad.onLoad}
+        onError={frameLoad.onError}
+        style={{ pointerEvents: interactive ? "auto" : "none" }}
+      />
     </div>
   );
 }
@@ -88,10 +124,9 @@ export function StreetViewArtifactContent({
     (s) => s.saveStreetViewArtifactVersion,
   );
 
-  const [interactive, setInteractive] = useState(forceInteractive);
-  useEffect(() => {
-    setInteractive(forceInteractive);
-  }, [forceInteractive]);
+  // Live only while the canvas node is selected — the embed iframe swallows
+  // every wheel event, so it must stay inert until then.
+  const interactive = forceInteractive;
 
   const data = payload.data;
   const [viewMode, setViewMode] = useState<StreetViewMode>(
@@ -126,10 +161,6 @@ export function StreetViewArtifactContent({
     ),
     [viewMode, handleViewModeChange, sidebar],
   );
-
-  const enableInteraction = useCallback(() => {
-    setInteractive(true);
-  }, []);
 
   const { place, heading, pitch, fov } = data;
   const lat = place.lat;
@@ -183,7 +214,12 @@ export function StreetViewArtifactContent({
       artifactId={artifactId}
       className={stageClassName}
     >
-      <StreetViewFrame fill={fill} minHeight={panelMinHeight} circle={isCircle}>
+      <StreetViewFrame
+        fill={fill}
+        minHeight={panelMinHeight}
+        circle={isCircle}
+        interactive={isCanvas && interactive}
+      >
         {!keyReady ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-canvas-artifactStage p-6 text-center">
             <p className="text-canvas-body-sm font-medium text-canvas-ink">
@@ -201,31 +237,11 @@ export function StreetViewArtifactContent({
             </p>
           </div>
         ) : (
-          <>
-            <iframe
-              title={`Street View: ${label}`}
-              src={embedUrl}
-              className="h-full w-full border-0"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              style={{
-                pointerEvents: isCanvas && interactive ? "auto" : "none",
-              }}
-            />
-            {isCanvas && !interactive && (
-              <button
-                type="button"
-                data-no-drag
-                onClick={enableInteraction}
-                className={`absolute inset-0 z-10 flex items-center justify-center ${
-                  isCircle ? "rounded-full" : "rounded-2xl"
-                } bg-canvas-ink/0 text-canvas-body-sm font-medium text-canvas-ink transition-colors hover:bg-canvas-ink/5`}
-              >
-                Click to interact
-              </button>
-            )}
-          </>
+          <StreetViewIframe
+            label={label}
+            src={embedUrl}
+            interactive={isCanvas && interactive}
+          />
         )}
       </StreetViewFrame>
     </ArtifactContentStage>

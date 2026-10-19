@@ -143,7 +143,7 @@ export function QuickExplainPopup({
         <button
           type="button"
           onClick={onClose}
-          className="shrink-0 rounded-canvas p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
+          className="shrink-0 rounded-canvas-nest-11 p-0.5 text-canvas-muted transition-colors hover:bg-canvas-bg hover:text-canvas-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent/40"
           aria-label="Close"
         >
           <svg

@@ -81,7 +81,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     href: "/admin/outreach",
     label: "Podcaster outreach",
     description:
-      "Messaging variants, target shortlist and pilot playbook for the podcaster pilots.",
+      "Every podcaster we're reaching out to, with their canvas, showcase video and copy.",
     icon: "message",
     group: "operate",
   },

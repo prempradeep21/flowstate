@@ -252,6 +252,12 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
       }
 
       if (call.name === "emit_artifact") {
+        // A rejected call leaves its streamed draft skeleton orphaned — tell
+        // the client to drop it (the model usually retries with a new call).
+        const reject = (message: string) => {
+          emit({ artifactDraftDiscard: { id: call.id } });
+          return message;
+        };
         const type = input.type as string;
         const title = (input.title as string) ?? "Artifact";
         const description = input.description as string | undefined;
@@ -260,10 +266,10 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
         if (type === "custom") {
           const normalized = normalizeCustomArtifactData(data);
           if (!normalized?.html) {
-            return "emit_artifact custom requires non-empty data.html with the UI markup.";
+            return reject("emit_artifact custom requires non-empty data.html with the UI markup.");
           }
           if (customArtifactByteSize(normalized) > CUSTOM_ARTIFACT_MAX_BYTES) {
-            return `Custom UI exceeds ${CUSTOM_ARTIFACT_MAX_BYTES} byte limit.`;
+            return reject(`Custom UI exceeds ${CUSTOM_ARTIFACT_MAX_BYTES} byte limit.`);
           }
           data = normalized as unknown as Record<string, unknown>;
         }
@@ -271,7 +277,7 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
         if (type === "map" || type === "streetview") {
           const enriched = await geocodeMapArtifact(data);
           if (!enriched) {
-            return `emit_artifact ${type} requires data.place.name with a geocodable location (e.g. "Paris, France"). Could not geocode the place.`;
+            return reject(`emit_artifact ${type} requires data.place.name with a geocodable location (e.g. "Paris, France"). Could not geocode the place.`);
           }
           if (type === "streetview") {
             data = normalizeStreetViewArtifactData({
@@ -286,7 +292,7 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
         if (type === "todo") {
           const normalized = normalizeTodoArtifactData(data);
           if (normalized.items.length === 0) {
-            return "emit_artifact todo requires data.items with at least one { label, checked } entry.";
+            return reject("emit_artifact todo requires data.items with at least one { label, checked } entry.");
           }
           data = normalized as unknown as Record<string, unknown>;
         }
@@ -302,7 +308,7 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
         if (type === "chart") {
           const normalized = normalizeChartArtifactData(data);
           const err = validateChartEmit(normalized);
-          if (err) return err;
+          if (err) return reject(err);
           data = normalized as unknown as Record<string, unknown>;
         }
 
@@ -310,7 +316,7 @@ export function createToolExecutor({ emit, mcp, mcpCtx }: ToolExecContext): Tool
           emit({ pendingArtifact: { type } });
         }
         emit({ thinking: `Building ${type}…` });
-        emit({ artifact: { type, title, description, data } });
+        emit({ artifact: { type, title, description, data }, draftId: call.id });
         return `Emitted ${type} artifact "${title}" for the canvas card.`;
       }
 

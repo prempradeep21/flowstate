@@ -19,6 +19,7 @@ import {
   spawnWebsite,
   spawnWebsites,
   thread,
+  threadGist,
   type TranscriptImportCanvasSection,
 } from "@/lib/transcriptImport/playgroundLayout";
 
@@ -31,6 +32,25 @@ export const TIP_THREAD_PREFIGMA = "tip-thread-prefigma";
 export const TIP_THREAD_DYLAN = "tip-thread-dylan";
 
 /** Design tools history conversation graph for the transcript-import playground. */
+/**
+ * Canvas memory for this canvas — one gist per thread.
+ *
+ * On a canvas the user built, /api/gist writes these after each exchange. An
+ * imported canvas has no exchanges, so the builder authors them: same ~40-word
+ * shape, so a branch asked later gets the same faint sibling awareness it would
+ * have had if the conversation had actually happened here.
+ */
+const THREAD_GISTS: Record<string, string> = {
+  [TIP_THREAD_MAIN]:
+    "The arc of professional design tools: Photoshop as the first mass pro tool, Canva democratizing design for everyone else, the Photoshop era ending, and Figma's web-native bet winning the evolution.",
+  [TIP_THREAD_ADOBE]:
+    "Respect for the depth of Adobe's interaction design across Photoshop, Premiere Pro and After Effects — colour pickers, keyframes and professional editing paradigms were among the toughest UX problems, and had to be invented from scratch.",
+  [TIP_THREAD_PREFIGMA]:
+    "The landscape before Figma: Sketch dominated interface design but was Mac-only, with Zeplin and smaller tools filling the gaps around it.",
+  [TIP_THREAD_DYLAN]:
+    "Why Figma was not luck — CEO Dylan Field was a longtime WebGL enthusiast, and GPU power in the browser is what made the product possible, as a water-simulation demo rendering on the web showed.",
+};
+
 export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
@@ -47,6 +67,9 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
     TIP_THREAD_PREFIGMA,
     TIP_THREAD_DYLAN,
   ];
+  const threadGists = Object.fromEntries(
+    threadOrder.map((id) => [id, threadGist(THREAD_GISTS[id]!, 1)]),
+  );
   const sessionArtifacts: Record<string, SessionArtifact> = {};
   const canvasArtifactNodes: Record<string, CanvasArtifactNode> = {};
   const canvasArtifactOrder: string[] = [];
@@ -482,6 +505,7 @@ export function buildDesignToolsCanvasSection(): TranscriptImportCanvasSection {
     connections: layout.connections,
     threads,
     threadOrder,
+    threadGists,
     groups: layout.groups,
     sessionArtifacts,
     canvasArtifactNodes,

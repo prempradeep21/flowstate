@@ -6,6 +6,7 @@ import { Canvas } from "@/components/Canvas";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { ThemeApplier } from "@/components/ThemeApplier";
 import { buildCanvasSnapshot } from "@/lib/canvasSnapshot";
+import { captureCanvasThumbnail } from "@/lib/canvasSnapshotThumbnail/captureCanvasThumbnail";
 import {
   markViewportRestoredFromSnapshot,
   resetViewportBootstrap,
@@ -64,14 +65,18 @@ export function SampleCanvasPreviewApp({
     resetViewportBootstrap();
     hydrateFromSnapshot(def.buildSnapshot(), {
       applyViewport: true,
-      canvasReveal: false,
     });
     markViewportRestoredFromSnapshot();
     setTitle(def.title);
 
     if (exposeStoreForTooling) {
-      (window as unknown as Record<string, unknown>).__canvasStore =
-        useCanvasStore;
+      const tooling = window as unknown as Record<string, unknown>;
+      tooling.__canvasStore = useCanvasStore;
+      // Renders the dashboard thumbnail without uploading it.
+      tooling.__captureCanvasThumbnail = () => {
+        const container = canvasContainerRef.current;
+        return container ? captureCanvasThumbnail({ container }) : null;
+      };
     }
   }, [persistenceReady, hydrateFromSnapshot, exposeStoreForTooling]);
 
@@ -86,7 +91,6 @@ export function SampleCanvasPreviewApp({
           .getState()
           .hydrateFromSnapshot(buildCanvasSnapshot(restore), {
             applyViewport: true,
-            canvasReveal: false,
           });
       }
     };

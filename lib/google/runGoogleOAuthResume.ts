@@ -46,7 +46,6 @@ export async function runGoogleOAuthResume(
   if (checkpoint?.checkpoint) {
     useCanvasStore.getState().hydrateFromSnapshot(checkpoint.checkpoint, {
       applyViewport: true,
-      canvasReveal: false,
     });
   }
 

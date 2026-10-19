@@ -3,6 +3,7 @@
 import L from "leaflet";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArtifactContentStage } from "@/components/artifacts/ArtifactContentStage";
+import { MediaLoadingCover } from "@/components/artifacts/ArtifactLoadingSkeleton";
 import type { ArtifactPayload, MapSavedPlace } from "@/lib/artifactTypes";
 import type { MapSearchResult } from "@/lib/geocoding";
 import { createMapSavedPlace } from "@/lib/mapArtifact";
@@ -590,6 +591,26 @@ function MapStylePicker({
   );
 }
 
+/**
+ * Leaflet's own handlers (wheel zoom in particular) stop the wheel event at the
+ * map container, so the canvas never sees it. Keep them off until the node is
+ * activated so a trackpad scroll over an unselected map pans the canvas.
+ */
+function setMapInputEnabled(map: L.Map, enabled: boolean) {
+  const handlers = [
+    map.scrollWheelZoom,
+    map.dragging,
+    map.touchZoom,
+    map.doubleClickZoom,
+    map.boxZoom,
+    map.keyboard,
+  ];
+  for (const handler of handlers) {
+    if (enabled) handler.enable();
+    else handler.disable();
+  }
+}
+
 function MapView({
   primaryLat,
   primaryLng,
@@ -601,6 +622,7 @@ function MapView({
   mapStyleId,
   onSetMapStyle,
   showLabel = true,
+  interactive = true,
 }: {
   primaryLat: number;
   primaryLng: number;
@@ -612,6 +634,8 @@ function MapView({
   mapStyleId: string;
   onSetMapStyle: (id: string) => void;
   showLabel?: boolean;
+  /** False until the canvas node is selected: wheel/drag pass through to the canvas. */
+  interactive?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -623,6 +647,7 @@ function MapView({
   const savedLayerRef = useRef<L.LayerGroup | null>(null);
   const addPinModeRef = useRef(false);
   const canEditRef = useRef(canEdit);
+  const interactiveRef = useRef(interactive);
   const savedPlacesRef = useRef(savedPlaces);
   const onSavePlacesRef = useRef(onSavePlaces);
   const onRemoveRef = useRef<(id: string) => void>(() => {});
@@ -630,11 +655,14 @@ function MapView({
   // map is a real viewing surface (canvas/panel pass `showLabel`).
   const showTooltipsRef = useRef(showLabel);
   const [addPinMode, setAddPinMode] = useState(false);
+  // Leaflet paints flat grey until the first tiles arrive; shimmer instead.
+  const [tilesLoaded, setTilesLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewingLabel, setViewingLabel] = useState<string | null>(null);
 
   addPinModeRef.current = addPinMode;
   canEditRef.current = canEdit;
+  interactiveRef.current = interactive;
   savedPlacesRef.current = savedPlaces;
   onSavePlacesRef.current = onSavePlaces;
   showTooltipsRef.current = showLabel;
@@ -686,12 +714,14 @@ function MapView({
       zoomControl: true,
       attributionControl: false,
     });
+    setMapInputEnabled(map, interactiveRef.current);
 
     const initialStyle = resolveMapStyle(mapStyleIdRef.current);
     tileLayerRef.current = L.tileLayer(initialStyle.url, {
       attribution: initialStyle.attribution,
       maxZoom: initialStyle.maxZoom,
     }).addTo(map);
+    tileLayerRef.current.once("load", () => setTilesLoaded(true));
 
     const primaryMarker = L.marker([primaryLat, primaryLng], {
       icon: PRIMARY_PIN_ICON,
@@ -799,9 +829,19 @@ function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    setMapInputEnabled(map, interactive);
+    if (!interactive) {
+      map.closePopup();
+      setAddPinMode(false);
+    }
+  }, [interactive]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
     const container = map.getContainer();
     if (addPinMode) {
-      container.style.cursor = "crosshair";
+      container.style.cursor = "var(--fs-cursor-add)";
     } else {
       container.style.cursor = "";
     }
@@ -818,9 +858,22 @@ function MapView({
 
   return (
     <div className="relative h-full w-full min-h-0 cursor-default">
-      <div ref={containerRef} data-no-drag className="h-full w-full" />
+      {/* Leaflet's CSS forces pointer-events back on for pins and controls,
+          which would beat the canvas inert layer — override it until selected.
+          (On a wrapper: React must not rewrite the Leaflet container's classes.) */}
       <div
-        data-no-drag
+        className={`h-full w-full ${interactive ? "" : "[&_*]:!pointer-events-none"}`}
+      >
+        <div
+          ref={containerRef}
+          {...(interactive ? { "data-no-drag": true } : {})}
+          className="h-full w-full"
+        />
+      </div>
+      {/* Above Leaflet's panes (z ≤ 400), below its controls (z-[500]). */}
+      <MediaLoadingCover loaded={tilesLoaded} className="z-[450]" />
+      <div
+        {...(interactive ? { "data-no-drag": true } : {})}
         className="absolute right-2 top-2 z-[500] flex max-w-[calc(100%-1rem)] flex-wrap items-start justify-end gap-2"
       >
         {canEdit && (
@@ -858,6 +911,7 @@ export function MapArtifactContent({
   fill = false,
   sidebar = false,
   layout = "panel",
+  interactive = true,
 }: {
   payload: Extract<ArtifactPayload, { type: "map" }>;
   artifactId?: string;
@@ -865,6 +919,7 @@ export function MapArtifactContent({
   fill?: boolean;
   sidebar?: boolean;
   layout?: "canvas" | "panel" | "sidebar";
+  interactive?: boolean;
 }) {
   const isCanvas = layout === "canvas";
   const saveMapArtifactVersion = useCanvasStore((s) => s.saveMapArtifactVersion);
@@ -964,6 +1019,7 @@ export function MapArtifactContent({
           onSavePlaces={handleSavePlaces}
           mapStyleId={mapStyleId}
           onSetMapStyle={handleSetMapStyle}
+          interactive={!isCanvas || interactive}
         />
       </div>
     </ArtifactContentStage>

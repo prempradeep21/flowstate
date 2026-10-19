@@ -2,22 +2,29 @@
 
 
 
+import { AnimatePresence, m } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { BetaFeedbackButton } from "@/components/BetaFeedbackButton";
-import { LiveDrakkar } from "@/components/LiveDrakkar";
+import { CanvasTopRightToolbar } from "@/components/CanvasTopRightToolbar";
+import { CanvasSearch } from "@/components/canvas/CanvasSearch";
 import { LocalSessionTag } from "@/components/LocalSessionTag";
 import { ArtifactsPanelIcon, PanelChevronIcon } from "@/components/PanelChrome";
 
 import { MotionPanelContent } from "@/components/motion/MotionPanel";
 
 import { ArtifactsSection } from "@/components/sidebar/ArtifactsSection";
+import { toolbarBtn } from "@/components/toolbarButtonClasses";
 import { McpSection } from "@/components/sidebar/McpSection";
 
 import { AttachmentsSection } from "@/components/sidebar/AttachmentsSection";
 import { SkillsSection } from "@/components/sidebar/SkillsSection";
 
+// Beta suggestions button is parked for now; flip to bring it back.
+const SHOW_BETA_SUGGESTIONS = false;
+
+import { distances } from "@/lib/motion/tokens";
+import { framerTransition } from "@/lib/motion/transitions";
 import { SIDEBAR_TILE_STAGGER_MS } from "@/lib/motion/variants";
 
 import { useCanvasStore } from "@/lib/store";
@@ -29,6 +36,8 @@ export function AppRightPanel() {
   const collapsed = useCanvasStore((s) => s.rightPanelCollapsed);
 
   const toggleRightPanel = useCanvasStore((s) => s.toggleRightPanel);
+
+  const viewMode = useCanvasStore((s) => s.viewMode);
 
   const [activeTab, setActiveTab] = useState<
     "artifacts" | "assets" | "skills" | "mcp"
@@ -68,18 +77,53 @@ export function AppRightPanel() {
 
       <LocalSessionTag />
 
-      <LiveDrakkar />
+      {/* Search sits apart from the unit: an icon that opens into the bar. It
+          only searches the canvas, so it leaves with the canvas view — easing
+          out of the unit's edge on the way in, a quick fade on the way out. */}
+      <AnimatePresence initial={false}>
+        {viewMode === "canvas" && (
+          <m.div
+            key="canvas-search"
+            initial={{ opacity: 0, x: distances.shiftXs }}
+            animate={{
+              opacity: 1,
+              x: 0,
+              transition: framerTransition("standard", "easeMedium"),
+            }}
+            exit={{ opacity: 0, transition: framerTransition("instant", "easeLight") }}
+          >
+            <CanvasSearch />
+          </m.div>
+        )}
+      </AnimatePresence>
 
-      <AdminPortalButton />
+      {SHOW_BETA_SUGGESTIONS && <BetaFeedbackButton />}
 
-      <BetaFeedbackButton />
+      {/* One unit: canvas controls + the Artifacts toggle share a pill while the
+          panel is collapsed; once it opens, the controls keep their own pill
+          beside it. The aside stays in the same tree so it never remounts. */}
+      <div
+        className={
+          collapsed
+            ? "flex items-center gap-1 rounded-canvas-wrap-5 border border-canvas-border bg-canvas-card p-1 shadow-card"
+            : "flex items-start gap-2"
+        }
+      >
+
+      <CanvasTopRightToolbar framed={!collapsed} />
+
+      {collapsed && (
+        <div className="mx-0.5 h-6 w-px shrink-0 bg-canvas-border" aria-hidden />
+      )}
 
       <aside
         className={[
           "flex flex-col overflow-hidden rounded-canvas border shadow-card transition-[width,height] duration-panel ease-panel",
 
+          // Collapsed, the toggle is just another button in the shared pill —
+          // no frame of its own, so it reads like Share / Hide chats.
           collapsed
-            ? "w-auto border-canvas-accent bg-canvas-accent"
+            ? "w-auto border-transparent shadow-none"
             : "w-[462px] border-canvas-border bg-canvas-card",
 
         ].join(" ")}
@@ -94,6 +138,8 @@ export function AppRightPanel() {
 
         collapsed={collapsed}
 
+        collapsedClassName=""
+
         collapsedContent={
 
           <button
@@ -105,15 +151,13 @@ export function AppRightPanel() {
 
             aria-label="Open artifacts panel"
 
-            className="btn gap-2 rounded-canvas text-canvas-onAccent"
+            className={toolbarBtn}
 
           >
 
-            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-onAccent" />
+            <ArtifactsPanelIcon className="h-5 w-5 shrink-0 text-canvas-ink" />
 
-            <span className="text-canvas-body-sm font-medium text-canvas-onAccent">
-              {tabLabels[activeTab]}
-            </span>
+            <span className="hidden sm:inline">{tabLabels[activeTab]}</span>
 
           </button>
 
@@ -142,7 +186,7 @@ export function AppRightPanel() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => setActiveTab(tab)}
-                        className={`btn rounded-canvas px-3 py-1 text-canvas-body-sm font-medium ${
+                        className={`btn rounded-canvas-nest-2 px-3 py-1 text-canvas-body-sm font-medium ${
                           tab === "mcp" ? "uppercase" : "capitalize"
                         } ${
                           active
@@ -167,7 +211,7 @@ export function AppRightPanel() {
 
                 aria-label="Collapse artifacts panel"
 
-                className="btn h-10 w-10 shrink-0 rounded-canvas text-canvas-muted hover:text-canvas-ink"
+                className="btn h-10 w-10 shrink-0 rounded-canvas-nest-13 text-canvas-muted hover:text-canvas-ink"
 
               >
 
@@ -203,6 +247,8 @@ export function AppRightPanel() {
       />
 
       </aside>
+
+      </div>
 
     </div>
 

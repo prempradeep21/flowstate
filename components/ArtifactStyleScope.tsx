@@ -49,12 +49,14 @@ export function useArtifactStyle() {
 }
 
 /**
- * Scopes an artifact style pack to a subtree. Vanilla (the default pack)
- * renders children bare — no wrapper, no stylesheet — so the factory look is
- * a structural no-op. Non-default packs set `data-artifact-style` (the hook
- * for app/styles/artifact-styles.css) and inject the pack's CSS variables via
- * a declarative <style> tag (StrictMode/unmount safe). `display: contents`
- * keeps layout untouched while custom properties still inherit through.
+ * Scopes an artifact style pack to a canvas. Wrap the canvas itself, never
+ * the floating Flowstate UI around it (panels, toolbar, minimap) — that chrome
+ * stays on brand whatever pack is active. Every canvas gets the neutral grey
+ * `.canvas-surface` token layer (globals.css); non-default packs nest inside
+ * it, set `data-artifact-style` (the hook for app/styles/artifact-styles.css)
+ * and inject the pack's CSS variables via a declarative <style> tag
+ * (StrictMode/unmount safe). `display: contents` keeps layout untouched while
+ * custom properties still inherit through.
  */
 export function ArtifactStyleScope({
   styleId,
@@ -70,17 +72,23 @@ export function ArtifactStyleScope({
   );
 
   if (resolved.isDefault) {
-    return <>{children}</>;
+    return (
+      <div className="canvas-surface canvas-surface-vanilla contents">
+        {children}
+      </div>
+    );
   }
 
   return (
     <ArtifactStyleContext.Provider value={value}>
-      <div data-artifact-style={styleId} className="contents">
-        <style>{resolved.css}</style>
-        {children}
-        {process.env.NODE_ENV !== "production" && styleId === "bento" ? (
-          <BentoColorLab />
-        ) : null}
+      <div className="canvas-surface contents">
+        <div data-artifact-style={styleId} className="contents">
+          <style>{resolved.css}</style>
+          {children}
+          {process.env.NODE_ENV !== "production" && styleId === "bento" ? (
+            <BentoColorLab />
+          ) : null}
+        </div>
       </div>
     </ArtifactStyleContext.Provider>
   );

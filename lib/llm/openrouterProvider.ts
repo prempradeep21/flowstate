@@ -9,6 +9,7 @@ import {
   type RunResult,
 } from "@/lib/llm/provider";
 import { toOpenAITools } from "@/lib/llm/tools";
+import { createArtifactDraftStreamer } from "@/lib/llm/artifactDraftStream";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -108,6 +109,8 @@ export const openrouterProvider: LLMProvider = {
 
       let textAcc = "";
       const toolAcc = new Map<number, AccumulatedToolCall>();
+      const draftStarted = new Set<number>();
+      const drafts = createArtifactDraftStreamer(emit);
       let finishReason: string | null = null;
       let turnInputTokens = 0;
       let turnOutputTokens = 0;
@@ -131,9 +134,21 @@ export const openrouterProvider: LLMProvider = {
             if (tc.function?.name) cur.name = tc.function.name;
             if (tc.function?.arguments) cur.args += tc.function.arguments;
             toolAcc.set(tc.index, cur);
+            if (cur.id && cur.name) {
+              if (!draftStarted.has(tc.index)) {
+                draftStarted.add(tc.index);
+                drafts.start(cur.id, cur.name);
+                drafts.append(cur.id, cur.args);
+              } else if (tc.function?.arguments) {
+                drafts.append(cur.id, tc.function.arguments);
+              }
+            }
           }
         }
         if (choice.finish_reason) finishReason = choice.finish_reason;
+      }
+      for (const [index, call] of toolAcc) {
+        if (draftStarted.has(index)) drafts.end(call.id);
       }
 
       usage.inputTokens += turnInputTokens;

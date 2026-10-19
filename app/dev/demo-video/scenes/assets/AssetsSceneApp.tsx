@@ -56,14 +56,8 @@ html[data-demo-video] .thinking-accent-bar,
 html[data-demo-video] .answer-reveal-in,
 html[data-demo-video] .motion-popover-in,
 html[data-demo-video] .motion-fade-in,
-html[data-demo-video] .motion-landing-rise,
-html[data-demo-video] .motion-canvas-load-in,
-html[data-demo-video] .motion-canvas-load-fade {
+html[data-demo-video] .motion-landing-rise {
   animation: none !important;
-}
-html[data-demo-video] .motion-canvas-load-in,
-html[data-demo-video] .motion-canvas-load-fade {
-  opacity: 1;
 }
 /* Leaflet fade-ins are wall-clock — show tiles/markers at full opacity. */
 html[data-demo-video] .leaflet-fade-anim .leaflet-tile,

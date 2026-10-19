@@ -6,9 +6,9 @@ import {
   type ResponseType,
 } from "@/lib/artifactTypes";
 import { detectUserRequestedArtifactKind } from "@/lib/artifactIntent";
+import { isEditingKind } from "@/lib/artifactDrafts";
 import type { ArtifactKind } from "@/lib/artifactTypes";
 import {
-  computeArtifactSpawnPosition,
   findGeneratingPreviewNode,
   findPermissionPreviewNode,
   getNodesForCard,
@@ -16,10 +16,7 @@ import {
   type ArtifactSpawnSide,
 } from "@/lib/canvasArtifacts";
 import { materializeCardArtifact } from "@/lib/materializeCardArtifact";
-import {
-  getPermissionCopy,
-  sortArtifactsByPriority,
-} from "@/lib/artifactSpawnPriority";
+import { sortArtifactsByPriority } from "@/lib/artifactSpawnPriority";
 import {
   resolveArtifactTargetId,
   resolveEditingArtifactId,
@@ -98,7 +95,10 @@ function plugContextFromState(state: ReturnType<typeof useCanvasStore.getState>)
   };
 }
 
-/** Pick the one payload that may spawn without a permission prompt. */
+/**
+ * Pick the payload that becomes the card's primary output. Every other payload
+ * in the turn is still created — this only decides which one leads.
+ */
 export function pickAutoSpawnPayload(
   payloads: ArtifactPayload[],
   userRequestedKind: ReturnType<typeof detectUserRequestedArtifactKind>,
@@ -108,39 +108,40 @@ export function pickAutoSpawnPayload(
   if (existingSpawnCount > 0) return null;
 
   if (userRequestedKind) {
-    return (
-      payloads.find(
-        (p) => payloadToArtifactKind(p) === userRequestedKind,
-      ) ?? null
+    const requested = payloads.find(
+      (p) => payloadToArtifactKind(p) === userRequestedKind,
     );
+    if (requested) return requested;
   }
 
   return payloads[0];
 }
 
-function spawnPayloadWithPosition(
-  cardId: string,
-  payload: ArtifactPayload,
-): void {
+/** Create an additional artifact from this turn and place it on the canvas. */
+function spawnAdditionalPayload(cardId: string, payload: ArtifactPayload): void {
   const store = useCanvasStore.getState();
-  if (findPermissionPreviewNode(store.canvasArtifactNodes, cardId, payload)) {
-    return;
-  }
-  const position = computeArtifactSpawnPosition(
+  const { artifactId, versionId } = store.createArtifactVersion(
+    null,
+    payload,
+    cardId,
+  );
+  const side = pickAlternateSpawnSide(
     cardId,
     store.canvasArtifactNodes,
     store.cards,
-    { payload, sessionArtifacts: store.sessionArtifacts },
   );
-  store.spawnPermissionPreview(cardId, payload, {
-    copy: getPermissionCopy(
-      payloadToArtifactKind(payload),
-      payload.type === "map" || payload.type === "streetview"
-        ? payload.data.place.label ?? payload.data.place.name
-        : undefined,
-    ),
-    position,
+  store.spawnCanvasArtifact(artifactId, versionId, {
+    payload,
+    side,
+    focus: false,
   });
+  if (!useCanvasStore.getState().cards[cardId]?.outputArtifactId) {
+    store.updateCard(cardId, {
+      outputArtifactId: artifactId,
+      outputArtifactVersionId: versionId,
+      responseType: payload.type === "video" ? "images" : payload.type,
+    });
+  }
 }
 
 /** Materialize and spawn artifacts from a completed card turn. */
@@ -348,7 +349,7 @@ export function processArtifactSpawnQueue(cardId: string): string | null {
       continue;
     }
 
-    spawnPayloadWithPosition(cardId, payload);
+    spawnAdditionalPayload(cardId, payload);
   }
 
   notifyArtifactFailureForCard(cardId);
@@ -386,7 +387,11 @@ export function appendPendingEmittedArtifact(
   ensureEarlyCanvasPlaceholder(cardId, kind, applied.title);
 }
 
-/** Whether an early placeholder spawn is allowed for this artifact kind. */
+/**
+ * Whether an early placeholder spawn is allowed for this artifact kind. Each
+ * kind gets its own skeleton, so a turn that produces a table and a map shows
+ * both loading side by side.
+ */
 export function shouldEarlySpawnArtifact(
   cardId: string,
   kind: ArtifactKind,
@@ -395,14 +400,16 @@ export function shouldEarlySpawnArtifact(
   const card = state.cards[cardId];
   if (!card) return false;
 
-  const userRequested = detectUserRequestedArtifactKind(card.question);
-  if (userRequested && userRequested !== kind) return false;
+  if (findGeneratingPreviewNode(state.canvasArtifactNodes, cardId, kind)) {
+    return false;
+  }
 
-  if (countMaterializedSpawnsForCard(cardId) > 0) return false;
-
-  if (findGeneratingPreviewNode(state.canvasArtifactNodes, cardId)) return false;
-
-  if (findPermissionPreviewNode(state.canvasArtifactNodes, cardId)) return false;
+  // This card already produced an artifact of this kind (a re-run).
+  const hasSameKind = getNodesForCard(state.canvasArtifactNodes, cardId).some(
+    (n) =>
+      !!n.artifactId && state.sessionArtifacts[n.artifactId]?.kind === kind,
+  );
+  if (hasSameKind) return false;
 
   return true;
 }
@@ -416,6 +423,11 @@ export function ensureEarlyCanvasPlaceholder(
   if (!shouldEarlySpawnArtifact(cardId, kind)) return;
 
   const store = useCanvasStore.getState();
+  // Table and custom edits surface the existing node below; other kinds just
+  // update in place, so a skeleton beside them would be a stray.
+  if (kind !== "table" && kind !== "custom" && isEditingKind(cardId, kind)) {
+    return;
+  }
   if (kind === "table") {
     store.ensurePendingTableArtifact(cardId);
     return;

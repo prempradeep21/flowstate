@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
+import { AdminPortalButton } from "@/components/AdminPortalButton";
 import { AppLeftPanel } from "@/components/AppLeftPanel";
 import { AppRightPanel } from "@/components/AppRightPanel";
+import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { Canvas } from "@/components/Canvas";
 import { CanvasMinimap } from "@/components/CanvasMinimap";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
@@ -17,6 +19,8 @@ import { CoachMarkTour } from "@/components/onboarding/CoachMarkTour";
 import { ShareModal } from "@/components/ShareModal";
 import { GuestWall } from "@/components/billing/GuestWall";
 import { useAuth } from "@/components/AuthProvider";
+import { useCanvasLayoutOutlineCache } from "@/hooks/useCanvasLayoutOutlineCache";
+import { useCanvasSnapshotThumbnailCapture } from "@/hooks/useCanvasSnapshotThumbnailCapture";
 import { useUndoKeyboard } from "@/hooks/useUndoKeyboard";
 import { useCanvasStore } from "@/lib/store";
 import { useVideoPipStore } from "@/lib/videoPipStore";
@@ -36,10 +40,18 @@ const CanvasSwitchOverlay = dynamic(
  */
 export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
   const viewMode = useCanvasStore((s) => s.viewMode);
+  const canvasArtifactStyle = useCanvasStore((s) => s.canvasArtifactStyle);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
-  const { activeCanvasId, isSwitchingCanvas, switchingCanvasTitle } = useAuth();
+  const {
+    activeCanvasId,
+    isSwitchingCanvas,
+    switchingCanvasId,
+    switchingCanvasTitle,
+  } = useAuth();
   const setLeftPanelCollapsed = useCanvasStore((s) => s.setLeftPanelCollapsed);
   useUndoKeyboard();
+  useCanvasLayoutOutlineCache(activeCanvasId, isSwitchingCanvas);
+  useCanvasSnapshotThumbnailCapture(canvasContainerRef);
 
   const canvasKey = activeCanvasId ?? "local";
 
@@ -58,7 +70,10 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
     <div className="relative h-full w-full">
       <div className="relative h-full w-full">
         {viewMode === "canvas" ? (
-          <Canvas key={canvasKey} containerRef={canvasContainerRef} />
+          // Style packs reach the canvas only; the floating UI below stays on brand.
+          <ArtifactStyleScope styleId={canvasArtifactStyle}>
+            <Canvas key={canvasKey} containerRef={canvasContainerRef} />
+          </ArtifactStyleScope>
         ) : viewMode === "focus" ? (
           <>
             <FocusView key={canvasKey} />
@@ -72,11 +87,15 @@ export function CanvasWorkspace({ onGoHome }: { onGoHome: () => void }) {
         )}
         <CanvasSwitchOverlay
           visible={isSwitchingCanvas}
+          canvasId={switchingCanvasId}
           canvasTitle={switchingCanvasTitle}
         />
       </div>
       <AppLeftPanel onGoHome={onGoHome} />
       <AppRightPanel />
+      <div className="pointer-events-auto absolute bottom-5 left-3 z-30">
+        <AdminPortalButton />
+      </div>
       <ArtifactPanel />
       <ShareModal />
       <GuestWall />

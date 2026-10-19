@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { MotionPanelLine } from "@/components/motion/MotionPanelLine";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { PersonIcon } from "@/components/MenuIcons";
 import { CanvasRowMenu } from "@/components/sidebar/CanvasRowMenu";
 import { DeleteCanvasConfirmModal } from "@/components/sidebar/DeleteCanvasConfirmModal";
+import { SearchField } from "@/components/ui/SearchField";
+import { canvasTitleMatches } from "@/lib/canvasTitleSearch";
 import { LEFT_PANEL_SECTIONS } from "@/lib/motion/variants";
 import type { SharedCanvasMeta } from "@/lib/collaborationTypes";
 
@@ -47,6 +49,17 @@ export function CanvasesSection({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const canManage = Boolean(user && supabaseConfigured);
+
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length > 0;
+  const visibleCanvases = useMemo(
+    () => canvases.filter((c) => canvasTitleMatches(c.title, query)),
+    [canvases, query],
+  );
+  const visibleShared = useMemo(
+    () => sharedCanvases.filter((c) => canvasTitleMatches(c.title, query)),
+    [sharedCanvases, query],
+  );
 
   const startRename = useCallback((canvasId: string, currentTitle: string) => {
     setEditingId(canvasId);
@@ -134,39 +147,56 @@ export function CanvasesSection({
       as="section"
       className="border-b border-canvas-border px-3 py-3"
     >
-      <MotionPanelLine
-        section={LEFT_PANEL_SECTIONS.canvases}
-        item={0}
-        staggerActive={staggerActive}
-        className="mb-2 flex items-center justify-between gap-2"
-      >
-        <h2 className="text-canvas-body-sm font-medium uppercase tracking-wide text-canvas-muted">
-          Canvases
-        </h2>
-      </MotionPanelLine>
+      {canManage ? (
+        <MotionPanelLine
+          section={LEFT_PANEL_SECTIONS.canvases}
+          item={0}
+          staggerActive={staggerActive}
+          className="mb-3"
+        >
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Search canvases"
+          />
+        </MotionPanelLine>
+      ) : null}
 
       <MotionPanelLine
         section={LEFT_PANEL_SECTIONS.canvases}
         item={1}
         staggerActive={staggerActive}
-        className="mb-3"
+        className="mb-2 flex items-center justify-between gap-2"
       >
+        <h2 className="text-canvas-body font-semibold text-canvas-ink">
+          Your canvases
+        </h2>
         {canManage ? (
           <button
             type="button"
             disabled={isSwitchingCanvas}
             onClick={() => void createNewCanvas()}
-            className="btn w-full gap-2 rounded-canvas bg-canvas-accent px-3 py-2.5 text-canvas-body-lg font-medium text-canvas-onAccent"
+            title="Create new canvas"
+            className="btn shrink-0 gap-1 rounded-canvas bg-canvas-accent py-1.5 pl-2 pr-2.5 text-canvas-compact font-medium text-canvas-onAccent"
           >
             <PlusIcon />
-            Create new canvas
+            New
           </button>
-        ) : (
+        ) : null}
+      </MotionPanelLine>
+
+      {!canManage ? (
+        <MotionPanelLine
+          section={LEFT_PANEL_SECTIONS.canvases}
+          item={2}
+          staggerActive={staggerActive}
+          className="mb-3"
+        >
           <p className="text-canvas-body-lg leading-snug text-canvas-muted">
             Sign in to create and switch between canvases.
           </p>
-        )}
-      </MotionPanelLine>
+        </MotionPanelLine>
+      ) : null}
 
       {pendingInvites.length > 0 && (
         <MotionFlowSize className="mb-3">
@@ -176,7 +206,7 @@ export function CanvasesSection({
             staggerActive={staggerActive}
             className="mb-1.5"
           >
-            <h3 className="text-canvas-compact font-medium uppercase tracking-wide text-canvas-muted">
+            <h3 className="text-canvas-body font-semibold text-canvas-ink">
               Invitations
             </h3>
           </MotionPanelLine>
@@ -235,7 +265,7 @@ export function CanvasesSection({
 
       <MotionFlowSize as="ul" className="space-y-1">
         {canManage ? (
-          canvases.map((canvas, index) => (
+          visibleCanvases.map((canvas, index) => (
             <MotionPanelLine
               key={canvas.id}
               as="li"
@@ -283,7 +313,13 @@ export function CanvasesSection({
         )}
       </MotionFlowSize>
 
-      {sharedCanvases.length > 0 && (
+      {searching && visibleCanvases.length === 0 && visibleShared.length === 0 ? (
+        <p className="px-2 py-2 text-canvas-body-sm text-canvas-muted">
+          No canvases match “{query.trim()}”
+        </p>
+      ) : null}
+
+      {visibleShared.length > 0 && (
         <MotionFlowSize className="mt-3">
           <MotionPanelLine
             section={LEFT_PANEL_SECTIONS.shared}
@@ -291,12 +327,12 @@ export function CanvasesSection({
             staggerActive={staggerActive}
             className="mb-1.5"
           >
-            <h3 className="text-canvas-compact font-medium uppercase tracking-wide text-canvas-muted">
+            <h3 className="text-canvas-body font-semibold text-canvas-ink">
               Shared with me
             </h3>
           </MotionPanelLine>
           <ul className="space-y-1">
-            {sharedCanvases.map((canvas: SharedCanvasMeta, index) => (
+            {visibleShared.map((canvas: SharedCanvasMeta, index) => (
               <MotionPanelLine
                 key={canvas.id}
                 as="li"
@@ -478,7 +514,7 @@ function CanvasListRow({
 
 function PlusIcon() {
   return (
-    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M8 3v10M3 8h10" strokeLinecap="round" />
     </svg>
   );

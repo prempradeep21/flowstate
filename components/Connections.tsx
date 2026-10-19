@@ -1,7 +1,5 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { ConnectorStylePicker } from "@/components/ConnectorStylePicker";
 import { isConnectionHidden } from "@/lib/chatThreads";
 import { useHiddenCardIds } from "@/hooks/useHiddenCardIds";
 import {
@@ -19,26 +17,14 @@ import {
   plugAnchorAtWorldPoint,
   resolveConnectionAnchors,
 } from "@/lib/plugConnector";
-import { CANVAS_CONNECTOR } from "@/lib/design/tokens";
+import { connectorColour } from "@/lib/design/tokens";
 import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
+import { isConversationCard } from "@/lib/conversationCard";
 
-const STROKE_FALLBACK = CANVAS_CONNECTOR;
 
 const BASE_STROKE_SCREEN = 1.75;
 
 const HIT_STROKE_SCREEN = 14;
-
-
-
-interface HoverState {
-
-  connId: string;
-
-  midX: number;
-
-  midY: number;
-
-}
 
 
 
@@ -58,67 +44,9 @@ export function Connections() {
 
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
 
-  const setConnectorStyle = useCanvasStore((s) => s.setConnectorStyle);
   const recentConnectionId = useCanvasStore((s) => s.recentConnectionId);
   const clearRecentConnection = useCanvasStore((s) => s.clearRecentConnection);
-  const canvasLoadReveal = useCanvasStore((s) => s.canvasLoadReveal);
-  const hideForLoadReveal =
-    canvasLoadReveal?.phase === "pending" ||
-    canvasLoadReveal?.phase === "running";
-
   const tuning = RESOLVED_CANVAS_TUNING;
-
-
-
-  const [hover, setHover] = useState<HoverState | null>(null);
-
-  const pickerHoveredRef = useRef(false);
-
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-
-
-  const clearHideTimer = useCallback(() => {
-
-    if (hideTimerRef.current !== null) {
-
-      clearTimeout(hideTimerRef.current);
-
-      hideTimerRef.current = null;
-
-    }
-
-  }, []);
-
-
-
-  const scheduleHide = useCallback(() => {
-
-    clearHideTimer();
-
-    hideTimerRef.current = setTimeout(() => {
-
-      if (!pickerHoveredRef.current) setHover(null);
-
-    }, 120);
-
-  }, [clearHideTimer]);
-
-
-
-  const showPicker = useCallback(
-
-    (connId: string, midX: number, midY: number) => {
-
-      clearHideTimer();
-
-      setHover({ connId, midX, midY });
-
-    },
-
-    [clearHideTimer],
-
-  );
 
 
 
@@ -154,7 +82,6 @@ export function Connections() {
 
         style={{
           overflow: "visible",
-          opacity: hideForLoadReveal ? 0 : 1,
         }}
 
         width={1}
@@ -203,7 +130,7 @@ export function Connections() {
                   connectorStyle,
                 );
                 const stroke =
-                  threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
+                  connectorColour(threads[from.threadId]?.accentColour);
                 return (
                   <g key={conn.id}>
                     <ConnectorPathGroup
@@ -216,7 +143,7 @@ export function Connections() {
                       viewportScale={viewportSettledScale}
                       dashed
                       opacity={0.55}
-                      showTargetArrow={false}
+                      showTargetPlug={false}
                     />
                   </g>
                 );
@@ -251,7 +178,7 @@ export function Connections() {
                   connectorStyle,
                 );
                 const stroke =
-                  threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
+                  connectorColour(threads[from.threadId]?.accentColour);
                 return (
                   <g key={conn.id}>
                     <ConnectorPathGroup
@@ -264,7 +191,7 @@ export function Connections() {
                       viewportScale={viewportSettledScale}
                       dashed
                       opacity={0.55}
-                      showTargetArrow={false}
+                      showTargetPlug={false}
                     />
                   </g>
                 );
@@ -274,7 +201,7 @@ export function Connections() {
           }
 
           const isConversationLink =
-            from.cardKind === "conversation" && to.cardKind === "conversation";
+            isConversationCard(from) && isConversationCard(to);
 
           const {
             fromAnchor: a,
@@ -283,8 +210,8 @@ export function Connections() {
             toSide,
           } = resolveConnectionAnchors(conn, from, to, tuning);
 
-          const { arrowSize } = connectorMarkerSizes(viewportSettledScale);
-          const { d, midX, midY } = buildPlugConnectorPath(
+          const { plugOuterRadius } = connectorMarkerSizes(viewportSettledScale);
+          const { d } = buildPlugConnectorPath(
             a,
             b,
             fromSide,
@@ -292,22 +219,14 @@ export function Connections() {
             connectorStyle,
             isConversationLink
               ? undefined
-              : { trimTargetArrowInset: arrowSize * 1.35 },
+              : { startInset: plugOuterRadius, endInset: plugOuterRadius },
           );
 
 
 
           const stroke =
 
-            threads[from.threadId]?.accentColour ?? STROKE_FALLBACK;
-
-          const isHovered = hover?.connId === conn.id;
-
-          const midPointX = midX ?? (a.px + b.px) / 2;
-
-          const midPointY = midY ?? (a.py + b.py) / 2;
-
-
+            connectorColour(threads[from.threadId]?.accentColour);
 
           return (
             <g key={conn.id}>
@@ -319,21 +238,16 @@ export function Connections() {
                 toAnchor={b}
                 toSide={toSide}
                 viewportScale={viewportSettledScale}
-                opacity={isHovered ? 0.95 : 0.85}
+                opacity={0.85}
                 hitWidth={hitWidth}
                 showSourcePlug={!isConversationLink}
-                showTargetArrow={!isConversationLink}
+                showTargetPlug={!isConversationLink}
                 drawIn={conn.id === recentConnectionId}
                 onDrawComplete={
                   conn.id === recentConnectionId
                     ? clearRecentConnection
                     : undefined
                 }
-                onPointerEnter={() =>
-                  !isConversationLink &&
-                  showPicker(conn.id, midPointX, midPointY)
-                }
-                onPointerLeave={scheduleHide}
               />
             </g>
           );
@@ -343,34 +257,6 @@ export function Connections() {
       </svg>
 
 
-
-      {hover && (
-
-        <ConnectorStylePicker
-
-          x={hover.midX}
-
-          y={hover.midY}
-
-          scale={viewportSettledScale}
-
-          activeStyle={connectorStyle}
-
-          onSelect={setConnectorStyle}
-
-          onHoverChange={(hovered) => {
-
-            pickerHoveredRef.current = hovered;
-
-            if (hovered) clearHideTimer();
-
-            else scheduleHide();
-
-          }}
-
-        />
-
-      )}
 
     </>
 
