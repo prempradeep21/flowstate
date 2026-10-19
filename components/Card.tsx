@@ -213,7 +213,7 @@ function CardInner({ card }: CardProps) {
   const hideForLanding = isLanding;
   const isConversation = isConversationCard(card);
   const plugAccent = connectorColour(accent, CANVAS_ACCENT);
-  const showBranchPlugs = card.status === "done" && !isConversation;
+  const showBranchPlugs = card.status === "done";
   const receivePlugsActive =
     (plugDrag?.kind === "artifact" ||
       plugDrag?.kind === "asset" ||
@@ -977,7 +977,7 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface card={card} />
+              <ConversationCardSurface card={card} bodyRef={answerTextRef} />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection

@@ -45,6 +45,7 @@ import {
   computeFollowUpPositionFromDom,
 } from "@/lib/canvasLayout";
 import { DEFAULT_BODY_FONT_ID } from "@/lib/canvasFonts/registry";
+import { computeGroupBounds } from "@/lib/groupBounds";
 import type { CustomUiSourceData } from "@/lib/customUiSource";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import type { ModelId } from "@/lib/models";
@@ -1472,6 +1473,59 @@ function createLandingSeedCard(tuning: ResolvedCanvasTuning, threadIndex: number
     parentConversationId: null,
   };
   return { cardId, card, thread, threadId };
+}
+
+/**
+ * Clear space for a branch pulled (by click, not drag) off a conversation card.
+ * Those cards sit in a packed chapter grid, so the regular slot beside the
+ * source lands on its neighbour. Start in the neighbouring column at the
+ * source's height and step down past every card, artifact and group frame it
+ * would touch — in practice the first free spot under the chapter.
+ */
+function conversationBranchSlot(
+  state: CanvasState,
+  source: Card,
+  side: "left" | "right",
+  tuning: ResolvedCanvasTuning,
+): { x: number; y: number } {
+  const GAP = 48;
+  const w = tuning.branchCardWidth;
+  const h = emptyCardSize(tuning).h;
+  const sourceW = source.size?.w ?? tuning.cardWidth;
+  const x =
+    side === "right" ? source.position.x + sourceW + GAP : source.position.x - GAP - w;
+
+  const obstacles: { x: number; y: number; w: number; h: number }[] = [];
+  for (const c of Object.values(state.cards)) {
+    obstacles.push({
+      x: c.position.x,
+      y: c.position.y,
+      w: c.size?.w ?? tuning.cardWidth,
+      h: c.size?.h ?? tuning.fallbackCardHeight,
+    });
+  }
+  for (const node of Object.values(state.canvasArtifactNodes)) {
+    const b = getArtifactBounds(node, state.sessionArtifacts[node.artifactId]);
+    obstacles.push({ x: node.position.x, y: node.position.y, w: b.w, h: b.h });
+  }
+  for (const group of Object.values(state.groups)) {
+    const b = computeGroupBounds(state, group);
+    if (b) obstacles.push(b);
+  }
+
+  let y = source.position.y;
+  for (let i = 0; i < obstacles.length + 1; i++) {
+    const hit = obstacles.find(
+      (o) =>
+        x < o.x + o.w + GAP &&
+        x + w + GAP > o.x &&
+        y < o.y + o.h + GAP &&
+        y + h + GAP > o.y,
+    );
+    if (!hit) break;
+    y = hit.y + hit.h + GAP;
+  }
+  return { x, y };
 }
 
 function layoutStateFrom(state: CanvasState): {
@@ -5231,12 +5285,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const parent = state.cards[parentId];
       if (!parent) return state;
-      // A conversation card is imported content, not a turn — nothing may hang
-      // off it until the branch build lands. The canvas surface renders no
-      // composer, but ChatView's thread composer and QnaTurnBlock's "Try again"
-      // both reach this directly, and a conversation card's status is always
-      // "done", so their own done-checks let it through. One guard here closes
-      // every caller.
+      // A conversation card is imported content, not a turn, and it sits in a
+      // packed chapter grid: a follow-up would land on the row below. Questions
+      // come off it as lateral branches (createBranch) instead. The canvas
+      // surface renders no composer, but ChatView's thread composer and
+      // QnaTurnBlock's "Try again" both reach this directly, and a conversation
+      // card's status is always "done", so their own done-checks let it
+      // through. One guard here closes every caller.
       if (parent.cardKind === "conversation") return state;
       const undoPast = pushUndoSnapshot(state);
       const id = newCardId();
@@ -5845,9 +5900,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       const slot = existingOnSide; // 0 for the first branch on this side
       const tuning = TUNING;
-      const layout = layoutStateFrom(state);
-      const x = defaultBranchSlotX(side, source, slot, tuning);
-      const y = childBandY(layout, sourceId, source, tuning);
+      const { x, y } =
+        source.cardKind === "conversation"
+          ? conversationBranchSlot(state, source, side, tuning)
+          : {
+              x: defaultBranchSlotX(side, source, slot, tuning),
+              y: childBandY(layoutStateFrom(state), sourceId, source, tuning),
+            };
 
       const newThreadIdStr = newThreadId();
       const accent =

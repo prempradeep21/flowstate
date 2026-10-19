@@ -1,5 +1,6 @@
 "use client";
 
+import type { MutableRefObject } from "react";
 import {
   QaQuestionSection,
   QaTranslucentSurface,
@@ -15,10 +16,17 @@ import {
  * Chrome for a conversation card: an imported transcript beat, rendered as a
  * heading over body prose.
  *
- * Read-only by design — there is no composer, no ask affordance and no branch
- * plug. The text is selectable so a reader can quote from it.
+ * The content itself is read-only. Questions come off it the same way they do
+ * any card: pull a branch from a side plug, or select body text and ask.
  */
-export function ConversationCardSurface({ card }: { card: Card }) {
+export function ConversationCardSurface({
+  card,
+  bodyRef,
+}: {
+  card: Card;
+  /** The card's answer-text root, so body selections open the ask menu. */
+  bodyRef?: MutableRefObject<HTMLDivElement | null>;
+}) {
   // One fixed type scale at every zoom: the card shrinks geometrically with
   // the viewport and never re-lays its text out on settle.
   return (
@@ -44,7 +52,11 @@ export function ConversationCardSurface({ card }: { card: Card }) {
         </div>
       </QaQuestionSection>
       <div className="mx-[22.5px] shrink-0 h-px bg-canvas-border" />
-      <div className="line-clamp-6 flex-1 overflow-hidden px-[22.5px] py-[15px] text-canvas-body-sm leading-relaxed text-canvas-ink">
+      <div
+        ref={bodyRef}
+        data-selectable-text
+        className="line-clamp-6 flex-1 cursor-text overflow-hidden px-[22.5px] py-[15px] text-canvas-body-sm leading-relaxed text-canvas-ink"
+      >
         {conversationBody(card)}
       </div>
     </QaTranslucentSurface>
