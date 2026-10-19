@@ -20,7 +20,7 @@ function prefersReducedMotion(): boolean {
  */
 export function focusCanvasWorldRect(
   rect: { x: number; y: number; w: number; h: number },
-  opts?: { sound?: boolean; minScale?: number; maxScale?: number },
+  opts?: { minScale?: number; maxScale?: number },
 ): boolean {
   const container = document.querySelector("[data-canvas-container]");
   const domRect = container?.getBoundingClientRect();
@@ -31,12 +31,6 @@ export function focusCanvasWorldRect(
     maxScale: opts?.maxScale ?? 3,
   });
   animateViewportTo(vp, { reducedMotion: prefersReducedMotion() });
-
-  if (opts?.sound && typeof window !== "undefined") {
-    void import("@/lib/sounds/engine").then(({ playSound }) => {
-      void playSound("artifact-focus");
-    });
-  }
 
   return true;
 }

@@ -66,7 +66,6 @@ import {
   groupRefsForItemDrag,
 } from "@/lib/groupMembership";
 import { canvasSidePlugPointerClass } from "@/lib/canvasPlugChrome";
-import { playSound } from "@/lib/sounds/engine";
 import { useGestureProvisionalMount } from "@/hooks/useGestureProvisionalMount";
 import { isGodViewMode } from "@/lib/zoomDisplay";
 import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
@@ -136,10 +135,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     makeCopy: (id) =>
       useCanvasStore.getState().duplicateCanvasArtifactNode(id),
     onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
-    onDrop: (didMove) => {
-      if (didMove) void playSound("artifact-drag-drop");
-      setPointerSessionActive(false);
-    },
+    onDrop: () => setPointerSessionActive(false),
     recordUndo,
   });
 

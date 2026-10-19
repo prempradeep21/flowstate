@@ -231,7 +231,7 @@ function panToWorldRect(
     state.selectCanvasArtifact(selectNodeId);
   }
 
-  focusCanvasWorldRect(rect, { sound: true });
+  focusCanvasWorldRect(rect);
   return true;
 }
 

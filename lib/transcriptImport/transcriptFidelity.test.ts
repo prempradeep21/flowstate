@@ -13,6 +13,7 @@ import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buil
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
+import { buildFreshMenuCanvasSection } from "@/lib/transcriptImport/buildFreshMenuCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import { ALLARI_NARESH_TRANSCRIPT } from "@/lib/transcriptImport/allariNareshInterview";
@@ -27,6 +28,7 @@ import { CAZUAL_TALK_SAHIL_AGGARWAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcript
 import { SCHOOLCAST_VANITA_UPPAL_TRANSCRIPT_EXCERPTS } from "@/lib/transcriptImport/schoolCastVanitaUppalInterview";
 import { MEENAKSHI_ANANTRAM_TRANSCRIPT } from "@/lib/transcriptImport/meenakshiAnantramInterview";
 import { NITHIN_KAMATH_RISK_TRANSCRIPT } from "@/lib/transcriptImport/nithinKamathRisk";
+import { FRESHMENU_TRANSCRIPT } from "@/lib/transcriptImport/freshMenuStruggle";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
@@ -143,6 +145,11 @@ const CASES = [
     name: "Nithin Kamath — moats & risk",
     build: buildNithinKamathRiskCanvasSection,
     transcript: NITHIN_KAMATH_RISK_TRANSCRIPT,
+  },
+  {
+    name: "FreshMenu — Backstage with Millionaires",
+    build: buildFreshMenuCanvasSection,
+    transcript: FRESHMENU_TRANSCRIPT,
   },
   {
     name: "Allari Naresh — Raw Talks with VK",

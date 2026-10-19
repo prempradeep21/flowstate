@@ -69,7 +69,7 @@ export interface CanvasNodeDragOptions {
   /** Nodes to transform during a single-node drag (default: just this node).
    *  Cards pass their connection subtree to match moveSubtree semantics. */
   resolveRefs?: (targetId: string) => GestureNodeRef[];
-  /** First real movement (threshold crossed) — sounds, spawn-meta clearing. */
+  /** First real movement (threshold crossed) — spawn-meta clearing. */
   onDragStart?: (targetId: string) => void;
   /** Alt-drag duplicate — create the copy, return its id (or null to skip). */
   makeCopy?: (nodeId: string) => string | null;

@@ -30,7 +30,6 @@ function Svg({
 export type AdminIconName =
   | "dashboard"
   | "artifact-viewer"
-  | "sound"
   | "design-system"
   | "models"
   | "ideas"
@@ -79,15 +78,6 @@ const ICONS: Record<AdminIconName, ReactNode> = {
     <path d="M3 12l7 4 7-4" />
     <path d="M3 7v5" />
     <path d="M17 7v5" />
-  </>
-  ),
-  sound: (
-  <>
-    <path d="M3 8v4" />
-    <path d="M6 6v8" />
-    <path d="M9 4v12" />
-    <path d="M12 7v6" />
-    <path d="M15 9v2" />
   </>
   ),
   "design-system": (

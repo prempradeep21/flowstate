@@ -38,13 +38,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     group: "build",
   },
   {
-    href: "/admin/tools/sound",
-    label: "Sound Console",
-    description: "Map seslen presets to UI events and preview specimens.",
-    icon: "sound",
-    group: "build",
-  },
-  {
     href: "/admin/tools/design-system",
     label: "Design System",
     description: "Live theme controls — presets, colors, radius, and reference.",

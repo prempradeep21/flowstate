@@ -87,6 +87,14 @@ const SCENES = {
     warmupMs: [0, 6200, 9000, 14500],
     settleExtraMs: {},
   },
+  freshmenu: {
+    durationMs: 15000,
+    framesDir: path.join(ROOT, "demo-video", "frames-freshmenu"),
+    outFile: path.join(ROOT, "demo-video", "flowstate-freshmenu-demo.mp4"),
+    // Remote thumbnails (YouTube still, link favicons) + the finale card.
+    warmupMs: [0, 6200, 9000, 14500],
+    settleExtraMs: {},
+  },
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(

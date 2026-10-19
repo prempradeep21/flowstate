@@ -11,7 +11,6 @@ import { LandingSectionShell } from "@/components/landing-page/LandingSectionShe
 import { LANDING_COPY } from "@/components/landing-page/landingSections";
 import { ARTIFACT_CATALOG_ENTRIES } from "@/lib/artifactCatalogSamples";
 import { LANDING_COMPOSER_INPUTS } from "@/lib/landingComposerInputs";
-import { playSound } from "@/lib/sounds/engine";
 
 type InputsTab = "paste" | "composer";
 
@@ -42,10 +41,7 @@ export function InputsSection() {
           <button
             key={t.id}
             type="button"
-            onClick={() => {
-              setTab(t.id);
-              void playSound("plug-connect");
-            }}
+            onClick={() => setTab(t.id)}
             className={`rounded-full px-4 py-2 text-canvas-compact transition-colors ${
               tab === t.id
                 ? "bg-canvas-accent font-medium text-canvas-onAccent"

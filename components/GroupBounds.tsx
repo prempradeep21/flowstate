@@ -14,7 +14,6 @@ import { Plug } from "@/components/plugs/Plug";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import type { BranchGroup, PlugSide } from "@/lib/store";
 import { useCanvasStore } from "@/lib/store";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
 interface GroupBoundsProps {
   group: BranchGroup;
@@ -24,8 +23,15 @@ const SCREEN_STROKE = 1.5;
 /** Concentric with the nodes it frames: their lg corner + the frame padding. */
 const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
 
-/** Counter-scale chrome (label, badge) so it stays screen-constant under zoom. */
+/** Counter-scale the size badge so it stays screen-constant under zoom. */
 const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
+
+/**
+ * compensatedStrokeWidth(px, scale) as CSS: px at scale ≥ 1, px/scale below.
+ * Driven by the --vp-scale var CanvasViewport writes at settle, so zooming
+ * never re-renders group frames.
+ */
+const screenStroke = (px: number) => `calc(${px}px / min(var(--vp-scale, 1), 1))`;
 
 
 /**
@@ -39,10 +45,6 @@ const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
  */
 function GroupBoundsInner({ group }: GroupBoundsProps) {
   const bounds = useGroupBounds(group);
-  // Stroke feeds rect GEOMETRY (x/y/w/h insets), so it can't move to CSS
-  // vars — but clamping the selector at 1 makes it a constant while zoomed
-  // in, so settles at scale ≥ 1 never re-render group frames.
-  const scale = useCanvasStore((s) => Math.min(1, s.viewportSettledScale));
   const isActive = useCanvasStore((s) => s.activeGroupId === group.id);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const setActiveGroupId = useCanvasStore((s) => s.setActiveGroupId);
@@ -72,8 +74,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
 
   if (!bounds) return null;
 
-  const stroke = compensatedStrokeWidth(SCREEN_STROKE, scale, SCREEN_STROKE);
-  const inset = stroke / 2;
+  const stroke = screenStroke(isActive ? SCREEN_STROKE * 1.5 : SCREEN_STROKE);
 
   const handleLabelPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || editing) return;
@@ -123,52 +124,50 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         height: bounds.h,
       }}
     >
-      <svg
-        className="absolute left-0 top-0 overflow-visible"
-        width={bounds.w}
-        height={bounds.h}
+      {/*
+        Frame: an inset outline rather than an SVG stroke, so its zoom
+        compensation is pure CSS (no geometry to recompute per zoom).
+      */}
+      <div
+        className="absolute inset-0"
         aria-hidden
-      >
-        <rect
-          x={inset}
-          y={inset}
-          width={Math.max(0, bounds.w - stroke)}
-          height={Math.max(0, bounds.h - stroke)}
-          // CSS geometry properties, so the radius can follow the theme var.
-          style={{ rx: CORNER_RADIUS, ry: CORNER_RADIUS }}
-          fill="rgb(var(--canvas-card) / 0.3)"
-          stroke={
-            isActive
-              ? "rgb(var(--canvas-accent))"
-              : "rgb(var(--canvas-ink) / 0.16)"
-          }
-          strokeWidth={isActive ? stroke * 1.5 : stroke}
+        style={{
+          borderRadius: CORNER_RADIUS,
+          background: "rgb(var(--canvas-card) / 0.3)",
+          outlineStyle: "solid",
+          outlineWidth: stroke,
+          outlineOffset: `calc(-1 * ${stroke})`,
+          outlineColor: isActive
+            ? "rgb(var(--canvas-accent))"
+            : "rgb(var(--canvas-ink) / 0.16)",
+        }}
+      />
+      {/*
+        Hairline between the group's conversation cards and its artifacts.
+        Inset by the frame padding so it starts and ends on the same gutter
+        the tiles inside line up to, and translucent enough to read as a
+        separation rather than a border of its own.
+      */}
+      {group.dividerY !== undefined ? (
+        <div
+          className="absolute -translate-y-1/2"
+          aria-hidden
+          style={{
+            left: GROUP_BOUNDS_PADDING,
+            width: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
+            top: group.dividerY - bounds.y,
+            height: screenStroke(SCREEN_STROKE),
+            background: "rgb(var(--canvas-ink) / 0.18)",
+          }}
         />
-        {/*
-          Hairline between the group's conversation cards and its artifacts.
-          Inset by the frame padding so it starts and ends on the same gutter
-          the tiles inside line up to, and translucent enough to read as a
-          separation rather than a border of its own.
-        */}
-        {group.dividerY !== undefined ? (
-          <line
-            x1={GROUP_BOUNDS_PADDING}
-            x2={Math.max(GROUP_BOUNDS_PADDING, bounds.w - GROUP_BOUNDS_PADDING)}
-            y1={group.dividerY - bounds.y}
-            y2={group.dividerY - bounds.y}
-            stroke="rgb(var(--canvas-ink))"
-            strokeOpacity={0.18}
-            strokeWidth={stroke}
-          />
-        ) : null}
-      </svg>
+      ) : null}
 
       {/*
         Chapter title in the band computeGroupBounds reserved for it at the top
-        of the frame, on the same gutter the tiles inside line up to. Unlike the
-        label chip it is not counter-scaled, so it reads as a title over the
-        district at any zoom and stays the most legible thing on screen when the
-        whole canvas is in view.
+        of the frame, on the same gutter the tiles inside line up to. It scales
+        with the canvas, so it reads as a title over the district at any zoom
+        and stays the most legible thing on screen when the whole canvas is in
+        view.
       */}
       {group.headingText ? (
         <div
@@ -186,10 +185,13 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         </div>
       ) : null}
 
-      {/* Name label above the top-left corner (Figma section header). */}
+      {/*
+        Name label above the top-left corner (Figma section header). It scales
+        with the canvas like the frame it names, rather than holding a screen
+        size while everything around it zooms.
+      */}
       <div
-        className="pointer-events-auto absolute bottom-full left-0 mb-1.5 origin-bottom-left cursor-grab select-none active:cursor-grabbing"
-        style={{ transform: CHROME_COUNTER_SCALE }}
+        className="pointer-events-auto absolute bottom-full left-0 mb-1.5 cursor-grab select-none active:cursor-grabbing"
         onPointerDown={handleLabelPointerDown}
         onPointerMove={(e) => nodeDrag.move(e)}
         onPointerUp={(e) => nodeDrag.end(e)}

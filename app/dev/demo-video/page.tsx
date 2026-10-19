@@ -5,6 +5,7 @@ import { AssetsSceneApp } from "./scenes/assets/AssetsSceneApp";
 import { DisneySceneApp } from "./scenes/disney/DisneySceneApp";
 import { FreelancerSceneApp } from "./scenes/freelancer/FreelancerSceneApp";
 import { JagadambaSceneApp } from "./scenes/jagadamba/JagadambaSceneApp";
+import { FreshMenuSceneApp } from "./scenes/freshmenu/FreshMenuSceneApp";
 import { LogoSceneApp } from "./scenes/logo/LogoSceneApp";
 import { LOGO_VARIANTS, type LogoVariant } from "./scenes/logo/timeline";
 
@@ -33,6 +34,8 @@ export default async function DemoVideoPage({
         <FreelancerSceneApp />
       ) : scene === "jagadamba" ? (
         <JagadambaSceneApp />
+      ) : scene === "freshmenu" ? (
+        <FreshMenuSceneApp />
       ) : (
         <DemoVideoApp />
       )}
