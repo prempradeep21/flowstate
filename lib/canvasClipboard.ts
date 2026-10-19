@@ -44,6 +44,7 @@ export type CanvasClipboardArtifactItem = {
     position: { x: number; y: number };
     size?: CardSize;
     userSetSize?: boolean;
+    contentZoom?: number;
     permissionPreview?: ArtifactPermissionPreview;
     generatingPreview?: ArtifactGeneratingPreview;
   };
@@ -254,6 +255,7 @@ function artifactItemFromNode(
     position: { ...node.position },
     ...(node.size ? { size: { ...node.size } } : {}),
     ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+    ...(node.contentZoom ? { contentZoom: node.contentZoom } : {}),
     ...(node.permissionPreview
       ? { permissionPreview: structuredClone(node.permissionPreview) }
       : {}),

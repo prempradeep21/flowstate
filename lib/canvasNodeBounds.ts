@@ -223,6 +223,11 @@ export interface ArtifactBoundsNode {
   size?: { w: number; h: number };
   /** A size the user dragged to — it always wins over content sizing. */
   userSetSize?: boolean;
+  /**
+   * The box is a zoomed artifact (see CanvasArtifactNode.contentZoom): its
+   * content lays out at size / zoom, so content sizing must not resize it.
+   */
+  contentZoom?: number;
 }
 
 export function getCardWidth(tuning: ResolvedCanvasTuning = DEFAULT_TUNING): number {
@@ -373,7 +378,9 @@ export function getArtifactBounds(
     ? getDefaultArtifactSize(artifact.kind, latest?.payload)
     : { w: CANVAS_ARTIFACT_WIDTH, h: DEFAULT_ARTIFACT_HEIGHT };
   if (!node.size) return fallback;
-  if (node.userSetSize || !artifact || !latest) return node.size;
+  if (node.userSetSize || node.contentZoom || !artifact || !latest) {
+    return node.size;
+  }
   return contentSizeWithin(artifact.id, latest.payload, node.size) ?? node.size;
 }
 

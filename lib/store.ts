@@ -619,6 +619,15 @@ export interface CanvasArtifactNode {
    * chart), so the masthead column reads as one size.
    */
   mastheadScale?: boolean;
+  /**
+   * Draw the node's content at this zoom — node box and content scaled
+   * together, so the artifact keeps its own aspect ratio at any size. Set by
+   * the transcript-import chapter layout, which sizes whole artifacts to make
+   * rows flush. `size` is already the zoomed box, and it is authoritative:
+   * content sizing (a table's columns, a website hero) is skipped, because
+   * the content lays out at size / contentZoom.
+   */
+  contentZoom?: number;
   /** Permission gate — artifact not materialized until user approves. */
   permissionPreview?: ArtifactPermissionPreview;
   /** Canvas placeholder while a version is still generating. */
@@ -3289,6 +3298,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           position: { ...node.position },
           ...(node.size ? { size: { ...node.size } } : {}),
           ...(node.userSetSize ? { userSetSize: node.userSetSize } : {}),
+          ...(node.contentZoom ? { contentZoom: node.contentZoom } : {}),
         },
       },
       canvasArtifactOrder: [...s.canvasArtifactOrder, id],
@@ -3393,6 +3403,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
                   : {}),
                 ...(item.container.userSetSize
                   ? { userSetSize: item.container.userSetSize }
+                  : {}),
+                ...(item.container.contentZoom
+                  ? { contentZoom: item.container.contentZoom }
                   : {}),
               },
             };
