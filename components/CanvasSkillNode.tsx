@@ -57,14 +57,14 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const skill = skills[node.skillId];
-  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
-  const provisionalMount = useGestureProvisionalMount();
+  // Mounted mid-gesture: cheap stand-in now, hydrated a few per frame.
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const provisionalMount = useGestureProvisionalMount(nodeRef);
   const [collapsed, setCollapsed] = useState(false);
   const expandedBounds = getCanvasSkillBounds(node, skill);
   const { w: width, h: height } = collapsed
     ? { w: CANVAS_SKILL_SIZE, h: CANVAS_SKILL_SIZE }
     : expandedBounds;
-  const nodeRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   // First time this skill appears on any canvas node, read the full file with an LLM.
@@ -182,7 +182,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
     nodeDrag.end(e);
   };
 
-  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  // Gesture-time stand-in: mounted mid-gesture, hydrated a few per frame.
   if (provisionalMount && !isSelected) {
     return (
       <div

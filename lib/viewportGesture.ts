@@ -69,6 +69,15 @@ export function registerViewportElement(el: HTMLElement | null): void {
   viewportEl = el;
 }
 
+/**
+ * The viewport as currently PAINTED: the gesture's transient value while one
+ * owns the transform (the store lags it by a frame), the store otherwise.
+ * Culling reads this so nodes mount against what is on screen right now.
+ */
+export function getLiveViewport(): Readonly<TransientViewport> {
+  return transient ?? useCanvasStore.getState().viewport;
+}
+
 /** True while an active gesture owns the visual transform. */
 export function isViewportGestureOwned(): boolean {
   return transient !== null;
@@ -78,33 +87,65 @@ export function isViewportGestureOwned(): boolean {
  * True from the first input of a viewport gesture until the data-gesturing
  * attribute clears (~260ms after the last input). Deliberately WIDER than
  * ownership: nodes mounting during the post-gesture settle restyle should
- * still treat themselves as gesture-time mounts and defer hydration.
+ * still treat themselves as gesture-time mounts and hydrate through the
+ * metered queue rather than all in one frame.
  */
 export function isViewportGestureActive(): boolean {
   return transient !== null || idleTimer !== null || attrTimer !== null;
 }
 
 // ---------------------------------------------------------------------------
-// Settle hydration: nodes that mount mid-gesture render a cheap provisional
-// stand-in and register here to swap in their full content AFTER the gesture
-// fully settles — time-sliced so a zoom-out that revealed dozens of nodes
-// hydrates over several frames instead of one settle-frame spike.
+// Deferred hydration: nodes that mount mid-gesture render a cheap provisional
+// stand-in and register here to swap in their full content a few at a time —
+// nearest the screen first. The queue keeps draining WHILE the gesture runs
+// for nodes on or about to come on screen: culling mounts nodes in a band
+// beyond the screen edge, so a pan hydrates them before they scroll into
+// view. The old policy held every stand-in until ~260ms after the last
+// input, so anything revealed by a pan showed up as an empty titled box and
+// only then started loading its images / previews.
 // ---------------------------------------------------------------------------
 
-const HYDRATE_FRAME_BUDGET_MS = 4;
+/** Nodes released per frame while the canvas is idle. */
+const HYDRATE_IDLE_PER_FRAME = 4;
+/**
+ * Mid-pan, nodes within this many screen px of the viewport hydrate (one per
+ * frame); the rest of the culling band waits for settle. Hydrating the whole
+ * band mid-gesture also paid for nodes a back-and-forth pan never brought on
+ * screen (~4–7% dropped frames at 300 nodes).
+ */
+const HYDRATE_PAN_REACH_PX = 160;
+/**
+ * Mid-zoom every frame already re-rasters the canvas, so hydration is
+ * stricter: only nodes actually on screen, one every this many frames.
+ */
+const HYDRATE_ZOOM_FRAME_INTERVAL = 3;
 
-const hydrateQueue: Array<() => void> = [];
+interface HydrateEntry {
+  cb: () => void;
+  /** Screen distance or similar — lower hydrates sooner; undefined = last. */
+  priority?: () => number;
+}
+
+const hydrateQueue: HydrateEntry[] = [];
 let hydrateRaf = 0;
+/** Zoom-gesture frames left before the next mid-zoom hydration. */
+let zoomHydrateWait = 0;
 
 /**
- * Queue a hydration callback for the next gesture settle (or the next frame
- * when no gesture is active). Returns an unsubscribe for unmount safety.
+ * Queue a hydration callback; it runs on a later frame, paced and ordered by
+ * `priority` (lower first). Callbacks should hand their render to React as a
+ * transition so a heavy mount is time-sliced around gesture input. Returns
+ * an unsubscribe for unmount safety.
  */
-export function onGestureSettleHydrate(cb: () => void): () => void {
-  hydrateQueue.push(cb);
-  if (!isViewportGestureActive()) scheduleHydrateDrain();
+export function onGestureSettleHydrate(
+  cb: () => void,
+  priority?: () => number,
+): () => void {
+  const entry: HydrateEntry = { cb, priority };
+  hydrateQueue.push(entry);
+  scheduleHydrateDrain();
   return () => {
-    const i = hydrateQueue.indexOf(cb);
+    const i = hydrateQueue.indexOf(entry);
     if (i !== -1) hydrateQueue.splice(i, 1);
   };
 }
@@ -114,16 +155,35 @@ function scheduleHydrateDrain(): void {
   hydrateRaf = requestAnimationFrame(drainHydrateQueue);
 }
 
+/** Order the queue by priority (one layout read); returns the sorted keys. */
+function sortHydrateQueue(): number[] {
+  const keyed = hydrateQueue.map((e, i) => ({
+    e,
+    i,
+    k: e.priority ? e.priority() : Number.POSITIVE_INFINITY,
+  }));
+  keyed.sort((a, b) => a.k - b.k || a.i - b.i);
+  for (let i = 0; i < keyed.length; i++) hydrateQueue[i] = keyed[i].e;
+  return keyed.map((x) => x.k);
+}
+
 function drainHydrateQueue(): void {
   hydrateRaf = 0;
-  // A new gesture started since scheduling: pause (queue survives); the
-  // next settle re-schedules the drain.
-  if (isViewportGestureActive()) return;
-  const start = performance.now();
-  while (hydrateQueue.length > 0) {
-    const cb = hydrateQueue.shift()!;
-    cb();
-    if (performance.now() - start >= HYDRATE_FRAME_BUDGET_MS) break;
+  if (!isViewportGestureActive()) {
+    zoomHydrateWait = 0;
+    sortHydrateQueue();
+    for (let n = 0; n < HYDRATE_IDLE_PER_FRAME && hydrateQueue.length; n++) {
+      hydrateQueue.shift()!.cb();
+    }
+  } else if (gestureMode === "zoom") {
+    if (zoomHydrateWait > 0) {
+      zoomHydrateWait--;
+    } else if (sortHydrateQueue()[0] <= 0) {
+      hydrateQueue.shift()!.cb();
+      zoomHydrateWait = HYDRATE_ZOOM_FRAME_INTERVAL - 1;
+    }
+  } else if (sortHydrateQueue()[0] <= HYDRATE_PAN_REACH_PX) {
+    hydrateQueue.shift()!.cb();
   }
   scheduleHydrateDrain();
 }
@@ -149,6 +209,11 @@ export function shouldApplyStoreViewport(v: {
   }
   cancelViewportGesture();
   return true;
+}
+
+/** True while the active (or settling) viewport gesture has zoomed. */
+export function isViewportZoomGesture(): boolean {
+  return isViewportGestureActive() && gestureMode === "zoom";
 }
 
 /**
@@ -230,8 +295,7 @@ function endGesture(): void {
   attrTimer = setTimeout(() => {
     attrTimer = null;
     setGesturingAttr(null);
-    // Gesture fully settled (attr cleared → transitions re-enabled next
-    // frame, settle restyle already landed): drain deferred hydrations.
+    // Gesture fully settled: make sure anything still queued finishes.
     scheduleHydrateDrain();
   }, GESTURING_ATTR_CLEAR_MS - GESTURE_IDLE_END_MS);
 }

@@ -149,9 +149,12 @@ export function PlugConnectorLayer() {
     connectorStyle,
   );
 
+  // Above every node, raised ones included (useRaisedZIndex tops out at
+  // 31 + 63): under them, a cursor over an artifact or card hid the line's
+  // end at that node's edge, so the connector looked short of the pointer.
   return (
     <svg
-      className="pointer-events-none absolute left-0 top-0 z-[15]"
+      className="pointer-events-none absolute left-0 top-0 z-[100]"
       style={{ overflow: "visible" }}
       width={1}
       height={1}

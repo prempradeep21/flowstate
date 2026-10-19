@@ -62,52 +62,64 @@ describe("onGestureSettleHydrate", () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it("time-slices the drain across frames when callbacks exceed the budget", () => {
-    // Each performance.now() call advances 5ms > the 4ms frame budget, so
-    // the drain processes exactly one callback per frame.
-    let now = 0;
-    vi.spyOn(performance, "now").mockImplementation(() => (now += 5));
-
+  it("paces the idle drain across frames", () => {
     const calls: number[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       onGestureSettleHydrate(() => calls.push(i));
     }
     flushRafFrame();
-    expect(calls).toEqual([0]);
+    expect(calls).toEqual([0, 1, 2, 3]);
     flushRafFrame();
-    expect(calls).toEqual([0, 1]);
-    flushRafFrame();
-    expect(calls).toEqual([0, 1, 2]);
+    expect(calls).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
-  it("defers hydration while a gesture is active and drains after settle", () => {
+  it("mid-pan hydrates one near-screen node per frame; the rest wait for settle", () => {
     applyViewportPan(10, 5);
     expect(isViewportGestureActive()).toBe(true);
+    const calls: string[] = [];
+    onGestureSettleHydrate(() => calls.push("band"), () => 400);
+    onGestureSettleHydrate(() => calls.push("onscreen"), () => 0);
+    onGestureSettleHydrate(() => calls.push("near"), () => 120);
+    flushRafFrame();
+    expect(calls).toEqual(["onscreen"]);
+    applyViewportPan(10, 5); // still panning
+    flushRafFrame();
+    expect(calls).toEqual(["onscreen", "near"]);
+    flushRafFrame(); // only the far band node is left — it waits
+    expect(calls).toEqual(["onscreen", "near"]);
 
-    const cb = vi.fn();
-    onGestureSettleHydrate(cb);
-    flushRafFrame(); // commit frame — must NOT drain mid-gesture
-    expect(cb).not.toHaveBeenCalled();
-
-    // 120ms idle → endGesture; +140ms → attr clears and the drain schedules.
-    vi.advanceTimersByTime(120);
-    expect(cb).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(140);
+    vi.advanceTimersByTime(260); // settle
     expect(isViewportGestureActive()).toBe(false);
     flushRafFrame();
-    expect(cb).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["onscreen", "near", "band"]);
   });
 
-  it("pauses a scheduled drain when a new gesture starts, resumes at next settle", () => {
-    const cb = vi.fn();
-    onGestureSettleHydrate(cb); // idle → drain scheduled for next frame
-    applyViewportPan(3, 3); // gesture starts before the frame runs
-    flushRafFrame(); // drain fires but sees an active gesture → pauses
-    expect(cb).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(260); // settle: idle end + attr clear
+  it("mid-zoom hydrates only on-screen nodes, every third frame", () => {
+    registerViewportElement(null);
+    applyViewportZoom(1.1, 0, 0);
+    const calls: string[] = [];
+    onGestureSettleHydrate(() => calls.push("a"), () => 0);
+    onGestureSettleHydrate(() => calls.push("b"), () => 0);
+    onGestureSettleHydrate(() => calls.push("near"), () => 60);
     flushRafFrame();
-    expect(cb).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["a"]);
+    flushRafFrame();
+    flushRafFrame();
+    expect(calls).toEqual(["a"]);
+    flushRafFrame();
+    expect(calls).toEqual(["a", "b"]);
+    for (let i = 0; i < 6; i++) flushRafFrame();
+    expect(calls).toEqual(["a", "b"]); // "near" is off screen — waits
+  });
+
+  it("hydrates nearest-first by priority", () => {
+    const calls: string[] = [];
+    onGestureSettleHydrate(() => calls.push("far"), () => 900);
+    onGestureSettleHydrate(() => calls.push("unranked"));
+    onGestureSettleHydrate(() => calls.push("onscreen"), () => 0);
+    onGestureSettleHydrate(() => calls.push("near"), () => 120);
+    flushRafFrame();
+    expect(calls).toEqual(["onscreen", "near", "far", "unranked"]);
   });
 
   it("unsubscribe removes a queued callback (unmount safety)", () => {

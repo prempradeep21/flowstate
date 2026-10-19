@@ -83,7 +83,6 @@ interface CanvasArtifactNodeProps {
 function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const raisedZIndex = useRaisedZIndex(node.id);
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
-  const cards = useCanvasStore((s) => s.cards);
   const threads = useCanvasStore((s) => s.threads);
   // Crossing-only subscription: re-renders when the god-view boolean flips,
   // not on every settled-scale change (the post-zoom "settle storm").
@@ -175,9 +174,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     ? sessionArtifacts[node.artifactId]
     : undefined;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
-  // Mounted mid-gesture (culling reveal during zoom-out): render a cheap
-  // stand-in now, hydrate the full artifact after the gesture settles.
-  const provisionalMount = useGestureProvisionalMount();
+  // Mounted mid-gesture (culling reveal during pan/zoom): render a cheap
+  // stand-in now, hydrate the full artifact a few nodes per frame.
+  const provisionalMount = useGestureProvisionalMount(nodeRef);
 
   /** Font-scale / content growth wraps the node; never override a manual resize. */
   const handleArtifactContentAreaSize = useCallback(
@@ -249,17 +248,32 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     },
     [node.id],
   );
-  const sourceCard = cards[node.sourceCardId];
-  const remoteUpdatingCard =
-    remoteUpdatingCardId != null ? cards[remoteUpdatingCardId] : undefined;
+  // Only the cards this node reads — a whole-map subscription re-rendered
+  // every mounted artifact on each card write (cards re-measure on every
+  // zoom settle), and with idle warm-up most artifacts stay mounted.
+  const sourceThreadId = useCanvasStore(
+    (s) => s.cards[node.sourceCardId]?.threadId,
+  );
+  // The whole card only while a skeleton needs it (it re-renders on every
+  // size write of that card).
+  const generatingSourceCard = useCanvasStore((s) =>
+    generatingPreview ? s.cards[node.sourceCardId] : undefined,
+  );
+  const remoteUpdatingThreadId = useCanvasStore((s) =>
+    remoteUpdatingCardId != null
+      ? s.cards[remoteUpdatingCardId]?.threadId
+      : undefined,
+  );
   const plugAccent = connectorColour(
-    sourceCard ? threads[sourceCard.threadId]?.accentColour : undefined,
+    sourceThreadId !== undefined
+      ? threads[sourceThreadId]?.accentColour
+      : undefined,
     CANVAS_ACCENT,
   );
   const remoteUpdateAccent =
-    (remoteUpdatingCard &&
-      threads[remoteUpdatingCard.threadId]?.accentColour) ??
-    plugAccent;
+    (remoteUpdatingThreadId !== undefined
+      ? threads[remoteUpdatingThreadId]?.accentColour
+      : undefined) ?? plugAccent;
   // Breathing update glow follows the artifact's category colour, not the
   // source thread accent, so it reads as "this artifact is rebuilding".
   const remoteUpdateGlowColour = art
@@ -569,7 +583,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
             nodeId={node.id}
             kind={generatingPreview.kind}
             title={generatingPreview.title}
-            sourceCard={sourceCard}
+            sourceCard={generatingSourceCard}
           />
         ) : art ? (
           <div
