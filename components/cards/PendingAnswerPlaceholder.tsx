@@ -22,7 +22,7 @@ export function PendingAnswerPlaceholder({
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="switch-dot h-2 w-2 rounded-full bg-canvas-muted"
+            className="answer-dot h-2 w-2 rounded-full"
             style={{ animationDelay: `${i * 0.15}s` }}
             aria-hidden
           />

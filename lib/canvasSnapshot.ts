@@ -442,7 +442,7 @@ export function buildEmptyCanvasSnapshot(
     connectorStyle: "curvy",
     canvasBackgroundStyle: "grid",
     canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
-    canvasTheme: "dark",
+    canvasTheme: "light",
     canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
     selectedModel,
     viewMode: "canvas",

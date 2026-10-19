@@ -2618,7 +2618,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   connectorStyle: "curvy",
   canvasBackgroundStyle: "grid",
   canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
-  canvasTheme: "dark",
+  canvasTheme: "light",
   canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
   soundEnabled: true,
   soundVolume: 0.7,

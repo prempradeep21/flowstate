@@ -109,9 +109,9 @@ describe("normalizeCanvasSnapshot", () => {
     expect(snapshot.canvasBackgroundStyle).toBe("grid");
   });
 
-  it("defaults canvasTheme to dark for new snapshots", () => {
+  it("defaults canvasTheme to light for new snapshots", () => {
     const snapshot = normalizeCanvasSnapshot({ version: 1 });
-    expect(snapshot.canvasTheme).toBe("dark");
+    expect(snapshot.canvasTheme).toBe("light");
   });
 
   it("drops session artifacts missing versions", () => {

@@ -1,10 +1,9 @@
 "use client";
 
 import { ARTIFACT_CANVAS_SURFACE_FILL } from "@/lib/artifactCanvasChrome";
-import { tableAccentStyles } from "@/lib/tableAccentColor";
+import { primaryAccentStyles } from "@/lib/tableAccentColor";
 
 export function TableShaderSkeleton({
-  accentSeed,
   columnCount = 5,
   rowCount = 7,
   compact = false,
@@ -13,7 +12,6 @@ export function TableShaderSkeleton({
   minWidthPx,
   canvasSurface = false,
 }: {
-  accentSeed: string;
   columnCount?: number;
   rowCount?: number;
   compact?: boolean;
@@ -35,7 +33,7 @@ export function TableShaderSkeleton({
     <div
       className={`overflow-hidden ${surfaceBg} ${maxHeightClassName}`}
       style={{
-        ...tableAccentStyles(accentSeed),
+        ...primaryAccentStyles(),
         ...(minHeightPx != null ? { minHeight: minHeightPx } : {}),
         ...(minWidthPx != null ? { minWidth: minWidthPx } : {}),
       }}
