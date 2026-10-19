@@ -78,7 +78,7 @@ import {
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
 import { getCardBounds } from "@/lib/canvasNodeBounds";
-import { MIN_VIEWPORT_SCALE, conversationZoomDisplay } from "@/lib/zoomDisplay";
+import { MIN_VIEWPORT_SCALE } from "@/lib/zoomDisplay";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
@@ -172,20 +172,17 @@ function CardInner({ card }: CardProps) {
   // on every settled-scale change (the post-zoom "settle storm"). Scalar
   // compensations (border/accent widths) track scale via the --vp-scale CSS
   // custom property written by CanvasViewport — zero React involvement.
+  // Conversation cards never take the placeholder: they are plain text (no
+  // markdown), and swapping them for a stand-in re-laid their type out on
+  // every zoom settle — they render one way at every zoom.
   const lodPlaceholder = useCanvasStore(
-    (s) => s.viewportSettledScale < MIN_VIEWPORT_SCALE,
-  );
-  // Conversation cards are the exception: their title steps up through zoom
-  // tiers, so they DO track the settled scale. Collapsed to a constant for
-  // every other card so the settle storm still costs those nothing.
-  const conversationZoom = conversationZoomDisplay(
-    useCanvasStore((s) =>
-      isConversationCard(card) ? s.viewportSettledScale : 1,
-    ),
+    (s) =>
+      !isConversationCard(card) && s.viewportSettledScale < MIN_VIEWPORT_SCALE,
   );
   // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
   // placeholder now, hydrate to full content after the gesture settles.
-  const provisionalMount = useGestureProvisionalMount();
+  const provisionalMount =
+    useGestureProvisionalMount() && !isConversationCard(card);
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -216,7 +213,7 @@ function CardInner({ card }: CardProps) {
   const hideForLanding = isLanding;
   const isConversation = isConversationCard(card);
   const plugAccent = connectorColour(accent, CANVAS_ACCENT);
-  const showBranchPlugs = card.status === "done" && !isConversation;
+  const showBranchPlugs = card.status === "done";
   const receivePlugsActive =
     (plugDrag?.kind === "artifact" ||
       plugDrag?.kind === "asset" ||
@@ -826,19 +823,7 @@ function CardInner({ card }: CardProps) {
         />
         <div
           className="overflow-hidden px-6 pt-4 font-medium text-canvas-ink/80"
-          style={
-            // Match the far-zoom conversation title so crossing the LOD
-            // threshold is not a visible jump in type size.
-            isConversation
-              ? {
-                  fontSize: conversationZoom.titleFontSize,
-                  lineHeight: conversationZoom.titleLineHeight,
-                  display: "-webkit-box",
-                  WebkitBoxOrient: "vertical",
-                  WebkitLineClamp: conversationZoom.titleLineClamp,
-                }
-              : { fontSize: 28, whiteSpace: "nowrap", textOverflow: "ellipsis" }
-          }
+          style={{ fontSize: 28, whiteSpace: "nowrap", textOverflow: "ellipsis" }}
         >
           {card.question}
         </div>
@@ -992,7 +977,7 @@ function CardInner({ card }: CardProps) {
         >
           {card.status !== "empty" ? (
             isConversation ? (
-              <ConversationCardSurface card={card} zoom={conversationZoom} />
+              <ConversationCardSurface card={card} bodyRef={answerTextRef} />
             ) : (
             <QaTranslucentSurface className="group/body flex min-w-0 flex-col">
               <QaQuestionSection

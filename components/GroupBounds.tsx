@@ -172,7 +172,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
       */}
       {group.headingText ? (
         <div
-          className="pointer-events-none absolute truncate font-semibold text-canvas-ink/70"
+          className="pointer-events-none absolute break-words font-semibold text-canvas-ink"
           style={{
             left: GROUP_BOUNDS_PADDING,
             top: GROUP_BOUNDS_PADDING,
