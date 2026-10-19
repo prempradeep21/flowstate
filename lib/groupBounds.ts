@@ -19,16 +19,73 @@ export const GROUP_BOUNDS_PADDING = 48;
  * renderer because the band below is derived from it — the frame has to
  * reserve the space before anything is placed inside it.
  */
-export const GROUP_HEADING_FONT_SIZE = 84;
+export const GROUP_HEADING_FONT_SIZE = 63;
 export const GROUP_HEADING_LINE_HEIGHT = 1.15;
+/** Air between the heading's last line and the first row of members. */
+export const GROUP_HEADING_GAP = 56;
+const GROUP_HEADING_LINE_PX = Math.round(
+  GROUP_HEADING_FONT_SIZE * GROUP_HEADING_LINE_HEIGHT,
+);
+
 /**
- * Extra top band a group grows by when it carries a heading: one line of
- * heading plus a gap, so the title gets its own air and the first row of
- * cards starts below it instead of on top of it. The frame's own padding
- * still sits above the heading.
+ * Extra top band a group grows by when it carries a heading: every line the
+ * heading wraps to at `width` plus a gap, so the title is never truncated and
+ * the first row of cards starts below it instead of on top of it. The frame's
+ * own padding still sits above the heading.
  */
-export const GROUP_HEADING_BAND =
-  Math.round(GROUP_HEADING_FONT_SIZE * GROUP_HEADING_LINE_HEIGHT) + 32;
+export function groupHeadingBand(text: string, width: number): number {
+  return (
+    groupHeadingLineCount(text, width) * GROUP_HEADING_LINE_PX +
+    GROUP_HEADING_GAP
+  );
+}
+
+let headingMeasureCtx: CanvasRenderingContext2D | null | undefined;
+const headingLineCache = new Map<string, number>();
+
+/**
+ * Lines the heading wraps to at `width`, greedy word-wrap like the browser's.
+ * Measured with canvas text metrics in the rendered font; only cached once
+ * web fonts have loaded so a fallback-font measure never sticks.
+ */
+export function groupHeadingLineCount(text: string, width: number): number {
+  const key = `${Math.round(width)}|${text}`;
+  const cached = headingLineCache.get(key);
+  if (cached !== undefined) return cached;
+
+  let measure = (s: string) => s.length * GROUP_HEADING_FONT_SIZE * 0.56;
+  let settled = true;
+  if (typeof document !== "undefined") {
+    if (headingMeasureCtx === undefined) {
+      headingMeasureCtx = document.createElement("canvas").getContext("2d");
+    }
+    const ctx = headingMeasureCtx;
+    if (ctx) {
+      ctx.font = `600 ${GROUP_HEADING_FONT_SIZE}px ${getComputedStyle(document.body).fontFamily}`;
+      measure = (s) => ctx.measureText(s).width;
+      settled = document.fonts?.status === "loaded";
+    }
+  }
+
+  // A couple of px of slack so a line the browser would just break never
+  // measures as fitting.
+  const limit = width - 2;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  let lines = 1;
+  let line = words[0] ?? "";
+  for (const word of words.slice(1)) {
+    const next = `${line} ${word}`;
+    if (measure(next) > limit) {
+      lines += 1;
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+
+  if (settled) headingLineCache.set(key, lines);
+  return lines;
+}
 
 export const ARTIFACT_GAP = 24;
 export const SUMMARY_ICON_GAP = 8;
@@ -94,7 +151,11 @@ export function computeGroupBounds(
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
   // A heading is laid out first: the frame grows upward to hold it, so the
   // members keep their positions and never land under the title.
-  const headingBand = group.headingText ? GROUP_HEADING_BAND : 0;
+  // The heading spans the same width as the members, so that is what it
+  // wraps at.
+  const headingBand = group.headingText
+    ? groupHeadingBand(group.headingText, maxX - minX)
+    : 0;
   return {
     x: minX - padding,
     y: minY - padding - headingBand,
