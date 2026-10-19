@@ -81,8 +81,9 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   const [downloading, setDownloading] = useState(false);
 
   const asset = assets[node.assetId];
-  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
-  const provisionalMount = useGestureProvisionalMount();
+  // Mounted mid-gesture: cheap stand-in now, hydrated a few per frame.
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const provisionalMount = useGestureProvisionalMount(nodeRef);
   const { w: width, h: height } = getCanvasAssetBounds(node, asset);
   const previewKind = asset ? resolvePreviewKind(asset) : null;
   const needsClickToInteract = previewKind
@@ -92,7 +93,6 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
   useEffect(() => {
     if (!isSelected) setContentInteractive(false);
   }, [isSelected]);
-  const nodeRef = useRef<HTMLDivElement | null>(null);
   // Imperative drag via the shared gesture layer — one store commit on drop.
   const nodeDrag = useCanvasNodeDrag({
     kind: "asset",
@@ -253,7 +253,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
     };
   };
 
-  // Gesture-time stand-in: mounted mid-gesture, hydrate after settle.
+  // Gesture-time stand-in: mounted mid-gesture, hydrated a few per frame.
   if (provisionalMount && !isSelected) {
     return (
       <div

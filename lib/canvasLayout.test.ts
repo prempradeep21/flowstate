@@ -341,9 +341,14 @@ describe("resolveBranchDropPosition", () => {
     size: { w: 420, h: 300 },
   };
 
-  it("uses cursor Y and centers X on the pointer when clear of parent column", () => {
+  it("puts a right branch's left edge on the pointer when clear of parent column", () => {
     const drop = resolveBranchDropPosition(900, 500, "right", source, tuning);
-    expect(drop).toEqual({ x: 900 - 210, y: 500 - 40 });
+    expect(drop).toEqual({ x: 900, y: 500 - 40 });
+  });
+
+  it("puts a left branch's right edge on the pointer when clear of parent column", () => {
+    const drop = resolveBranchDropPosition(-100, 500, "left", source, tuning);
+    expect(drop).toEqual({ x: -100 - 420, y: 500 - 40 });
   });
 
   it("snaps X to the default side gap but keeps cursor Y when overlapping parent column", () => {

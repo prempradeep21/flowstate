@@ -276,8 +276,11 @@ export function defaultBranchColumnX(
 }
 
 /**
- * Drag-placed lateral branch: Y follows the cursor; X follows the cursor unless
+ * Drag-placed lateral branch: the new card's receive plug lands on the cursor
+ * (its left edge for a right branch, its right edge for a left branch), unless
  * that would overlap the parent column, then snap X to the default side gap.
+ * Y centres the estimated empty-card height on the cursor; callers that can
+ * measure the mounted card refine it (hooks/usePlugDragSession).
  */
 export function resolveBranchDropPosition(
   pointerX: number,
@@ -288,7 +291,7 @@ export function resolveBranchDropPosition(
 ): { x: number; y: number } {
   const w = tuning.branchCardWidth;
   const h = tuning.emptyCardHeight;
-  let x = pointerX - w / 2;
+  let x = side === "right" ? pointerX : pointerX - w;
   const y = pointerY - h / 2;
 
   if (branchDropOverlapsParentColumn(x, w, source, tuning)) {

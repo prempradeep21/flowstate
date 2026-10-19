@@ -184,10 +184,9 @@ interface ArtifactPlacementState extends PlacementState {
  * as CanvasViewport), so children resolve their absolute positions exactly
  * as before; with z-index auto it adds no stacking context while visible.
  *
- * Deliberately NOT used for cards/skills/labels: they are plain DOM with no
- * external state, remount cheaply through the gesture-time placeholder
- * policy, and keeping hundreds of them resident measurably regressed
- * pan/zoom at 300 nodes (every hydration wave re-mounted full markdown).
+ * Idle warm-up (useViewportCulling's `warm`) mounts nodes here before they
+ * are ever on screen — fully rendered, hidden — so the first visit is as
+ * instant as a revisit.
  *
  * While culling is enabled but the first visible set hasn't computed yet
  * (one frame at load), callers pass visible=false — a null-window render
@@ -195,10 +194,13 @@ interface ArtifactPlacementState extends PlacementState {
  */
 function CulledKeepAlive({
   visible,
+  warm,
   captureMount,
   children,
 }: {
   visible: boolean;
+  /** Warmed by the idle pass: mount now (hidden) so a reveal is instant. */
+  warm: boolean;
   /**
    * Shown only for a dashboard-thumbnail capture. Deliberately does NOT count
    * as "seen": otherwise one capture would pin every artifact on the canvas
@@ -208,14 +210,60 @@ function CulledKeepAlive({
   children: ReactNode;
 }) {
   const seenRef = useRef(false);
-  if (visible) seenRef.current = true;
+  if (visible || warm) seenRef.current = true;
   if (!seenRef.current && !captureMount) return null;
+  return <ResidentBox visible={visible || captureMount}>{children}</ResidentBox>;
+}
+
+/**
+ * Resident wrapper for plain-DOM nodes (cards, skills, labels): mounted while
+ * in the culling band OR warm, content-visibility:hidden when only warm.
+ * Unlike CulledKeepAlive it is not sticky — a node that leaves both sets
+ * unmounts, which keeps the resident set bounded by WARM_NODE_BUDGET on very
+ * large canvases. Always rendered (even with culling off) so a node never
+ * gains or loses a parent element, which would remount it.
+ */
+function CulledResident({
+  visible,
+  warm,
+  children,
+}: {
+  visible: boolean;
+  warm: boolean;
+  children: ReactNode;
+}) {
+  if (!visible && !warm) return null;
+  return <ResidentBox visible={visible}>{children}</ResidentBox>;
+}
+
+/**
+ * The culling wrapper box. A node mounted while offscreen (idle warm-up)
+ * renders normally for its first two frames before hiding: content under
+ * content-visibility:hidden is never laid out, so ResizeObserver-sized
+ * content (charts, maps) would otherwise first draw at reveal time.
+ */
+function ResidentBox({
+  visible,
+  children,
+}: {
+  visible: boolean;
+  children: ReactNode;
+}) {
+  const [laidOut, setLaidOut] = useState(false);
+  useEffect(() => {
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setLaidOut(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, []);
   return (
     <div
       className="absolute left-0 top-0"
-      style={{
-        contentVisibility: visible || captureMount ? "visible" : "hidden",
-      }}
+      style={{ contentVisibility: visible || !laidOut ? "visible" : "hidden" }}
     >
       {children}
     </div>
@@ -239,10 +287,11 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
   landingCardId: string | null;
   autoEditLabelId: string | null;
 }) {
-  const { enabled: cullingEnabled, visible: visibleNodes } = useViewportCulling(
-    containerRef,
-    { landingCardId },
-  );
+  const {
+    enabled: cullingEnabled,
+    visible: visibleNodes,
+    warm: warmNodes,
+  } = useViewportCulling(containerRef, { landingCardId });
   // A dashboard-thumbnail capture renders the whole canvas — mount every node
   // for its duration (see captureMountAll).
   const captureMountAll = useCaptureMountAllNodes();
@@ -297,10 +346,15 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
         const card = cards[id];
         if (!card) return null;
         if (hiddenCardIds.has(id)) return null;
-        if (cullCards && visibleNodes && !visibleNodes.cards.has(id)) {
-          return null;
-        }
-        return <Card key={id} card={card} />;
+        return (
+          <CulledResident
+            key={id}
+            visible={!cullCards || !visibleNodes || visibleNodes.cards.has(id)}
+            warm={warmNodes?.cards.has(id) ?? false}
+          >
+            <Card card={card} />
+          </CulledResident>
+        );
       })}
       {canvasArtifactOrder.map((id) => {
         const node = canvasArtifactNodes[id];
@@ -312,6 +366,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
             visible={
               !cullingEnabled || (visibleNodes?.artifacts.has(id) ?? false)
             }
+            warm={warmNodes?.artifacts.has(id) ?? false}
           >
             <CanvasArtifactNode node={node} />
           </CulledKeepAlive>
@@ -327,6 +382,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
             visible={
               !cullingEnabled || (visibleNodes?.assets.has(id) ?? false)
             }
+            warm={warmNodes?.assets.has(id) ?? false}
           >
             <CanvasAssetNode node={node} />
           </CulledKeepAlive>
@@ -342,6 +398,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
             visible={
               !cullingEnabled || (visibleNodes?.gifs.has(id) ?? false)
             }
+            warm={warmNodes?.gifs.has(id) ?? false}
           >
             <CanvasGifNode node={node} />
           </CulledKeepAlive>
@@ -357,6 +414,7 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
             visible={
               !cullingEnabled || (visibleNodes?.threeD.has(id) ?? false)
             }
+            warm={warmNodes?.threeD.has(id) ?? false}
           >
             <Canvas3DNode node={node} />
           </CulledKeepAlive>
@@ -365,23 +423,30 @@ const CanvasNodeLayer = memo(function CanvasNodeLayer({
       {canvasSkillOrder.map((id) => {
         const node = canvasSkillNodes[id];
         if (!node) return null;
-        if (cullCards && visibleNodes && !visibleNodes.skills.has(id)) {
-          return null;
-        }
-        return <CanvasSkillNode key={id} node={node} />;
+        return (
+          <CulledResident
+            key={id}
+            visible={!cullCards || !visibleNodes || visibleNodes.skills.has(id)}
+            warm={warmNodes?.skills.has(id) ?? false}
+          >
+            <CanvasSkillNode node={node} />
+          </CulledResident>
+        );
       })}
       {canvasTextLabelOrder.map((id) => {
         const label = canvasTextLabels[id];
         if (!label) return null;
-        if (cullCards && visibleNodes && !visibleNodes.labels.has(id)) {
-          return null;
-        }
         return (
-          <CanvasTextLabelNode
+          <CulledResident
             key={id}
-            label={label}
-            startEditing={autoEditLabelId === id}
-          />
+            visible={!cullCards || !visibleNodes || visibleNodes.labels.has(id)}
+            warm={warmNodes?.labels.has(id) ?? false}
+          >
+            <CanvasTextLabelNode
+              label={label}
+              startEditing={autoEditLabelId === id}
+            />
+          </CulledResident>
         );
       })}
     </>

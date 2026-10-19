@@ -57,9 +57,9 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
 
   const { w: width, h: height } = getCanvas3DBounds(node);
-  // Mounted mid-gesture: cheap stand-in now, hydrate after settle.
-  const provisionalMount = useGestureProvisionalMount();
+  // Mounted mid-gesture: cheap stand-in now, hydrated a few per frame.
   const nodeRef = useRef<HTMLDivElement | null>(null);
+  const provisionalMount = useGestureProvisionalMount(nodeRef);
   // Imperative drag via the shared gesture layer — one store commit on drop.
   const nodeDrag = useCanvasNodeDrag({
     kind: "3d",
@@ -180,7 +180,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
   };
 
   // Gesture-time stand-in: 3D nodes host WebGL viewers — the heaviest
-  // possible mid-gesture mount. Hydrate after settle.
+  // possible mid-gesture mount. Hydrated through the metered queue.
   if (provisionalMount && !isSelected) {
     return (
       <div

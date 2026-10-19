@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -13,6 +13,22 @@ import {
 import { MARKDOWN_COMPONENTS } from "@/lib/markdownComponents";
 import { RICH_TEXT_CLASS } from "@/lib/richTextDisplay";
 import type { AnswerExplain, Card } from "@/lib/store";
+
+const REMARK_PLUGINS = [remarkGfm];
+
+/**
+ * Parsed once per answer text. Cards re-render on their own size writes,
+ * which happen on every zoom settle as clamps change; re-parsing unchanged
+ * markdown each time was the dominant cost of a pinch-zoom (~8s of script
+ * per pinch at 100 nodes in dev).
+ */
+const AnswerMarkdown = memo(function AnswerMarkdown({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>
+      {text}
+    </ReactMarkdown>
+  );
+});
 
 interface TextCardBodyProps {
   card: Card;
@@ -155,9 +171,7 @@ export function TextCardBody({
     </>
   ) : (
     <>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-        {card.answer}
-      </ReactMarkdown>
+      <AnswerMarkdown text={card.answer} />
       {isStreaming && <StreamingCaret />}
     </>
   );

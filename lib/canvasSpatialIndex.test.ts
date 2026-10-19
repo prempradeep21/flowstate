@@ -3,7 +3,9 @@ import {
   buildCanvasSpatialIndex,
   CanvasSpatialIndexManager,
   CULLING_QUANTIZE,
+  CULLING_SCREEN_PADDING_PX,
   CULLING_VIEWPORT_PADDING,
+  cullingQuantizeForScale,
   getVisibleWorldRect,
   quantizedVisibleRect,
   queryVisibleNodes,
@@ -190,6 +192,65 @@ describe("quantizedVisibleRect", () => {
     expect(Math.abs(rect.maxY % CULLING_QUANTIZE)).toBe(0);
     expect(rect.minX).toBeLessThanOrEqual(-CULLING_VIEWPORT_PADDING);
     expect(rect.maxX).toBeGreaterThanOrEqual(800 + CULLING_VIEWPORT_PADDING);
+  });
+});
+
+describe("idle warm-up ordering", () => {
+  const input = () =>
+    spatialInput({
+      cards: {
+        near: makeCard("near", 1200, 0),
+        mid: makeCard("mid", 3000, 0),
+        far: makeCard("far", 9000, 0),
+      },
+      cardOrder: ["near", "mid", "far"],
+    });
+
+  it("returns the nearest nodes first, skipping excluded ones", () => {
+    const manager = new CanvasSpatialIndexManager();
+    const picks = manager.nearest(input(), 0, 0, () => false, 2);
+    expect(picks.map((p) => p.id)).toEqual(["near", "mid"]);
+    const rest = manager.nearest(
+      input(),
+      0,
+      0,
+      (_kind, id) => id === "near",
+      5,
+    );
+    expect(rest.map((p) => p.id)).toEqual(["mid", "far"]);
+  });
+
+  it("measures distance to a node's bounds, Infinity once it is gone", () => {
+    const manager = new CanvasSpatialIndexManager();
+    expect(manager.distanceTo(input(), "card", "near", 0, 0)).toBe(1200);
+    expect(manager.distanceTo(input(), "card", "near", 1300, 10)).toBe(0);
+    expect(manager.distanceTo(input(), "card", "deleted", 0, 0)).toBe(
+      Infinity,
+    );
+  });
+});
+
+describe("screen-space culling band", () => {
+  const size = { width: 800, height: 600 };
+
+  it("keeps the mount band a constant screen width as you zoom out", () => {
+    for (const scale of [0.1, 0.18, 0.5]) {
+      const raw = getVisibleWorldRect({ x: 0, y: 0, scale }, 800, 600);
+      expect(-raw.minX * scale).toBeCloseTo(CULLING_SCREEN_PADDING_PX);
+    }
+  });
+
+  it("never pads below the world floor when zoomed in", () => {
+    const raw = getVisibleWorldRect({ x: 0, y: 0, scale: 3 }, 800, 600);
+    expect(-raw.minX).toBe(CULLING_VIEWPORT_PADDING);
+  });
+
+  it("coarsens the quantize grid below 1x in multiples of the base grid", () => {
+    expect(cullingQuantizeForScale(1)).toBe(CULLING_QUANTIZE);
+    expect(cullingQuantizeForScale(0.5)).toBe(CULLING_QUANTIZE * 2);
+    expect(cullingQuantizeForScale(0.18)).toBe(CULLING_QUANTIZE * 8);
+    const rect = quantizedVisibleRect({ x: 13, y: 7, scale: 0.18 }, size);
+    expect(Math.abs(rect.minX % (CULLING_QUANTIZE * 8))).toBe(0);
   });
 });
 

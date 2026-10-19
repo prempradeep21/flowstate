@@ -78,7 +78,6 @@ import {
   RESOLVED_CANVAS_TUNING,
 } from "@/lib/canvasTuning";
 import { getCardBounds } from "@/lib/canvasNodeBounds";
-import { MIN_VIEWPORT_SCALE } from "@/lib/zoomDisplay";
 import { plugAnchorAt } from "@/lib/plugConnector";
 import { computeSelectionTextLabelPosition } from "@/lib/canvasTextPlacement";
 import {
@@ -168,21 +167,15 @@ function CardInner({ card }: CardProps) {
         (c.fromSide === "bottom" || c.fromSide == null),
     ),
   );
-  // Crossing-only subscription: re-renders when the LOD boolean flips, not
-  // on every settled-scale change (the post-zoom "settle storm"). Scalar
+  // No zoom LOD: cards render the same content at the same type size at every
+  // zoom and just shrink geometrically, like every other artifact. Scalar
   // compensations (border/accent widths) track scale via the --vp-scale CSS
   // custom property written by CanvasViewport — zero React involvement.
-  // Conversation cards never take the placeholder: they are plain text (no
-  // markdown), and swapping them for a stand-in re-laid their type out on
-  // every zoom settle — they render one way at every zoom.
-  const lodPlaceholder = useCanvasStore(
-    (s) =>
-      !isConversationCard(card) && s.viewportSettledScale < MIN_VIEWPORT_SCALE,
-  );
-  // Mounted mid-gesture (culling reveal during zoom-out): render the cheap
-  // placeholder now, hydrate to full content after the gesture settles.
+  // Mounted mid-gesture (culling reveal during pan/zoom): render the cheap
+  // placeholder now, hydrate to full content a few nodes per frame.
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const provisionalMount =
-    useGestureProvisionalMount() && !isConversationCard(card);
+    useGestureProvisionalMount(cardRef) && !isConversationCard(card);
 
   const accent = useCanvasStore(
     (s) => s.threads[card.threadId]?.accentColour,
@@ -302,7 +295,6 @@ function CardInner({ card }: CardProps) {
     },
   });
 
-  const cardRef = useRef<HTMLDivElement | null>(null);
   const answerTextRef = useRef<HTMLDivElement | null>(null);
   const explainRunRef = useRef<QuickExplainHandle | null>(null);
   const { restartAsk } = useCardAsk(card.id, card.status === "thinking");
@@ -781,16 +773,12 @@ function CardInner({ card }: CardProps) {
     nodeDrag.end(e);
   };
 
-  // Placeholder LOD: below MIN_VIEWPORT_SCALE card text is sub-legible, but
-  // every card still paid full markdown/DOM cost — the dominant mount cost
-  // when zooming out on large canvases. Render a cheap fixed-size stand-in
-  // instead (driven by SETTLED scale so the swap never happens mid-pinch).
-  // Nodes that MOUNT mid-gesture (provisionalMount) also stand in, then
-  // hydrate after settle — full-subtree mounts never happen while the
-  // fingers are moving. Selected cards and open composers keep full DOM
-  // (interaction targets).
+  // Nodes that MOUNT mid-gesture (provisionalMount) render a cheap fixed-size
+  // stand-in, then hydrate a few per frame (nearest the screen first) — never
+  // a burst of full-subtree mounts in one gesture frame. Selected cards and
+  // open composers keep full DOM (interaction targets).
   if (
-    (provisionalMount || lodPlaceholder) &&
+    provisionalMount &&
     !isSelected &&
     !isEmptyComposer &&
     !hideForLanding

@@ -11,9 +11,50 @@ import {
   screenToWorld,
 } from "@/lib/plugGeometry";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
-import { useCanvasStore } from "@/lib/store";
+import {
+  branchTargetAnchorY,
+  getConnectionCardBounds,
+} from "@/lib/canvasMeasure";
+import { useCanvasStore, type PlugSide } from "@/lib/store";
 
-const CARD_DROP_Y_OFFSET = 30;
+/**
+ * Where a card dropped off a plug drag goes so its receive plug — the side
+ * facing back at the source — sits on the cursor, not the card's centre.
+ * Y assumes the empty-card height; settleDroppedCard corrects it once the
+ * card has mounted and its real height is known.
+ */
+function plugDropPosition(
+  world: { x: number; y: number },
+  fromSide: PlugSide,
+): { x: number; y: number } {
+  const { cardWidth, emptyCardHeight } = RESOLVED_CANVAS_TUNING;
+  return {
+    x: fromSide === "left" ? world.x - cardWidth : world.x,
+    y: world.y - emptyCardHeight / 2,
+  };
+}
+
+/**
+ * Settle a card just dropped off a plug drag. Raise it, so a drop over an
+ * artifact or another card doesn't bury it underneath. Then, since the
+ * receive plug's Y comes from the mounted card's DOM (question block, or the
+ * composer's centre on an empty card) and the drop position can only estimate
+ * it, wait for the card to paint and nudge it so the plug meets the cursor.
+ */
+function settleDroppedCard(cardId: string, pointerY: number) {
+  useCanvasStore.getState().raiseCanvasNodes([cardId]);
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const state = useCanvasStore.getState();
+      const card = state.cards[cardId];
+      if (!card) return;
+      const { h } = getConnectionCardBounds(card, RESOLVED_CANVAS_TUNING);
+      const plugY = branchTargetAnchorY(cardId, card.position.y, h);
+      const dy = pointerY - plugY;
+      if (Math.abs(dy) >= 0.5) state.moveSubtree(cardId, 0, dy);
+    }),
+  );
+}
 
 export function usePlugDragSession(
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -123,7 +164,12 @@ export function usePlugDragSession(
 
       if (drag.kind === "branch") {
         if (drag.didDrag) {
-          createBranchAt(drag.sourceCardId, drag.fromSide, world);
+          const branchId = createBranchAt(
+            drag.sourceCardId,
+            drag.fromSide,
+            world,
+          );
+          if (branchId) settleDroppedCard(branchId, world.y);
         } else {
           createBranch(drag.sourceCardId, drag.fromSide);
         }
@@ -148,18 +194,15 @@ export function usePlugDragSession(
             toSide: hit.side,
           });
         } else if (drag.didDrag) {
-          const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithAttachment(
-            {
-              x: world.x - cardWidth / 2,
-              y: world.y - CARD_DROP_Y_OFFSET,
-            },
+            plugDropPosition(world, drag.fromSide),
             {
               artifactId: drag.artifactId,
               versionId: drag.versionId,
             },
           );
           if (cardId) {
+            settleDroppedCard(cardId, world.y);
             addArtifactPlugConnection({
               artifactNodeId: drag.artifactNodeId,
               cardId,
@@ -189,17 +232,14 @@ export function usePlugDragSession(
             toSide: hit.side,
           });
         } else if (drag.didDrag) {
-          const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithAssetAttachment(
-            {
-              x: world.x - cardWidth / 2,
-              y: world.y - CARD_DROP_Y_OFFSET,
-            },
+            plugDropPosition(world, drag.fromSide),
             {
               assetId: drag.assetId,
             },
           );
           if (cardId) {
+            settleDroppedCard(cardId, world.y);
             addAssetPlugConnection({
               assetNodeId: drag.assetNodeId,
               cardId,
@@ -229,17 +269,14 @@ export function usePlugDragSession(
             toSide: hit.side,
           });
         } else if (drag.didDrag) {
-          const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithSkillAttachment(
-            {
-              x: world.x - cardWidth / 2,
-              y: world.y - CARD_DROP_Y_OFFSET,
-            },
+            plugDropPosition(world, drag.fromSide),
             {
               skillId: drag.skillId,
             },
           );
           if (cardId) {
+            settleDroppedCard(cardId, world.y);
             addSkillPlugConnection({
               skillNodeId: drag.skillNodeId,
               cardId,
@@ -269,17 +306,14 @@ export function usePlugDragSession(
             toSide: hit.side,
           });
         } else if (drag.didDrag) {
-          const { cardWidth } = RESOLVED_CANVAS_TUNING;
           const cardId = createRootCardWithGroupAttachment(
-            {
-              x: world.x - cardWidth / 2,
-              y: world.y - CARD_DROP_Y_OFFSET,
-            },
+            plugDropPosition(world, drag.fromSide),
             {
               groupId: drag.groupId,
             },
           );
           if (cardId) {
+            settleDroppedCard(cardId, world.y);
             addGroupPlugConnection({
               groupId: drag.groupId,
               cardId,
