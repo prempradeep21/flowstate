@@ -24,9 +24,7 @@ const NARROW_LABEL_PATTERN =
   /\b(id|#|no\.?|number|serial|index|idx)\b/i;
 
 function cellDisplayLength(cell: string | TableCell | undefined): number {
-  const { text, tags } = normalizeTableCell(cell);
-  const tagMax = tags.reduce((max, t) => Math.max(max, t.label.length), 0);
-  return Math.max(text.length, tagMax);
+  return normalizeTableCell(cell).text.length;
 }
 
 function isNarrowColumn(col: TableColumn, rows: TableRow[]): boolean {
@@ -195,17 +193,14 @@ const TABLE_WRAP_CHAR_PX = 6.6;
 const TABLE_CELL_PAD_Y_PX = 20;
 const TABLE_ROW_BORDER_PX = 1;
 const TABLE_HEAD_HEIGHT_PX = 37;
-/** One caption-size tag pill, and the gap above/between pills. */
-const TABLE_TAG_HEIGHT_PX = 20;
-const TABLE_TAG_GAP_PX = 6;
 
 /**
  * Height a canvas table renders at, wrapping each cell at its column's width.
  *
  * {@link computeTableIntrinsicSize} assumes one line per row, which is right for
- * the auto-measure floor it feeds but undersizes any table with wrapped cells or
- * tag pills. A node sized to content needs the real figure: text wraps at the
- * column width (minus padding) and each tag stacks under the text.
+ * the auto-measure floor it feeds but undersizes any table with wrapped cells.
+ * A node sized to content needs the real figure: text wraps at the column
+ * width (minus padding).
  */
 export function estimateTableHeightPx(
   columns: TableColumn[],
@@ -216,19 +211,12 @@ export function estimateTableHeightPx(
   for (const row of rows) {
     let rowH = TABLE_LINE_HEIGHT_PX;
     columns.forEach((col, index) => {
-      const { text, tags } = normalizeTableCell(row[col.key]);
+      const { text } = normalizeTableCell(row[col.key]);
       const usable = Math.max(1, widths[index]! - TABLE_COL_PAD_PX);
       const lines = text
         ? Math.max(1, Math.ceil((text.length * TABLE_WRAP_CHAR_PX) / usable))
         : 0;
-      let cellH = lines * TABLE_LINE_HEIGHT_PX;
-      if (tags.length > 0) {
-        cellH +=
-          (lines > 0 ? TABLE_TAG_GAP_PX : 0) +
-          tags.length * TABLE_TAG_HEIGHT_PX +
-          (tags.length - 1) * TABLE_TAG_GAP_PX;
-      }
-      rowH = Math.max(rowH, cellH);
+      rowH = Math.max(rowH, lines * TABLE_LINE_HEIGHT_PX);
     });
     total += rowH + TABLE_CELL_PAD_Y_PX + TABLE_ROW_BORDER_PX;
   }
@@ -239,8 +227,8 @@ export function estimateTableHeightPx(
  * Responsive column fitting for canvas tables.
  *
  * Each column has two widths: its IDEAL (every cell on one line, capped like
- * the intrinsic estimate) and its MIN (its longest unbreakable word or tag
- * pill — narrower than that and words split mid-letter). Fitting a node width:
+ * the intrinsic estimate) and its MIN (its longest unbreakable word —
+ * narrower than that and words split mid-letter). Fitting a node width:
  *
  *  - wider than every ideal: the spare goes to the text columns in proportion
  *    to their ideal, so a wide node reads as a balanced table, not one huge
@@ -265,8 +253,6 @@ export const TABLE_COLUMN_MIN_CAP_PX = 200;
 const TABLE_UNBREAKABLE_CELL_CHARS = 14;
 /** Bold header glyphs run wider than body text. */
 const TABLE_HEADER_CHAR_PX = 8.2;
-/** Tag pill horizontal padding (px-2) plus a little breathing room. */
-const TABLE_TAG_PAD_PX = 20;
 
 function longestWordLength(text: string): number {
   let max = 0;
@@ -287,19 +273,11 @@ function columnMinWidthPx(col: TableColumn, rows: TableRow[]): number {
   let minPx =
     longestWordLength(col.label) * TABLE_HEADER_CHAR_PX + TABLE_COL_PAD_PX;
   for (const row of rows) {
-    const { text, tags } = normalizeTableCell(row[col.key]);
+    const { text } = normalizeTableCell(row[col.key]);
     minPx = Math.max(
       minPx,
       unbreakableLength(text) * TABLE_COL_CHAR_PX + TABLE_COL_PAD_PX,
     );
-    for (const tag of tags) {
-      minPx = Math.max(
-        minPx,
-        unbreakableLength(tag.label) * TABLE_COL_CHAR_PX +
-          TABLE_TAG_PAD_PX +
-          TABLE_COL_PAD_PX,
-      );
-    }
   }
   return Math.min(TABLE_COLUMN_MIN_CAP_PX, Math.max(TABLE_COLUMN_FLOOR_PX, minPx));
 }

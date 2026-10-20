@@ -50,8 +50,8 @@ export const CANVAS_TEXT_EDITOR_ATTR = "data-canvas-text-editor";
 
 /** Shared by the rendered text and the editor so they lay out identically. */
 const TYPOGRAPHY = "font-medium leading-tight text-canvas-ink";
-/** Chrome stays a hairline when zoomed out (same rule as card borders). */
-const CHROME_PX = (px: number) => `calc(${px}px / min(var(--vp-scale, 1), 1))`;
+/** Chrome is a fixed world size — it scales with the label, never on zoom. */
+const CHROME_PX = (px: number) => `${px}px`;
 
 type ResizeCorner = "nw" | "ne" | "sw" | "se";
 type ResizeEdge = "w" | "e";

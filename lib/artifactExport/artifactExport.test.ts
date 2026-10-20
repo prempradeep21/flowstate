@@ -46,8 +46,8 @@ describe("table export serializers", () => {
     expect(html).toContain("Apple");
   });
 
-  it("normalizes cell text with tags", () => {
-    expect(tableCellExportText({ value: "Item", tags: [{ label: "Hot" }] })).toContain("Hot");
+  it("exports an object cell as its value", () => {
+    expect(tableCellExportText({ value: "Item" })).toBe("Item");
   });
 });
 

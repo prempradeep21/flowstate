@@ -10,6 +10,8 @@ import { getConnectionCardBounds } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import {
+  CONNECTOR_HIT_STROKE_PX,
+  CONNECTOR_STROKE_PX,
   buildPlugConnectorPath,
   connectorMarkerSizes,
   isLateralBranchConnection,
@@ -18,13 +20,10 @@ import {
   resolveConnectionAnchors,
 } from "@/lib/plugConnector";
 import { connectorColour } from "@/lib/design/tokens";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 import { isConversationCard } from "@/lib/conversationCard";
 
 
-const BASE_STROKE_SCREEN = 1.75;
 
-const HIT_STROKE_SCREEN = 14;
 
 
 
@@ -40,7 +39,6 @@ export function Connections() {
 
   const threads = useCanvasStore((s) => s.threads);
 
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
 
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
 
@@ -50,25 +48,7 @@ export function Connections() {
 
 
 
-  const strokeWidth = compensatedStrokeWidth(
 
-    BASE_STROKE_SCREEN,
-
-    viewportSettledScale,
-
-    BASE_STROKE_SCREEN,
-
-  );
-
-  const hitWidth = compensatedStrokeWidth(
-
-    HIT_STROKE_SCREEN,
-
-    viewportSettledScale,
-
-    HIT_STROKE_SCREEN,
-
-  );
 
 
 
@@ -136,11 +116,10 @@ export function Connections() {
                     <ConnectorPathGroup
                       d={d}
                       stroke={stroke}
-                      strokeWidth={strokeWidth}
+                      strokeWidth={CONNECTOR_STROKE_PX}
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
-                      viewportScale={viewportSettledScale}
                       dashed
                       opacity={0.55}
                       showTargetPlug={false}
@@ -184,11 +163,10 @@ export function Connections() {
                     <ConnectorPathGroup
                       d={d}
                       stroke={stroke}
-                      strokeWidth={strokeWidth}
+                      strokeWidth={CONNECTOR_STROKE_PX}
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
-                      viewportScale={viewportSettledScale}
                       dashed
                       opacity={0.55}
                       showTargetPlug={false}
@@ -210,7 +188,7 @@ export function Connections() {
             toSide,
           } = resolveConnectionAnchors(conn, from, to, tuning);
 
-          const { plugOuterRadius } = connectorMarkerSizes(viewportSettledScale);
+          const { plugOuterRadius } = connectorMarkerSizes(1);
           const { d } = buildPlugConnectorPath(
             a,
             b,
@@ -233,13 +211,12 @@ export function Connections() {
               <ConnectorPathGroup
                 d={d}
                 stroke={stroke}
-                strokeWidth={strokeWidth}
+                strokeWidth={CONNECTOR_STROKE_PX}
                 fromAnchor={a}
                 toAnchor={b}
                 toSide={toSide}
-                viewportScale={viewportSettledScale}
                 opacity={0.85}
-                hitWidth={hitWidth}
+                hitWidth={CONNECTOR_HIT_STROKE_PX}
                 showSourcePlug={!isConversationLink}
                 showTargetPlug={!isConversationLink}
                 drawIn={conn.id === recentConnectionId}

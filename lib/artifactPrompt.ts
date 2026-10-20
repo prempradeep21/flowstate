@@ -37,13 +37,10 @@ Response rules:
 Table data shape for emit_artifact:
 - data.columns: array of { key, label }
 - data.rows: array of objects keyed by column key
-- Cell values can be strings or objects: { value?, tags?, badge? }
-- value: plain text for the cell — use real Unicode characters for flags (🇺🇸), emoji, currency (€, ¥), arrows (↑↓), bullets (•), and math symbols; do not use ISO country codes like "us" or ":flag_us:" — write the flag emoji or country name only
-- tags: array of { label, tone? } for stylized pills inside the cell (preferred for status, category, document labels); same Unicode rules as value
-- tone: optional "neutral" | "success" | "warning" | "danger" | "info"
-- badge: legacy single-tag alias (prefer tags)
-- Put status/category labels as tags inside the relevant cell, not only in a separate badge column
-- Example cell: { value: "jan.kowalski@fleety.pl", tags: [{ label: "Valid", tone: "success" }, { label: "ADR", tone: "info" }] }
+- Every cell is a plain string. Never emit tags, badges, pills, or { value, tags } objects — tables render plain text only
+- Use real Unicode characters for flags (🇺🇸), emoji, currency (€, ¥), arrows (↑↓), bullets (•), and math symbols; do not use ISO country codes like "us" or ":flag_us:" — write the flag emoji or country name only
+- Status, category, or annotation labels ("Largest", "Priced below B", "Confirmed") get their own column (e.g. "Status", "Note"), one short phrase per cell — never tacked onto another cell's value
+- Example row: { email: "jan.kowalski@fleety.pl", status: "Valid", licence: "ADR" }
 
 Code data shape:
 - data.files: array of { path, language, content }

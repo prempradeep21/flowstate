@@ -5,11 +5,7 @@ import * as XLSX from "xlsx";
 export function tableCellExportText(
   cell: string | import("@/lib/artifactTypes").TableCell | undefined,
 ): string {
-  const { text, tags } = normalizeTableCell(cell);
-  const tagLabels = tags.map((t) => t.label).filter(Boolean);
-  if (tagLabels.length === 0) return text;
-  if (!text) return tagLabels.join(", ");
-  return `${text} (${tagLabels.join(", ")})`;
+  return normalizeTableCell(cell).text;
 }
 
 export function tableToGrid(

@@ -11,6 +11,7 @@ import {
   subscribeToNodeDrag,
 } from "@/lib/gesture/gestureLayer";
 import {
+  CONNECTOR_STROKE_PX,
   connectorMarkerSizes,
   connectorPlugCirclePath,
 } from "@/lib/plugConnector";
@@ -21,7 +22,6 @@ import {
 } from "@/lib/viewportGesture";
 import { useCanvasStore } from "@/lib/store";
 
-const BASE_STROKE_SCREEN = 1.75;
 const DRAW_IN_MS = 480;
 
 /** Resolves the plug fill through the theme CSS variable at draw time. */
@@ -40,7 +40,7 @@ function plugFillColor(el: HTMLElement): string {
  *
  * Tracks live gestures: node drags offset endpoints per frame through the
  * gesture layer, and pan/zoom redraws use the LIVE viewport (the SVG layer
- * compensated stroke widths against the settled scale only).
+ * redrew only at the settled scale).
  *
  * `layer` splits the drawing when lines sit behind cards: the plug rings are
  * centred on card edges, so a ring drawn behind its card loses half of itself
@@ -70,13 +70,10 @@ export function ConnectionsCanvas({
     let geometry: RenderableConnection[] = [];
     let geometryDirty = true;
     let paths = new Map<string, Path2D>();
-    // Marker Path2D cache, keyed by the scale they were built at — building
-    // them per connection per draw allocated hundreds of objects per frame.
-    // Mid-zoom the markers keep the previous scale's size (imperceptible at
-    // 2.5/5px) and rebuild on geometry invalidation or once the gesture
-    // releases (the settle draw).
+    // Marker Path2D cache — building them per connection per draw allocated
+    // hundreds of objects per frame. Rebuilt on geometry invalidation only.
     let plugPaths = new Map<string, Path2D>();
-    let markerScale = 0;
+    let markersBuilt = false;
     let markerRingWidth = 0;
     // Draw-in animation state for freshly created connections.
     let drawIn: { connId: string; startedAt: number } | null = null;
@@ -115,12 +112,12 @@ export function ConnectionsCanvas({
         paths.set(render.connId, new Path2D(render.d));
       }
       geometryDirty = false;
-      markerScale = 0; // markers derive from geometry — force rebuild
+      markersBuilt = false; // markers derive from geometry — force rebuild
     };
 
-    const rebuildMarkers = (scale: number) => {
-      markerScale = scale;
-      const { plugRadius, plugRingWidth } = connectorMarkerSizes(scale);
+    const rebuildMarkers = () => {
+      markersBuilt = true;
+      const { plugRadius, plugRingWidth } = connectorMarkerSizes(1);
       markerRingWidth = plugRingWidth;
       plugPaths = new Map();
       for (const g of geometry) {
@@ -164,19 +161,13 @@ export function ConnectionsCanvas({
       if (geometryDirty) rebuildGeometry();
 
       const { x: vx, y: vy, scale } = viewportOverride ?? state.viewport;
-      // Refresh marker sizing outside gestures; keep the cached (slightly
-      // stale) markers while zooming — rebuilt on the settle draw. Line ends
-      // stop at the ring's outside, so a settled zoom re-resolves geometry
-      // too, keeping each stroke flush with its resized ring.
-      if (markerScale !== scale && (markerScale === 0 || !isViewportGestureOwned())) {
-        if (markerScale !== 0) rebuildGeometry();
-        rebuildMarkers(scale);
-      }
+      // Markers are a fixed world size — rebuilt only when geometry changes.
+      if (!markersBuilt) rebuildMarkers();
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * vx, dpr * vy);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      // Screen-constant stroke (SVG used vector-effect: non-scaling-stroke).
-      ctx.lineWidth = BASE_STROKE_SCREEN / scale;
+      // World-space stroke: scales with the canvas, never restyled on zoom.
+      ctx.lineWidth = CONNECTOR_STROKE_PX;
 
       const plugFill = plugFillColor(container);
       // Opaque fill so a ring reads as a solid plug over the card edge it
@@ -189,7 +180,7 @@ export function ConnectionsCanvas({
         ctx.strokeStyle = stroke;
         ctx.lineWidth = markerRingWidth;
         ctx.stroke(rings);
-        ctx.lineWidth = BASE_STROKE_SCREEN / scale;
+        ctx.lineWidth = CONNECTOR_STROKE_PX;
       };
       const now = performance.now();
       let animating = false;
@@ -231,7 +222,7 @@ export function ConnectionsCanvas({
         }
 
         // Markers reuse the SVG path builders via Path2D — pixel-identical
-        // to the legacy ConnectorPathGroup rendering (cached per scale).
+        // to the legacy ConnectorPathGroup rendering (cached with geometry).
         if (drawMarkers) {
           const rings = plugPaths.get(g.connId);
           if (rings) drawRings(rings, g.stroke, g.dashed ? g.opacity : 1);

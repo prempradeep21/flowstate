@@ -77,7 +77,6 @@ export function DemoArtifactEdges({
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={e.toSide}
-            viewportScale={viewportScale}
             dashed
             opacity={0.85 * e.opacity}
             showTargetPlug={false}

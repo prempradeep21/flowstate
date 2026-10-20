@@ -9,11 +9,11 @@ import { computeGroupBounds } from "@/lib/groupBounds";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import {
+  CONNECTOR_STROKE_PX,
   buildPlugConnectorPath,
   plugAnchorAt,
   plugAnchorAtWorldPoint,
 } from "@/lib/plugConnector";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
 import {
   CANVAS_ACCENT,
@@ -22,7 +22,6 @@ import {
 } from "@/lib/design/tokens";
 
 const STROKE_FALLBACK = CANVAS_CONNECTOR;
-const BASE_STROKE_SCREEN = 1.75;
 
 export function PlugConnectorLayer() {
   const plugDrag = useCanvasStore((s) => s.plugDrag);
@@ -39,15 +38,6 @@ export function PlugConnectorLayer() {
 
   if (!plugDrag) return null;
 
-  // Rendered only during a plug drag and re-rendered per pointer move —
-  // read the settled scale imperatively instead of subscribing (a settle
-  // subscription re-rendered this layer on every zoom while idle).
-  const viewportSettledScale = useCanvasStore.getState().viewportSettledScale;
-  const strokeWidth = compensatedStrokeWidth(
-    BASE_STROKE_SCREEN,
-    viewportSettledScale,
-    BASE_STROKE_SCREEN,
-  );
 
   let fromAnchor;
   let stroke: string = STROKE_FALLBACK;
@@ -163,11 +153,10 @@ export function PlugConnectorLayer() {
       <ConnectorPathGroup
         d={d}
         stroke={stroke}
-        strokeWidth={strokeWidth}
+        strokeWidth={CONNECTOR_STROKE_PX}
         fromAnchor={fromAnchor}
         toAnchor={end}
         toSide={toSide}
-        viewportScale={viewportSettledScale}
         dashed={dashed}
         opacity={0.85}
         showTargetPlug={false}

@@ -2633,7 +2633,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       id,
       points: [{ ...point }],
       color: get().pencilColor,
-      width: PENCIL_STROKE_WIDTH,
+      // The pen width is on-screen px at draw time, converted ONCE to world
+      // px — the stroke then scales with the canvas and never changes on zoom.
+      width: PENCIL_STROKE_WIDTH / get().viewport.scale,
     };
     set((state) => ({
       canvasStrokes: { ...state.canvasStrokes, [id]: stroke },

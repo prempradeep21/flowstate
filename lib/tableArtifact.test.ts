@@ -86,4 +86,52 @@ describe("normalizeTableArtifactData", () => {
     expect(travel.rows[0]?.forex).toBe("EUR");
     expect(budget.rows[0]?.forex).toBe("GBP");
   });
+
+  it("lifts legacy tags into a plain-text Note column", () => {
+    const data = normalizeTableArtifactData({
+      columns: [
+        { key: "series", label: "Series" },
+        { key: "pref", label: "Pref" },
+      ],
+      rows: [
+        { series: { value: "B-1", tags: [{ label: "Priced below B", tone: "warning" }] }, pref: "$1.6M" },
+        { series: "E", pref: { value: "$1,499.9M", tags: [{ label: "Largest" }] } },
+        { series: "F", pref: "$1,003.3M" },
+      ],
+    });
+    expect(data.columns.map((c) => c.label)).toEqual(["Series", "Pref", "Note"]);
+    expect(data.rows[0]).toEqual({ series: "B-1", pref: "$1.6M", note: "Priced below B" });
+    expect(data.rows[1]).toEqual({ series: "E", pref: "$1,499.9M", note: "Largest" });
+    expect(data.rows[2]).toEqual({ series: "F", pref: "$1,003.3M" });
+  });
+
+  it("turns a tag-only status cell into its text and drops echoing tags", () => {
+    const data = normalizeTableArtifactData({
+      columns: [
+        { key: "role", label: "Role" },
+        { key: "status", label: "Status" },
+      ],
+      rows: [
+        { role: "Lead", status: { tags: [{ label: "Attached" }] } },
+        { role: "Elder", status: { value: "Offer out", badge: "offer out" } },
+      ],
+    });
+    expect(data.columns).toHaveLength(2);
+    expect(data.rows).toEqual([
+      { role: "Lead", status: "Attached" },
+      { role: "Elder", status: "Offer out" },
+    ]);
+  });
+
+  it("merges lifted tags into an existing Notes column", () => {
+    const data = normalizeTableArtifactData({
+      columns: [
+        { key: "q", label: "Quarter" },
+        { key: "n", label: "Notes" },
+      ],
+      rows: [{ q: "Q2", n: { value: "down 37%", tags: [{ label: "COVID" }] } }],
+    });
+    expect(data.columns).toHaveLength(2);
+    expect(data.rows[0]).toEqual({ q: "Q2", n: "down 37% · COVID" });
+  });
 });

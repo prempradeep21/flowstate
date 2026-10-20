@@ -76,7 +76,6 @@ export function ConnectorsSection() {
               fromAnchor={path.fromAnchor}
               toAnchor={path.toAnchor}
               toSide={path.toSide}
-              viewportScale={1}
             />
           ))}
         </svg>

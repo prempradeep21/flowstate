@@ -14,19 +14,20 @@ import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasNodesState } from "@/hooks/useCanvasNodesState";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
-import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
+import {
+  buildPlugConnectorPath,
+  CONNECTOR_STROKE_PX,
+  plugAnchorAt,
+} from "@/lib/plugConnector";
 
 import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 
-const BASE_STROKE_SCREEN = 1.75;
 
 /** Persistent dashed lines from group containers to the cards they feed. */
 export function GroupPlugConnections() {
   const groupPlugConnections = useCanvasStore((s) => s.groupPlugConnections);
   const groups = useCanvasStore((s) => s.groups);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
@@ -35,11 +36,6 @@ export function GroupPlugConnections() {
 
   if (groupPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
-  const strokeWidth = compensatedStrokeWidth(
-    BASE_STROKE_SCREEN,
-    viewportSettledScale,
-    BASE_STROKE_SCREEN,
-  );
 
   return (
     <svg
@@ -102,11 +98,10 @@ export function GroupPlugConnections() {
             key={conn.id}
             d={d}
             stroke={connectorColour(undefined, CANVAS_ACCENT)}
-            strokeWidth={strokeWidth}
+            strokeWidth={CONNECTOR_STROKE_PX}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            viewportScale={viewportSettledScale}
             dashed
             opacity={0.85}
             showTargetPlug={false}

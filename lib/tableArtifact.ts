@@ -73,6 +73,84 @@ export function ensureUniqueTableColumns(
   return { columns: remappedColumns, rows: remappedRows };
 }
 
+const NOTE_COLUMN_LABEL_PATTERN = /^notes?$/i;
+const NOTE_LABEL_SEPARATOR = " · ";
+
+function cellTagLabels(cell: TableRow[string] | undefined): string[] {
+  if (!cell || typeof cell === "string") return [];
+  const labels = (cell.tags ?? []).map((tag) => tag?.label);
+  if (cell.badge) labels.push(cell.badge);
+  return labels
+    .filter((label): label is string => typeof label === "string")
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
+function cellValue(cell: TableRow[string] | undefined): string {
+  if (cell == null) return "";
+  return typeof cell === "string" ? cell : (cell.value ?? "");
+}
+
+/**
+ * Tables carry plain text only — no pills. Legacy cells with `tags` / `badge`
+ * (saved canvases, older model output) are flattened so their annotation keeps
+ * its information without breaking column alignment:
+ *
+ *  - a cell with no value shows its labels as its text (a status column);
+ *  - a label that repeats the cell's own value is dropped;
+ *  - any other label moves to the row's Note column — the table's existing
+ *    "Note"/"Notes" column when it has one, else one appended at the end.
+ */
+export function liftTableCellTags(
+  columns: TableColumn[],
+  rows: TableRow[],
+): { columns: TableColumn[]; rows: TableRow[] } {
+  const hasTags = rows.some((row) =>
+    columns.some((col) => cellTagLabels(row[col.key]).length > 0),
+  );
+  if (!hasTags) return { columns, rows };
+
+  const existingNote = columns.find((col) =>
+    NOTE_COLUMN_LABEL_PATTERN.test(col.label.trim()),
+  );
+  const noteKey =
+    existingNote?.key ??
+    nextUniqueColumnKey("note", new Set(columns.map((col) => col.key)));
+
+  let anyNote = false;
+  const liftedRows = rows.map((row) => {
+    const next: TableRow = { ...row };
+    const notes: string[] = [];
+    for (const col of columns) {
+      const cell = row[col.key];
+      if (cell === undefined) continue;
+      const value = cellValue(cell).trim();
+      const labels = cellTagLabels(cell);
+      if (!value && labels.length > 0) {
+        next[col.key] = labels.join(NOTE_LABEL_SEPARATOR);
+        continue;
+      }
+      next[col.key] = value;
+      for (const label of labels) {
+        if (label.toLowerCase() === value.toLowerCase()) continue;
+        if (!notes.includes(label)) notes.push(label);
+      }
+    }
+    if (notes.length > 0) {
+      anyNote = true;
+      const existing = cellValue(next[noteKey]).trim();
+      next[noteKey] = [existing, ...notes].filter(Boolean).join(NOTE_LABEL_SEPARATOR);
+    }
+    return next;
+  });
+
+  const liftedColumns =
+    anyNote && !existingNote
+      ? [...columns, { key: noteKey, label: "Note" }]
+      : columns;
+  return { columns: liftedColumns, rows: liftedRows };
+}
+
 /** Coerce partial or legacy table payloads into a safe shape. */
 export function normalizeTableArtifactData(data: unknown): TableArtifactData {
   const obj =
@@ -92,7 +170,8 @@ export function normalizeTableArtifactData(data: unknown): TableArtifactData {
         .filter((row): row is TableRow => row !== null)
     : [];
 
-  return ensureUniqueTableColumns(columns, rows);
+  const unique = ensureUniqueTableColumns(columns, rows);
+  return liftTableCellTags(unique.columns, unique.rows);
 }
 
 export function normalizeTablePayload(
