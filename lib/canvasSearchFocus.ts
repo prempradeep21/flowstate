@@ -74,6 +74,6 @@ function focusRect(
 ): boolean {
   return focusCanvasWorldRect(
     { x: position.x, y: position.y, w, h },
-    { sound: true, maxScale: SEARCH_FOCUS_MAX_SCALE },
+    { maxScale: SEARCH_FOCUS_MAX_SCALE },
   );
 }

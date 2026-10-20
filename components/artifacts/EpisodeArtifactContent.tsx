@@ -58,7 +58,7 @@ export function EpisodeArtifactContent({
     const bounds = computeGroupBounds(state, group);
     if (!bounds) return;
     state.setActiveGroupId(groupId);
-    focusCanvasWorldRect(bounds, { sound: true, maxScale: 1 });
+    focusCanvasWorldRect(bounds, { maxScale: 1 });
   }, []);
 
   const meta = [channel, duration].filter(Boolean).join(" · ");

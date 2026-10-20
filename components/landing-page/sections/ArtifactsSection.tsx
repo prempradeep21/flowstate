@@ -10,7 +10,6 @@ import {
   CATALOG_SECTIONS,
   type ArtifactCatalogCategory,
 } from "@/lib/artifactCatalogSamples";
-import { playSound } from "@/lib/sounds/engine";
 
 const ARTIFACT_TABS: ArtifactCatalogCategory[] = ["flowstate", "custom-example"];
 
@@ -37,10 +36,7 @@ export function ArtifactsSection() {
           <button
             key={section.id}
             type="button"
-            onClick={() => {
-              setTab(section.id);
-              void playSound("plug-connect");
-            }}
+            onClick={() => setTab(section.id)}
             className={`rounded-full px-4 py-2 text-canvas-compact transition-colors ${
               tab === section.id
                 ? "bg-canvas-accent font-medium text-canvas-onAccent"

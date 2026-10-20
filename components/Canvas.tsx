@@ -2206,6 +2206,11 @@ export function Canvas({
     panState.current = null;
   };
 
+  // overflow-clip, not overflow-hidden: a hidden box is still a scroll
+  // container, so focusing an off-screen input inside a node (or clicking a
+  // half-visible one) scrolled it. Every layer then sat shifted under a
+  // viewport transform that assumed scroll 0 — culling dropped nodes that
+  // were on screen and zoom pivoted away from the cursor.
   return (
     <div
       ref={setContainerRef}
@@ -2218,7 +2223,7 @@ export function Canvas({
       onContextMenu={handleContextMenu}
       onDragOver={handleCanvasDragOver}
       onDrop={handleCanvasDrop}
-      className={`absolute inset-0 overflow-hidden font-sans select-none touch-none ${
+      className={`absolute inset-0 overflow-clip font-sans select-none touch-none ${
         canvasBackgroundStyle === "static-image" ? "bg-transparent" : "bg-canvas-bg"
       } ${
         placement ||

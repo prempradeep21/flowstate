@@ -65,9 +65,20 @@ export function isEditingKind(cardId: string, kind: ArtifactKind): boolean {
 }
 
 /**
- * Find the skeleton for this draft: the one already filling it, else an
- * unclaimed skeleton of the same kind (popped from the user's intent before
- * the model started writing), else pop a new one.
+ * Draft ids whose skeleton a later same-kind call took over. Their remaining
+ * chunks are ignored so two interleaved calls can't flip the skeleton back
+ * and forth. Tool call ids are unique, so this never needs clearing per turn.
+ */
+const supersededDraftIds = new Set<string>();
+
+/**
+ * Find the skeleton for this draft: the one already filling it, else the
+ * skeleton of the same kind for this card, else pop a new one.
+ *
+ * A turn shows at most one skeleton per kind: when the model emits the same
+ * kind again (a retry or a refinement), the turn end folds those calls into
+ * one artifact as successive versions, so the later call takes over the
+ * existing skeleton instead of stacking a duplicate beside it.
  */
 function resolveDraftNode(
   cardId: string,
@@ -82,13 +93,14 @@ function resolveDraftNode(
   );
   if (claimed) return claimed.id;
 
-  const unclaimed = nodes.find(
-    (n) =>
-      isGeneratingFor(n, cardId) &&
-      n.generatingPreview?.kind === kind &&
-      !n.generatingPreview.draftId,
+  const sameKind = nodes.find(
+    (n) => isGeneratingFor(n, cardId) && n.generatingPreview?.kind === kind,
   );
-  if (unclaimed) return unclaimed.id;
+  if (sameKind) {
+    const previous = sameKind.generatingPreview?.draftId;
+    if (previous) supersededDraftIds.add(previous);
+    return sameKind.id;
+  }
 
   return store.spawnGeneratingArtifactPreview(cardId, kind, title);
 }
@@ -113,6 +125,7 @@ function draftPayload(
 
 /** A chunk of a streamed emit_artifact call arrived. */
 export function applyArtifactDraft(cardId: string, draft: ArtifactDraftEvent): void {
+  if (supersededDraftIds.has(draft.id)) return;
   const kind = draftKind(draft.type);
   if (isEditingKind(cardId, kind)) return;
 

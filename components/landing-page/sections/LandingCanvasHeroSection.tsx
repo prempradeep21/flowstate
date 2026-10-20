@@ -5,7 +5,6 @@ import { GridBackground } from "@/components/canvasBackgrounds/GridBackground";
 import { LandingFloatingNode } from "@/components/landing-page/shared/LandingFloatingNode";
 import { LANDING_COPY } from "@/components/landing-page/landingSections";
 import { LANDING_HERO_FLOATS } from "@/lib/landingCanvasHero";
-import { playSound } from "@/lib/sounds/engine";
 
 export function LandingCanvasHeroSection() {
   const copy = LANDING_COPY.canvasHero;
@@ -54,14 +53,12 @@ export function LandingCanvasHeroSection() {
         >
           <Link
             href="/"
-            onClick={() => void playSound("branch-create")}
             className="inline-flex items-center rounded-full bg-canvas-ink px-7 py-3 text-canvas-body font-medium text-canvas-card transition-opacity hover:opacity-90"
           >
             Start creating
           </Link>
           <Link
             href="#artifacts"
-            onClick={() => void playSound("plug-connect")}
             className="text-canvas-body text-canvas-muted transition-colors hover:text-canvas-ink"
           >
             See how it works →

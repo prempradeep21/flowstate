@@ -16,7 +16,6 @@ const FULL_BLEED_TOOL_PREFIXES = [
   "/admin/tools/artifact-catalog",
   "/admin/tools/artifact-intent",
   "/admin/tools/design-system",
-  "/admin/tools/sound",
   "/admin/tools/models",
 ] as const;
 

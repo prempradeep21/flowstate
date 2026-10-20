@@ -75,6 +75,29 @@ describe("applyArtifactDraft", () => {
     expect(nodes[0]?.generatingPreview?.title).toBe("Itinerary");
   });
 
+  it("lets a repeat same-kind call take over the skeleton instead of stacking", () => {
+    const rows = (city: string) => ({
+      columns: [{ key: "city", label: "City" }],
+      rows: [{ city }],
+    });
+    applyArtifactDraft(cardId, { id: "dup_a", type: "table", title: "Top 10", data: rows("Paris") });
+    applyArtifactDraft(cardId, { id: "dup_b", type: "table", title: "Top 10 (v2)", data: rows("Lyon") });
+    applyArtifactDraft(cardId, { id: "dup_c", type: "table", title: "Top 10 (v3)", data: rows("Nice") });
+    // A late chunk from a superseded call must not steal the skeleton back.
+    applyArtifactDraft(cardId, { id: "dup_a", type: "table", title: "Top 10", data: rows("Paris") });
+
+    const nodes = previews();
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.generatingPreview?.draftId).toBe("dup_c");
+    expect(nodes[0]?.generatingPreview?.title).toBe("Top 10 (v3)");
+    const draft = useArtifactDraftStore.getState().drafts[nodes[0]!.id];
+    expect(draft?.type === "table" && draft.data.rows[0]).toMatchObject({ city: "Nice" });
+
+    // Rejecting a superseded call leaves the live skeleton alone.
+    discardArtifactDraft(cardId, "dup_a");
+    expect(previews()).toHaveLength(1);
+  });
+
   it("drops the skeleton when the server rejects the call", () => {
     applyArtifactDraft(cardId, { id: "a", type: "todo", title: "Packing" });
     expect(previews()).toHaveLength(1);

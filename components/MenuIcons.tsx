@@ -25,8 +25,6 @@ import {
   Trash2,
   Undo2,
   User,
-  Volume2,
-  VolumeX,
   Box,
 } from "lucide-react";
 import { Icon } from "@/components/ui/Icon";
@@ -175,14 +173,6 @@ export function CodeFileIcon() {
 
 export function ShareIcon() {
   return <Icon icon={Share2} className={DEFAULT_CLASS} />;
-}
-
-export function SoundOnIcon() {
-  return <Icon icon={Volume2} className={DEFAULT_CLASS} />;
-}
-
-export function SoundMuteIcon() {
-  return <Icon icon={VolumeX} className={DEFAULT_CLASS} />;
 }
 
 export function GearIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {

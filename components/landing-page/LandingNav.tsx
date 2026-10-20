@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { playSound } from "@/lib/sounds/engine";
 import { LANDING_COPY, LANDING_SECTIONS } from "@/components/landing-page/landingSections";
 import { FlowstateLogo } from "@/components/FlowstateLogo";
 
@@ -61,7 +60,6 @@ export function LandingNav() {
         <Link
           href="/landing"
           className="flex min-w-0 items-center gap-2.5"
-          onClick={() => void playSound("artifact-focus")}
         >
           <FlowstateMark />
           <span className="font-display text-canvas-brand font-semibold text-canvas-ink">
@@ -77,7 +75,6 @@ export function LandingNav() {
             <a
               key={section.id}
               href={`#${section.id}`}
-              onClick={() => void playSound("plug-connect")}
               className={`rounded-full px-3 py-1.5 text-canvas-compact transition-colors ${
                 activeId === section.id
                   ? "bg-canvas-accent/12 font-medium text-canvas-accent"
@@ -91,7 +88,6 @@ export function LandingNav() {
 
         <Link
           href="/"
-          onClick={() => void playSound("branch-create")}
           className="inline-flex shrink-0 items-center rounded-full bg-canvas-ink px-4 py-2 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90"
         >
           Start creating

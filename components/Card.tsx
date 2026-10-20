@@ -60,7 +60,6 @@ import {
 } from "@/lib/qaTurnTimeout";
 import { getLatestVersion } from "@/lib/sessionArtifacts";
 import { resolveCardAttachedArtifactRefs } from "@/lib/attachedArtifactRefs";
-import { playSound, playSoundThrottled } from "@/lib/sounds/engine";
 import {
   getLandingCardId,
   pickCanvasLandingInput,
@@ -286,13 +285,7 @@ function CardInner({ card }: CardProps) {
     },
     resolveRefs: (targetId) =>
       groupRefsForCardDrag(targetId) ?? subtreeGestureRefs(targetId),
-    onDragStart: (targetId) => {
-      clearSpawnMetaIfDragging(targetId);
-      void playSoundThrottled("card-drag-start");
-    },
-    onDrop: (didMove) => {
-      if (didMove) void playSound("card-drag-drop");
-    },
+    onDragStart: (targetId) => clearSpawnMetaIfDragging(targetId),
   });
 
   const answerTextRef = useRef<HTMLDivElement | null>(null);
@@ -941,13 +934,19 @@ function CardInner({ card }: CardProps) {
       <div
         className={`chat-casing group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
-            ? "border-canvas-accent ring-2 ring-canvas-accent/25"
-            : "border-canvas-border"
+            ? "border-canvas-accent outline-canvas-accent ring-2 ring-canvas-accent/25"
+            : "border-canvas-border outline-canvas-border"
         } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{
           // compensatedStrokeWidth(1, scale, 1) as CSS: 1px at scale ≥ 1,
-          // 1/scale below — tracks settle without a React re-render.
-          borderWidth: "calc(1px / min(var(--vp-scale, 1), 1))",
+          // 1/scale below — tracks settle without a React re-render. Drawn
+          // as an inset outline over the fixed 1px border: a zoom-scaled
+          // border changed every card's height on each zoom settle, so all
+          // cards re-measured and wrote their size one by one (~600ms
+          // freeze on a 44-card canvas).
+          outlineStyle: "solid",
+          outlineWidth: "calc(1px / min(var(--vp-scale, 1), 1))",
+          outlineOffset: "calc(-1px / min(var(--vp-scale, 1), 1))",
           ...(isSelected && accent
             ? { boxShadow: `0 0 0 2px ${accent}40` }
             : {}),
@@ -1114,8 +1113,6 @@ export const Card = memo(
 
 const BRANCH_PLUG_SIZE_PX = 10;
 const BRANCH_PLUG_HINT_GAP_PX = 8;
-const BRANCH_PLUG_HINT_OFFSET_PX =
-  BRANCH_PLUG_SIZE_PX / 2 + BRANCH_PLUG_HINT_GAP_PX;
 /** Collapse toggle's bottom edge sits this far above the plug's centre… */
 const BRANCH_TOGGLE_RISE_PX = BRANCH_PLUG_SIZE_PX / 2 + 4;
 /** …and its inner edge this far outside it, so it never covers the plug. */
@@ -1191,24 +1188,36 @@ function BranchCollapseToggle({
   );
 }
 
+/**
+ * Scales with the card like the rest of its text — not counter-scaled. Only
+ * its clearance tracks zoom: the plug it sits beside IS screen-constant, so
+ * the plug's half-width grows in world px as you zoom out. That is a margin
+ * on an absolutely positioned span — CSS only, no layout or React work.
+ */
+const BRANCH_PLUG_HINT_CLEARANCE = `calc(${BRANCH_PLUG_SIZE_PX / 2}px / min(var(--vp-scale, 1), 1) + ${BRANCH_PLUG_HINT_GAP_PX}px)`;
+
 function BranchPlugHint({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";
 
   return (
-    <PlugSideAnchor side={side}>
+    <div
+      className={`pointer-events-none absolute top-1/2 z-40 h-0 w-0 ${
+        isLeft ? "left-0" : "right-0"
+      }`}
+    >
       <span
         className={`pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 whitespace-nowrap text-canvas-body-sm text-canvas-muted ${
           isLeft ? "right-full text-right" : "left-full text-left"
         }`}
         style={{
           ...(isLeft
-            ? { marginRight: BRANCH_PLUG_HINT_OFFSET_PX }
-            : { marginLeft: BRANCH_PLUG_HINT_OFFSET_PX }),
+            ? { marginRight: BRANCH_PLUG_HINT_CLEARANCE }
+            : { marginLeft: BRANCH_PLUG_HINT_CLEARANCE }),
         }}
       >
         Pull a branch
       </span>
-    </PlugSideAnchor>
+    </div>
   );
 }
 

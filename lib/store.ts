@@ -915,10 +915,6 @@ interface CanvasState {
   canvasTheme: CanvasTheme;
   /** Artifact style pack applied to this canvas (structural look). */
   canvasArtifactStyle: ArtifactStyleId;
-  /** UI sound effects enabled for this session. */
-  soundEnabled: boolean;
-  /** Master UI sound volume (0..1). */
-  soundVolume: number;
   /** Session-only font preview — body layer (not persisted). */
   canvasPreviewBodyFontId: string;
   /** Session-only font preview — display layer (not persisted). */
@@ -1354,8 +1350,6 @@ interface CanvasState {
   cycleCanvasBackgroundImage: (delta: -1 | 1) => void;
   setCanvasTheme: (theme: CanvasTheme) => void;
   setCanvasArtifactStyle: (styleId: ArtifactStyleId) => void;
-  setSoundEnabled: (enabled: boolean) => void;
-  setSoundVolume: (volume: number) => void;
   setCanvasPreviewBodyFontId: (id: string) => void;
   setCanvasPreviewDisplayFontId: (id: string) => void;
   /** Re-measure cards from DOM at current zoom, then repair vertical chains. */
@@ -2683,8 +2677,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canvasBackgroundImageId: DEFAULT_CANVAS_BACKGROUND_IMAGE_ID,
   canvasTheme: "light",
   canvasArtifactStyle: DEFAULT_ARTIFACT_STYLE_ID,
-  soundEnabled: true,
-  soundVolume: 0.7,
   canvasPreviewBodyFontId: DEFAULT_BODY_FONT_ID,
   canvasPreviewDisplayFontId: "denton",
   globalOrigin: null,
@@ -3771,11 +3763,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       canvasArtifactStyle: getArtifactStylePack(styleId).id,
       collaborationHasEdits: true,
     }),
-
-  setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
-
-  setSoundVolume: (volume) =>
-    set({ soundVolume: Math.max(0, Math.min(1, volume)) }),
 
   setCanvasPreviewBodyFontId: (id) => set({ canvasPreviewBodyFontId: id }),
   setCanvasPreviewDisplayFontId: (id) => set({ canvasPreviewDisplayFontId: id }),

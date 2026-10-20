@@ -2,7 +2,6 @@
 
 import { LandingFooter } from "@/components/landing-page/LandingFooter";
 import { LandingNav } from "@/components/landing-page/LandingNav";
-import { LandingSoundControl } from "@/components/landing-page/shared/LandingSoundControl";
 import { ArtifactsSection } from "@/components/landing-page/sections/ArtifactsSection";
 import { InputsSection } from "@/components/landing-page/sections/InputsSection";
 import { LandingCanvasHeroSection } from "@/components/landing-page/sections/LandingCanvasHeroSection";
@@ -19,7 +18,6 @@ export function LandingPageApp() {
         <UseCasesSection />
       </main>
       <LandingFooter />
-      <LandingSoundControl />
     </div>
   );
 }

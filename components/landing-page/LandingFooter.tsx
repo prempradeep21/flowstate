@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { LANDING_SECTIONS } from "@/components/landing-page/landingSections";
-import { playSound } from "@/lib/sounds/engine";
 import { FlowstateLogo } from "@/components/FlowstateLogo";
 
 function FlowstateMark() {
@@ -20,7 +19,6 @@ export function LandingFooter() {
             <Link
               href="/landing"
               className="inline-flex items-center gap-2.5"
-              onClick={() => void playSound("artifact-focus")}
             >
               <FlowstateMark />
               <span className="font-display text-canvas-brand font-semibold text-canvas-ink">
@@ -41,7 +39,6 @@ export function LandingFooter() {
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                onClick={() => void playSound("plug-connect")}
                 className="text-canvas-compact text-canvas-muted transition-colors hover:text-canvas-ink"
               >
                 {section.label}
@@ -51,7 +48,6 @@ export function LandingFooter() {
 
           <Link
             href="/"
-            onClick={() => void playSound("branch-create")}
             className="inline-flex shrink-0 items-center self-start rounded-full bg-canvas-ink px-5 py-2.5 text-canvas-compact font-medium text-canvas-card transition-opacity hover:opacity-90"
           >
             Start creating
@@ -66,14 +62,12 @@ export function LandingFooter() {
           >
             <Link
               href="/terms"
-              onClick={() => void playSound("plug-connect")}
               className="transition-colors hover:text-canvas-ink"
             >
               Terms
             </Link>
             <Link
               href="/privacy"
-              onClick={() => void playSound("plug-connect")}
               className="transition-colors hover:text-canvas-ink"
             >
               Privacy

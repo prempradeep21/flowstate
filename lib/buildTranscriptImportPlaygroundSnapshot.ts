@@ -17,6 +17,7 @@ import { buildLightconeEmergentCanvasSection } from "@/lib/transcriptImport/buil
 import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPrashantKishorCanvasSection";
 import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
+import { buildFreshMenuCanvasSection } from "@/lib/transcriptImport/buildFreshMenuCanvasSection";
 import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
@@ -67,6 +68,10 @@ import {
   NITHIN_KAMATH_RISK_TRANSCRIPT,
   NITHIN_KAMATH_RISK_VIDEO_URL,
 } from "@/lib/transcriptImport/nithinKamathRisk";
+import {
+  FRESHMENU_TRANSCRIPT,
+  FRESHMENU_VIDEO_URL,
+} from "@/lib/transcriptImport/freshMenuStruggle";
 import {
   ALLARI_NARESH_TRANSCRIPT,
   ALLARI_NARESH_VIDEO_URL,
@@ -282,6 +287,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     ALLARI_NARESH_TRANSCRIPT,
     buildAllariNareshCanvasSection,
     ALLARI_NARESH_VIDEO_URL,
+  ),
+  defineCanvas(
+    "freshmenu-backstage",
+    "FreshMenu — Backstage with Millionaires",
+    FRESHMENU_TRANSCRIPT,
+    buildFreshMenuCanvasSection,
+    FRESHMENU_VIDEO_URL,
   ),
 ];
 
