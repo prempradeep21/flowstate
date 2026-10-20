@@ -32,15 +32,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".next-artifact-catalog/types/**/*.ts",
-    ".next-artifact-studio-8/types/**/*.ts",
-    ".next-artifact-studio-alt/types/**/*.ts",
-    ".next-artifact-studio/types/**/*.ts",
     ".next-build-check/types/**/*.ts",
     ".next-demo/types/**/*.ts",
     ".next-design-system/types/**/*.ts",
     ".next-electron-3300/types/**/*.ts",
     ".next-mobile-sdlc-sandbox/types/**/*.ts",
-    ".next-outreach/types/**/*.ts",
     ".next-preview/types/**/*.ts",
     ".next-repo-explorer/types/**/*.ts",
     ".next-showcase/types/**/*.ts",
@@ -48,7 +44,7 @@
     ".next/types/**/*.ts",
     "next-env.d.ts",
     "types/**/*.d.ts",
-    ".next-artifact-studio-d/types/**/*.ts"
+    ".next-outreach/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

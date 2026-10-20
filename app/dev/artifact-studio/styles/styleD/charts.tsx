@@ -340,6 +340,7 @@ export function LineBody({ ctx }: Ctx) {
 
 /** On glow: the label, the latest figure in dots, then the area as frosted white layers over the colour. */
 export function AreaBody({ ctx }: Ctx) {
+  const on = useOn();
   const d = chartData(ctx);
   const [ref, box] = useBox<HTMLDivElement>();
   if (!d || !d.categories?.length || !d.series?.length) return <CurrentBody ctx={ctx} />;
@@ -360,7 +361,6 @@ export function AreaBody({ ctx }: Ctx) {
   const yOf = (v: number) => h - (v / max) * (h * 0.9);
   const order = layers.map((l, i) => ({ i, sum: l.reduce((a, b) => a + b, 0) })).sort((a, b) => (stacked ? b.i - a.i : b.sum - a.sum));
   const value = withUnit(last, d.unit);
-  const on = useOn();
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -494,6 +494,7 @@ export function PieBody({ ctx }: Ctx) {
 
 /** The reference's "Biological age" card: label, the value in lit dots, a line under it, then the ruler. */
 export function GaugeBody({ ctx }: Ctx) {
+  const on = useOn();
   const d = chartData(ctx);
   if (!d || d.gaugeValue == null) return <CurrentBody ctx={ctx} />;
 
@@ -501,7 +502,6 @@ export function GaugeBody({ ctx }: Ctx) {
   const frac = Math.max(0, Math.min(1, d.gaugeValue / (maxV || 1)));
   const isPct = d.unit === "%" || maxV === 100;
   const valueText = isPct ? `${compact(d.gaugeValue)}%` : withUnit(d.gaugeValue, d.unit);
-  const on = useOn();
   const kicker = d.gaugeLabel ? (isPct ? d.gaugeLabel : `${d.gaugeLabel} · of ${withUnit(maxV, d.unit)}`) : `of ${withUnit(maxV, d.unit)}`;
 
   return (
@@ -528,6 +528,7 @@ export function GaugeBody({ ctx }: Ctx) {
  * reference's track from where it was to where it is.
  */
 export function StatBody({ ctx }: Ctx) {
+  const on = useOn();
   const payload = ctx.item.payload;
   if (payload.type !== "stat") return <CurrentBody ctx={ctx} />;
   const d = payload.data;
@@ -535,7 +536,6 @@ export function StatBody({ ctx }: Ctx) {
   const to = d.delta ? parseFigure(d.delta.to) : null;
   const share = from != null && to != null ? Math.min(1, Math.abs(to) / Math.max(Math.abs(from), Math.abs(to), 1e-9)) : null;
   const inDots = (d.value.length <= 7 && /\d/.test(d.value));
-  const on = useOn();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ padding: `${PAD - 6}px ${PAD - 4}px ${PAD - 8}px` }}>

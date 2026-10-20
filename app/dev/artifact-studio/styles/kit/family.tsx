@@ -120,7 +120,7 @@ export function makeKitFamily(spec: KitFamilySpec): ArtifactStyleFamily {
   const FamilyFrame = spec.Frame;
   const FamilyHeader = spec.Header;
 
-  family.slots.Frame = (props) => {
+  const Frame: StyleSlots["Frame"] = (props) => {
     const theme = resolveTheme(family, props.ctx)!;
     return (
       <Root ctx={props.ctx}>
@@ -128,10 +128,14 @@ export function makeKitFamily(spec: KitFamilySpec): ArtifactStyleFamily {
       </Root>
     );
   };
-  family.slots.Header = ({ ctx, icon }) => {
+  Frame.displayName = `${family.id}.Frame`;
+  family.slots.Frame = Frame;
+  const Header: StyleSlots["Header"] = ({ ctx, icon }) => {
     const theme = resolveTheme(family, ctx)!;
     return <FamilyHeader ctx={ctx} icon={icon} theme={theme} />;
   };
+  Header.displayName = `${family.id}.Header`;
+  family.slots.Header = Header;
 
   if (spec.bareNotes) {
     family.variants!.stickynote = {

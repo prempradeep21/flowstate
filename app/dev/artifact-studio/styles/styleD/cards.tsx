@@ -75,11 +75,11 @@ function Speaker({
 // ─── Quote ──────────────────────────────────────────────────────────────────
 
 export function QuoteBody({ ctx }: Ctx) {
+  const mode = useDMode();
   const payload = ctx.item.payload;
   if (payload.type !== "quote") return <CurrentBody ctx={ctx} />;
   const d = payload.data;
   const size = sizeFor(d.text, [[90, 30], [140, 26], [200, 23], [260, 20]], 18);
-  const mode = useDMode();
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ padding: PAD }}>
@@ -124,11 +124,11 @@ function Side({ side, label, role, hue, fill }: { side: ClaimSide; label: string
 
 /** The question in light display type, then the two answers as two small cards, staggered like the reference's quotes. */
 export function ClaimBody({ ctx }: Ctx) {
+  const frost = useDMode() === "frost";
   const payload = ctx.item.payload;
   if (payload.type !== "claim") return <CurrentBody ctx={ctx} />;
   const d = payload.data;
   const title = ctx.item.artifact.title;
-  const frost = useDMode() === "frost";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ padding: PAD }}>
@@ -151,11 +151,11 @@ export function ClaimBody({ ctx }: Ctx) {
 
 /** A dictionary entry: the headword large and light, the gloss under it, the example in a raised pill. */
 export function DefinitionBody({ ctx }: Ctx) {
+  const mode = useDMode();
   const payload = ctx.item.payload;
   if (payload.type !== "definition") return <CurrentBody ctx={ctx} />;
   const d = payload.data;
   const title = ctx.item.artifact.title;
-  const mode = useDMode();
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ padding: `${PAD - 6}px ${PAD}px` }}>
@@ -193,10 +193,10 @@ const NOTE_HUE: Record<string, HueId | null> = { turbo: "sun", violet: "lilac", 
 
 /** A note: in Aurora a frost card whose colour comes up as a bloom from below; in Frost the frame paints it flat lime. */
 export function StickyBody({ ctx }: Ctx) {
-  const payload = ctx.item.payload;
-  if (payload.type !== "stickynote") return <CurrentBody ctx={ctx} />;
   const frost = useDMode() === "frost";
   const on = useOn();
+  const payload = ctx.item.payload;
+  if (payload.type !== "stickynote") return <CurrentBody ctx={ctx} />;
   const hue = frost ? null : NOTE_HUE[payload.data.colorId] ?? "sun";
   const text = payload.data.text;
   return (
