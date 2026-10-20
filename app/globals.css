@@ -787,7 +787,8 @@ body::-webkit-scrollbar-corner {
   fill-opacity: 0.1;
 }
 
-html[data-theme="dark"] .timeline-band {
+html[data-theme="dark"] .timeline-band,
+.theme-scope-dark .timeline-band {
   fill-opacity: 0.18;
 }
 

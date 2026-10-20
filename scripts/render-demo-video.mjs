@@ -16,6 +16,7 @@
  *   --browser-args "<a b>"  Extra Chromium launch switches (space separated)
  *   --channel <name>   Launch an installed browser (e.g. "chrome") instead of
  *                      Playwright's bundled chromium
+ *   --out <WxH>        Encoded size (default: the scene's frame size)
  *   --skip-encode      Capture frames only
  *   --encode-only      Encode existing frames only
  */
@@ -95,6 +96,22 @@ const SCENES = {
     warmupMs: [0, 6200, 9000, 14500],
     settleExtraMs: {},
   },
+  // 9:16 Artifact Studio bentos, one per style family (scenes/studio).
+  ...Object.fromEntries(
+    ["studio-d", "studio-capsule"].map((id) => [
+      id,
+      {
+        durationMs: 15000,
+        width: 1080,
+        height: 1920,
+        framesDir: path.join(ROOT, "demo-video", `frames-${id}`),
+        outFile: path.join(ROOT, "demo-video", `flowstate-${id}.mp4`),
+        // Remote thumbnails on the mood board + the three later shots.
+        warmupMs: [0, 6000, 12000, 14500],
+        settleExtraMs: {},
+      },
+    ]),
+  ),
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(
@@ -126,6 +143,8 @@ if (!scene) {
   process.exit(1);
 }
 const TOTAL_FRAMES = Math.round((scene.durationMs / 1000) * FPS);
+const FRAME_W = scene.width ?? 1920;
+const FRAME_H = scene.height ?? 1080;
 
 const every = Number(getArg("every", "1"));
 const [rangeA, rangeB] = getArg("range", `0-${TOTAL_FRAMES - 1}`)
@@ -135,6 +154,9 @@ const dsf = Number(getArg("dsf", "2"));
 const channel = getArg("channel", undefined);
 const stable = hasFlag("stable");
 const browserArgs = (getArg("browser-args", "") || "").split(/\s+/).filter(Boolean);
+// Encoded size: the frame size, or `--out WxH` (e.g. the native supersampled
+// size for a 4K master).
+const [OUT_W, OUT_H] = (getArg("out", `${FRAME_W}x${FRAME_H}`)).split("x").map(Number);
 const unstable = [];
 
 async function waitForServer(origin, timeoutMs = 120_000) {
@@ -190,7 +212,7 @@ async function main() {
 
     const browser = await chromium.launch({ headless: true, channel, args: browserArgs });
     const context = await browser.newContext({
-      viewport: { width: 1920, height: 1080 },
+      viewport: { width: FRAME_W, height: FRAME_H },
       deviceScaleFactor: dsf,
       reducedMotion: "reduce",
     });
@@ -199,7 +221,7 @@ async function main() {
 
     console.log("Loading scene (first compile can take a minute)...");
     await page.goto(
-      `${url}/dev/demo-video?scene=${sceneId}&capture=1&w=1920&h=1080`,
+      `${url}/dev/demo-video?scene=${sceneId}&capture=1&w=${FRAME_W}&h=${FRAME_H}`,
       { waitUntil: "domcontentloaded", timeout: 180_000 },
     );
     await page.waitForFunction(() => typeof window.__seek === "function", {
@@ -299,7 +321,7 @@ async function main() {
       "-y",
       "-framerate", String(FPS),
       "-i", path.join(scene.framesDir, "%04d.png"),
-      "-vf", "scale=1920:1080:flags=lanczos",
+      "-vf", `scale=${OUT_W}:${OUT_H}:flags=lanczos`,
       "-c:v", "libx264",
       "-preset", "slow",
       "-crf", "18",
@@ -318,7 +340,7 @@ async function main() {
       path.join(ROOT, "scripts", "encode-demo-video.swift"),
       "-o", encoder,
     ]);
-    await run(encoder, [scene.framesDir, scene.outFile, String(FPS), "1920", "1080"]);
+    await run(encoder, [scene.framesDir, scene.outFile, String(FPS), String(OUT_W), String(OUT_H)]);
   } else {
     throw new Error(
       `ffmpeg binary not found at ${ffmpegPath} — run "node node_modules/ffmpeg-static/install.js"`,

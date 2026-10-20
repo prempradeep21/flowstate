@@ -5,6 +5,9 @@
 export interface SceneSpec {
   id: string;
   durationMs: number;
+  /** Frame size; 1920×1080 when omitted. */
+  width?: number;
+  height?: number;
   /** Frames (60fps) that need an extra fixed settle wait during capture,
    *  e.g. wall-clock mount animations (echarts) or opaque iframes (street view). */
   settleExtraMs?: Record<number, number>;
@@ -61,6 +64,22 @@ export const SCENES: Record<string, SceneSpec> = {
     // Remote thumbnails (YouTube still, link favicons) on the far-left
     // masthead; pre-seek so they are cached.
     warmupMs: [0, 6200, 9000, 14500],
+  },
+  // 9:16 Artifact Studio bentos (scenes/studio), one per style family.
+  "studio-d": {
+    id: "studio-d",
+    durationMs: 15000,
+    width: 1080,
+    height: 1920,
+    warmupMs: [0, 6000, 12000, 14500],
+  },
+  "studio-capsule": {
+    id: "studio-capsule",
+    durationMs: 15000,
+    width: 1080,
+    height: 1920,
+    // The mood board's Wikimedia thumbnails load at frame 0.
+    warmupMs: [0, 6000, 12000, 14500],
   },
   // 3s brand idents (scenes/logo) — no network content, no settle hints.
   "logo-draw": { id: "logo-draw", durationMs: 3000 },

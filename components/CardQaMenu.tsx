@@ -28,7 +28,7 @@ interface CardQaMenuProps {
   buttonRadius?: string;
 }
 
-function DotsIcon() {
+export function DotsIcon() {
   return (
     <svg
       aria-hidden
@@ -43,7 +43,7 @@ function DotsIcon() {
   );
 }
 
-function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
+export function ChatCollapseIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
       aria-hidden
