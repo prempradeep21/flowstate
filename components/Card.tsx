@@ -167,9 +167,8 @@ function CardInner({ card }: CardProps) {
     ),
   );
   // No zoom LOD: cards render the same content at the same type size at every
-  // zoom and just shrink geometrically, like every other artifact. Scalar
-  // compensations (border/accent widths) track scale via the --vp-scale CSS
-  // custom property written by CanvasViewport — zero React involvement.
+  // zoom and just shrink geometrically, like every other artifact — borders
+  // and chrome included (nothing is zoom-compensated).
   // Mounted mid-gesture (culling reveal during pan/zoom): render the cheap
   // placeholder now, hydrate to full content a few nodes per frame.
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -938,15 +937,11 @@ function CardInner({ card }: CardProps) {
             : "border-canvas-border outline-canvas-border"
         } ${!contentInteractive ? CANVAS_CONTENT_INERT_CLASS : ""}`}
         style={{
-          // compensatedStrokeWidth(1, scale, 1) as CSS: 1px at scale ≥ 1,
-          // 1/scale below — tracks settle without a React re-render. Drawn
-          // as an inset outline over the fixed 1px border: a zoom-scaled
-          // border changed every card's height on each zoom settle, so all
-          // cards re-measured and wrote their size one by one (~600ms
-          // freeze on a 44-card canvas).
+          // Fixed 1px world-space outline, inset over the 1px border: it
+          // scales with the card and never restyles on zoom.
           outlineStyle: "solid",
-          outlineWidth: "calc(1px / min(var(--vp-scale, 1), 1))",
-          outlineOffset: "calc(-1px / min(var(--vp-scale, 1), 1))",
+          outlineWidth: 1,
+          outlineOffset: -1,
           ...(isSelected && accent
             ? { boxShadow: `0 0 0 2px ${accent}40` }
             : {}),
@@ -1119,10 +1114,8 @@ const BRANCH_TOGGLE_RISE_PX = BRANCH_PLUG_SIZE_PX / 2 + 4;
 const BRANCH_TOGGLE_INSET_PX = 2;
 
 /**
- * A zero-size point at the plug's centre on the card edge, counter-scaled
- * exactly like <Plug>. Chrome placed beside the plug inside it keeps the same
- * screen gap from the plug at every zoom — scaled with the card instead, it
- * shrank toward the screen-constant plug when zoomed out and ran into it.
+ * A zero-size point at the plug's centre on the card edge. Like <Plug> it is
+ * a fixed world size, so chrome placed beside it scales with the card.
  */
 function PlugSideAnchor({
   side,
@@ -1136,10 +1129,6 @@ function PlugSideAnchor({
       className={`pointer-events-none absolute top-1/2 z-40 h-0 w-0 ${
         side === "left" ? "left-0" : "right-0"
       }`}
-      style={{
-        transform: "scale(calc(1 / min(var(--vp-scale, 1), 1)))",
-        transformOrigin: "0 0",
-      }}
     >
       {children}
     </div>
@@ -1188,13 +1177,8 @@ function BranchCollapseToggle({
   );
 }
 
-/**
- * Scales with the card like the rest of its text — not counter-scaled. Only
- * its clearance tracks zoom: the plug it sits beside IS screen-constant, so
- * the plug's half-width grows in world px as you zoom out. That is a margin
- * on an absolutely positioned span — CSS only, no layout or React work.
- */
-const BRANCH_PLUG_HINT_CLEARANCE = `calc(${BRANCH_PLUG_SIZE_PX / 2}px / min(var(--vp-scale, 1), 1) + ${BRANCH_PLUG_HINT_GAP_PX}px)`;
+/** Scales with the card like the rest of its text, clear of the plug. */
+const BRANCH_PLUG_HINT_CLEARANCE = BRANCH_PLUG_SIZE_PX / 2 + BRANCH_PLUG_HINT_GAP_PX;
 
 function BranchPlugHint({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";

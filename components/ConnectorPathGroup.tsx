@@ -17,7 +17,6 @@ export function ConnectorPathGroup({
   strokeWidth,
   fromAnchor,
   toAnchor,
-  viewportScale,
   dashed,
   opacity = 0.85,
   showSourcePlug = true,
@@ -35,7 +34,6 @@ export function ConnectorPathGroup({
   toAnchor: PlugAnchor;
   /** Unused since both ends draw the same ring; kept so callers needn't change. */
   toSide?: CardSide;
-  viewportScale: number;
   dashed?: boolean;
   opacity?: number;
   showSourcePlug?: boolean;
@@ -47,7 +45,7 @@ export function ConnectorPathGroup({
   onDrawComplete?: () => void;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
-  const { plugRadius, plugRingWidth } = connectorMarkerSizes(viewportScale);
+  const { plugRadius, plugRingWidth } = connectorMarkerSizes(1);
 
   useEffect(() => {
     if (!drawIn || !pathRef.current) return;
@@ -92,7 +90,6 @@ export function ConnectorPathGroup({
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={dashed ? "6 5" : undefined}
-        vectorEffect="non-scaling-stroke"
         className={drawIn ? "connection-draw-in" : undefined}
         pointerEvents="none"
       />

@@ -19,20 +19,16 @@ interface GroupBoundsProps {
   group: BranchGroup;
 }
 
-const SCREEN_STROKE = 1.5;
+/**
+ * Frame stroke in WORLD px: it scales with the canvas like every node, and
+ * nothing about it changes on zoom — a zoom-compensated stroke restyled every
+ * frame after each zoom settled. Active state is colour only, same width.
+ */
+const FRAME_STROKE_PX = 2;
+/** Divider hairline between the group's cards and artifacts, world px. */
+const DIVIDER_STROKE_PX = 1.5;
 /** Concentric with the nodes it frames: their lg corner + the frame padding. */
 const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
-
-/** Counter-scale the size badge so it stays screen-constant under zoom. */
-const CHROME_COUNTER_SCALE = "scale(calc(1 / min(var(--vp-scale, 1), 1)))";
-
-/**
- * compensatedStrokeWidth(px, scale) as CSS: px at scale ≥ 1, px/scale below.
- * Driven by the --vp-scale var CanvasViewport writes at settle, so zooming
- * never re-renders group frames.
- */
-const screenStroke = (px: number) => `calc(${px}px / min(var(--vp-scale, 1), 1))`;
-
 
 /**
  * Figma-section-style group container: translucent fill behind the members,
@@ -73,8 +69,6 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
   });
 
   if (!bounds) return null;
-
-  const stroke = screenStroke(isActive ? SCREEN_STROKE * 1.5 : SCREEN_STROKE);
 
   const handleLabelPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || editing) return;
@@ -124,10 +118,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         height: bounds.h,
       }}
     >
-      {/*
-        Frame: an inset outline rather than an SVG stroke, so its zoom
-        compensation is pure CSS (no geometry to recompute per zoom).
-      */}
+      {/* Frame: an inset outline, so the stroke sits inside the bounds. */}
       <div
         className="absolute inset-0"
         aria-hidden
@@ -135,8 +126,8 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
           borderRadius: CORNER_RADIUS,
           background: "rgb(var(--canvas-card) / 0.3)",
           outlineStyle: "solid",
-          outlineWidth: stroke,
-          outlineOffset: `calc(-1 * ${stroke})`,
+          outlineWidth: FRAME_STROKE_PX,
+          outlineOffset: -FRAME_STROKE_PX,
           outlineColor: isActive
             ? "rgb(var(--canvas-accent))"
             : "rgb(var(--canvas-ink) / 0.16)",
@@ -156,7 +147,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
             left: GROUP_BOUNDS_PADDING,
             width: Math.max(0, bounds.w - GROUP_BOUNDS_PADDING * 2),
             top: group.dividerY - bounds.y,
-            height: screenStroke(SCREEN_STROKE),
+            height: DIVIDER_STROKE_PX,
             background: "rgb(var(--canvas-ink) / 0.18)",
           }}
         />
@@ -258,8 +249,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
       {/* Size badge below the box while active (Figma selected-section chrome). */}
       {isActive && (
         <div
-          className="pointer-events-none absolute left-1/2 top-full mt-1.5 origin-top"
-          style={{ transform: `translateX(-50%) ${CHROME_COUNTER_SCALE}` }}
+          className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2"
         >
           <span className="rounded-canvas-sm bg-canvas-accent px-2 py-0.5 text-canvas-caption font-medium text-canvas-onAccent shadow-sm">
             {Math.round(bounds.w)} × {Math.round(bounds.h)}

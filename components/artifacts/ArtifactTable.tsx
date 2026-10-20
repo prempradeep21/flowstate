@@ -21,10 +21,7 @@ import {
   TABLE_COLUMN_MIN_PX,
   TABLE_COLUMN_MIN_RESIZE_PERCENT,
 } from "@/lib/tableColumnWidths";
-import {
-  normalizeTableCell,
-  tableTagClassName,
-} from "@/lib/tableCellContent";
+import { normalizeTableCell } from "@/lib/tableCellContent";
 import {
   formatRichTextForDisplay,
   RICH_TEXT_CLASS,
@@ -455,7 +452,7 @@ export function ArtifactTable({
             >
               {columns.map((col, ci) => {
                 const spec = widthByKey.get(col.key);
-                const { text, tags } = normalizeTableCell(row[col.key]);
+                const { text } = normalizeTableCell(row[col.key]);
                 const delayMs = ci * columnStagger + ri * rowStagger;
                 return (
                   <td
@@ -469,31 +466,7 @@ export function ArtifactTable({
                         : undefined
                     }
                   >
-                    <div className="flex min-w-0 w-full flex-col gap-1">
-                      {text ? (
-                        <span className={tags.length > 0 ? "block" : undefined}>
-                          {text}
-                        </span>
-                      ) : null}
-                      {tags.length > 0 ? (
-                        <span
-                          className={
-                            tags.length > 1
-                              ? "flex min-w-0 w-full flex-col items-start gap-1.5"
-                              : "flex min-w-0 w-full flex-wrap items-start gap-1"
-                          }
-                        >
-                          {tags.map((tag, ti) => (
-                            <span
-                              key={`${tag.label}-${ti}`}
-                              className={tableTagClassName(tag.tone, compact)}
-                            >
-                              {tag.label}
-                            </span>
-                          ))}
-                        </span>
-                      ) : null}
-                    </div>
+                    {text}
                   </td>
                 );
               })}

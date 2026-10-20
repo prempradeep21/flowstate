@@ -236,7 +236,13 @@ export interface TableTag {
 
 export interface TableCell {
   value?: string;
+  /**
+   * @deprecated Read-only legacy input. Tables never render pills:
+   * `normalizeTableArtifactData` lifts these into plain-text columns. New
+   * tables put annotations in their own column instead.
+   */
   tags?: TableTag[];
+  /** @deprecated Legacy single-tag alias — see `tags`. */
   badge?: string;
 }
 

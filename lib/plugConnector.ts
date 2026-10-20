@@ -373,6 +373,13 @@ export function buildPlugConnectorPath(
  * border as the DOM <Plug> (components/plugs/Plug.tsx), so a drawn end and a
  * live plug at the same anchor coincide exactly.
  */
+/**
+ * Connector line width in WORLD px. Lines scale with the canvas like the
+ * nodes they join — no zoom compensation, so nothing restyles on zoom.
+ */
+export const CONNECTOR_STROKE_PX = 2;
+/** Invisible hover/hit stroke around a connector, world px. */
+export const CONNECTOR_HIT_STROKE_PX = 14;
 export const PLUG_DIAMETER_PX = 10;
 export const PLUG_RING_PX = 2;
 

@@ -7,7 +7,17 @@ import {
 } from "@/lib/viewportGesture";
 import { useCanvasStore } from "@/lib/store";
 
-/** Applies viewport transform imperatively so pan/zoom does not re-render children. */
+/**
+ * Applies viewport transform imperatively so pan/zoom does not re-render children.
+ *
+ * Deliberately NO will-change: transform. It pins Chrome's raster scale at
+ * device resolution regardless of zoom, so zoomed out the whole world was
+ * rasterized at full res (~1GB of tiles for a 20k-px canvas at 10%): tile
+ * memory ran out and missing tiles drew as blank patches that flickered and
+ * persisted at rest. Without it Chrome rasters at the painted scale and keeps
+ * the old tiling as a fallback while re-rastering (measured: 0 missing tiles,
+ * pans and zoom-in at parity).
+ */
 export function CanvasViewport({ children }: PropsWithChildren) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -38,10 +48,8 @@ export function CanvasViewport({ children }: PropsWithChildren) {
     });
 
     // --vp-scale: the settled scale as a CSS custom property on the canvas
-    // container. Scalar zoom compensations (border widths, counter-scaled
-    // chrome, plug sizing) consume it via calc() so they track settle
-    // WITHOUT a React subscription — the post-zoom settle no longer
-    // re-renders every visible node just to restyle a few pixels.
+    // container. Canvas content is NOT zoom-compensated; only the selection
+    // box's corner radius reads it.
     const container =
       el.closest<HTMLElement>("[data-canvas-container]") ?? el;
     const applySettledScale = (scale: number) => {
@@ -65,7 +73,7 @@ export function CanvasViewport({ children }: PropsWithChildren) {
     <div
       ref={wrapperRef}
       data-canvas-viewport
-      className="absolute left-0 top-0 origin-top-left will-change-transform"
+      className="absolute left-0 top-0 origin-top-left"
     >
       {children}
     </div>

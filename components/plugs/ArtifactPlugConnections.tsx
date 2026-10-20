@@ -12,12 +12,14 @@ import {
 } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
-import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
+import {
+  buildPlugConnectorPath,
+  CONNECTOR_STROKE_PX,
+  plugAnchorAt,
+} from "@/lib/plugConnector";
 
 import { connectorColour } from "@/lib/design/tokens";
 
-const BASE_STROKE_SCREEN = 1.75;
 
 export function ArtifactPlugConnections() {
   const artifactPlugConnections = useCanvasStore((s) => s.artifactPlugConnections);
@@ -26,7 +28,6 @@ export function ArtifactPlugConnections() {
   const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
   const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const recentArtifactPlugId = useCanvasStore((s) => s.recentArtifactPlugId);
   const clearRecentArtifactPlug = useCanvasStore((s) => s.clearRecentArtifactPlug);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
@@ -36,11 +37,6 @@ export function ArtifactPlugConnections() {
 
   if (artifactPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
-  const strokeWidth = compensatedStrokeWidth(
-    BASE_STROKE_SCREEN,
-    viewportSettledScale,
-    BASE_STROKE_SCREEN,
-  );
 
   return (
     <svg
@@ -115,11 +111,10 @@ export function ArtifactPlugConnections() {
             key={conn.id}
             d={d}
             stroke={stroke}
-            strokeWidth={strokeWidth}
+            strokeWidth={CONNECTOR_STROKE_PX}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            viewportScale={viewportSettledScale}
             dashed
             opacity={conn.id === recentArtifactPlugId ? 1 : 0.85}
             showTargetPlug={false}

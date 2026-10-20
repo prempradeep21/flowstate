@@ -8,15 +8,17 @@ import {
 } from "@/lib/canvasMeasure";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
 import { connectorColour } from "@/lib/design/tokens";
-import { buildPlugConnectorPath, plugAnchorAt } from "@/lib/plugConnector";
+import {
+  buildPlugConnectorPath,
+  CONNECTOR_STROKE_PX,
+  plugAnchorAt,
+} from "@/lib/plugConnector";
 import {
   useNodeDragFrame,
   withNodeDragOffset,
 } from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
-import { compensatedStrokeWidth } from "@/lib/zoomDisplay";
 
-const BASE_STROKE_SCREEN = 1.75;
 
 export function SkillPlugConnections() {
   const skillPlugConnections = useCanvasStore((s) => s.skillPlugConnections);
@@ -24,7 +26,6 @@ export function SkillPlugConnections() {
   const canvasSkillNodes = useCanvasStore((s) => s.canvasSkillNodes);
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
-  const viewportSettledScale = useCanvasStore((s) => s.viewportSettledScale);
   const chatsGloballyHidden = useCanvasStore((s) => s.chatsGloballyHidden);
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
@@ -32,11 +33,6 @@ export function SkillPlugConnections() {
 
   if (skillPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
-  const strokeWidth = compensatedStrokeWidth(
-    BASE_STROKE_SCREEN,
-    viewportSettledScale,
-    BASE_STROKE_SCREEN,
-  );
 
   return (
     <svg
@@ -104,11 +100,10 @@ export function SkillPlugConnections() {
             key={conn.id}
             d={d}
             stroke={connectorColour(undefined)}
-            strokeWidth={strokeWidth}
+            strokeWidth={CONNECTOR_STROKE_PX}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            viewportScale={viewportSettledScale}
             dashed
             opacity={0.85}
             showTargetPlug={false}
