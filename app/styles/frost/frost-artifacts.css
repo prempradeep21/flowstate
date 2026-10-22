@@ -445,3 +445,360 @@ html[data-theme="dark"] [data-artifact-style="frost"] [data-frost-node] {
   font-size: 24px;
   line-height: 1.15;
 }
+
+/* ------------------------ Dropped URLs: live documents ----------------- */
+/* A Google Doc / Sheet / Slide sits in the card's well like any picture;
+   the "import for AI context" strip below it is no band of its own — one
+   ink line and raised pills, on the frost (artifacts-frost.md §2). */
+[data-artifact-style="frost"] [data-frost-node] [data-gdoc-preview] {
+  background: var(--frost-well) !important;
+}
+[data-artifact-style="frost"] [data-frost-node] [data-gdoc-import] {
+  background: transparent !important;
+  border-top: 0 !important;
+  padding: 14px 4px 2px;
+}
+[data-artifact-style="frost"] [data-frost-node] [data-gdoc-import] p {
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+  font-size: 15px;
+}
+[data-artifact-style="frost"] [data-frost-node] [data-gdoc-import] button,
+[data-artifact-style="frost"] [data-frost-node] [data-gdoc-pill] {
+  border: 0 !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow) !important;
+  color: var(--frost-ink) !important;
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 7px 14px;
+}
+
+/* ---------------------- Dropped files: media-card parity ---------------- */
+/* An input asset is a Frost media card: the title is set like MediaHead's
+   (primary font, 28px, tight), and its preview speaks Frost — the vanilla
+   card / accent / muted channels resolve to the frost tone and ink, exactly
+   as inside a Frost-bodied node. */
+[data-artifact-style="frost"] [data-canvas-asset] {
+  --canvas-card: 241 241 239;
+  --canvas-bg: 233 233 231;
+  --canvas-artifact-stage: 233 233 231;
+  --canvas-accent: 28 28 30;
+  --canvas-border: 222 222 219;
+  --canvas-ink: 28 28 30;
+  --canvas-muted: 28 28 30;
+}
+html[data-theme="dark"] [data-artifact-style="frost"] [data-canvas-asset] {
+  --canvas-card: 37 37 41;
+  --canvas-bg: 25 25 28;
+  --canvas-artifact-stage: 25 25 28;
+  --canvas-accent: 242 242 240;
+  --canvas-border: 54 54 59;
+  --canvas-ink: 242 242 240;
+  --canvas-muted: 242 242 240;
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-panel-header .truncate {
+  font-size: 28px !important;
+  line-height: 1.1;
+  padding: 4px 0 6px;
+}
+/* The preview sits on the well itself: no inner white panel or border. */
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-casing > .min-h-0.flex-1 .bg-canvas-card,
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-casing > .min-h-0.flex-1 [class*="bg-white"] {
+  background-color: transparent !important;
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-casing > .min-h-0.flex-1 [class*="border-canvas-border"] {
+  border-color: transparent !important;
+}
+
+/* ------------------------------ Sticky note ---------------------------- */
+/* The note is written on in place (styleD StickyBody): its placeholder is
+   the note's own ink, faded — the one place a note's type may fade. */
+[data-frost-note-field]::placeholder {
+  color: var(--note-placeholder);
+  opacity: 0.45;
+}
+
+/* ---------------------------- Edit mode type --------------------------- */
+/* Edit opens the live editor inside the Frost frame; it keeps the rest
+   card's voice (artifacts-frost.md §1, §6): the title in the primary font at
+   the rest card's size, figures and cells in the secondary at size, and the
+   table's header as the one lime band — never the vanilla accent. */
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header .artifact-header-title > *,
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header .artifact-header-title > * * {
+  font-size: 30px !important;
+  line-height: 1.12 !important;
+  font-weight: 500 !important;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-head {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border-bottom: 0 !important;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-th {
+  background: var(--frost-lime) !important;
+  color: var(--frost-lime-ink) !important;
+  font-family: var(--frost-font-secondary);
+  font-weight: 500 !important;
+  font-size: 16px;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-th:first-child {
+  border-radius: 14px 0 0 14px;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-th:last-child {
+  border-radius: 0 14px 14px 0;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-th .table-col-resize-handle {
+  background: transparent !important;
+}
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-row td,
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-row td input,
+[data-artifact-style="frost"] [data-frost-editor] .table-artifact-row td textarea {
+  font-family: var(--frost-font-secondary);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+/* A Frost timeline is dropped at 1040, not vanilla's 1920: its editor lays
+   the track out in the card it is in, on the frost, instead of overflowing
+   a stage wider than the card. */
+[data-artifact-style="frost"] [data-frost-editor] [data-timeline-area] {
+  min-width: 0 !important;
+}
+[data-artifact-style="frost"] [data-frost-editor] .artifact-content-stage {
+  background: transparent !important;
+}
+/* No washes in Frost (artifacts-frost.md §3): the phase bands go; the
+   axis and the moments carry the timeline. */
+[data-artifact-style="frost"] [data-frost-editor] .timeline-band {
+  display: none;
+}
+
+/* ===================== GitHub repo explorer in Frost =================== */
+/* The hub and every panel are Frost cards sitting in the repo card's well:
+   frost fill, the three-layer fall, radius 30 (the well's own nest radius),
+   generous padding, the title in the primary font. Inside a panel every
+   nested thing is raised (tiles, rows, pills); type is ink, never grey; no
+   emoji; and one solid lime element per panel — the peak file bar. The
+   connectors are soft ink S-curves ending in raised discs. */
+
+[data-artifact-style="frost"] [data-repo-card],
+[data-artifact-style="frost"] [data-repo-hub] {
+  border: 0 !important;
+  border-radius: var(--frost-nest-radius) !important;
+  background: var(--frost-fill) !important;
+  box-shadow: var(--frost-shadow) !important;
+}
+[data-artifact-style="frost"] [data-repo-card] > :first-child[aria-hidden],
+[data-artifact-style="frost"] [data-repo-hub] > :first-child[aria-hidden] {
+  display: none; /* BoundsGlow — Frost's light is the frame's own. */
+}
+
+/* Panel head: the title alone, set like a Frost card title. */
+[data-artifact-style="frost"] [data-repo-head] {
+  border-bottom: 0 !important;
+  padding: 20px 18px 4px 22px;
+  gap: 10px;
+}
+[data-artifact-style="frost"] [data-repo-head] h3 {
+  font-family: var(--frost-font-primary);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-repo-icon] {
+  display: none;
+}
+[data-artifact-style="frost"] [data-repo-close] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  font-size: 16px;
+  color: var(--frost-ink) !important;
+  background: color-mix(in srgb, var(--frost-ink) 6%, transparent) !important;
+  opacity: 0;
+  transition: opacity var(--frost-ease);
+}
+[data-artifact-style="frost"] [data-repo-card]:hover [data-repo-close],
+[data-artifact-style="frost"] [data-repo-close]:focus-visible {
+  opacity: 1;
+}
+
+/* Panel body: Frost padding and type (secondary font, ink, +20%). */
+[data-artifact-style="frost"] [data-repo-body] {
+  padding: 10px 22px 22px !important;
+  font-family: var(--frost-font-secondary);
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-repo-body] :is(p, li, span, a, pre) {
+  color: var(--frost-ink) !important;
+}
+[data-artifact-style="frost"] [data-repo-prose] {
+  font-size: 16px;
+  line-height: 1.55;
+}
+[data-artifact-style="frost"] [data-repo-prose] > p + p {
+  margin-top: 10px;
+}
+[data-artifact-style="frost"] [data-repo-list] {
+  border-top: 1px solid var(--frost-hair) !important;
+  padding-top: 12px;
+  font-size: 15px;
+}
+[data-artifact-style="frost"] [data-repo-list] li + li {
+  margin-top: 6px;
+}
+
+/* Raised things on a panel: tiles, rows, chips, pills. */
+[data-artifact-style="frost"] :is([data-repo-tile], [data-repo-row]) {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  padding: 10px 12px !important;
+}
+[data-artifact-style="frost"] [data-repo-tile] [data-repo-figure] {
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+[data-artifact-style="frost"] :is([data-repo-tile], [data-repo-row]) [data-repo-label] {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-artifact-style="frost"] [data-repo-row] [data-repo-value] {
+  font-size: 15px;
+}
+[data-artifact-style="frost"] [data-repo-emoji] {
+  display: none;
+}
+[data-artifact-style="frost"] :is([data-repo-chip], [data-repo-pill]) {
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink) !important;
+  font-family: var(--frost-font-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 12px !important;
+  text-decoration: none !important;
+}
+[data-artifact-style="frost"] [data-repo-pill] {
+  margin-top: 4px;
+}
+
+/* File bars: ink on a hairline track; the biggest is the panel's lime. */
+[data-artifact-style="frost"] [data-repo-bar-row] {
+  gap: 12px;
+}
+[data-artifact-style="frost"] [data-repo-bar-row] + [data-repo-bar-row] {
+  margin-top: 8px;
+}
+[data-artifact-style="frost"] [data-repo-bar-row] > span {
+  font-size: 14px !important;
+}
+[data-artifact-style="frost"] [data-repo-bar] {
+  height: 8px !important;
+  background: var(--frost-ink) !important;
+}
+[data-artifact-style="frost"] [data-repo-bar][data-peak] {
+  background: var(--frost-lime) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--frost-ink) 18%, transparent);
+}
+
+/* Media thumbnails and the install command sit in the well. */
+[data-artifact-style="frost"] [data-repo-media] {
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: var(--frost-well) !important;
+  box-shadow: var(--frost-well-shadow);
+}
+[data-artifact-style="frost"] [data-repo-code] {
+  border-radius: 14px !important;
+  background: var(--frost-well) !important;
+  box-shadow: var(--frost-well-shadow);
+  padding: 10px 12px !important;
+  font-size: 13px;
+}
+[data-artifact-style="frost"] [data-repo-avatar] {
+  border: 0 !important;
+  box-shadow: var(--frost-raised-shadow);
+}
+
+/* Skeleton bars: raised, the light sweeping over them. */
+[data-artifact-style="frost"] [data-repo-skel] {
+  border-radius: 999px !important;
+  background: linear-gradient(110deg, var(--frost-raised) 30%, var(--frost-raised-top) 46%, var(--frost-raised) 62%) !important;
+  background-size: 260% 100% !important;
+  animation: frost-bar-sweep 1.8s ease-in-out infinite;
+}
+
+/* Hub: the repo's own card. */
+[data-artifact-style="frost"] [data-repo-drag] {
+  border-bottom: 0 !important;
+  background: transparent !important;
+  padding-top: 12px;
+}
+[data-artifact-style="frost"] [data-repo-drag] span {
+  color: color-mix(in srgb, var(--frost-ink) 40%, transparent) !important;
+  font-family: var(--frost-font-secondary);
+}
+[data-artifact-style="frost"] [data-repo-hub] .repo-hub-title,
+[data-artifact-style="frost"] [data-repo-hub] .repo-hub-title * {
+  font-family: var(--frost-font-primary);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--frost-ink) !important;
+}
+[data-artifact-style="frost"] [data-repo-stars] {
+  color: var(--frost-ink) !important;
+  font-family: var(--frost-font-secondary);
+  font-size: 15px;
+  margin-top: 6px;
+}
+[data-artifact-style="frost"] [data-repo-toggle] {
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink) !important;
+  backdrop-filter: none;
+  font-family: var(--frost-font-secondary);
+  font-size: 13px;
+  padding: 6px 14px;
+  margin-bottom: 16px;
+}
+
+/* Connectors: soft ink curves ending in raised discs with an ink mark. */
+[data-artifact-style="frost"] [data-repo-connector] {
+  stroke: color-mix(in srgb, var(--frost-ink) 30%, transparent);
+  stroke-width: 1.5px;
+}
+[data-artifact-style="frost"] [data-repo-end] {
+  r: 6px;
+  fill: var(--frost-raised-top);
+  stroke: color-mix(in srgb, var(--frost-ink) 14%, transparent);
+  stroke-width: 1px;
+}
+[data-artifact-style="frost"] [data-repo-end-mark] {
+  fill: var(--frost-ink);
+}
+
+/* A panel whose content runs past its height scrolls (select the card);
+   its lower edge fades rather than cutting a line in half. The fade lives
+   in the bottom padding, so a panel that fits loses nothing. */
+[data-artifact-style="frost"] [data-repo-body] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+}

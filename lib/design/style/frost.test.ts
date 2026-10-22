@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveArtifactStyle } from "@/lib/design/style/resolveArtifactStyle";
 import { getArtifactStylePack } from "@/lib/design/style/stylePacks";
-import { isEmptyPayload } from "@/components/frost/FrostStates";
+import { isEmptyPayload } from "@/components/frost/isEmptyPayload";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
 
 describe("frost pack", () => {
@@ -41,6 +41,13 @@ describe("frost empty state", () => {
     const gauge = { type: "chart", title: "g", data: { chartType: "gauge", gaugeValue: 40 } } as unknown as ArtifactPayload;
     expect(isEmptyPayload(bar)).toBe(true);
     expect(isEmptyPayload(gauge)).toBe(false);
+  });
+
+  it("treats a freshly dropped all-zero chart as empty", () => {
+    const zeros = { type: "chart", title: "c", data: { chartType: "bar", categories: ["A", "B"], series: [{ name: "s", data: [0, 0] }] } } as ArtifactPayload;
+    const some = { type: "chart", title: "c", data: { chartType: "bar", categories: ["A", "B"], series: [{ name: "s", data: [0, 3] }] } } as ArtifactPayload;
+    expect(isEmptyPayload(zeros)).toBe(true);
+    expect(isEmptyPayload(some)).toBe(false);
   });
 
   it("never treats free-form kinds as empty", () => {

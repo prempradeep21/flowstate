@@ -95,7 +95,7 @@ html[data-canvas-style="frost"] [data-canvas-portal] {
   background: var(--frost-well) !important;
   box-shadow: var(--frost-well-shadow);
   outline-style: none !important;
-  border-radius: calc(var(--frost-radius) + var(--canvas-group-padding, 48px)) !important;
+  border-radius: calc(var(--frost-radius) + var(--canvas-group-padding, 62px)) !important;
 }
 /* Dark: #19191C barely parts from the #18181B field, so the dark well
    sinks one step further and catches a lower-edge rim (light from above). */

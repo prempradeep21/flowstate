@@ -58,12 +58,12 @@ Every open question below has an answer. These answers are the spec phase 1 is b
 | 1.8 Accent picker | No. Lime is Frost's identity; the Studio picker was exploration. The accent is a single `--frost-lime` var, so a picker can come back later without code changes. |
 | 1.9 Hardcoded colours | All routed through the pack: timeline bands, the Q&A thread colour, custom bodies (Frost frame + well). |
 | 2.1 Connector colour | Packs gain a JS `connector` token (`{ line, active, plug }` per mode). `connectorColour()` and canvas2d edges read it from the active pack; other packs keep today's thread colours. |
-| 2.2 Edge | `inkA(22)` light / `rgba(242,242,240,0.22)` dark, 1.5 world-px, round caps. |
-| 2.3 Edge states | Hovered / selected endpoint card → ink 56%. The edge into a card that is thinking or streaming → lime 2px. *Layering (22 Oct, all styles):* group wells and headings sit on their own world layer **under** the connector lines, so a group never covers an edge. The edges and plug links of the current selection (a selected card's family, a selected node, the active group) rise above every node, so nothing overlaps the selected card or its connectors. |
+| 2.2 Edge | `inkA(40)` light / `rgba(242,242,240,0.34)` dark, 1.5 world-px, round caps. Darkened 22 Oct (was 22%). Every connector in every style is a solid line — no dashes. |
+| 2.3 Edge states | Hovered / selected endpoint card → ink 72%. The edge into a card that is thinking or streaming → lime 2px. *Layering (22 Oct, all styles):* group wells and headings sit on their own world layer **under** the connector lines, so a group never covers an edge. The edges and plug links of the current selection (a selected card's family, a selected node, the active group) rise above every node, so nothing overlaps the selected card or its connectors. |
 | 2.4 Endpoints | No arrowheads. Plug ends are raised discs. |
 | 2.5 Plugs | Raised disc, ink glyph; lime fill on hover and while dragging. |
-| 2.6 Plug links | Dashed `6 5` at `inkA(28)`, the same for every plug kind. |
-| 2.7 New-connection preview | `inkA(40)` dashed while dragging; lime solid over a valid target. |
+| 2.6 Plug links | Solid at `inkA(40)`, the same for every plug kind (dashes dropped 22 Oct). |
+| 2.7 New-connection preview | `inkA(55)` while dragging; lime over a valid target. Solid throughout. |
 | 2.8 Collapse toggle | Raised pill. |
 | 3.1 Group frame | A **Well**: sunk below the field (inner shadow from the top-left), radius 44 + padding, no outline. |
 | 3.2 Active / selected group | Ink outline at offset 6 (same as cards). The badge is an ink pill with field-coloured type. |

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState, type RefObject } from "react";
 import type { ChartArtifactData } from "@/lib/chartTypes";
 import { CurrentBody } from "../current";
 import type { ArtifactRenderContext } from "../types";
@@ -213,15 +214,69 @@ export function BarBody({ ctx }: Ctx) {
 
 // ─── Line ───────────────────────────────────────────────────────────────────
 
+/** How the hover dot, its guide and its readout glide between points. */
+const GLIDE = "left 240ms cubic-bezier(0.22, 1, 0.36, 1), top 240ms cubic-bezier(0.22, 1, 0.36, 1), height 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease-out";
+
+/**
+ * The point under the pointer, snapped to the nearest category — `index` while
+ * hovering, `last` kept so the readout can fade out where it was. Canvas
+ * content is pointer-inert until its card is selected, so this tests the
+ * document's pointer moves against the plot's box rather than listening on the
+ * plot: hovering reads the chart at rest, and the first press still selects.
+ */
+function useHoverPoint(ref: RefObject<HTMLElement | null>, count: number) {
+  const [state, setState] = useState<{ index: number | null; last: number | null }>({ index: null, last: null });
+  useEffect(() => {
+    if (count < 2) return;
+    const set = (index: number | null) =>
+      setState((p) => (p.index === index ? p : { index, last: index ?? p.last }));
+    const onMove = (e: PointerEvent) => {
+      const el = ref.current;
+      if (!el) return;
+      // A shield marked see-through (the studio's tile click shield) stands in for what's under it.
+      const shield = e.target instanceof Element ? e.target.closest("[data-hover-through]") : null;
+      const t = shield ? shield.parentElement : (e.target as Node | null);
+      // A press is a drag or a pan, and a target that neither holds nor sits in
+      // the plot is something on top of it — no readout either way.
+      if (e.buttons !== 0 || !t || !(t.contains(el) || el.contains(t))) return set(null);
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0) return set(null);
+      // Forgiving vertically (in world px, so it holds at any zoom): the axis row counts.
+      const slop = 32 * (r.width / (el.offsetWidth || r.width));
+      if (e.clientX < r.left - slop / 2 || e.clientX > r.right + slop / 2 || e.clientY < r.top - slop || e.clientY > r.bottom + slop * 1.5) {
+        return set(null);
+      }
+      const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      set(Math.round(f * (count - 1)));
+    };
+    const off = () => set(null);
+    document.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", off);
+    window.addEventListener("blur", off);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", off);
+      window.removeEventListener("blur", off);
+    };
+  }, [ref, count]);
+  return state;
+}
+
 /**
  * A thin ink line — in Aurora with its own coloured light under it (the same
  * path, drawn wide and blurred); in Frost just the line. The point the title
- * is about gets a lime dot and a raised pill that says what happened there.
+ * is about gets a lime dot; in Aurora a raised pill also says what happened
+ * there, while Frost lets the line and the figure speak for themselves.
+ * Hovering reads the line: the dot leaves its point and glides along the
+ * series to the category under the pointer, its guide drops to the axis, and
+ * a raised readout gives the value there (every series' value, when several
+ * share the chart). Off the plot it settles back on the title's point.
  */
 export function LineBody({ ctx }: Ctx) {
   const d = chartData(ctx);
   const [ref, box] = useBox<HTMLDivElement>();
   const pal = usePalette(ctx.item.uid);
+  const hover = useHoverPoint(ref, d?.categories?.length ?? 0);
   const SERIES = pal.series;
   if (!d || !d.categories?.length || !d.series?.length) return <CurrentBody ctx={ctx} />;
 
@@ -238,8 +293,10 @@ export function LineBody({ ctx }: Ctx) {
   const delta = first !== 0 ? Math.round(((main[focus]! - first) / Math.abs(first)) * 100) : null;
 
   const { w, h } = box;
-  const top = rising ? h * 0.3 : h * 0.08;
-  const bottom = rising ? h * 0.12 : h * 0.34;
+  const note = !pal.frost;
+  // Aurora leaves the pill room on the open side of the point; Frost has no pill.
+  const top = note && rising ? h * 0.3 : h * 0.08;
+  const bottom = !note ? h * 0.12 : rising ? h * 0.12 : h * 0.34;
   const xOf = (i: number) => (i * w) / Math.max(1, cats.length - 1);
   const yOf = (v: number) => top + (1 - (v - min) / span) * (h - top - bottom);
   const fp = { x: xOf(focus), y: yOf(main[focus]!) };
@@ -251,6 +308,17 @@ export function LineBody({ ctx }: Ctx) {
   const roomBelow = h - fp.y - 26;
   const pillAbove = rising ? roomAbove >= PILL_H || roomAbove >= roomBelow : roomBelow < PILL_H && roomAbove > roomBelow;
   const uid = ctx.item.uid.replace(/[^a-z0-9]/gi, "");
+
+  // The dot sits on the title's point until the pointer reads another.
+  const reading = hover.index != null && hover.index < cats.length;
+  const at = reading ? hover.index! : focus;
+  const ap = { x: xOf(at), y: yOf(main[at]!) };
+  const shown = hover.last != null && hover.last < cats.length ? hover.last : focus;
+  const sp = { x: xOf(shown), y: yOf(main[shown]!) };
+  // The readout leans away from the card's edges and sits on the open side of the point.
+  const lean = w > 0 ? (sp.x / w) * 100 : 50;
+  // Above unless the point is too near the top — the gap under the title is part of its room.
+  const readAbove = sp.y >= 44 + (series.length - 1) * 22;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ padding: PAD }}>
@@ -287,36 +355,88 @@ export function LineBody({ ctx }: Ctx) {
                   </g>
                 );
               })}
-              <line x1={fp.x} x2={fp.x} y1={fp.y} y2={h} stroke={D.ink} strokeOpacity={0.14} strokeDasharray="2 5" strokeLinecap="round" />
             </svg>
             <span
-              className="absolute h-[20px] w-[20px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{ left: fp.x, top: fp.y, background: D.accent, boxShadow: `0 0 0 5px ${D.ring}, 0 6px 14px -2px rgba(0,0,0,0.25)` }}
+              aria-hidden
+              className="absolute w-0 motion-reduce:transition-none"
+              style={{ left: ap.x, top: ap.y, height: Math.max(0, h - ap.y), borderLeft: `1px dashed ${D.ink}`, opacity: reading ? 0.28 : 0.14, transition: GLIDE }}
+            />
+            {reading && series.length > 1
+              ? series.slice(1).map((s, si) => {
+                  const v = s.data[at];
+                  return v == null ? null : (
+                    <span
+                      key={s.name}
+                      aria-hidden
+                      className="absolute h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:transition-none"
+                      style={{ left: ap.x, top: yOf(v), background: SERIES[(si + 2) % SERIES.length], boxShadow: `0 0 0 3px ${D.ring}`, transition: GLIDE }}
+                    />
+                  );
+                })
+              : null}
+            <span
+              className="absolute h-[20px] w-[20px] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:transition-none"
+              style={{ left: ap.x, top: ap.y, background: D.accent, boxShadow: `0 0 0 5px ${D.ring}, 0 6px 14px -2px rgba(0,0,0,0.25)`, transition: GLIDE }}
             />
             <div
-              className="absolute flex items-center gap-3 rounded-full py-2.5 pl-3 pr-5"
+              aria-hidden={!reading}
+              className="pointer-events-none absolute whitespace-nowrap rounded-[18px] px-4 py-2.5 motion-reduce:transition-none"
               style={{
                 ...RAISED,
-                left: pillLeft,
-                maxWidth: pillW,
-                ...(pillAbove ? { bottom: h - fp.y + 26 } : { top: fp.y + 26 }),
+                left: sp.x,
+                top: sp.y,
+                transform: `translate(-${lean}%, ${readAbove ? "calc(-100% - 26px)" : "26px"})`,
+                opacity: reading ? 1 : 0,
+                // Hidden once faded, so the readout isn't text on the card at rest.
+                visibility: reading ? "visible" : "hidden",
+                transition: `${GLIDE}, visibility 0s linear ${reading ? 0 : 160}ms`,
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke={D.ink} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {rising ? <path d="M2 11l4-4 3 3 5-5M10 5h4v4" /> : <path d="M2 5l4 4 3-3 5 5M10 11h4V7" />}
-              </svg>
-              <div data-el={ROLE.figureNote} className="min-w-0" style={FONT}>
-                <p className="text-[19px] leading-tight" style={{ color: D.ink }}>
-                  {rising ? "Peak" : "Low"} in {cats[focus]}
-                </p>
-                {delta != null && focus !== 0 ? (
-                  <p className="mt-0.5 text-[16px] leading-tight" style={{ color: D.ink }}>
-                    {delta >= 0 ? "+" : "−"}
-                    {Math.abs(delta)}% from {cats[0]}
-                  </p>
-                ) : null}
+              <div data-el={reading ? ROLE.figure : undefined} style={FONT}>
+                {series.length > 1 ? (
+                  <>
+                    <p className="text-[16px] leading-tight" style={{ color: D.ink }}>{cats[shown]}</p>
+                    {series.map((s, si) => (
+                      <p key={s.name} className="mt-1 flex items-center gap-2 text-[18px] leading-tight" style={{ color: D.ink }}>
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: si === 0 ? D.ink : SERIES[(si + 1) % SERIES.length] }} />
+                        {s.name} {s.data[shown] != null ? withUnit(s.data[shown]!, d.unit) : "—"}
+                      </p>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[21px] leading-tight" style={{ color: D.ink }}>{withUnit(main[shown]!, d.unit)}</p>
+                    <p className="mt-0.5 text-[16px] leading-tight" style={{ color: D.ink }}>{cats[shown]}</p>
+                  </>
+                )}
               </div>
             </div>
+            {note && !reading ? (
+              <div
+                className="absolute flex items-center gap-3 rounded-full py-2.5 pl-3 pr-5"
+                style={{
+                  ...RAISED,
+                  left: pillLeft,
+                  maxWidth: pillW,
+                  ...(pillAbove ? { bottom: h - fp.y + 26 } : { top: fp.y + 26 }),
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke={D.ink} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  {rising ? <path d="M2 11l4-4 3 3 5-5M10 5h4v4" /> : <path d="M2 5l4 4 3-3 5 5M10 11h4V7" />}
+                </svg>
+                <div data-el={ROLE.figureNote} className="min-w-0" style={FONT}>
+                  <p className="text-[19px] leading-tight" style={{ color: D.ink }}>
+                    {rising ? "Peak" : "Low"} in {cats[focus]}
+                  </p>
+                  {delta != null && focus !== 0 ? (
+                    <p className="mt-0.5 text-[16px] leading-tight" style={{ color: D.ink }}>
+                      {delta >= 0 ? "+" : "−"}
+                      {Math.abs(delta)}% from {cats[0]}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

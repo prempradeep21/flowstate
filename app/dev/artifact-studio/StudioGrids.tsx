@@ -111,9 +111,11 @@ export function StudioTile({
           />
         </ScaledStage>
       </LazyMount>
-      {/* Click shield: tiles are previews — the focus view is where you interact. */}
+      {/* Click shield: tiles are previews — the focus view is where you interact.
+          Hover readouts (a line chart's dot) still read through it. */}
       <button
         type="button"
+        data-hover-through
         onClick={onOpen}
         aria-label={`Open ${item.artifact.title}`}
         className="absolute inset-0 z-[70] cursor-zoom-in rounded-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-accent"

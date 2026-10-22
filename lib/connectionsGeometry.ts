@@ -40,7 +40,8 @@ export interface RenderableConnection {
   fromAnchor: PlugAnchor;
   toAnchor: PlugAnchor;
   toSide: CardSide;
-  dashed: boolean;
+  /** Collapsed-card stubs fade (rings included); every connector is a solid line. */
+  faded: boolean;
   opacity: number;
   showSourcePlug: boolean;
   showTargetPlug: boolean;
@@ -119,7 +120,7 @@ export function resolveConnectionRender(
           fromAnchor,
           toAnchor: stubEnd,
           toSide,
-          dashed: true,
+          faded: true,
           opacity: 0.55,
           showSourcePlug: true,
           showTargetPlug: false,
@@ -165,7 +166,7 @@ export function resolveConnectionRender(
           fromAnchor,
           toAnchor: stubEnd,
           toSide,
-          dashed: true,
+          faded: true,
           opacity: 0.55,
           showSourcePlug: true,
           showTargetPlug: false,
@@ -208,7 +209,7 @@ export function resolveConnectionRender(
     fromAnchor: a,
     toAnchor: b,
     toSide,
-    dashed: false,
+    faded: false,
     opacity: 0.85,
     showSourcePlug: !isConversationLink,
     showTargetPlug: !isConversationLink,

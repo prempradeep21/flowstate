@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@/components/Canvas";
 import { useCanvasStore } from "@/lib/store";
+import { createUrlArtifactFromText } from "@/lib/createUrlArtifact";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { ThemeApplier } from "@/components/ThemeApplier";
@@ -126,7 +127,13 @@ export function ArtifactCatalogApp({
 
   // Dev page: lets headless checks drive the store (e.g. the canvas theme).
   useEffect(() => {
-    (window as unknown as { __canvasStore?: typeof useCanvasStore }).__canvasStore = useCanvasStore;
+    const w = window as unknown as {
+      __canvasStore?: typeof useCanvasStore;
+      __createUrlArtifact?: typeof createUrlArtifactFromText;
+    };
+    w.__canvasStore = useCanvasStore;
+    // Lets a check drop real URLs (website, repo, doc, embed…) on the canvas.
+    w.__createUrlArtifact = createUrlArtifactFromText;
   }, []);
 
   useEffect(() => {

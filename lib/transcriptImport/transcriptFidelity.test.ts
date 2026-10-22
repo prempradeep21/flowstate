@@ -14,6 +14,7 @@ import { buildPrashantKishorCanvasSection } from "@/lib/transcriptImport/buildPr
 import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildKunalShahHiringCanvasSection";
 import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildFreshMenuCanvasSection } from "@/lib/transcriptImport/buildFreshMenuCanvasSection";
+import { buildSamAltmanCanvasSection } from "@/lib/transcriptImport/buildSamAltmanCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "@/lib/transcriptImport/buildRanaDaggubatiCanvasSection";
 import { buildYcInterviewCanvasSection } from "@/lib/transcriptImport/buildYcInterviewCanvasSection";
 import { ALLARI_NARESH_TRANSCRIPT } from "@/lib/transcriptImport/allariNareshInterview";
@@ -30,6 +31,7 @@ import { MEENAKSHI_ANANTRAM_TRANSCRIPT } from "@/lib/transcriptImport/meenakshiA
 import { NITHIN_KAMATH_RISK_TRANSCRIPT } from "@/lib/transcriptImport/nithinKamathRisk";
 import { FRESHMENU_TRANSCRIPT } from "@/lib/transcriptImport/freshMenuStruggle";
 import { RANA_DAGGUBATI_INTERVIEW_TRANSCRIPT } from "@/lib/transcriptImport/ranaDaggubatiInterview";
+import { SAM_ALTMAN_TRANSCRIPT } from "@/lib/transcriptImport/samAltmanMatthewBerman";
 import { YC_INTERVIEW_TIPS_TRANSCRIPT } from "@/lib/transcriptImport/ycInterviewTips";
 
 /*
@@ -155,6 +157,11 @@ const CASES = [
     name: "Allari Naresh — Raw Talks with VK",
     build: buildAllariNareshCanvasSection,
     transcript: ALLARI_NARESH_TRANSCRIPT,
+  },
+  {
+    name: "Sam Altman — Matthew Berman",
+    build: buildSamAltmanCanvasSection,
+    transcript: SAM_ALTMAN_TRANSCRIPT,
   },
   {
     name: "Design tools history",

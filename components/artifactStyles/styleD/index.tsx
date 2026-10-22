@@ -6,8 +6,9 @@ import type { ArtifactStyleFamily, FrameSlotProps, StyleSlots } from "../types";
 import { CornerMenu } from "../menu";
 import { ClaimBody, ConversationBody, DefinitionBody, QaBody, QuoteBody, StickyBody, makeComposer } from "./cards";
 import { AreaBody, BarBody, GaugeBody, LineBody, PieBody, StatBody } from "./charts";
-import { CalendarBody, CodeBody, EpisodeBody, LinkGroupBody, MechanismBody, TableBody, TimelineBody, TodoBody } from "./lists";
-import { AudioBody, ImagesBody, InsetBody, VideoBody, WebsiteBody } from "./media";
+import { CalendarBody, CodeBody, EpisodeBody, LinkGroupBody, MechanismBody, TableBody, TodoBody } from "./lists";
+import { TimelineBody } from "./timeline";
+import { AudioBody, ImagesBody, InsetBody, VideoBody, WebsiteBody, RepoBody } from "./media";
 import {
   CARD_RADIUS,
   D,
@@ -173,6 +174,7 @@ const VARIANTS: ArtifactStyleFamily["variants"] = {
   code: { Body: CodeBody },
   custom: { Body: InsetBody },
   embed: { Body: InsetBody },
+  repo: { Body: RepoBody },
   stickynote: { Body: StickyBody },
   qa: { Body: QaBody },
   conversation: { Body: ConversationBody },
@@ -184,7 +186,11 @@ const VARIANTS: ArtifactStyleFamily["variants"] = {
  * canvas height as the least they are drawn at and grow past it when their
  * words need the room; everything else is exactly as tall as what it holds.
  */
-const KEEPS_ITS_HEIGHT = new Set<string>(["chart:bar", "chart:line", "chart:area", "chart:pie", "images", "video", "audio", "map", "streetview", "3d", "website", "embed", "custom"]);
+// A Google Doc is an iframe with no height of its own either — hugging it alone
+// collapses the card to its title. (A repo's explorer stage sets its own
+// height, so RepoBody hugs it exactly, collapsed or open.)
+// A sticky note is a square of paper: an empty one is not a strip under its title.
+const KEEPS_ITS_HEIGHT = new Set<string>(["stickynote", "chart:bar", "chart:line", "chart:area", "chart:pie", "images", "video", "audio", "map", "streetview", "3d", "website", "embed", "custom", "google-doc"]);
 
 function hugFloor(item: StudioArtifact): number | null {
   // The episode's thumbnail keeps its own 16:9, so the card is all content.

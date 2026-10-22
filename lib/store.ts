@@ -63,6 +63,7 @@ import {
   emptyCardSize,
   getArtifactBounds,
   getDefaultArtifactSize,
+  getDropArtifactSize,
 } from "@/lib/canvasNodeBounds";
 import {
   clampTextLabelFontSize,
@@ -444,7 +445,7 @@ export interface Connection {
   toSide: CardSide;
 }
 
-/** Dashed plug link from a canvas artefact node to a question card composer. */
+/** Plug link from a canvas artefact node to a question card composer. */
 export interface ArtifactPlugConnection {
   id: string;
   artifactNodeId: string;
@@ -453,7 +454,7 @@ export interface ArtifactPlugConnection {
   toSide: PlugSide;
 }
 
-/** Dashed plug link from a canvas asset (image) node to a question card composer. */
+/** Plug link from a canvas asset (image) node to a question card composer. */
 export interface AssetPlugConnection {
   id: string;
   assetNodeId: string;
@@ -462,7 +463,7 @@ export interface AssetPlugConnection {
   toSide: PlugSide;
 }
 
-/** Dashed plug link from a canvas skill node to a question card composer. */
+/** Plug link from a canvas skill node to a question card composer. */
 export interface SkillPlugConnection {
   id: string;
   skillNodeId: string;
@@ -471,7 +472,7 @@ export interface SkillPlugConnection {
   toSide: PlugSide;
 }
 
-/** Dashed plug link from a group container edge to a question card composer. */
+/** Plug link from a group container edge to a question card composer. */
 export interface GroupPlugConnection {
   id: string;
   groupId: string;
@@ -4236,7 +4237,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       sourceCardId,
     );
     const kind = payloadToArtifactKind(payload);
-    const size = getDefaultArtifactSize(kind, payload);
+    const size = getDropArtifactSize(kind, payload);
     get().spawnCanvasArtifact(artifactId, versionId, {
       position: opts?.position,
       focus: true,
@@ -4756,6 +4757,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
             [node.id]: {
               ...node,
               size: nextSize,
+              // The provider's own size replaces the guess; a Frost box
+              // measured against the guess re-measures from it.
+              frostSize: undefined,
             },
           };
         }

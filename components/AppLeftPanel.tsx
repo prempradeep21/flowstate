@@ -18,6 +18,9 @@ import {
 } from "@/lib/motion/variants";
 import { useCanvasStore } from "@/lib/store";
 
+/** The artifact activity list under the collapsed panel — hidden for now. */
+const SHOW_ARTIFACT_UPDATES = false;
+
 export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
   const collapsed = useCanvasStore((s) => s.leftPanelCollapsed);
   const viewMode = useCanvasStore((s) => s.viewMode);
@@ -212,7 +215,7 @@ export function AppLeftPanel({ onGoHome }: { onGoHome?: () => void }) {
           />
         </aside>
       </div>
-      {collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
+      {SHOW_ARTIFACT_UPDATES && collapsed && viewMode === "canvas" ? <ArtifactUpdateCenter /> : null}
     </div>
   );
 }

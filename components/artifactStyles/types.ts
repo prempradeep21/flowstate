@@ -71,6 +71,11 @@ export interface ArtifactRenderContext {
   liveBody?: ReactNode;
   /** Canvas only: persists an edit a body makes in place (a todo check). */
   onPayloadChange?: (payload: ArtifactPayload) => void;
+  /**
+   * Canvas only: the card was asked to edit (double-click, ⋯ → Edit). Bodies
+   * that are written on in place (the sticky note) take the caret.
+   */
+  editing?: boolean;
   /** Canvas only: the real ⋯ menu — version switching, extra rows, removal. */
   canvasMenu?: CanvasMenuActions;
   /** Canvas only: frame a group on the canvas (an episode's chapter rows). */

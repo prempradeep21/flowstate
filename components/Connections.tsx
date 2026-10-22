@@ -131,7 +131,6 @@ export function Connections() {
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
-                      dashed
                       opacity={0.55}
                       showTargetPlug={false}
                     />
@@ -180,7 +179,6 @@ export function Connections() {
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
-                      dashed
                       opacity={0.55}
                       showTargetPlug={false}
                     />

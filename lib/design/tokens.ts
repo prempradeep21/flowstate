@@ -172,7 +172,7 @@ export const THREAD_ACCENT_PALETTE = [
  * skill / group plug links, plug rings — whatever its thread's accent. Set to
  * null to go back to per-thread colours from THREAD_ACCENT_PALETTE (threads
  * still carry their own accentColour; only the connector rendering ignores
- * it). Image drag previews keep their own dashed blue.
+ * it). Image drag previews keep their own blue. Connectors are always solid lines.
  */
 export const UNIFIED_CONNECTOR_COLOUR: string | null = THREAD_ACCENT_PALETTE[0];
 

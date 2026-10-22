@@ -624,7 +624,7 @@ export function disneySceneStateAt(t: number): DisneySceneState {
     }),
   ];
 
-  /* -------------------------- dashed edges --------------------------- */
+  /* ----------------------------- plug edges ---------------------------- */
 
   function edge(
     id: string,

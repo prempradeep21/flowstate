@@ -149,7 +149,7 @@ export interface ArtifactStyleConnectorTokens {
   emphasis: string;
   /** Edge into a card that is thinking or streaming — the live thread. */
   active: string;
-  /** Plug links (artifact / asset / skill / group plugs), drawn dashed. */
+  /** Plug links (artifact / asset / skill / group plugs). */
   plugLink: string;
   /** New-connection drag preview, and over a valid target. */
   dragPreview: string;

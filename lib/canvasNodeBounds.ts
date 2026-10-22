@@ -389,6 +389,41 @@ export function getArtifactBoundsFamily(): "frost" | null {
   return activeBoundsFamily;
 }
 
+/**
+ * Frost sets its type about twice vanilla's, so a few kinds need a larger
+ * box to read as the same thing (docs/design-system/artifacts-frost.md):
+ * a sticky note is a square of paper, an empty table needs room for its
+ * header band, and a fresh timeline holds one moment, not a 1920px track.
+ */
+const FROST_DEFAULT_ARTIFACT_SIZE: Partial<
+  Record<ArtifactKind, { w: number; h: number }>
+> = {
+  stickynote: { w: STICKY_NOTE_MAX_WIDTH, h: STICKY_NOTE_MAX_WIDTH },
+  table: { w: 640, h: 360 },
+  timeline: { w: 1040, h: 420 },
+};
+
+/** A kind's default box when Frost draws it (see FROST_DEFAULT_ARTIFACT_SIZE). */
+export function getFrostDefaultArtifactSize(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  return FROST_DEFAULT_ARTIFACT_SIZE[kind] ?? getDefaultArtifactSize(kind, payload);
+}
+
+/**
+ * The box a freshly dropped artifact spawns at: the kind's default, or its
+ * Frost default while the canvas is drawn in Frost.
+ */
+export function getDropArtifactSize(
+  kind: ArtifactKind,
+  payload?: ArtifactPayload,
+): { w: number; h: number } {
+  return activeBoundsFamily === "frost"
+    ? getFrostDefaultArtifactSize(kind, payload)
+    : getDefaultArtifactSize(kind, payload);
+}
+
 /** The node's own box, whatever style is drawing it (ignores frostSize). */
 export function getBaseArtifactBounds(
   node: ArtifactBoundsNode,

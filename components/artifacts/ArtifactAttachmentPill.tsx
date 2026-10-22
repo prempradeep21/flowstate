@@ -21,12 +21,15 @@ export function ArtifactAttachmentPill({
 }) {
   return (
     <div
+      data-artifact-attachment-pill=""
+      data-nested={nested ? "" : undefined}
       className={`inline-flex max-w-full items-center gap-3 border border-canvas-border bg-canvas-card py-1.5 pl-2 pr-2.5 ${
         nested ? "rounded-canvas-nest-9" : "rounded-canvas"
       }`}
     >
       {/* Icon sits py-1.5 + border = 7px into the pill's corners. */}
       <span
+        data-attachment-icon=""
         className={`flex h-8 w-8 shrink-0 items-center justify-center text-canvas-ink ${
           nested ? "rounded-canvas-nest-16" : "rounded-canvas-nest-7"
         }`}

@@ -138,6 +138,28 @@ one lime thing, and the two are never the same thing.
   percentage).
 - **Q&A** stays flat — title, hairline, answer — so the answer is the only
   thing on it; the conversation card carries the lime panel instead.
+- **Sticky note** is a square of lime paper: it keeps its height when empty
+  (`KEEPS_ITS_HEIGHT`) and drops on the canvas at 400 × 400. It is written on
+  in place — a selected note's words are a field in the same type, on the
+  same lime; Edit only hands it the caret, and a fresh empty note takes the
+  caret on arrival. Its "Write a note…" placeholder is the one place a
+  note's ink fades (45%).
+
+## 6a. Dropped artifacts and empty states (canvas)
+
+- A dropped artifact spawns at its Frost size (`getDropArtifactSize` in
+  `lib/canvasNodeBounds.ts`): note 400 × 400, table 640 wide, timeline 1040
+  wide; everything else at its usual default.
+- A card with nothing to draw keeps its shape (`components/frost/FrostStates`):
+  data kinds show the title and one ink line ("No items yet") with a raised
+  "+ Add" pill when they can be edited; picture kinds (gallery, chart) keep the
+  title over the picture well with the line centred in it. A chart of all
+  zeros counts as empty. An empty table is its lime header band over ruled
+  blank rows.
+- Edit mode never crops either: the live editor hugs, at least as tall as the
+  card was at rest. Inside it the vanilla editors take Frost's voice — the
+  title in the primary font at 30px, the table header as the lime band, no
+  phase washes on a timeline.
 
 ## 7. Audit — 21 Oct 2026
 

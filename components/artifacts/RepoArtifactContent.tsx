@@ -88,12 +88,17 @@ function hubAnchor(
     : { x: hub.cx + hub.w / 2, y: hub.cy };
 }
 
-function orthogonalPath(
+/**
+ * Hub → panel connector: one smooth S-curve leaving the hub horizontally and
+ * arriving at the panel horizontally (control points at the horizontal
+ * midpoint), so every spoke reads as a soft branch rather than an elbow.
+ */
+function curvedPath(
   from: { x: number; y: number },
   to: { x: number; y: number },
 ): string {
   const midX = (from.x + to.x) / 2;
-  return `M ${from.x} ${from.y} L ${midX} ${from.y} L ${midX} ${to.y} L ${to.x} ${to.y}`;
+  return `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
 }
 
 function formatCount(n: number): string {
@@ -108,6 +113,7 @@ function SpokeSkeleton({ lines = 5 }: { lines?: number }) {
       {Array.from({ length: lines }).map((_, i) => (
         <div
           key={i}
+          data-repo-skel
           className="h-2.5 rounded bg-canvas-artifactStage"
           style={{ width: `${68 + (i % 3) * 12}%` }}
         />
@@ -118,13 +124,13 @@ function SpokeSkeleton({ lines = 5 }: { lines?: number }) {
 
 function StackRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
-      <span className="mt-0.5 text-canvas-compact" aria-hidden>
+    <div data-repo-row className="flex items-start gap-2 rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
+      <span data-repo-emoji className="mt-0.5 text-canvas-compact" aria-hidden>
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-canvas-micro uppercase tracking-wide text-canvas-muted">{label}</p>
-        <p className="text-canvas-body-sm font-medium leading-snug text-canvas-ink">{value}</p>
+        <p data-repo-label className="text-canvas-micro uppercase tracking-wide text-canvas-muted">{label}</p>
+        <p data-repo-value className="text-canvas-body-sm font-medium leading-snug text-canvas-ink">{value}</p>
       </div>
     </div>
   );
@@ -140,14 +146,14 @@ function StatChip({
   value: string | number;
 }) {
   return (
-    <div className="rounded-canvas-nest-13 bg-canvas-artifactStage px-2 py-1.5 text-center">
-      <p className="text-canvas-micro" aria-hidden>
+    <div data-repo-tile className="rounded-canvas-nest-13 bg-canvas-artifactStage px-2 py-1.5 text-center">
+      <p data-repo-emoji className="text-canvas-micro" aria-hidden>
         {icon}
       </p>
-      <p className="mt-0.5 text-canvas-body-sm font-medium tabular-nums text-canvas-ink">
+      <p data-repo-figure className="mt-0.5 text-canvas-body-sm font-medium tabular-nums text-canvas-ink">
         {value}
       </p>
-      <p className="text-canvas-micro text-canvas-muted">{label}</p>
+      <p data-repo-label className="text-canvas-micro text-canvas-muted">{label}</p>
     </div>
   );
 }
@@ -245,13 +251,13 @@ function SpokeBody({
       const tags = explorer.overview.ai?.tags?.slice(0, 4) ?? [];
       return (
         <div className="space-y-2">
-          <div className="space-y-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
+          <div data-repo-prose className="space-y-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
             {paragraphs.map((p, i) => (
               <p key={i}>{p}</p>
             ))}
           </div>
           {explorer.overview.ai?.keyFeatures?.length ? (
-            <ul className="space-y-1 border-t border-canvas-border/50 pt-2 text-canvas-compact text-canvas-ink">
+            <ul data-repo-list className="space-y-1 border-t border-canvas-border/50 pt-2 text-canvas-compact text-canvas-ink">
               {explorer.overview.ai.keyFeatures.slice(0, 3).map((f) => (
                 <li key={f} className="flex gap-1.5">
                   <span className="text-canvas-accent">✓</span>
@@ -265,6 +271,7 @@ function SpokeBody({
               {tags.map((t) => (
                 <span
                   key={t}
+                  data-repo-chip
                   className="rounded-full bg-canvas-artifactIconBg px-2 py-0.5 text-canvas-micro text-canvas-accent"
                 >
                   {t}
@@ -289,13 +296,15 @@ function SpokeBody({
           </div>
           {top.length ? (
             <ul className="space-y-1">
-              {top.map((e) => (
-                <li key={e.extension} className="flex items-center gap-2">
+              {top.map((e, i) => (
+                <li key={e.extension} data-repo-bar-row className="flex items-center gap-2">
                   <span className="w-14 shrink-0 truncate text-canvas-micro font-medium text-canvas-ink">
                     {e.label}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div
+                      data-repo-bar
+                      {...(i === 0 ? { "data-peak": "" } : {})}
                       className="h-1.5 rounded-full bg-canvas-accent/75"
                       style={{
                         width: `${Math.max(10, (e.count / maxCount) * 100)}%`,
@@ -314,6 +323,7 @@ function SpokeBody({
               {f.topLevelFolders.slice(0, 5).map((d) => (
                 <span
                   key={d}
+                  data-repo-chip
                   className="rounded-canvas-xs bg-canvas-artifactStage px-1.5 py-0.5 font-mono text-canvas-micro text-canvas-muted"
                 >
                   {d}/
@@ -336,6 +346,7 @@ function SpokeBody({
               target="_blank"
               rel="noopener noreferrer"
               data-no-drag
+              data-repo-media
               className="block overflow-hidden rounded-canvas-nest-13 border border-canvas-border bg-canvas-artifactStage"
             >
               <img
@@ -375,6 +386,7 @@ function SpokeBody({
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex text-canvas-compact text-canvas-accent hover:underline"
+            data-repo-pill
             data-no-drag
           >
             Open preview ↗
@@ -389,7 +401,7 @@ function SpokeBody({
       return (
         <div className="space-y-2">
           {explorer.techDetails.ai?.architectureSummary ? (
-            <p className="rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/80 px-2 py-1.5 text-canvas-compact leading-relaxed text-canvas-ink">
+            <p data-repo-row className="rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/80 px-2 py-1.5 text-canvas-compact leading-relaxed text-canvas-ink">
               {explorer.techDetails.ai.architectureSummary}
             </p>
           ) : null}
@@ -420,6 +432,7 @@ function SpokeBody({
               {langs.map((l) => (
                 <span
                   key={l.name}
+                  data-repo-chip
                   className="rounded-full bg-canvas-artifactIconBg px-2 py-0.5 text-canvas-micro font-medium text-canvas-accent"
                 >
                   {l.name} {Math.round(l.percent)}%
@@ -428,8 +441,8 @@ function SpokeBody({
             </div>
           ) : null}
           {t.dependencies.length ? (
-            <div className="rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
-              <p className="text-canvas-micro uppercase tracking-wide text-canvas-muted">
+            <div data-repo-row className="rounded-canvas-nest-13 bg-canvas-artifactStage/70 px-2 py-1.5">
+              <p data-repo-label className="text-canvas-micro uppercase tracking-wide text-canvas-muted">
                 Key dependencies
               </p>
               <p className="mt-0.5 line-clamp-2 text-canvas-compact text-canvas-ink">
@@ -438,7 +451,7 @@ function SpokeBody({
             </div>
           ) : null}
           {t.installationCommands.length ? (
-            <pre className="overflow-x-auto rounded-canvas-nest-13 bg-canvas-codeBg px-2 py-1.5 font-mono text-canvas-micro text-canvas-ink">
+            <pre data-repo-code className="overflow-x-auto rounded-canvas-nest-13 bg-canvas-codeBg px-2 py-1.5 font-mono text-canvas-micro text-canvas-ink">
               {t.installationCommands[0]}
             </pre>
           ) : null}
@@ -450,10 +463,11 @@ function SpokeBody({
       if (!b) return <SpokeSkeleton />;
       return (
         <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5 rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/70 p-2">
+          <div data-repo-row className="flex items-center gap-2.5 rounded-canvas-nest-13 border border-canvas-border/60 bg-canvas-artifactStage/70 p-2">
             <img
               src={b.avatarUrl}
               alt=""
+              data-repo-avatar
               className="h-12 w-12 shrink-0 rounded-full border-2 border-canvas-border"
             />
             <div className="min-w-0">
@@ -467,7 +481,7 @@ function SpokeBody({
             </div>
           </div>
           {b.bio ? (
-            <p className="line-clamp-3 rounded-canvas-nest-13 bg-canvas-artifactStage/50 px-2 py-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
+            <p data-repo-row className="line-clamp-3 rounded-canvas-nest-13 bg-canvas-artifactStage/50 px-2 py-1.5 text-canvas-body-sm leading-relaxed text-canvas-ink">
               {b.bio}
             </p>
           ) : null}
@@ -481,12 +495,13 @@ function SpokeBody({
             target="_blank"
             rel="noopener noreferrer"
             data-no-drag
+            data-repo-pill
             className="inline-flex items-center gap-1 rounded-canvas-sm bg-canvas-artifactIconBg px-2 py-1 text-canvas-compact font-medium text-canvas-accent hover:underline"
           >
             View on GitHub ↗
           </a>
           {b.topRepos.length ? (
-            <ul className="space-y-1 border-t border-canvas-border/50 pt-2">
+            <ul data-repo-list className="space-y-1 border-t border-canvas-border/50 pt-2">
               {b.topRepos.slice(0, 3).map((r) => (
                 <li key={r.htmlUrl}>
                   <a
@@ -556,6 +571,7 @@ function RepoSpokeCard({
     <m.div
       ref={cardRef}
       data-no-drag
+      data-repo-card
       className="absolute flex max-h-[500px] flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card shadow-artifact"
       style={{
         left: spoke.x,
@@ -569,8 +585,8 @@ function RepoSpokeCard({
       animate={visible ? "animate" : "initial"}
     >
       <BoundsGlow intensity="half" />
-      <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-canvas-border px-3 py-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-compact text-canvas-accent">
+      <header data-repo-head className="relative z-10 flex shrink-0 items-center gap-2 border-b border-canvas-border px-3 py-2">
+        <span data-repo-icon className="flex h-5 w-5 items-center justify-center rounded-full bg-canvas-artifactIconBg text-canvas-compact text-canvas-accent">
           {spokeIcon(spoke.id)}
         </span>
         <h3 className="min-w-0 flex-1 truncate text-canvas-body-sm font-medium text-canvas-ink">
@@ -581,6 +597,7 @@ function RepoSpokeCard({
           data-no-drag
           aria-label={`Hide ${spoke.title}`}
           onClick={onDismiss}
+          data-repo-close
           className="rounded-canvas-xs px-1 text-canvas-muted hover:bg-canvas-artifactStage hover:text-canvas-ink"
         >
           ×
@@ -588,6 +605,7 @@ function RepoSpokeCard({
       </header>
       <m.div
         data-canvas-scroll
+        data-repo-body
         className="artifact-content-body relative z-10 overflow-y-auto p-3"
         style={{ maxHeight: REPO_SPOKE_BODY_MAX_HEIGHT }}
         initial={{ opacity: 0 }}
@@ -907,7 +925,7 @@ export function RepoArtifactContent({
       visibleSpokes.map((spoke) => {
         const from = hubAnchor(spoke.hubSide, hub);
         const to = spokeAnchor(spoke);
-        return { id: spoke.id, d: orthogonalPath(from, to) };
+        return { id: spoke.id, d: curvedPath(from, to) };
       }),
     [hub, visibleSpokes],
   );
@@ -934,6 +952,7 @@ export function RepoArtifactContent({
           ? connectors.map((c, i) => (
               <m.path
                 key={c.id}
+                data-repo-connector
                 d={c.d}
                 fill="none"
                 stroke="rgb(var(--canvas-ink))"
@@ -958,8 +977,11 @@ export function RepoArtifactContent({
               const to = spokeAnchor(spoke);
               return (
                 <g key={`${c.id}-dots`}>
-                  <circle cx={from.x} cy={from.y} r={4} fill="rgb(var(--canvas-ink))" />
-                  <circle cx={to.x} cy={to.y} r={4} fill="rgb(var(--canvas-ink))" />
+                  <circle data-repo-end cx={from.x} cy={from.y} r={4} fill="rgb(var(--canvas-ink))" />
+                  <circle data-repo-end cx={to.x} cy={to.y} r={4} fill="rgb(var(--canvas-ink))" />
+                  {/* The ends' marks: hidden under the ink disc; Frost's raised disc shows them. */}
+                  <circle data-repo-end-mark cx={from.x} cy={from.y} r={1.6} fill="rgb(var(--canvas-ink))" />
+                  <circle data-repo-end-mark cx={to.x} cy={to.y} r={1.6} fill="rgb(var(--canvas-ink))" />
                 </g>
               );
             })
@@ -969,6 +991,7 @@ export function RepoArtifactContent({
       <m.div
         ref={hubRef}
         {...{ [REPO_DRAG_HANDLE_ATTR]: "" }}
+        data-repo-hub
         className="absolute z-20 flex flex-col items-center overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card text-center shadow-artifact"
         style={{
           left: hub.cx - hub.w / 2,
@@ -982,6 +1005,7 @@ export function RepoArtifactContent({
       >
         <BoundsGlow intensity="full" />
         <div
+          data-repo-drag
           className="relative z-10 flex w-full shrink-0 cursor-grab items-center justify-center gap-1.5 border-b border-canvas-border/40 bg-canvas-artifactStage/50 py-1 active:cursor-grabbing"
           title="Drag here to move"
         >
@@ -1015,11 +1039,11 @@ export function RepoArtifactContent({
               onRename={(next) => {
                 if (artifactId) renameSessionArtifactTitle(artifactId, next);
               }}
-              className="mt-1.5 line-clamp-3 w-full text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
+              className="repo-hub-title mt-1.5 line-clamp-3 w-full text-center text-canvas-body-sm font-medium leading-snug text-canvas-accent"
             />
           </div>
           {explorer.overview.data ? (
-            <p className="mt-1 text-canvas-compact tabular-nums text-canvas-muted">
+            <p data-repo-stars className="mt-1 text-canvas-compact tabular-nums text-canvas-muted">
               ★ {explorer.overview.data.stars.toLocaleString()} ·{" "}
               {explorer.overview.data.forks.toLocaleString()} forks
             </p>
@@ -1040,6 +1064,7 @@ export function RepoArtifactContent({
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Open all branch widgets" : "Collapse all branch widgets"}
             onClick={toggleCollapsed}
+            data-repo-toggle
             className="relative z-10 mb-2.5 rounded-canvas-xs border border-canvas-border/25 bg-canvas-card/30 px-2.5 py-0.5 text-canvas-micro font-medium text-canvas-muted/75 backdrop-blur-[2px] transition-colors hover:border-canvas-border/50 hover:bg-canvas-artifactStage/50 hover:text-canvas-ink"
           >
             {collapsed ? "Open all" : "Collapse all"}

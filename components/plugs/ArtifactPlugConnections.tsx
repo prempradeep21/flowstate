@@ -42,7 +42,7 @@ export function ArtifactPlugConnections() {
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
   const tuning = RESOLVED_CANVAS_TUNING;
-  // Pack plug-link colour (Frost): one dashed ink tint for every plug kind.
+  // Pack plug-link colour (Frost): one ink tint for every plug kind.
   const packConnector = usePackConnector();
 
   // Links of the selection rise above every node with it.
@@ -121,7 +121,6 @@ export function ArtifactPlugConnections() {
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            dashed
             opacity={
               conn.id === recentArtifactPlugId || packConnector ? 1 : 0.85
             }

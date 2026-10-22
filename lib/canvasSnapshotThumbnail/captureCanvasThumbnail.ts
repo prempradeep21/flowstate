@@ -396,7 +396,6 @@ function paintConnections(
     if (!render) continue;
     ctx.globalAlpha = render.opacity;
     ctx.strokeStyle = render.stroke;
-    ctx.setLineDash(render.dashed ? [6 / fit.scale, 5 / fit.scale] : []);
     ctx.stroke(new Path2D(render.d));
   }
   ctx.restore();

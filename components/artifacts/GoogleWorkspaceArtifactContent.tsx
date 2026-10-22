@@ -89,7 +89,7 @@ function GoogleWorkspacePreviewFrame({
 }) {
   const frameLoad = useMediaLoaded(previewUrl);
   return (
-    <div className="relative flex h-full min-h-[200px] w-full flex-col overflow-hidden bg-canvas-bg">
+    <div data-gdoc-preview className="relative flex h-full min-h-[200px] w-full flex-col overflow-hidden bg-canvas-bg">
       <MediaLoadingCover loaded={frameLoad.loaded} />
       <iframe
         src={previewUrl}
@@ -110,7 +110,7 @@ function GoogleWorkspacePreviewFrame({
           onClick={onActivate}
           className="absolute inset-0 z-10 flex cursor-pointer items-end justify-center bg-transparent pb-3 opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100"
         >
-          <span className="rounded-full border border-canvas-border/60 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
+          <span data-gdoc-pill className="rounded-full border border-canvas-border/60 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
             Click to interact
           </span>
         </button>
@@ -145,7 +145,7 @@ function ImportStatusBanner({
   if (!message) return null;
 
   return (
-    <div className="shrink-0 border-t border-canvas-border/50 bg-canvas-card/95 px-3 py-2">
+    <div data-gdoc-import className="shrink-0 border-t border-canvas-border/50 bg-canvas-card/95 px-3 py-2">
       <p className="text-canvas-micro text-canvas-muted">{message}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {status === "needs_connect" && signedIn ? (
@@ -348,7 +348,7 @@ export function GoogleWorkspaceArtifactContent({
           onActivate={isCanvas ? () => setActive(true) : undefined}
         />
         {status === "loading" ? (
-          <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-canvas-border/50 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
+          <div data-gdoc-pill className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full border border-canvas-border/50 bg-canvas-card/95 px-2.5 py-1 text-canvas-micro text-canvas-muted shadow-sm">
             <span className="h-3 w-3 animate-spin rounded-full border border-canvas-border border-t-canvas-accent" />
             Importing…
           </div>

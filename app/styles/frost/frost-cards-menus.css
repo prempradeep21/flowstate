@@ -817,6 +817,24 @@ html[data-canvas-style="frost"] [data-canvas-loading] :is(.text-canvas-muted, .t
 [data-artifact-style="frost"] .chat-casing [data-artifact-preview-pill] .text-canvas-muted {
   color: var(--frost-ink);
 }
+/* An artifact the question carries: raised like the turn's artifact pill,
+   with a round icon disc. It sits the question's inset (28 top) into the
+   card's corner, so its corners yield: 44 − 28 = 16. In the composer the
+   pill keeps its own nested radius (the composer's − 9). */
+[data-artifact-style="frost"] [data-artifact-attachment-pill] {
+  border-color: transparent;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+}
+[data-artifact-style="frost"] .chat-casing [data-artifact-attachment-pill]:not([data-nested]) {
+  border-radius: calc(var(--frost-radius) - 28px);
+}
+[data-artifact-style="frost"] [data-artifact-attachment-pill] [data-attachment-icon] {
+  border-radius: 999px;
+}
+[data-artifact-style="frost"] [data-artifact-attachment-pill] .text-canvas-muted {
+  color: var(--frost-ink);
+}
 /* Model chip in the composer: an ink-tinted pill, no stroke. */
 [data-artifact-style="frost"] .chat-composer-casing button[aria-label="Model"] {
   border-color: transparent;

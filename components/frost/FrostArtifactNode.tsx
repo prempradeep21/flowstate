@@ -33,7 +33,7 @@ import {
 import { HugContext } from "@/components/artifactStyles/hug";
 import { focusCanvasWorldRect } from "@/lib/canvasFocus";
 import { computeGroupBounds } from "@/lib/groupBounds";
-import { getDefaultArtifactSize } from "@/lib/canvasNodeBounds";
+import { getFrostDefaultArtifactSize } from "@/lib/canvasNodeBounds";
 import { CANVAS_CONTENT_INERT_CLASS } from "@/lib/canvasNodeInteraction";
 import { artifactCategoryOf } from "@/lib/design/theme/artifactCategories";
 import {
@@ -41,6 +41,7 @@ import {
   getVersionById,
   type SessionArtifact,
 } from "@/lib/sessionArtifacts";
+import { normalizeStickyNotePayload } from "@/lib/stickyNoteArtifact";
 import { useCanvasStore } from "@/lib/store";
 import { FrostEmptyBody, FrostErrorBoundary, isEmptyPayload } from "./FrostStates";
 
@@ -67,6 +68,9 @@ import { FrostEmptyBody, FrostErrorBoundary, isEmptyPayload } from "./FrostState
  */
 export const FROST_MIN_WIDTH: Partial<Record<ArtifactKind, number>> = {
   stat: 440,
+  // The explorer's stage is REPO_ARTIFACT_WIDTH (1080) wide; the card adds
+  // the media inset (24) on both sides so nothing on the stage is clipped.
+  repo: 1080 + 2 * 24,
 };
 
 /**
@@ -365,6 +369,10 @@ export function FrostArtifactNode({
   const saveTodoArtifactVersion = useCanvasStore(
     (s) => s.saveTodoArtifactVersion,
   );
+  const saveStickyNoteArtifactVersion = useCanvasStore(
+    (s) => s.saveStickyNoteArtifactVersion,
+  );
+  const restHRef = useRef(0);
   const version = getVersionById(art, versionId) ?? getLatestVersion(art);
   const payload = version?.payload;
   const isLatest = version?.id === art.latestVersionId;
@@ -428,7 +436,14 @@ export function FrostArtifactNode({
   const styleFloor = hug
     ? (STYLE_D.hug?.({
         ...item,
-        natural: sized ? size : getDefaultArtifactSize(art.kind, payload),
+        // Picture kinds floor at the taller of their default and the node's
+        // own height — a repo or an embed sizes its node from what it holds.
+        natural: sized
+          ? size
+          : {
+              w: size.w,
+              h: Math.max(getFrostDefaultArtifactSize(art.kind, payload).h, size.h),
+            },
       }) ?? null)
     : null;
   const hugFloor = hug ? Math.max(styleFloor ?? 0, minHeight) : null;
@@ -442,12 +457,29 @@ export function FrostArtifactNode({
     liveBody: shell(true),
     canvasMenu,
     focusGroup: focusCanvasGroup,
+    editing,
     onPayloadChange:
-      art.kind === "todo" && isLatest && !readOnly
-        ? (next) => {
-            if (next.type === "todo") saveTodoArtifactVersion(art.id, next);
-          }
+      isLatest && !readOnly
+        ? art.kind === "todo"
+          ? (next) => {
+              if (next.type === "todo") saveTodoArtifactVersion(art.id, next);
+            }
+          : art.kind === "stickynote"
+            ? (next) => {
+                if (next.type === "stickynote") {
+                  saveStickyNoteArtifactVersion(art.id, normalizeStickyNotePayload(next));
+                }
+              }
+            : undefined
         : undefined,
+  };
+  // A note is written on in place (styleD StickyBody): Edit only hands it
+  // the caret, never swaps the vanilla editor in.
+  const editsInPlace = art.kind === "stickynote";
+  // The card's last height at rest — the floor the editor opens at.
+  const reportRest: typeof onHugHeight = (h, minW, natural, w) => {
+    restHRef.current = h;
+    onHugHeight?.(h, minW, natural, w);
   };
 
   if (!editing && isEmptyPayload(payload)) {
@@ -456,7 +488,7 @@ export function FrostArtifactNode({
         ctx={ctx}
         hug={hugFloor}
         naturalFloor={styleFloor ?? 0}
-        onHugHeight={onHugHeight}
+        onHugHeight={reportRest}
         body={
           <FrostEmptyBody
             payload={payload}
@@ -467,11 +499,16 @@ export function FrostArtifactNode({
     );
   }
 
-  if (editing) {
+  if (editing && !editsInPlace) {
     return (
       <FrostCard
         ctx={{ ...ctx, interactive: true }}
         className="frost-live-editor"
+        // The editor hugs too (never crops a row): at least as tall as the
+        // card was at rest, so Edit never jumps the card smaller.
+        hug={hug ? Math.max(hugFloor ?? 0, restHRef.current) : null}
+        naturalFloor={styleFloor ?? 0}
+        onHugHeight={onHugHeight}
         body={
           <div
             data-frost-editor
@@ -510,8 +547,10 @@ export function FrostArtifactNode({
           />
         }
       >
-        {/* Keyed by version: bodies seed local state (todo checks) from the payload. */}
-        <FrostCard key={version.id} ctx={ctx} hug={hugFloor} naturalFloor={styleFloor ?? 0} onHugHeight={onHugHeight} />
+        {/* Keyed by version: bodies seed local state (todo checks) from the
+            payload. A note keeps one card across the versions its own
+            typing saves, or the field would lose the caret on every save. */}
+        <FrostCard key={editsInPlace ? art.id : version.id} ctx={ctx} hug={hugFloor} naturalFloor={styleFloor ?? 0} onHugHeight={reportRest} />
       </FrostBodyBoundary>
     </div>
   );

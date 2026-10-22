@@ -297,6 +297,7 @@ export function TimelineArtifactContent({
     >
       <div
         ref={trackAreaRef}
+        data-timeline-area
         className={`relative min-h-0 flex-1 ${fill ? "flex flex-col" : ""} ${viewportEnabled ? "" : "pointer-events-none"}`}
         style={
           fill

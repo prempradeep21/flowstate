@@ -21,7 +21,7 @@ type Ctx = { ctx: ArtifactRenderContext };
  * rest of its words — all one part. A `kicker` that isn't the title's own
  * (a website's domain) is its own part, `kickerRole`.
  */
-function MediaHead({ title, kicker, kickerRole }: { title: string; kicker?: ReactNode; kickerRole?: string }) {
+export function MediaHead({ title, kicker, kickerRole }: { title: string; kicker?: ReactNode; kickerRole?: string }) {
   const t = splitTitle(title);
   const sub = [t.sub ? sentenceCase(t.sub) : null, t.range].filter(Boolean).join(" · ");
   return (
@@ -46,7 +46,7 @@ function MediaHead({ title, kicker, kickerRole }: { title: string; kicker?: Reac
  * height, which is not definite, so a child's `h-full` would resolve to
  * nothing — an inset-0 box always has the well's real size.
  */
-function Well({ children }: { children: ReactNode }) {
+export function Well({ children }: { children: ReactNode }) {
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -59,6 +59,40 @@ function Well({ children }: { children: ReactNode }) {
     >
       <div className="absolute inset-0 flex flex-col">{children}</div>
       <span aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.05), inset 0 2px 8px rgba(0,0,0,0.06)" }} />
+    </div>
+  );
+}
+
+/**
+ * The well for content that has a size of its own (the repo explorer's
+ * stage): the same sunken surface, but its content sits in flow, so a
+ * hugging card grows to hold all of it instead of clipping it.
+ */
+export function FlowWell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="relative flex flex-col overflow-hidden"
+      style={{
+        margin: `0 ${MEDIA_INSET}px ${MEDIA_INSET}px`,
+        borderRadius: MEDIA_RADIUS,
+        background: D.well,
+        boxShadow: `0 1px 0 ${D.rim}, 0 0 0 1px ${inkA(4)}`,
+      }}
+    >
+      {children}
+      <span aria-hidden className="pointer-events-none absolute inset-0" style={{ borderRadius: "inherit", boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.05), inset 0 2px 8px rgba(0,0,0,0.06)" }} />
+    </div>
+  );
+}
+
+/** A GitHub repo: its title, then the explorer (hub, panels, curves) whole in the well. */
+export function RepoBody({ ctx }: Ctx) {
+  return (
+    <div className="flex flex-col">
+      <MediaHead title={ctx.item.artifact.title} />
+      <FlowWell>
+        <LiveBody ctx={ctx} />
+      </FlowWell>
     </div>
   );
 }

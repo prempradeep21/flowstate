@@ -8,7 +8,11 @@ import {
   PAD,
   RAISED,
 } from "@/components/artifactStyles/styleD/tokens";
+import { MediaHead, Well } from "@/components/artifactStyles/styleD/media";
 import type { ArtifactPayload } from "@/lib/artifactTypes";
+
+// Kept in its own module so tests can import it without the bodies' fonts.
+export { isEmptyPayload } from "./isEmptyPayload";
 
 /**
  * Frost's empty and error bodies (audit 7.3 and 6.1). Both keep the card's
@@ -20,30 +24,6 @@ import type { ArtifactPayload } from "@/lib/artifactTypes";
  *   Error — a rose bloom on the card's lower edge (the only hue Frost allows
  *           besides lime, kept for failure), an ink reason, a raised Retry.
  */
-
-/** Whether a payload has nothing to draw (the body would be blank). */
-export function isEmptyPayload(payload: ArtifactPayload): boolean {
-  switch (payload.type) {
-    case "todo":
-      return payload.data.items.length === 0;
-    case "table":
-      return (payload.data.rows ?? []).length === 0;
-    case "timeline":
-      return payload.data.events.length === 0;
-    case "images":
-      return payload.data.items.length === 0;
-    case "linkgroup":
-      return payload.data.sections.every((s) => (s.links ?? []).length === 0);
-    case "chart": {
-      const d = payload.data;
-      if (d.chartType === "gauge") return d.gaugeValue == null;
-      if (d.chartType === "pie") return (d.slices?.length ?? d.categories?.length ?? 0) === 0;
-      return (d.categories?.length ?? 0) === 0 || (d.series?.length ?? 0) === 0;
-    }
-    default:
-      return false;
-  }
-}
 
 const EMPTY_LINE: Partial<Record<ArtifactPayload["type"], string>> = {
   todo: "No items yet",
@@ -65,18 +45,26 @@ function CardTitle({ title }: { title: string }) {
   );
 }
 
-function Pill({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+function Pill({ children, onClick, center = false }: { children: ReactNode; onClick?: () => void; center?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 self-start rounded-full px-5 py-2.5 text-[16px]"
+      data-no-drag
+      className={`inline-flex items-center gap-2 ${center ? "self-center" : "self-start"} rounded-full px-5 py-2.5 text-[16px]`}
       style={{ ...FONT, ...RAISED, color: D.ink }}
     >
       {children}
     </button>
   );
 }
+
+/**
+ * Kinds whose picture has no height of its own (a gallery, a chart): their
+ * empty state keeps the card's shape — title over the picture well, the line
+ * set in the middle of the well — so the card doesn't change when it fills.
+ */
+const WELL_EMPTY = new Set<ArtifactPayload["type"]>(["images", "chart"]);
 
 export function FrostEmptyBody({
   payload,
@@ -85,6 +73,21 @@ export function FrostEmptyBody({
   payload: ArtifactPayload;
   onAdd?: () => void;
 }) {
+  if (WELL_EMPTY.has(payload.type)) {
+    return (
+      <div data-frost-empty className="flex min-h-0 flex-1 flex-col">
+        <MediaHead title={payload.title} />
+        <Well>
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+            <p style={{ ...FONT, fontSize: 18, color: D.ink, margin: 0 }}>
+              {EMPTY_LINE[payload.type] ?? "Nothing here yet"}
+            </p>
+            {onAdd ? <Pill onClick={onAdd} center>+ Add</Pill> : null}
+          </div>
+        </Well>
+      </div>
+    );
+  }
   return (
     <div data-frost-empty className="flex min-h-0 flex-1 flex-col" style={{ padding: PAD }}>
       <CardTitle title={payload.title} />

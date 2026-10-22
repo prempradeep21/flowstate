@@ -14,7 +14,7 @@ import type { ArtifactEdgeScene } from "./timeline";
 const BASE_STROKE_SCREEN = 1.75;
 
 /**
- * Dashed artifact→card plug edges, rendered with the same primitives as the
+ * Artifact→card plug edges, rendered with the same primitives as the
  * product's ArtifactPlugConnections but with timeline-driven opacity (the
  * product's draw-in is a wall-clock CSS animation).
  */
@@ -77,7 +77,6 @@ export function DemoArtifactEdges({
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={e.toSide}
-            dashed
             opacity={0.85 * e.opacity}
             showTargetPlug={false}
           />

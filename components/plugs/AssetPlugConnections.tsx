@@ -28,7 +28,7 @@ import {
 } from "@/hooks/usePackConnector";
 
 
-/** Image (asset) plug links — same dashed connector as skill / artifact links. */
+/** Image (asset) plug links — same connector as skill / artifact links. */
 export function AssetPlugConnections() {
   const assetPlugConnections = useCanvasStore((s) => s.assetPlugConnections);
   const cards = useCanvasStore((s) => s.cards);
@@ -39,7 +39,7 @@ export function AssetPlugConnections() {
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
   const tuning = RESOLVED_CANVAS_TUNING;
-  // Pack plug-link colour (Frost): one dashed ink tint for every plug kind.
+  // Pack plug-link colour (Frost): one ink tint for every plug kind.
   const packConnector = usePackConnector();
 
   // Links of the selection rise above every node with it.
@@ -111,7 +111,6 @@ export function AssetPlugConnections() {
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            dashed
             opacity={packConnector ? 1 : 0.85}
             showTargetPlug={false}
           />

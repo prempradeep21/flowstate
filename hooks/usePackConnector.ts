@@ -15,8 +15,6 @@ import { useCanvasStore } from "@/lib/store";
  */
 export const PACK_CONNECTOR_STROKE_PX = 1.5;
 export const PACK_CONNECTOR_ACTIVE_STROKE_PX = 2;
-/** Plug-link / drag-preview dash, world px. */
-export const PACK_CONNECTOR_DASH = [6, 5] as const;
 
 /** The active pack's connector tokens for a theme mode, or null. */
 export function packConnectorTokens(

@@ -31,7 +31,7 @@ import {
 import { CANVAS_ACCENT, connectorColour } from "@/lib/design/tokens";
 
 
-/** Persistent dashed lines from group containers to the cards they feed. */
+/** Persistent lines from group containers to the cards they feed. */
 export function GroupPlugConnections() {
   const groupPlugConnections = useCanvasStore((s) => s.groupPlugConnections);
   const groups = useCanvasStore((s) => s.groups);
@@ -41,7 +41,7 @@ export function GroupPlugConnections() {
   const dragFrame = useNodeDragFrame();
   const nodesState = useCanvasNodesState();
   const tuning = RESOLVED_CANVAS_TUNING;
-  // Pack plug-link colour (Frost): one dashed ink tint for every plug kind.
+  // Pack plug-link colour (Frost): one ink tint for every plug kind.
   const packConnector = usePackConnector();
 
   // Links of the selection rise above every node with it.
@@ -108,7 +108,6 @@ export function GroupPlugConnections() {
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
-            dashed
             opacity={packConnector ? 1 : 0.85}
             showTargetPlug={false}
           />

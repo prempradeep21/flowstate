@@ -17,7 +17,6 @@ export function ConnectorPathGroup({
   strokeWidth,
   fromAnchor,
   toAnchor,
-  dashed,
   opacity = 0.85,
   showSourcePlug = true,
   showTargetPlug = true,
@@ -36,7 +35,6 @@ export function ConnectorPathGroup({
   toAnchor: PlugAnchor;
   /** Unused since both ends draw the same ring; kept so callers needn't change. */
   toSide?: CardSide;
-  dashed?: boolean;
   opacity?: number;
   showSourcePlug?: boolean;
   showTargetPlug?: boolean;
@@ -99,7 +97,6 @@ export function ConnectorPathGroup({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray={dashed ? "6 5" : undefined}
         className={drawIn ? "connection-draw-in" : undefined}
         pointerEvents="none"
       />

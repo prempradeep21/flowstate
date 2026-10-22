@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import type { TableCell, TimelineEvent } from "@/lib/artifactTypes";
+import { useState } from "react";
+import type { TableCell } from "@/lib/artifactTypes";
 import { buildMonthWeeks } from "@/lib/calendarArtifact";
 import { normalizeTableArtifactData } from "@/lib/tableArtifact";
 import { CurrentBody } from "../current";
@@ -134,7 +134,8 @@ export function TableBody({ ctx }: Ctx) {
                           overflowWrap: "break-word",
                         }}
                       >
-                        {value}
+                        {/* A blank cell keeps its line: an empty table reads as ruled rows. */}
+                        {value || "\u00a0"}
                       </td>
                     );
                   })}
@@ -188,8 +189,10 @@ export function TodoBody({ ctx }: Ctx) {
         sizes={[[16, 36], [30, 31], [46, 27]]}
         fallback={24}
         aside={
+          // One part, the wrapper: the corner circle's clearance pads the
+          // whole "n / total", not the figure alone (which left "/ 3" under ⋯).
           <div data-el={ROLE.progress} className="flex shrink-0 items-baseline gap-1.5 pt-1">
-            <Figure el={ROLE.progress} text={String(done)} size={34} color={D.ink} />
+            <Figure text={String(done)} size={34} color={D.ink} />
             <span style={{ ...FONT, fontSize: 18, color: D.ink }}>/ {items.length}</span>
           </div>
         }
@@ -317,112 +320,6 @@ export function CalendarBody({ ctx }: Ctx) {
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-// ─── Timeline ───────────────────────────────────────────────────────────────
-
-function eventStamp(e: TimelineEvent, scale: string): string {
-  const m = e.at.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return e.at;
-  if (scale === "day") return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}`;
-  if (scale === "month") return `${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
-  return m[1]!;
-}
-
-/** The track's height, and the room between it and the labels above and below. */
-const TRACK_H = 64;
-const TRACK_GAP = 22;
-
-/**
- * The reference's dotted range strip: the subject large on the left, then a
- * raised track with each moment as a small dot, labels hanging above and
- * below in turn. The latest moment is lime. The labels are laid out in flow
- * (a grid: a row above the track, the track, a row below), so the card is as
- * tall as its longest label needs and nothing is ever cut.
- */
-export function TimelineBody({ ctx }: Ctx) {
-  const pal = usePalette(ctx.item.uid);
-  const clamps = useClamps();
-  const payload = ctx.item.payload;
-  if (payload.type !== "timeline") return <CurrentBody ctx={ctx} />;
-  const d = payload.data;
-  const events = [...d.events].sort((a, b) => a.at.localeCompare(b.at));
-  const t = splitTitle(ctx.item.artifact.title);
-  const big = t.lead ?? t.head;
-  // The rest of the title's own words, in order — never a computed span or count.
-  const second = [t.lead ? t.head : null, t.sub].filter(Boolean).join(" — ");
-  const n = events.length;
-  const dotColors = pal.dots;
-
-  return (
-    <div className="flex min-h-0 flex-1 overflow-hidden" style={{ padding: `${PAD + 4}px ${PAD + 8}px` }}>
-      <div data-el={ROLE.title} className="flex w-[24%] min-w-[260px] max-w-[420px] shrink-0 flex-col justify-center pr-10">
-        <Title size={sizeFor(big, [[14, 64], [22, 54], [34, 44]], 38)} lines={3}>
-          {big}
-        </Title>
-        {second ? (
-          <p className="mt-3 text-[22px] leading-tight" style={{ ...DISPLAY, color: D.ink, letterSpacing: "-0.015em", overflowWrap: "break-word" }}>
-            {sentenceCase(second)}
-          </p>
-        ) : null}
-        {t.range ? (
-          <p className="mt-5 text-[16px] tabular-nums" style={{ ...FONT, color: D.ink }}>
-            {t.range}
-          </p>
-        ) : null}
-      </div>
-      <div
-        className="relative grid min-w-0 flex-1 self-center"
-        style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, gridTemplateRows: `auto ${TRACK_H}px auto`, rowGap: TRACK_GAP, paddingInline: 10 }}
-      >
-        <div aria-hidden className="rounded-full" style={{ ...RAISED, gridRow: 2, gridColumn: "1 / -1", marginInline: -14 }} />
-        {events.map((e, i) => {
-          const above = i % 2 === 0;
-          const latest = i === n - 1;
-          const first = i === 0;
-          const color = dotColors[i % dotColors.length]!;
-          // A label may spread over its neighbours' columns: the next label in its row is two columns away.
-          const spread = n === 1 ? {} : first ? { width: "172%" } : latest ? { width: "172%", marginLeft: "-72%" } : { width: "172%", marginLeft: "-36%" };
-          return (
-            <Fragment key={e.id}>
-              <div className="relative" style={{ gridRow: 2, gridColumn: i + 1 }}>
-                {/* A short column of dots — the reference's dotted range marks. */}
-                <span className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[5px]">
-                  {latest ? (
-                    <span className="h-[22px] w-[22px] rounded-full" style={{ background: D.accent, boxShadow: `0 0 0 5px ${D.accentHalo}, 0 4px 12px -2px ${D.accentShadow}` }} />
-                  ) : (
-                    <>
-                      <span className="h-[5px] w-[5px] rounded-full" style={{ background: inkA(25) }} />
-                      <span className="rounded-full" style={{ width: e.highlight ? 13 : 10, height: e.highlight ? 13 : 10, background: color, boxShadow: pal.halo ? `0 0 10px ${color}` : undefined }} />
-                      <span className="h-[5px] w-[5px] rounded-full" style={{ background: inkA(25) }} />
-                    </>
-                  )}
-                </span>
-              </div>
-              <div
-                className={`min-w-0 ${n === 1 ? "text-center" : first ? "text-left" : latest ? "text-right" : "text-center"}`}
-                style={{ ...FONT, gridRow: above ? 1 : 3, gridColumn: i + 1, alignSelf: above ? "end" : "start", ...spread }}
-              >
-                {above ? null : (
-                  <p data-el={ROLE.eventDates} className="text-[24px] leading-none tabular-nums" style={{ color: D.ink }}>
-                    {eventStamp(e, d.scale)}
-                  </p>
-                )}
-                <p data-el={ROLE.eventLabels} className={`${clamps ? "line-clamp-3" : ""} text-[19px] leading-snug ${above ? "mb-2.5" : "mt-2.5"}`} style={{ color: D.ink, overflowWrap: "break-word" }}>
-                  {e.label}
-                </p>
-                {above ? (
-                  <p data-el={ROLE.eventDates} className="text-[24px] leading-none tabular-nums" style={{ color: D.ink }}>
-                    {eventStamp(e, d.scale)}
-                  </p>
-                ) : null}
-              </div>
-            </Fragment>
-          );
-        })}
-      </div>
     </div>
   );
 }

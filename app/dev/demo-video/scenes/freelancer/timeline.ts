@@ -737,7 +737,7 @@ export function flSceneStateAt(t: number): FlSceneState {
     }),
   ];
 
-  /* -------------------------- dashed edges --------------------------- */
+  /* ----------------------------- plug edges ---------------------------- */
 
   function edge(
     id: string,

@@ -19,6 +19,7 @@ import { buildKunalShahHiringCanvasSection } from "@/lib/transcriptImport/buildK
 import { buildNithinKamathRiskCanvasSection } from "@/lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildFreshMenuCanvasSection } from "@/lib/transcriptImport/buildFreshMenuCanvasSection";
 import { buildAllariNareshCanvasSection } from "@/lib/transcriptImport/buildAllariNareshCanvasSection";
+import { buildSamAltmanCanvasSection } from "@/lib/transcriptImport/buildSamAltmanCanvasSection";
 import { DESIGN_TOOLS_HISTORY_TRANSCRIPT } from "@/lib/transcriptImport/designToolsHistory";
 import {
   HUBERMAN_NEUROPLASTICITY_SOURCE_URL,
@@ -76,6 +77,10 @@ import {
   ALLARI_NARESH_TRANSCRIPT,
   ALLARI_NARESH_VIDEO_URL,
 } from "@/lib/transcriptImport/allariNareshInterview";
+import {
+  SAM_ALTMAN_TRANSCRIPT,
+  SAM_ALTMAN_VIDEO_URL,
+} from "@/lib/transcriptImport/samAltmanMatthewBerman";
 import type { TranscriptImportCanvasSection } from "@/lib/transcriptImport/playgroundLayout";
 
 /**
@@ -294,6 +299,13 @@ export const TRANSCRIPT_IMPORT_CANVASES: TranscriptImportCanvasDef[] = [
     FRESHMENU_TRANSCRIPT,
     buildFreshMenuCanvasSection,
     FRESHMENU_VIDEO_URL,
+  ),
+  defineCanvas(
+    "sam-altman-matthew-berman",
+    "Sam Altman — Matthew Berman",
+    SAM_ALTMAN_TRANSCRIPT,
+    buildSamAltmanCanvasSection,
+    SAM_ALTMAN_VIDEO_URL,
   ),
 ];
 

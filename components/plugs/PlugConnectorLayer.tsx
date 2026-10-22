@@ -46,7 +46,6 @@ export function PlugConnectorLayer() {
 
   let fromAnchor;
   let stroke: string = STROKE_FALLBACK;
-  let dashed = false;
   let fromSide: CardSide;
   let toSide: CardSide;
 
@@ -88,7 +87,6 @@ export function PlugConnectorLayer() {
     stroke = connectorColour(
       artCard ? threads[artCard.threadId]?.accentColour : undefined,
     );
-    dashed = true;
   } else if (plugDrag.kind === "asset") {
     const node = canvasAssetNodes[plugDrag.assetNodeId];
     if (!node) return null;
@@ -104,7 +102,6 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     stroke = "#7C9EFF";
-    dashed = true;
   } else if (plugDrag.kind === "skill") {
     const node = canvasSkillNodes[plugDrag.skillNodeId];
     if (!node) return null;
@@ -120,7 +117,6 @@ export function PlugConnectorLayer() {
       fromSide,
     );
     stroke = connectorColour(undefined);
-    dashed = true;
   } else {
     // Group container bounds derive from every member node — read the full
     // store imperatively (this layer already re-renders per pointer move).
@@ -133,7 +129,6 @@ export function PlugConnectorLayer() {
     toSide = plugDrag.fromSide === "left" ? "right" : "left";
     fromAnchor = plugAnchorAt(bounds.x, bounds.y, bounds.w, bounds.h, fromSide);
     stroke = connectorColour(undefined, CANVAS_ACCENT);
-    dashed = true;
   }
 
   const { d } = buildPlugConnectorPath(
@@ -144,13 +139,12 @@ export function PlugConnectorLayer() {
     connectorStyle,
   );
 
-  // Pack drag preview (Frost): ink-tint dashed while dragging; solid lime
-  // once the pointer is over a valid receive plug.
+  // Pack drag preview (Frost): ink tint while dragging; lime once the
+  // pointer is over a valid receive plug.
   const overValidTarget =
     "hoveredReceiveSide" in plugDrag && plugDrag.hoveredReceiveSide != null;
   if (packConnector) {
     stroke = overValidTarget ? packConnector.dragValid : packConnector.dragPreview;
-    dashed = !overValidTarget;
   }
 
   // Above every node, raised ones included (useRaisedZIndex tops out at
@@ -177,7 +171,6 @@ export function PlugConnectorLayer() {
         fromAnchor={fromAnchor}
         toAnchor={end}
         toSide={toSide}
-        dashed={dashed}
         opacity={packConnector ? 1 : 0.85}
         packPlugs={packConnector != null}
         packPlugMark={packConnector?.emphasis}

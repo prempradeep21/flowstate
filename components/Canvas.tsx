@@ -54,7 +54,7 @@ import {
   type SpawnCanvasGifInput,
   type SpawnCanvas3DInput,
 } from "@/lib/store";
-import { getArtifactBounds, getDefaultArtifactSize } from "@/lib/canvasNodeBounds";
+import { getArtifactBounds, getDropArtifactSize } from "@/lib/canvasNodeBounds";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import {
   createManualArtifactPayload,
@@ -1491,7 +1491,7 @@ export function Canvas({
         e.stopPropagation();
         const payload = createManualArtifactPayload(artifactPos.artifactType);
         const kind = payloadToArtifactKind(payload);
-        const { w, h } = getDefaultArtifactSize(kind, payload);
+        const { w, h } = getDropArtifactSize(kind, payload);
         const world =
           computeWorldFromClient(e.clientX, e.clientY) ?? artifactPos;
         createManualArtifact(artifactPos.artifactType, {

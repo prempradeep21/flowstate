@@ -33,6 +33,7 @@ import { buildPrashantKishorCanvasSection } from "../lib/transcriptImport/buildP
 import { buildNithinKamathRiskCanvasSection } from "../lib/transcriptImport/buildNithinKamathRiskCanvasSection";
 import { buildFreshMenuCanvasSection } from "../lib/transcriptImport/buildFreshMenuCanvasSection";
 import { buildRanaDaggubatiCanvasSection } from "../lib/transcriptImport/buildRanaDaggubatiCanvasSection";
+import { buildSamAltmanCanvasSection } from "../lib/transcriptImport/buildSamAltmanCanvasSection";
 import { buildYcInterviewCanvasSection } from "../lib/transcriptImport/buildYcInterviewCanvasSection";
 import { fetchLinkPreview, validateLinkPreviewUrl } from "../lib/linkPreview";
 import { readImageDimensions } from "../lib/imageDimensions";
@@ -64,6 +65,7 @@ const BUILDERS = [
   buildNithinKamathRiskCanvasSection,
   buildFreshMenuCanvasSection,
   buildRanaDaggubatiCanvasSection,
+  buildSamAltmanCanvasSection,
   buildYcInterviewCanvasSection,
 ];
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { PRIMARY } from "../fonts";
 import type { ClaimSide } from "@/lib/artifactTypes";
 import { CurrentBody } from "../current";
@@ -299,7 +300,17 @@ export function makeComposer(mode: DMode) {
 
 const NOTE_HUE: Record<string, HueId | null> = { turbo: "sun", violet: "lilac", chalk: null, haiti: "tide" };
 
-/** A note: in Aurora a frost card whose colour comes up as a bloom from below; in Frost the frame paints it flat lime. */
+/** What an empty note says until something is written on it. */
+const NOTE_PLACEHOLDER = "Write a note…";
+/** A placeholder is the one place a note's ink is allowed to fade. */
+const NOTE_PLACEHOLDER_OPACITY = 0.45;
+
+/**
+ * A note: in Aurora a frost card whose colour comes up as a bloom from below;
+ * in Frost the frame paints it flat lime. On the canvas (`onPayloadChange`)
+ * a selected note is written on in place — the same type, the same lime, no
+ * editor swapped in.
+ */
 export function StickyBody({ ctx }: Ctx) {
   const frost = useDMode() === "frost";
   const on = useOn();
@@ -307,15 +318,116 @@ export function StickyBody({ ctx }: Ctx) {
   if (payload.type !== "stickynote") return <CurrentBody ctx={ctx} />;
   const hue = frost ? null : NOTE_HUE[payload.data.colorId] ?? "sun";
   const text = payload.data.text;
+  const writable = ctx.interactive && !!ctx.onPayloadChange;
   return (
     <div className="relative flex h-full flex-col overflow-hidden" style={{ padding: "30px 30px 28px" }}>
       {hue ? <Bloom hue={hue} height="62%" /> : null}
       <p data-el={ROLE.title} className="relative shrink-0 text-[17px] leading-tight" style={{ ...FONT, fontWeight: 500, color: on.ink, overflowWrap: "break-word" }}>
         {ctx.item.artifact.title}
       </p>
-      <Clamp el={ROLE.note} size={sizeFor(text, [[120, 23], [220, 19]], 17)} lineHeight={1.38} className="relative mt-2.5" style={{ color: on.ink }}>
-        {text}
-      </Clamp>
+      {writable ? (
+        <NoteField
+          key={ctx.item.artifact.id}
+          payload={payload}
+          ink={on.ink}
+          focus={ctx.editing === true}
+          onSave={ctx.onPayloadChange!}
+        />
+      ) : text.trim() ? (
+        <Clamp el={ROLE.note} size={noteSize(text)} lineHeight={1.38} className="relative mt-2.5" style={{ color: on.ink }}>
+          {text}
+        </Clamp>
+      ) : (
+        <p className="relative mt-2.5" style={{ ...FONT, fontSize: noteSize(""), lineHeight: 1.38, color: on.ink, opacity: NOTE_PLACEHOLDER_OPACITY }}>
+          {NOTE_PLACEHOLDER}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const noteSize = (text: string) => sizeFor(text, [[120, 23], [220, 19]], 17);
+
+/**
+ * The note's words as a field. A copy of the text sits underneath, invisible,
+ * so the note is exactly as tall as what is written (a textarea has no height
+ * of its own), and the field lies over it in the same type. Writes are saved
+ * once typing pauses, and when the field is left.
+ */
+function NoteField({
+  payload,
+  ink,
+  focus,
+  onSave,
+}: {
+  payload: Extract<ArtifactRenderContext["item"]["payload"], { type: "stickynote" }>;
+  ink: string;
+  /** Take the caret (the note was asked to edit, or has nothing on it yet). */
+  focus: boolean;
+  onSave: NonNullable<ArtifactRenderContext["onPayloadChange"]>;
+}) {
+  const [draft, setDraft] = useState(payload.data.text);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef({ payload, draft, onSave });
+  latest.current = { payload, draft, onSave };
+
+  // A new version from elsewhere (undo, another tab) replaces the draft
+  // unless this field is the one writing it.
+  useEffect(() => {
+    if (document.activeElement !== ref.current) setDraft(payload.data.text);
+  }, [payload.data.text]);
+
+  const flush = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const { payload: p, draft: d, onSave: save } = latest.current;
+    if (d !== p.data.text) save({ ...p, data: { ...p.data, text: d } });
+  }, []);
+  useEffect(() => flush, [flush]);
+
+  const empty = !payload.data.text.trim();
+  useEffect(() => {
+    if (!focus && !empty) return;
+    const el = ref.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+    // Only on arrival: a note emptied by hand keeps the caret where it is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
+
+  const size = noteSize(draft);
+  // "pretty" as the note at rest sets it, so lines don't re-break when the field is left.
+  const type: CSSProperties = { ...FONT, fontSize: size, lineHeight: 1.38, overflowWrap: "break-word", whiteSpace: "pre-wrap", textWrap: "pretty" };
+  return (
+    <div data-el={ROLE.note} className="relative mt-2.5 min-h-0 flex-1">
+      <p aria-hidden style={{ ...type, visibility: "hidden", margin: 0 }}>
+        {draft || NOTE_PLACEHOLDER}
+        {"\u200b"}
+      </p>
+      <textarea
+        ref={ref}
+        value={draft}
+        placeholder={NOTE_PLACEHOLDER}
+        aria-label="Note"
+        data-selectable-text
+        data-frost-note-field
+        spellCheck
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (timer.current) clearTimeout(timer.current);
+          timer.current = setTimeout(flush, 400);
+        }}
+        onBlur={flush}
+        onKeyDown={(e) => {
+          // The canvas's shortcuts (delete, arrows, undo) stay out of the note.
+          e.stopPropagation();
+          if (e.key === "Escape") e.currentTarget.blur();
+        }}
+        className="absolute inset-0 h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0 outline-none"
+        style={{ ...type, color: ink, caretColor: ink, ["--note-placeholder" as string]: ink }}
+      />
     </div>
   );
 }

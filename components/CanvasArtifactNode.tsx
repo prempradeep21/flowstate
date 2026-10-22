@@ -313,11 +313,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         contentMinW,
       );
       // Never narrower than the box the node was given (a table's content
-      // width is measured in vanilla type, which Frost sets larger).
-      const nextW = Math.max(
-        current.frostSize?.w ?? Math.max(base.w, current.size?.w ?? 0),
-        minW,
-      );
+      // width is measured in vanilla type, which Frost sets larger). Derived
+      // from the node's own width every time — a resize keeps it current,
+      // and a provider resolving its size (an embed) widens the card too.
+      const nextW = Math.max(base.w, current.size?.w ?? 0, minW);
       const nextH = Math.round(h);
       // Mid-resize from a top grip, the bottom edge stays put: the card's
       // real height (content may need more than the pointer gives it) sets

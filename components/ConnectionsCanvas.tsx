@@ -23,7 +23,6 @@ import {
 import { useCanvasStore } from "@/lib/store";
 import {
   PACK_CONNECTOR_ACTIVE_STROKE_PX,
-  PACK_CONNECTOR_DASH,
   PACK_CONNECTOR_STROKE_PX,
   usePackConnector,
 } from "@/hooks/usePackConnector";
@@ -209,7 +208,7 @@ export function ConnectionsCanvas({
           PLUG_DISC_ON_LIME
         : PLUG_DISC_ON_LIME;
       // Opaque fill so a ring reads as a solid plug over the card edge it
-      // straddles, matching the DOM <Plug>; dashed stubs keep their fade.
+      // straddles, matching the DOM <Plug>; collapsed stubs keep their fade.
       const drawRings = (rings: Path2D, stroke: string, alpha: number) => {
         ctx.globalAlpha = 1;
         ctx.fillStyle = plugFill;
@@ -303,17 +302,15 @@ export function ConnectionsCanvas({
         if (strokeThisLine) {
           if (packStroke) {
             // Pack colours carry their own alpha; only collapsed stubs fade.
-            ctx.globalAlpha = g.dashed ? g.opacity : 1;
+            ctx.globalAlpha = g.faded ? g.opacity : 1;
             ctx.strokeStyle = packStroke;
             ctx.lineWidth =
               packState === "active"
                 ? PACK_CONNECTOR_ACTIVE_STROKE_PX
                 : PACK_CONNECTOR_STROKE_PX;
-            ctx.setLineDash(g.dashed ? [...PACK_CONNECTOR_DASH] : []);
           } else {
             ctx.globalAlpha = g.opacity;
             ctx.strokeStyle = g.stroke;
-            ctx.setLineDash(g.dashed ? [6, 5] : []);
           }
 
           if (drawIn?.connId === g.connId) {
@@ -357,7 +354,7 @@ export function ConnectionsCanvas({
             }
           } else {
             const rings = plugPaths.get(g.connId);
-            if (rings) drawRings(rings, g.stroke, g.dashed ? g.opacity : 1);
+            if (rings) drawRings(rings, g.stroke, g.faded ? g.opacity : 1);
           }
         }
       }

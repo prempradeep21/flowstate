@@ -89,7 +89,7 @@ export const GALLERY_VISIBLE = 3;
 export const BAR_VALUE_LABELS_MAX = 8;
 
 /** The parts this artifact's text is made of, in reading order. */
-export function textSpecFor(item: StudioArtifact): TextRole[] {
+export function textSpecFor(item: StudioArtifact, familyId?: string): TextRole[] {
   const p = item.payload;
   const R = ROLE;
   const out: TextRole[] = [R.title];
@@ -107,7 +107,8 @@ export function textSpecFor(item: StudioArtifact): TextRole[] {
       else if (d.chartType === "gauge") add(R.figure, R.figureNote);
       else if (d.chartType === "bar")
         add(R.figure, R.figureNote, series.length > 1 && R.legend, R.categoryLabels, (d.categories?.length ?? 0) <= BAR_VALUE_LABELS_MAX && R.valueLabels);
-      else add(R.figure, R.figureNote, series.length > 1 && R.legend, R.axisLabels);
+      // Frost's line chart drops the pill over the graph — the figure says it.
+      else add(R.figure, !(familyId === "style-d" && d.chartType === "line") && R.figureNote, series.length > 1 && R.legend, R.axisLabels);
       break;
     }
     case "stat":
@@ -182,8 +183,12 @@ export interface SpecCheck {
 }
 
 /** Compares the parts found on a rendered artifact with its spec. */
-export function checkSpec(item: StudioArtifact, found: { name: string; tagged: boolean; snippet: string; kind: "text" | "icon" }[]): SpecCheck {
-  const spec = textSpecFor(item);
+export function checkSpec(
+  item: StudioArtifact,
+  found: { name: string; tagged: boolean; snippet: string; kind: "text" | "icon" }[],
+  familyId?: string,
+): SpecCheck {
+  const spec = textSpecFor(item, familyId);
   const text = found.filter((f) => f.kind === "text");
   const tagged = new Set(text.filter((f) => f.tagged).map((f) => f.name));
   return {

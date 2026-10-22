@@ -263,14 +263,14 @@ export function StudioFocusView({
   const elements = useArtifactElements(`${item.uid}:${familyId}:${theme?.id ?? ""}:${mode}:${isQa ? qaState : ""}`);
   // A card mid-turn has no answer yet (or only part of one) — the spec describes the finished card.
   const specExempt = SPEC_EXEMPT_FAMILIES.has(family.id) || (isQa && qaState !== "done");
-  const specCheck = useMemo(() => (elements.elements.length ? checkSpec(item, elements.elements) : null), [item, elements.elements]);
+  const specCheck = useMemo(() => (elements.elements.length ? checkSpec(item, elements.elements, family.id) : null), [item, elements.elements, family.id]);
   // Read by scratch/text-parity.mjs, which sweeps every family against the spec.
   useEffect(() => {
     (window as unknown as { __studioFocus?: unknown }).__studioFocus = {
       uid: item.uid,
       variant: item.variant,
       family: family.id,
-      spec: textSpecFor(item),
+      spec: textSpecFor(item, family.id),
       elements: elements.elements,
       check: specCheck,
     };

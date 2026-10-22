@@ -700,7 +700,7 @@ export function assetsSceneStateAt(t: number): AssetsSceneState {
     }),
   ];
 
-  /* -------------------------- dashed edges --------------------------- */
+  /* ----------------------------- plug edges ---------------------------- */
 
   function edge(
     id: string,

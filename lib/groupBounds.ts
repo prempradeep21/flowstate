@@ -8,11 +8,11 @@ import { getFamilyCardIds } from "@/lib/chatThreads";
 import type { ChatThreadState } from "@/lib/chatThreads";
 
 /**
- * Inner padding of a group frame. Held equal to the transcript bento's
- * TILE_GAP so the air inside the frame reads as the same gutter that runs
+ * Inner padding of a group frame: 1.3x the transcript bento's TILE_GAP (48),
+ * so the frame's edge air reads a touch roomier than the gutter that runs
  * between the artifacts it contains.
  */
-export const GROUP_BOUNDS_PADDING = 48;
+export const GROUP_BOUNDS_PADDING = 62;
 
 /**
  * Chapter heading type size, in WORLD px. Lives here rather than in the

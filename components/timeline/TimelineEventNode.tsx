@@ -25,12 +25,12 @@ function labelEdgeOpacity(screenX: number, viewportWidth: number): number {
   return 1;
 }
 
-/** Dashed connector from the axis dot up/down to the label cluster. */
+/** Connector from the axis dot up/down to the label cluster — solid, like every connector. */
 function EventConnector() {
   return (
     <div
       aria-hidden
-      className="shrink-0 border-l border-dashed border-canvas-muted/45"
+      className="shrink-0 border-l border-canvas-muted/45"
       style={{ height: STEM_LENGTH }}
     />
   );
