@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  LIFTED_CONNECTOR_Z,
+  useLiftedConnector,
+} from "@/hooks/useLiftedConnector";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
 import {
@@ -18,6 +22,10 @@ import {
   withNodeDragOffset,
 } from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
+import {
+  PACK_CONNECTOR_STROKE_PX,
+  usePackConnector,
+} from "@/hooks/usePackConnector";
 
 
 export function SkillPlugConnections() {
@@ -30,21 +38,15 @@ export function SkillPlugConnections() {
   // Follow live node drags — the store only moves on release.
   const dragFrame = useNodeDragFrame();
   const tuning = RESOLVED_CANVAS_TUNING;
+  // Pack plug-link colour (Frost): one dashed ink tint for every plug kind.
+  const packConnector = usePackConnector();
 
+  // Links of the selection rise above every node with it.
+  const isLifted = useLiftedConnector();
   if (skillPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
 
-  return (
-    <svg
-      className="pointer-events-none absolute left-0 top-0 z-[14]"
-      style={{
-        overflow: "visible",
-      }}
-      width={1}
-      height={1}
-      aria-hidden
-    >
-      {skillPlugConnections.map((conn) => {
+  const renderLink = (conn: (typeof skillPlugConnections)[number]) => {
         const node = canvasSkillNodes[conn.skillNodeId];
         const card = cards[conn.cardId];
         if (!node || !card) return null;
@@ -99,17 +101,55 @@ export function SkillPlugConnections() {
           <ConnectorPathGroup
             key={conn.id}
             d={d}
-            stroke={connectorColour(undefined)}
-            strokeWidth={CONNECTOR_STROKE_PX}
+            stroke={packConnector?.plugLink ?? connectorColour(undefined)}
+            strokeWidth={
+              packConnector ? PACK_CONNECTOR_STROKE_PX : CONNECTOR_STROKE_PX
+            }
+            packPlugs={packConnector != null}
+            packPlugMark={packConnector?.emphasis}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
             dashed
-            opacity={0.85}
+            opacity={packConnector ? 1 : 0.85}
             showTargetPlug={false}
           />
         );
-      })}
+};
+  const lifted = skillPlugConnections.filter((c) =>
+    isLifted(c.cardId, { kind: "skill", id: c.skillNodeId }),
+  );
+  const resting = skillPlugConnections.filter(
+    (c) => !isLifted(c.cardId, { kind: "skill", id: c.skillNodeId }),
+  );
+
+  return (
+    <>
+    <svg
+      className="pointer-events-none absolute left-0 top-0 z-[14]"
+      style={{
+        overflow: "visible",
+      }}
+      width={1}
+      height={1}
+      aria-hidden
+    >
+      {resting.map(renderLink)}
     </svg>
+    {lifted.length > 0 ? (
+    <svg
+      className="pointer-events-none absolute left-0 top-0"
+      style={{
+        zIndex: LIFTED_CONNECTOR_Z,
+        overflow: "visible",
+      }}
+      width={1}
+      height={1}
+      aria-hidden
+    >
+      {lifted.map(renderLink)}
+    </svg>
+    ) : null}
+    </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FROST_ACCENT_PRESETS, useFrostAccent } from "./styles/styleD/accent";
+import { FROST_ACCENT_PRESETS, useFrostAccent } from "@/components/artifactStyles/styleD/accent";
 
 /**
  * Style D's accent picker: preset swatches plus the system colour wheel.

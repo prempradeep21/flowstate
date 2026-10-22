@@ -373,10 +373,15 @@ export function CanvasMinimap({
 
   return (
     <div
+      // Floats outside the style scope; data-canvas-portal gives it the
+      // canvas pack's vars so it can wear the pack (8.3).
+      data-canvas-portal=""
+      data-canvas-minimap=""
       className="pointer-events-auto absolute bottom-5 right-5 z-[55] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 p-1 shadow-card backdrop-blur-sm"
       aria-label="Canvas minimap"
     >
       <div
+        data-minimap-field=""
         className="relative cursor-pointer overflow-hidden rounded-canvas-nest-5"
         style={{ width: MINIMAP_W, height: MINIMAP_H }}
         onPointerDown={handlePointerDown}
@@ -385,6 +390,7 @@ export function CanvasMinimap({
           <div
             key={dot.id}
             aria-hidden
+            data-minimap-tile="card"
             className="pointer-events-none absolute rounded-canvas-xs bg-canvas-ink/40"
             style={{
               left: dot.left,
@@ -398,6 +404,7 @@ export function CanvasMinimap({
           <div
             key={dot.id}
             aria-hidden
+            data-minimap-tile="artifact"
             className="pointer-events-none absolute rounded-canvas-xs"
             style={{
               left: dot.left,
@@ -412,6 +419,7 @@ export function CanvasMinimap({
           <div
             key={dot.id}
             aria-hidden
+            data-minimap-tile="asset"
             className="pointer-events-none absolute rounded-canvas-xs bg-canvas-accent/45"
             style={{
               left: dot.left,
@@ -424,6 +432,7 @@ export function CanvasMinimap({
         {viewportRect && (
           <div
             aria-hidden
+            data-minimap-viewport=""
             className="pointer-events-none absolute z-10 rounded-[2px] border border-canvas-ink/70 bg-canvas-ink/12 shadow-[inset_0_0_0_1px_rgb(var(--canvas-ink)/0.12)]"
             style={{
               left: viewportRect.left,
@@ -435,6 +444,7 @@ export function CanvasMinimap({
         )}
         <span
           aria-hidden
+          data-minimap-zoom=""
           className="pointer-events-none absolute bottom-0.5 left-1 z-20 text-canvas-caption font-medium tabular-nums leading-none text-canvas-muted/90"
         >
           {zoomPercent}%

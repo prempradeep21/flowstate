@@ -7,12 +7,20 @@ import {
 } from "@/hooks/useNodeDragFrame";
 import { useCanvasStore } from "@/lib/store";
 import {
+  PACK_CONNECTOR_STROKE_PX,
+  usePackConnector,
+} from "@/hooks/usePackConnector";
+import {
   branchTargetAnchorY,
   getConnectionCardBounds,
 } from "@/lib/canvasMeasure";
 import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasNodesState } from "@/hooks/useCanvasNodesState";
 import { RESOLVED_CANVAS_TUNING } from "@/lib/canvasTuning";
+import {
+  LIFTED_CONNECTOR_Z,
+  useLiftedConnector,
+} from "@/hooks/useLiftedConnector";
 import { ConnectorPathGroup } from "@/components/ConnectorPathGroup";
 import {
   buildPlugConnectorPath,
@@ -33,21 +41,15 @@ export function GroupPlugConnections() {
   const dragFrame = useNodeDragFrame();
   const nodesState = useCanvasNodesState();
   const tuning = RESOLVED_CANVAS_TUNING;
+  // Pack plug-link colour (Frost): one dashed ink tint for every plug kind.
+  const packConnector = usePackConnector();
 
+  // Links of the selection rise above every node with it.
+  const isLifted = useLiftedConnector();
   if (groupPlugConnections.length === 0 || chatsGloballyHidden) return null;
 
 
-  return (
-    <svg
-      className="pointer-events-none absolute left-0 top-0 z-[14]"
-      style={{
-        overflow: "visible",
-      }}
-      width={1}
-      height={1}
-      aria-hidden
-    >
-      {groupPlugConnections.map((conn) => {
+  const renderLink = (conn: (typeof groupPlugConnections)[number]) => {
         const group = groups[conn.groupId];
         const card = nodesState.cards[conn.cardId];
         if (!group || !card) return null;
@@ -97,17 +99,55 @@ export function GroupPlugConnections() {
           <ConnectorPathGroup
             key={conn.id}
             d={d}
-            stroke={connectorColour(undefined, CANVAS_ACCENT)}
-            strokeWidth={CONNECTOR_STROKE_PX}
+            stroke={packConnector?.plugLink ?? connectorColour(undefined, CANVAS_ACCENT)}
+            strokeWidth={
+              packConnector ? PACK_CONNECTOR_STROKE_PX : CONNECTOR_STROKE_PX
+            }
+            packPlugs={packConnector != null}
+            packPlugMark={packConnector?.emphasis}
             fromAnchor={fromAnchor}
             toAnchor={toAnchor}
             toSide={conn.toSide}
             dashed
-            opacity={0.85}
+            opacity={packConnector ? 1 : 0.85}
             showTargetPlug={false}
           />
         );
-      })}
+};
+  const lifted = groupPlugConnections.filter((c) =>
+    isLifted(c.cardId, { kind: "group", id: c.groupId }),
+  );
+  const resting = groupPlugConnections.filter(
+    (c) => !isLifted(c.cardId, { kind: "group", id: c.groupId }),
+  );
+
+  return (
+    <>
+    <svg
+      className="pointer-events-none absolute left-0 top-0 z-[14]"
+      style={{
+        overflow: "visible",
+      }}
+      width={1}
+      height={1}
+      aria-hidden
+    >
+      {resting.map(renderLink)}
     </svg>
+    {lifted.length > 0 ? (
+    <svg
+      className="pointer-events-none absolute left-0 top-0"
+      style={{
+        zIndex: LIFTED_CONNECTOR_Z,
+        overflow: "visible",
+      }}
+      width={1}
+      height={1}
+      aria-hidden
+    >
+      {lifted.map(renderLink)}
+    </svg>
+    ) : null}
+    </>
   );
 }

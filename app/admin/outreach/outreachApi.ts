@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import {
   OUTREACH_MEDIA_BUCKET,
+  type Decision,
   type OutreachPodcaster,
   type PodcasterPatch,
 } from "@/lib/outreach/podcasters";
@@ -49,4 +50,13 @@ export async function uploadShowcaseVideo(file: File): Promise<string> {
     .uploadToSignedUrl(path, token, file, { contentType: file.type });
   if (error) throw new Error(error.message);
   return path;
+}
+
+export async function submitDecisions(
+  decisions: { id: string; decision: Decision; example_canvas_from: string | null }[],
+): Promise<{ podcasters: OutreachPodcaster[] }> {
+  return call("/api/admin/outreach/decisions", {
+    method: "POST",
+    body: JSON.stringify({ decisions }),
+  });
 }

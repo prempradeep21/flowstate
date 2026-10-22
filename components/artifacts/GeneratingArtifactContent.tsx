@@ -6,6 +6,7 @@ import { ArtifactTypeIcon } from "@/components/artifacts/ArtifactTypeIcon";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import { payloadToArtifactKind } from "@/lib/artifactTypes";
 import { useArtifactDraftStore } from "@/lib/artifactDrafts";
+import { generatingArtifactLabel } from "@/lib/artifactWorkingTitle";
 import { validateChartEmit } from "@/lib/chartArtifact";
 import {
   artifactCategoryOf,
@@ -20,7 +21,7 @@ import type { Card } from "@/lib/store";
  */
 
 /** Whether a (possibly partial) payload has enough in it to draw for real. */
-function hasRenderableContent(payload: ArtifactPayload): boolean {
+export function hasRenderableContent(payload: ArtifactPayload): boolean {
   switch (payload.type) {
     case "table":
     case "calendar":
@@ -63,7 +64,7 @@ function emptyCalendarPayload(title: string): ArtifactPayload {
 }
 
 /** Partial data can trip a renderer; fall back to the skeleton until it settles. */
-class DraftBoundary extends Component<
+export class DraftBoundary extends Component<
   { resetKey: unknown; fallback: ReactNode; children: ReactNode },
   { failed: boolean }
 > {
@@ -103,12 +104,14 @@ function GeneratingHeader({ kind, title }: { kind: ArtifactKind; title: string }
         <ArtifactTypeIcon kind={kind} className="h-[22px] w-[22px]" />
       </span>
       <div className="artifact-header-title flex min-w-0 flex-1 items-center">
-        {title ? (
+        {title.trim() ? (
           <span className="truncate text-[17px] font-medium text-canvas-ink">
             {title}
           </span>
         ) : (
-          <Bar className="h-4 w-2/5" />
+          <span className="truncate text-[17px] font-medium text-canvas-muted">
+            {generatingArtifactLabel(kind)}
+          </span>
         )}
       </div>
       <span

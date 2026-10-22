@@ -152,3 +152,34 @@ export function KindFilter<T extends string>({
     </div>
   );
 }
+
+/**
+ * Light / dark for the artifacts and the board they sit on — never for the
+ * studio's own chrome, which stays as it is so the cards are always judged
+ * against the same controls.
+ */
+export function ModeToggle({ mode, onChange }: { mode: "light" | "dark"; onChange: (mode: "light" | "dark") => void }) {
+  const dark = mode === "dark";
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(dark ? "light" : "dark")}
+      aria-pressed={dark}
+      aria-label={dark ? "Show the light themes" : "Show the dark themes"}
+      title={dark ? "Light themes (D)" : "Dark themes (D)"}
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-canvas-border bg-canvas-card px-3 text-canvas-body-sm font-medium text-canvas-ink hover:border-canvas-accent/40"
+    >
+      {dark ? (
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <circle cx="8" cy="8" r="3" />
+          <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <path d="M13.5 9.6A5.5 5.5 0 0 1 6.4 2.5a5.5 5.5 0 1 0 7.1 7.1Z" strokeLinejoin="round" />
+        </svg>
+      )}
+      {dark ? "Dark" : "Light"}
+    </button>
+  );
+}

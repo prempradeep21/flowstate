@@ -6,22 +6,29 @@ import {
   ArtifactCopyCodeMenuItems,
 } from "@/components/artifacts/ArtifactCopyCodeButton";
 import { ArtifactExportMenuItems } from "@/components/artifacts/ArtifactExportMenu";
-import { useArtifactMenuControls } from "@/components/artifacts/ArtifactMenuControlsContext";
 import {
   ArtifactNestedMenuBackHeader,
   ArtifactNestedMenuNavItem,
   ArtifactNestedMenuShell,
   type ArtifactNestedMenuView,
 } from "@/components/artifacts/ArtifactNestedMenu";
-import { ArtifactMenuFontScaleRow } from "@/components/artifacts/menu/ArtifactMenuControlRows";
 import { ContextMenuItem, EyeOffIcon } from "@/components/MenuIcons";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
+import type { ArtifactVersion } from "@/lib/sessionArtifacts";
+
+/** The version list the ⋯ menu offers; omitted for kinds that have no versions. */
+export interface ArtifactHeaderMenuVersions {
+  versions: ArtifactVersion[];
+  activeVersionId: string;
+  onVersionChange: (versionId: string) => void;
+}
 
 export function ArtifactHeaderNestedMenu({
   kind,
   title,
   artifactId,
   exportPayload,
+  versions,
   onRemoveFromCanvas,
   onClose,
 }: {
@@ -29,13 +36,17 @@ export function ArtifactHeaderNestedMenu({
   title: string;
   artifactId?: string;
   exportPayload?: ArtifactPayload;
+  versions?: ArtifactHeaderMenuVersions;
   onRemoveFromCanvas?: () => void;
   onClose: () => void;
 }) {
-  const menuCtx = useArtifactMenuControls();
   const [view, setView] = useState<ArtifactNestedMenuView>("root");
 
-  const hasDisplay = menuCtx?.hasDisplayMenu ?? false;
+  const versionList = versions?.versions ?? [];
+  const hasVersions = versionList.length > 0;
+  const activeVersion =
+    versionList.find((v) => v.id === versions?.activeVersionId) ??
+    versionList[versionList.length - 1];
   const hasExport = Boolean(exportPayload);
   const showCanvasHide = Boolean(onRemoveFromCanvas);
 
@@ -43,10 +54,11 @@ export function ArtifactHeaderNestedMenu({
     <ArtifactNestedMenuShell>
       {view === "root" ? (
         <>
-          {hasDisplay ? (
+          {hasVersions ? (
             <ArtifactNestedMenuNavItem
-              label="Display"
-              onNavigate={() => setView("display")}
+              label="Version"
+              detail={`v${activeVersion?.number ?? 1}`}
+              onNavigate={() => setView("version")}
             />
           ) : null}
           {hasExport ? (
@@ -68,19 +80,31 @@ export function ArtifactHeaderNestedMenu({
         </>
       ) : null}
 
-      {view === "display" && menuCtx ? (
+      {view === "version" && versions ? (
         <>
           <ArtifactNestedMenuBackHeader
-            title="Display"
+            title="Version"
             onBack={() => setView("root")}
           />
-          {menuCtx.displayExtras}
-          {menuCtx.showFontControls ? (
-            <ArtifactMenuFontScaleRow
-              scale={menuCtx.fontScale}
-              onScaleChange={menuCtx.setFontScale}
-            />
-          ) : null}
+          {[...versionList].reverse().map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={v.id === activeVersion?.id}
+              onClick={() => {
+                versions.onVersionChange(v.id);
+                onClose();
+              }}
+              className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
+                v.id === activeVersion?.id
+                  ? "bg-canvas-accentSoft font-medium text-canvas-accent"
+                  : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
+              }`}
+            >
+              Version {v.number}
+            </button>
+          ))}
         </>
       ) : null}
 
@@ -117,11 +141,13 @@ export function ArtifactHeaderNestedMenu({
 export function artifactHeaderMenuHasActions({
   exportPayload,
   onRemoveFromCanvas,
-  hasDisplayMenu,
+  versions,
 }: {
   exportPayload?: ArtifactPayload;
   onRemoveFromCanvas?: () => void;
-  hasDisplayMenu?: boolean;
+  versions?: ArtifactHeaderMenuVersions;
 }): boolean {
-  return Boolean(exportPayload || onRemoveFromCanvas || hasDisplayMenu);
+  return Boolean(
+    exportPayload || onRemoveFromCanvas || (versions?.versions.length ?? 0) > 0,
+  );
 }

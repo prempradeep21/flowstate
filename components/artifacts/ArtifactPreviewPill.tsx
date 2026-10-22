@@ -56,6 +56,7 @@ export function ArtifactPreviewPill({
           focusCanvasArtifactNode(nodeId);
         }
       }}
+      data-artifact-preview-pill=""
       className={`flex w-full max-w-full items-center gap-2.5 rounded-canvas border bg-canvas-card text-left transition-colors ${
         compact ? "px-2.5 py-2" : "px-3 py-2.5"
       } ${

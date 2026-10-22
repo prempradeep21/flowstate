@@ -47,13 +47,23 @@ function ViewportSyncedGridBackground() {
   }, []);
 
   return (
-    <div
-      ref={elRef}
-      data-canvas-background-layer
-      className="pointer-events-none absolute inset-0 z-0 size-full"
-      aria-hidden
-      style={{ backgroundColor: CANVAS_BG }}
-    />
+    <>
+      {/* A style pack's own field (Frost's radial light), screen-fixed under
+          the dots. Hidden unless a pack's stylesheet turns it on (8.1). */}
+      <div
+        data-canvas-field
+        className="pointer-events-none absolute inset-0 z-0 hidden size-full"
+        aria-hidden
+      />
+      <div
+        ref={elRef}
+        data-canvas-background-layer
+        data-canvas-background-style="grid"
+        className="pointer-events-none absolute inset-0 z-0 size-full"
+        aria-hidden
+        style={{ backgroundColor: CANVAS_BG }}
+      />
+    </>
   );
 }
 

@@ -111,7 +111,10 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
     <div
       className="pointer-events-none absolute"
       data-group-bounds={group.id}
+      data-group-active={isActive || undefined}
       style={{
+        // Pack stylesheets (Frost) size the concentric frame from this.
+        ["--canvas-group-padding" as string]: `${GROUP_BOUNDS_PADDING}px`,
         left: bounds.x,
         top: bounds.y,
         width: bounds.w,
@@ -120,7 +123,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
     >
       {/* Frame: an inset outline, so the stroke sits inside the bounds. */}
       <div
-        className="absolute inset-0"
+        className="canvas-group-frame absolute inset-0"
         aria-hidden
         style={{
           borderRadius: CORNER_RADIUS,
@@ -141,7 +144,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
       */}
       {group.dividerY !== undefined ? (
         <div
-          className="absolute -translate-y-1/2"
+          className="canvas-group-divider absolute -translate-y-1/2"
           aria-hidden
           style={{
             left: GROUP_BOUNDS_PADDING,
@@ -162,7 +165,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
       */}
       {group.headingText ? (
         <div
-          className="pointer-events-none absolute break-words font-semibold text-canvas-ink"
+          className="canvas-group-heading pointer-events-none absolute break-words font-semibold text-canvas-ink"
           style={{
             left: GROUP_BOUNDS_PADDING,
             top: GROUP_BOUNDS_PADDING,
@@ -182,7 +185,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         size while everything around it zooms.
       */}
       <div
-        className="pointer-events-auto absolute bottom-full left-0 mb-1.5 cursor-grab select-none active:cursor-grabbing"
+        className="canvas-group-label-anchor pointer-events-auto absolute bottom-full left-0 mb-1.5 cursor-grab select-none active:cursor-grabbing"
         onPointerDown={handleLabelPointerDown}
         onPointerMove={(e) => nodeDrag.move(e)}
         onPointerUp={(e) => nodeDrag.end(e)}
@@ -206,12 +209,12 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
               if (e.key === "Escape") setEditing(false);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="rounded-canvas-sm border border-canvas-accent bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-ink outline-none"
+            className="canvas-group-label-input rounded-canvas-sm border border-canvas-accent bg-canvas-card px-2 py-0.5 text-canvas-caption font-medium text-canvas-ink outline-none"
             aria-label="Group name"
           />
         ) : (
           <span
-            className={`inline-block rounded-canvas-sm border px-2 py-0.5 text-canvas-caption font-medium shadow-sm ${
+            className={`canvas-group-label inline-block rounded-canvas-sm border px-2 py-0.5 text-canvas-caption font-medium shadow-sm ${
               isActive
                 ? "border-canvas-accent bg-canvas-card text-canvas-accent"
                 : "border-canvas-border bg-canvas-card/90 text-canvas-muted"
@@ -251,7 +254,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
         <div
           className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2"
         >
-          <span className="rounded-canvas-sm bg-canvas-accent px-2 py-0.5 text-canvas-caption font-medium text-canvas-onAccent shadow-sm">
+          <span className="canvas-group-badge rounded-canvas-sm bg-canvas-accent px-2 py-0.5 text-canvas-caption font-medium text-canvas-onAccent shadow-sm">
             {Math.round(bounds.w)} × {Math.round(bounds.h)}
           </span>
         </div>

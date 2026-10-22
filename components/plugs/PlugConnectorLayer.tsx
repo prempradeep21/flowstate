@@ -1,6 +1,10 @@
 "use client";
 
 import { useCanvasStore, type CardSide } from "@/lib/store";
+import {
+  PACK_CONNECTOR_STROKE_PX,
+  usePackConnector,
+} from "@/hooks/usePackConnector";
 import { getArtifactBounds } from "@/lib/canvasNodeBounds";
 import { getCanvasAssetBounds } from "@/lib/canvasAssetBounds";
 import { getCanvasSkillBounds } from "@/lib/canvasSkillBounds";
@@ -35,6 +39,7 @@ export function PlugConnectorLayer() {
   const canvasSkills = useCanvasStore((s) => s.canvasSkills);
   const connectorStyle = useCanvasStore((s) => s.connectorStyle);
   const tuning = RESOLVED_CANVAS_TUNING;
+  const packConnector = usePackConnector();
 
   if (!plugDrag) return null;
 
@@ -139,6 +144,15 @@ export function PlugConnectorLayer() {
     connectorStyle,
   );
 
+  // Pack drag preview (Frost): ink-tint dashed while dragging; solid lime
+  // once the pointer is over a valid receive plug.
+  const overValidTarget =
+    "hoveredReceiveSide" in plugDrag && plugDrag.hoveredReceiveSide != null;
+  if (packConnector) {
+    stroke = overValidTarget ? packConnector.dragValid : packConnector.dragPreview;
+    dashed = !overValidTarget;
+  }
+
   // Above every node, raised ones included (useRaisedZIndex tops out at
   // 31 + 63): under them, a cursor over an artifact or card hid the line's
   // end at that node's edge, so the connector looked short of the pointer.
@@ -153,12 +167,20 @@ export function PlugConnectorLayer() {
       <ConnectorPathGroup
         d={d}
         stroke={stroke}
-        strokeWidth={CONNECTOR_STROKE_PX}
+        strokeWidth={
+          packConnector
+            ? overValidTarget
+              ? 2
+              : PACK_CONNECTOR_STROKE_PX
+            : CONNECTOR_STROKE_PX
+        }
         fromAnchor={fromAnchor}
         toAnchor={end}
         toSide={toSide}
         dashed={dashed}
-        opacity={0.85}
+        opacity={packConnector ? 1 : 0.85}
+        packPlugs={packConnector != null}
+        packPlugMark={packConnector?.emphasis}
         showTargetPlug={false}
       />
     </svg>

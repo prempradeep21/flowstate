@@ -12,15 +12,19 @@ import {
   getStyleTheme,
   type ArtifactStyleFamily,
   type ChromeState,
+  type QaState,
+  type StudioMode,
   type StyleFamilyId,
-} from "./styles";
-import { Segmented } from "./StudioControls";
+} from "@/components/artifactStyles";
+import { QA_STATES } from "@/components/artifactStyles/cards";
+import { ModeToggle, Segmented } from "./StudioControls";
 import { AccentPicker } from "./AccentPicker";
 import { useDecisions, VERDICT_META, type Verdict } from "./useDecisions";
 import { useArtifactElements } from "./artifactElements";
 import { ElementsPanel } from "./ElementsPanel";
-import { SPEC_EXEMPT_FAMILIES, checkSpec, textSpecFor } from "./textSpec";
+import { SPEC_EXEMPT_FAMILIES, checkSpec, textSpecFor } from "@/components/artifactStyles/textSpec";
 import { ContentSlider } from "./ContentSlider";
+import { FocusResizeFrame, type Offset, type Size } from "./FocusResizeFrame";
 import { ORIGINAL_AMOUNT, canVaryContent, varyContent } from "@/lib/artifactStudio/contentVariants";
 
 const STAGE_MODES: { id: StageMode; label: string; hint: string }[] = [
@@ -78,7 +82,7 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function DecisionPanel({ item, family, elementsPanel }: { item: StudioArtifact; family: ArtifactStyleFamily; elementsPanel?: ReactNode }) {
+function DecisionPanel({ item, family, userSize, elementsPanel }: { item: StudioArtifact; family: ArtifactStyleFamily; userSize: Size | null; elementsPanel?: ReactNode }) {
   const { get, set, map, count } = useDecisions();
   const decision = get(family.id, item.uid);
   const [copied, setCopied] = useState(false);
@@ -102,6 +106,7 @@ function DecisionPanel({ item, family, elementsPanel }: { item: StudioArtifact; 
           <DetailRow label="Variant" value={VARIANT_LABELS[item.variant]} />
           <DetailRow label="Family" value={ARTIFACT_CATEGORY_META[item.category].label} />
           <DetailRow label="Designed at" value={`${item.natural.w} × ${item.natural.h}`} />
+          {userSize ? <DetailRow label="Resized to" value={`${Math.round(userSize.w)} × ${Math.round(userSize.h)}`} /> : null}
           <DetailRow label="Source" value={item.source} />
           <DetailRow label="Style" value={`${family.name}${family.status === "placeholder" ? " (placeholder)" : ""}`} />
         </dl>
@@ -163,6 +168,8 @@ export function StudioFocusView({
   index,
   familyId,
   themeId,
+  mode,
+  onModeChange,
   onThemeChange,
   onFamilyChange,
   onNavigate,
@@ -172,6 +179,8 @@ export function StudioFocusView({
   index: number;
   familyId: StyleFamilyId | "compare";
   themeId: string | null;
+  mode: StudioMode;
+  onModeChange: (mode: StudioMode) => void;
   onThemeChange: (id: string) => void;
   onFamilyChange: (id: StyleFamilyId | "compare") => void;
   onNavigate: (index: number) => void;
@@ -187,19 +196,38 @@ export function StudioFocusView({
     setAmount(Math.round(Math.random() * 100) / 100);
     setSeed(Math.random().toString(36).slice(2, 8));
   };
-  const [mode, setMode] = useState<StageMode>("natural");
+  const [stage, setStage] = useState<StageMode>("natural");
   const [chromeState, setChromeState] = useState<ChromeState>("rest");
+  const [hovered, setHovered] = useState(false);
+  // A corner resize, as on the canvas: once set, the artifact is a fixed box
+  // (content growth no longer hugs it) and stays where the grips left it.
+  const [userSize, setUserSize] = useState<Size | null>(null);
+  const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 });
+  const [lockScale, setLockScale] = useState<number | null>(null);
+  const resetSize = () => {
+    setUserSize(null);
+    setOffset({ x: 0, y: 0 });
+  };
+  const liveChrome: ChromeState = chromeState === "rest" && hovered ? "hover" : chromeState;
+  // A Q&A card's turn (typing → thinking → answering → done); other kinds are always done.
+  const [qaState, setQaState] = useState<QaState>("done");
+  const isQa = item.variant === "qa";
   const [panelOpen, setPanelOpen] = useState(true);
   const comparing = familyId === "compare";
   const family = STYLE_FAMILIES.find((f) => f.id === familyId) ?? STYLE_FAMILIES[0]!;
   const theme = getStyleTheme(family, themeId);
-  const backdrop = backdropOf(family, theme?.id);
+  const backdrop = backdropOf(family, theme?.id, mode);
+  const dark = mode === "dark";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable)) return;
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        // As on the canvas, Escape first lets go of the selection.
+        if (chromeState === "selected") setChromeState("rest");
+        else onClose();
+      }
       else if (e.key === "ArrowRight") onNavigate((index + 1) % items.length);
       else if (e.key === "ArrowLeft") onNavigate((index - 1 + items.length) % items.length);
       else if (/^[1-9]$/.test(e.key)) {
@@ -209,16 +237,19 @@ export function StudioFocusView({
         const i = family.themes.findIndex((t) => t.id === theme?.id);
         onThemeChange(family.themes[(i + 1) % family.themes.length]!.id);
       } else if (e.key.toLowerCase() === "c") onFamilyChange("compare");
+      else if (e.key.toLowerCase() === "d") onModeChange(dark ? "light" : "dark");
       else if (e.key.toLowerCase() === "r" && canVaryContent(baseItem)) randomize();
       else if (e.key === "0") setAmount(ORIGINAL_AMOUNT);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, items.length, onClose, onFamilyChange, onNavigate, onThemeChange, family, theme, baseItem]);
+  }, [index, items.length, onClose, onFamilyChange, onNavigate, onThemeChange, onModeChange, dark, family, theme, baseItem, chromeState]);
 
   useEffect(() => {
     setAmount(ORIGINAL_AMOUNT);
     setSeed("0");
+    setUserSize(null);
+    setOffset({ x: 0, y: 0 });
   }, [baseItem.uid]);
 
   useEffect(() => {
@@ -229,8 +260,9 @@ export function StudioFocusView({
     };
   }, []);
 
-  const elements = useArtifactElements(`${item.uid}:${familyId}:${theme?.id ?? ""}`);
-  const specExempt = SPEC_EXEMPT_FAMILIES.has(family.id);
+  const elements = useArtifactElements(`${item.uid}:${familyId}:${theme?.id ?? ""}:${mode}:${isQa ? qaState : ""}`);
+  // A card mid-turn has no answer yet (or only part of one) — the spec describes the finished card.
+  const specExempt = SPEC_EXEMPT_FAMILIES.has(family.id) || (isQa && qaState !== "done");
   const specCheck = useMemo(() => (elements.elements.length ? checkSpec(item, elements.elements) : null), [item, elements.elements]);
   // Read by scratch/text-parity.mjs, which sweeps every family against the spec.
   useEffect(() => {
@@ -243,7 +275,9 @@ export function StudioFocusView({
       check: specCheck,
     };
   }, [item, family.id, elements.elements, specCheck]);
-  const ctx = { item, interactive: true, surface: "focus" as const, chromeState, themeId: theme?.id ?? null };
+  // As on the canvas, content is live only once selected — until then the first
+  // press anywhere on the artifact selects it rather than landing on its text.
+  const ctx = { item, interactive: chromeState === "selected" || (isQa && qaState === "typing"), surface: "focus" as const, chromeState: liveChrome, themeId: theme?.id ?? null, mode, qaState: isQa ? qaState : undefined };
 
   return (
     <div role="dialog" aria-modal="true" aria-label={item.artifact.title} className="fixed inset-0 z-[200] flex flex-col bg-canvas-bg">
@@ -279,6 +313,7 @@ export function StudioFocusView({
               { id: "compare" as const, label: "Compare" },
             ]}
           />
+          <ModeToggle mode={mode} onChange={onModeChange} />
           {!comparing && family.id === "style-d" ? <AccentPicker /> : null}
           {!comparing && family.themes?.length ? (
             <Segmented
@@ -288,8 +323,19 @@ export function StudioFocusView({
               options={family.themes.map((t) => ({ id: t.id, label: t.name, hint: t.hint }))}
             />
           ) : null}
-          <Segmented label="Size" value={mode} onChange={setMode} options={STAGE_MODES} />
+          <Segmented label="Size" value={stage} onChange={setStage} options={STAGE_MODES} />
+          {userSize && !comparing ? (
+            <button
+              type="button"
+              onClick={resetSize}
+              title="Back to the designed size, centred"
+              className="rounded-full border border-canvas-border bg-canvas-card px-3.5 py-2 text-canvas-body-sm font-medium text-canvas-ink hover:border-canvas-accent/40"
+            >
+              Reset size
+            </button>
+          ) : null}
           <Segmented label="State" value={chromeState} onChange={setChromeState} options={CHROME_STATES} />
+          {isQa ? <Segmented label="Turn" value={qaState} onChange={setQaState} options={QA_STATES} /> : null}
           {comparing ? null : (
           <button
             type="button"
@@ -308,7 +354,7 @@ export function StudioFocusView({
           {comparing ? (
             <div className="grid h-full grid-cols-1 gap-6 overflow-y-auto p-4 sm:p-8 md:grid-cols-3 xl:grid-cols-4">
               {STYLE_FAMILIES.map((f) => (
-                <div key={f.id} className="flex min-h-[320px] min-w-0 flex-col gap-3 rounded-canvas p-3" style={{ background: backdropOf(f, themeId)?.background }}>
+                <div key={f.id} className={`flex min-h-[320px] min-w-0 flex-col gap-3 rounded-canvas p-3${dark ? " theme-scope-dark" : ""}`} style={{ background: backdropOf(f, themeId, mode)?.background }}>
                   <button
                     type="button"
                     onClick={() => onFamilyChange(f.id)}
@@ -318,7 +364,7 @@ export function StudioFocusView({
                     {f.status === "placeholder" ? <span className="ml-2 text-canvas-micro text-canvas-muted">placeholder</span> : null}
                   </button>
                   <div className="min-h-[280px] flex-1">
-                    <ScaledStage natural={item.natural} mode={mode} hug={hugsContent(item)}>
+                    <ScaledStage natural={item.natural} mode={stage} hug={hugsContent(item, f)}>
                       <StyledArtifact key={contentKey} family={f} ctx={{ ...ctx, themeId: getStyleTheme(f, themeId)?.id ?? null }} />
                     </ScaledStage>
                   </div>
@@ -326,15 +372,46 @@ export function StudioFocusView({
               ))}
             </div>
           ) : (
-            <div className="absolute inset-0 p-4 sm:p-10" style={backdrop ? { background: backdrop.background } : undefined}>
-              <ScaledStage key={`${item.uid}:${family.id}`} natural={item.natural} mode={mode} hug={hugsContent(item)}>
-                <div ref={elements.rootRef} className="h-full w-full">
-                  <StyledArtifact key={contentKey} family={family} ctx={ctx} />
-                </div>
+            <div
+              className={`absolute inset-0 p-4 sm:p-10${dark ? " theme-scope-dark" : ""}`}
+              style={backdrop ? { background: backdrop.background } : undefined}
+              // Pressing empty stage lets go of the selection (the frame stops its own presses).
+              onPointerDown={(e) => {
+                if (e.button === 0 && chromeState === "selected") setChromeState("rest");
+              }}
+            >
+              <ScaledStage
+                key={`${item.uid}:${family.id}`}
+                natural={userSize ?? item.natural}
+                mode={stage}
+                hug={userSize ? null : hugsContent(item, family)}
+                lockScale={lockScale}
+                offset={stage === "fill" ? undefined : offset}
+                onOffsetSettle={setOffset}
+              >
+                <FocusResizeFrame
+                  kind={item.card ? undefined : item.kind}
+                  // Fill reflows the artifact to the stage, so its size isn't the artifact's to set.
+                  resizable={!item.card && stage !== "fill"}
+                  chromeVisible={liveChrome !== "rest"}
+                  offset={offset}
+                  onSelect={(how) => setChromeState((s) => (how === "toggle" && s === "selected" ? "rest" : "selected"))}
+                  onHover={setHovered}
+                  onResizeStart={setLockScale}
+                  onResize={(size, next) => {
+                    setUserSize(size);
+                    setOffset(next);
+                  }}
+                  onResizeEnd={() => setLockScale(null)}
+                >
+                  <div ref={elements.rootRef} className="flex h-full w-full flex-1 flex-col">
+                    <StyledArtifact key={contentKey} family={family} ctx={ctx} />
+                  </div>
+                </FocusResizeFrame>
               </ScaledStage>
             </div>
           )}
-          {canVaryContent(baseItem) ? (
+          {!baseItem.card && !item.card && canVaryContent(baseItem) ? (
             <ContentSlider
               original={baseItem.payload}
               varied={item.payload}
@@ -348,6 +425,7 @@ export function StudioFocusView({
           <DecisionPanel
             item={item}
             family={family}
+            userSize={userSize}
             elementsPanel={
               <ElementsPanel
                 elements={elements.elements}

@@ -1,4 +1,5 @@
 import { cancelCardAsk } from "@/lib/cardAskRegistry";
+import { artifactKindTitle } from "@/lib/artifactWorkingTitle";
 import { findGeneratingPreviewNode } from "@/lib/canvasArtifacts";
 import {
   notifyArtifactFailureForCard,
@@ -74,7 +75,9 @@ export function expireQaTurn(cardId: string): void {
     pushArtifactErrorUpdate({
       cardId,
       kind: previewNode.generatingPreview.kind,
-      title: previewNode.generatingPreview.title,
+      title:
+        previewNode.generatingPreview.title ||
+        artifactKindTitle(previewNode.generatingPreview.kind),
       detail: "Timed out",
       nodeId: previewNode.id,
     });

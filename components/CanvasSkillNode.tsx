@@ -221,7 +221,7 @@ function CanvasSkillNodeInner({ node }: { node: CanvasSkillNodeType }) {
         data-canvas-skill
         data-canvas-node-id={node.id}
         {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
-        {...(isSelected ? { "data-chrome-hover": "" } : {})}
+        {...(isSelected ? { "data-chrome-hover": "", "data-selected": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

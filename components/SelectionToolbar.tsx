@@ -228,7 +228,7 @@ export function SelectionToolbar() {
           anchor={anchor}
           className="pointer-events-auto absolute z-40"
         >
-          <div className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
+          <div data-canvas-toolbar className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
             {ALIGN_ACTIONS.map((a) => (
               <ToolbarIconButton
                 key={a.mode}
@@ -261,7 +261,7 @@ export function SelectionToolbar() {
       className="pointer-events-auto absolute z-40"
     >
       <div className="flex flex-col items-center gap-1">
-        <div className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
+        <div data-canvas-toolbar className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm">
           {activeGroup && (
             <>
               <GroupActionButton
@@ -299,7 +299,7 @@ export function SelectionToolbar() {
           )}
         </div>
         {error && (
-          <p className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-2 py-0.5 text-canvas-caption leading-snug text-canvas-danger backdrop-blur-sm">
+          <p data-canvas-toolbar-error className="rounded-canvas border border-canvas-border/90 bg-canvas-card/95 px-2 py-0.5 text-canvas-caption leading-snug text-canvas-danger backdrop-blur-sm">
             {error}
           </p>
         )}

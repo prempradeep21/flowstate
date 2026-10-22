@@ -11,6 +11,7 @@ Motion tokens live separately in [`docs/motion-design-language.md`](../motion-de
 | [design-language.md](./design-language.md) | Principles, do/don't, architecture |
 | [token-reference.md](./token-reference.md) | Every token with Tailwind class names |
 | [audit-report.md](./audit-report.md) | Pre-migration findings (historical) |
+| [artifacts-frost.md](./artifacts-frost.md) | The artifact design system (Frost / Style D): two fonts, one lime element, hug never truncate |
 
 ## Source of truth
 

@@ -95,7 +95,6 @@ describe("onGestureSettleHydrate", () => {
   });
 
   it("mid-zoom hydrates only on-screen nodes, every third frame", () => {
-    registerViewportElement(null);
     applyViewportZoom(1.1, 0, 0);
     const calls: string[] = [];
     onGestureSettleHydrate(() => calls.push("a"), () => 0);
@@ -144,7 +143,7 @@ describe("rubber-band snap-back", () => {
   it("lands the painted transform exactly on the clamped viewport", () => {
     useCanvasStore.setState({ viewport: { x: 0, y: 0, scale: 2.5 } });
     const el = { style: { transform: "" } } as unknown as HTMLElement;
-    registerViewportElement(el);
+    const unregister = registerViewportElement(el);
     // Mirror CanvasViewport's store subscription (value-equal writes skip).
     const unsubscribe = useCanvasStore.subscribe((state, prev) => {
       const v = state.viewport;
@@ -172,6 +171,6 @@ describe("rubber-band snap-back", () => {
     expect(isViewportGestureActive()).toBe(true); // attr not yet cleared
 
     unsubscribe();
-    registerViewportElement(null);
+    unregister();
   });
 });

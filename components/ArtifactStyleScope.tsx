@@ -1,7 +1,9 @@
 "use client";
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { FROST_FONT_CLASSES, FROST_FONT_VARS } from "@/components/frost/frostFonts";
+import { setArtifactBoundsFamily } from "@/lib/canvasNodeBounds";
 import { resolveArtifactStyle } from "@/lib/design/style/resolveArtifactStyle";
 import {
   DEFAULT_ARTIFACT_STYLE_ID,
@@ -71,6 +73,34 @@ export function ArtifactStyleScope({
     [styleId, resolved],
   );
 
+  // Node bounds (culling, connectors, plugs, selection) read the active body
+  // family's own box. Set during render so this pass already draws with it;
+  // idempotent, and cleared when the scope unmounts.
+  const bodyFamily = value.pack.bodyFamily ?? null;
+  setArtifactBoundsFamily(bodyFamily);
+  useEffect(() => {
+    setArtifactBoundsFamily(bodyFamily);
+    return () => setArtifactBoundsFamily(null);
+  }, [bodyFamily]);
+
+  // Mirror the active pack onto <html> so canvas menus portaled to <body>
+  // (outside this subtree) can follow it — see resolveArtifactStyle.
+  useEffect(() => {
+    if (resolved.isDefault) return;
+    const root = document.documentElement;
+    root.dataset.canvasStyle = styleId;
+    // Portaled menus need the pack's fonts too (they resolve on <html>).
+    const fontClasses =
+      getArtifactStylePack(styleId).bodyFamily === "frost"
+        ? FROST_FONT_CLASSES.split(" ")
+        : [];
+    root.classList.add(...fontClasses);
+    return () => {
+      if (root.dataset.canvasStyle === styleId) delete root.dataset.canvasStyle;
+      root.classList.remove(...fontClasses);
+    };
+  }, [styleId, resolved.isDefault]);
+
   if (resolved.isDefault) {
     return (
       <div className="canvas-surface canvas-surface-vanilla contents">
@@ -82,7 +112,11 @@ export function ArtifactStyleScope({
   return (
     <ArtifactStyleContext.Provider value={value}>
       <div className="canvas-surface contents">
-        <div data-artifact-style={styleId} className="contents">
+        <div
+          data-artifact-style={styleId}
+          className={`contents ${value.pack.bodyFamily === "frost" ? FROST_FONT_CLASSES : ""}`}
+          style={value.pack.bodyFamily === "frost" ? FROST_FONT_VARS : undefined}
+        >
           <style>{resolved.css}</style>
           {children}
           {process.env.NODE_ENV !== "production" && styleId === "bento" ? (

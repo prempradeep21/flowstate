@@ -1,0 +1,447 @@
+/**
+ * Frost — artifact nodes. Frost-bodied nodes ([data-frost-node]) paint their
+ * own Style D frame (components/frost); these rules cover the CSS-styled
+ * surfaces that remain: live editors inside a frost frame, input assets,
+ * LOD placeholders, and the generic casing for anything not Frost-bodied.
+ * Tokens: ./frost-tokens.css.
+ */
+
+/* Casing: the frost material — rim + sheen + falling shadow, no stroke. */
+[data-artifact-style="frost"] .artifact-casing {
+  border: 0 solid transparent !important;
+  border-radius: var(--canvas-artifact-radius) !important;
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000),
+    var(--canvas-artifact-ambient-shadow) !important;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+/* Frost fill at rest (attribute-stacked to beat globals.css's transparent
+   !important resting rule — see the Brut block). */
+[data-artifact-style="frost"]
+  .group\/artifact[data-canvas-artifact]:not([data-naked-artifact])
+  .artifact-casing {
+  background: var(--frost-fill) !important;
+}
+
+/* Hover: the card rises toward the light and its shadow falls further. */
+[data-artifact-style="frost"] .group\/artifact:hover .artifact-casing {
+  transform: translate(var(--canvas-artifact-hover-lift));
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000),
+    var(--frost-lift-shadow) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] .artifact-casing,
+  [data-artifact-style="frost"] .group\/artifact:hover .artifact-casing {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Selected: an ink outline set off the card — the light stays untouched. */
+[data-artifact-style="frost"] [data-canvas-artifact][data-selected] .artifact-casing,
+[data-artifact-style="frost"] [data-canvas-asset][data-selected] .artifact-casing {
+  outline: 2.5px solid var(--frost-ink);
+  outline-offset: 0px;
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000),
+    var(--frost-lift-shadow) !important;
+}
+
+/* Naked kinds (images, embeds, street view, sticky notes…) keep their own
+   surface but share the frost corner and fall. */
+[data-artifact-style="frost"]
+  [data-canvas-artifact][data-naked-artifact]
+  .artifact-casing {
+  background: transparent !important;
+}
+
+/* Inner surface: the frost bottom tone, so nested panels read as the card. */
+[data-artifact-style="frost"] .artifact-canvas-surface-fill {
+  background-color: var(--frost-bottom);
+}
+
+/* Header: no band, no rule — the title sits in the light. */
+[data-artifact-style="frost"] .artifact-panel-header {
+  background: transparent;
+  border-bottom: 0;
+}
+
+/* Raised pills: whiter than the card, with their own small shadow. */
+[data-artifact-style="frost"] .artifact-pill {
+  background: linear-gradient(180deg, var(--frost-raised-top) 0%, var(--frost-raised) 100%) !important;
+  box-shadow: inset 0 1px 0 var(--frost-raised-rim),
+    0 1px 1px rgba(24, 24, 40, 0.05),
+    0 6px 16px -6px rgba(24, 24, 40, 0.12) !important;
+  border-color: transparent !important;
+  border-radius: var(--canvas-artifact-pill-radius);
+}
+
+/* ------------------------------- Calendar ------------------------------ */
+
+[data-artifact-style="frost"] .artifact-cal-cell--selected {
+  background-color: color-mix(in srgb, var(--frost-lime) 28%, transparent) !important;
+}
+[data-artifact-style="frost"] .artifact-cal-day--highlighted {
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--frost-raised-top) 0%, var(--frost-raised) 100%);
+  color: var(--frost-ink);
+  box-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 4px 10px -4px rgba(24, 24, 40, 0.16) !important;
+}
+/* Today: the one solid lime mark. */
+[data-artifact-style="frost"] .artifact-cal-day--today {
+  border-radius: 999px;
+  background-color: var(--frost-lime);
+  color: var(--frost-lime-ink);
+}
+[data-artifact-style="frost"] .artifact-cal-day--today > span {
+  background-color: var(--frost-lime-ink) !important;
+}
+
+/* -------------------------------- Todo --------------------------------- */
+
+[data-artifact-style="frost"] .artifact-todo-checkbox {
+  border-width: var(--canvas-artifact-checkbox-stroke-w) !important;
+  border-radius: 999px !important;
+}
+[data-artifact-style="frost"] .artifact-todo-checkbox[aria-checked="false"] {
+  border-color: color-mix(in srgb, var(--frost-ink) 28%, transparent) !important;
+}
+[data-artifact-style="frost"] .artifact-todo-checkbox[aria-checked="true"] {
+  background-color: var(--frost-lime) !important;
+  border-color: var(--frost-lime) !important;
+  color: var(--frost-lime-ink) !important;
+}
+
+/* -------------------------------- Table -------------------------------- */
+
+[data-artifact-style="frost"] table thead tr {
+  border-bottom-width: 1px;
+  border-color: var(--frost-hair) !important;
+}
+[data-artifact-style="frost"] .table-artifact-row {
+  border-color: var(--frost-hair) !important;
+}
+
+/* ====================================================================== */
+/* Phase 1 — Frost-bodied nodes (components/frost).                      */
+/* The Style D frame paints the card; nothing here may paint a casing on  */
+/* top of it.                                                             */
+/* ====================================================================== */
+
+/* The node shell never draws chrome of its own under Frost. */
+[data-artifact-style="frost"] [data-frost-artifact] {
+  border-radius: var(--frost-radius);
+}
+
+/* Selection (5.x / 4.1): the Style D frame draws the ink outline itself;
+   keyboard focus gets the lime ring + ink edge (distinct from selection). */
+[data-artifact-style="frost"] [data-frost-artifact]:focus-visible {
+  outline: none;
+  box-shadow: var(--frost-focus-ring);
+}
+
+/* ---------------------------- LOD placeholder -------------------------- */
+
+[data-artifact-style="frost"] [data-frost-lod] {
+  border-radius: var(--frost-radius);
+  background: var(--frost-fill);
+  box-shadow: var(--frost-shadow-cheap);
+}
+[data-artifact-style="frost"] .frost-lod-title {
+  padding: var(--frost-pad) var(--frost-pad) 0;
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------ Generating ----------------------------- */
+
+[data-artifact-style="frost"] .frost-skel-bar {
+  display: block;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+  opacity: 0.85;
+}
+
+/* The light moving across the card — not a grey shimmer. */
+[data-artifact-style="frost"] .frost-sheen-sweep {
+  pointer-events: none;
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    var(--frost-sheen) 46%,
+    transparent 62%
+  );
+  transform: translateX(-60%);
+  animation: frost-sweep 1.8s ease-in-out infinite;
+}
+@keyframes frost-sweep {
+  0% { transform: translateX(-60%); }
+  100% { transform: translateX(60%); }
+}
+
+/* Where the ⋯ will be: one breathing lime dot (concentric with the corner). */
+[data-artifact-style="frost"] .frost-gen-dot {
+  position: absolute;
+  top: 34px;
+  right: 34px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--frost-lime);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--frost-lime) 28%, transparent);
+  animation: frost-breathe 1.4s ease-in-out infinite;
+}
+@keyframes frost-breathe {
+  0%, 100% { transform: scale(0.82); opacity: 0.75; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] .frost-sheen-sweep,
+  [data-artifact-style="frost"] .frost-gen-dot {
+    animation: none;
+  }
+}
+
+/* ------------------------- Live content in Frost ----------------------- */
+/* The live editor (Edit mode) and the live wells (map, 3D, embed, custom)
+   are the vanilla components inside a Style D frame. They take the Frost
+   vocabulary: no panels of their own, primary-font header, raised controls,
+   hairline rules, lime for the one active mark. */
+
+[data-artifact-style="frost"] [data-frost-node] .artifact-canvas-surface-fill,
+[data-artifact-style="frost"] [data-frost-node] .artifact-canvas-container-fill {
+  background: transparent !important;
+}
+
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header {
+  background: transparent;
+  border-bottom: 0;
+  padding-left: calc(var(--frost-pad) - 14px);
+  padding-right: calc(var(--frost-pad) - 14px);
+}
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header .artifact-header-title,
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header .artifact-header-title * {
+  font-family: var(--frost-font-primary) !important;
+  font-weight: 500;
+  color: var(--frost-ink);
+  letter-spacing: -0.02em;
+}
+/* No kind icon disc in Frost — the title is the mark. */
+[data-artifact-style="frost"] [data-frost-editor] .artifact-header-icon {
+  display: none;
+}
+
+[data-artifact-style="frost"] [data-frost-node] input:not([data-frost-rename]),
+[data-artifact-style="frost"] [data-frost-node] textarea {
+  font-family: var(--frost-font-secondary);
+}
+
+/* Header buttons (Edit / Save / Discard / ⋯) become raised pills. */
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header button {
+  border-radius: 999px;
+}
+
+/* Edit mode keeps the card raised toward the light. */
+[data-artifact-style="frost"] [data-frost-editing] [data-sd-frame] {
+  box-shadow: var(--frost-shadow-lift) !important;
+}
+
+/* ------------------------------ Rename field --------------------------- */
+
+[data-frost-rename] {
+  background: var(--frost-well, #e9e9e7);
+  box-shadow: var(--frost-well-shadow);
+  color: var(--frost-ink, #1c1c1e);
+  font-family: var(--frost-font-secondary, inherit);
+}
+[data-frost-rename]:focus {
+  box-shadow: var(--frost-well-shadow), var(--frost-focus-ring);
+}
+
+/* ---------------------------- Input assets (1.6) ----------------------- */
+/* PDFs, office files, code, images: a media card (artifacts-frost.md §4) —
+   the title and the preview well share one inset, MEDIA_INSET 24, and the
+   well's radius is 44 − 24 = 20, concentric with the card. */
+
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-casing {
+  background: var(--frost-fill) !important;
+  border: 0 !important;
+  border-radius: var(--frost-radius) !important;
+  box-shadow: var(--frost-shadow) !important;
+  padding: var(--frost-media-inset);
+  gap: 12px;
+  transition: transform var(--frost-ease), box-shadow var(--frost-ease);
+}
+[data-artifact-style="frost"] [data-canvas-asset]:hover .artifact-casing {
+  transform: translateY(-3px);
+  box-shadow: var(--frost-shadow-lift) !important;
+}
+[data-artifact-style="frost"] [data-canvas-asset][data-selected] .artifact-casing {
+  outline: var(--frost-select-outline);
+  outline-offset: var(--frost-select-offset);
+  box-shadow: var(--frost-shadow-lift) !important;
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-casing > .min-h-0.flex-1 {
+  border-radius: var(--frost-media-radius);
+  overflow: hidden;
+  background: var(--frost-well);
+  box-shadow: var(--frost-well-shadow);
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-panel-header {
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 0 !important;
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-header-icon {
+  display: none;
+}
+[data-artifact-style="frost"] [data-canvas-asset] .artifact-panel-header .truncate {
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--frost-ink);
+  /* No text is cut (artifacts-frost.md §5): the title wraps. */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+}
+/* Download / remove: raised discs. */
+[data-artifact-style="frost"] [data-canvas-asset] [data-asset-action] {
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow) !important;
+  color: var(--frost-ink) !important;
+  top: 22px;
+}
+/* Asset LOD stand-in. */
+[data-artifact-style="frost"] [data-asset-lod="placeholder"] {
+  border: 0 !important;
+  border-radius: var(--frost-radius) !important;
+  background: var(--frost-fill) !important;
+  box-shadow: var(--frost-shadow-cheap);
+}
+
+/* ------------------------ Loading inside content (5.2, 5.4) ------------ */
+/* Shimmer bars become raised bars with the light sweeping over them; media
+   waiting to load sits in the well tone. */
+[data-artifact-style="frost"] .table-shimmer-bar {
+  background: linear-gradient(110deg, var(--frost-raised) 30%, var(--frost-raised-top) 46%, var(--frost-raised) 62%) !important;
+  background-size: 260% 100% !important;
+  border-radius: 999px;
+  animation: frost-bar-sweep 1.8s ease-in-out infinite;
+}
+[data-artifact-style="frost"] [data-media-loading] {
+  background: var(--frost-well) !important;
+}
+[data-artifact-style="frost"] [data-media-loading] .table-shimmer-bar {
+  border-radius: 0;
+  background: linear-gradient(115deg, transparent 30%, var(--frost-sheen) 46%, transparent 62%) !important;
+  background-size: 260% 100% !important;
+}
+@keyframes frost-bar-sweep {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] .table-shimmer-bar { animation: none; }
+}
+
+/* --------------------------- Failure in content (6.3–6.5) -------------- */
+/* An embed that can't load: favicon disc, the title in the primary font,
+   the host in ink, and the actions as raised pills — never red on frost. */
+[data-artifact-style="frost"] [data-artifact-fallback] {
+  padding: 20px;
+}
+[data-artifact-style="frost"] [data-artifact-fallback] h3 {
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-artifact-fallback] p {
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+}
+[data-artifact-style="frost"] [data-artifact-fallback] img {
+  border-radius: 999px;
+}
+[data-artifact-style="frost"] [data-artifact-fallback] a,
+[data-artifact-style="frost"] [data-artifact-fallback] button {
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 8px 16px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink) !important;
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+}
+[data-artifact-style="frost"] [data-artifact-fallback] .aspect-\[4\/3\] {
+  border-radius: var(--frost-nest-radius);
+  background: var(--frost-well);
+  box-shadow: var(--frost-well-shadow);
+}
+
+/* ------------------------------ Error bloom (6.1) ---------------------- */
+[data-artifact-style="frost"] .frost-rose-bloom {
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 48%;
+  background: var(--frost-rose-bloom);
+  border-radius: inherit;
+}
+html[data-theme="dark"] [data-artifact-style="frost"] .frost-rose-bloom {
+  opacity: 0.6;
+}
+
+/* Inside a Frost frame the vanilla components speak Frost: their card
+   surface is the frost tone (no white panel on frost), their accent is ink
+   (lime can't carry white type — it stays for the one solid mark), their
+   rules are hairlines. Tailwind `canvas-*` utilities resolve through these
+   channels, so this recolours every live editor and well in one move. */
+[data-artifact-style="frost"] [data-frost-node] {
+  --canvas-card: 241 241 239;
+  --canvas-bg: 233 233 231;
+  --canvas-artifact-stage: 241 241 239;
+  --canvas-accent: 28 28 30;
+  --canvas-accent-deep: 28 28 30;
+  --canvas-on-accent: 255 255 255;
+  --canvas-border: 222 222 219;
+  --canvas-ink: 28 28 30;
+  /* No grey type in a Frost card (artifacts-frost.md §1): every word is the
+     surface's strongest ink; size and place carry hierarchy. */
+  --canvas-muted: 28 28 30;
+}
+html[data-theme="dark"] [data-artifact-style="frost"] [data-frost-node] {
+  --canvas-card: 37 37 41;
+  --canvas-bg: 25 25 28;
+  --canvas-artifact-stage: 37 37 41;
+  --canvas-accent: 242 242 240;
+  --canvas-accent-deep: 242 242 240;
+  --canvas-on-accent: 28 28 30;
+  --canvas-border: 54 54 59;
+  --canvas-ink: 242 242 240;
+  --canvas-muted: 242 242 240;
+}
+/* Wells keep their own sunk tone behind live content. */
+[data-artifact-style="frost"] [data-frost-editor] .bg-canvas-card,
+[data-artifact-style="frost"] [data-frost-editor] [class*="bg-white"] {
+  background-color: transparent !important;
+}
+/* Todo progress + checked boxes: the one lime mark. */
+[data-artifact-style="frost"] [data-frost-node] .artifact-todo-checkbox[aria-checked="true"],
+[data-artifact-style="frost"] [data-frost-node] [role="progressbar"] > * {
+  background-color: var(--frost-lime) !important;
+}
+[data-artifact-style="frost"] [data-frost-editor] .artifact-panel-header .artifact-header-title span {
+  font-size: 24px;
+  line-height: 1.15;
+}

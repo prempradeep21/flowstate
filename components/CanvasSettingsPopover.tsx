@@ -158,7 +158,11 @@ export function CanvasSettingsPopover({
           const isGlass = Boolean(pack.backdropFilter);
           // Color-led packs preview as three tone chips — the palette is
           // the one thing those packs are about.
-          const swatches = pack.previewSwatches;
+          // Frost previews as itself: a mini frost card with its fall shadow
+          // on the field, plus the one lime dot (8.8). Styled in
+          // app/styles/frost/frost-cards-menus.css from the Frost tokens.
+          const isFrost = pack.bodyFamily === "frost";
+          const swatches = isFrost ? undefined : pack.previewSwatches;
           return (
             <button
               key={pack.id}
@@ -205,7 +209,20 @@ export function CanvasSettingsPopover({
                     ))}
                   </span>
                 ) : null}
-                {!swatches && isGlass && (
+                {isFrost && (
+                  <span
+                    data-artifact-style="frost"
+                    data-frost-chip=""
+                    className="absolute inset-0 flex items-center justify-center"
+                    aria-hidden
+                  >
+                    <span data-frost-chip-card="">
+                      <span data-frost-chip-dot="" />
+                      <span data-frost-chip-line="" />
+                    </span>
+                  </span>
+                )}
+                {!swatches && !isFrost && isGlass && (
                   <span className="pointer-events-none absolute inset-0" aria-hidden>
                     <span
                       className="absolute left-3 top-1 h-5 w-5 rounded-full opacity-50"
@@ -216,7 +233,7 @@ export function CanvasSettingsPopover({
                     />
                   </span>
                 )}
-                {!swatches && (
+                {!swatches && !isFrost && (
                 <span
                   className="relative flex h-8 w-full items-center gap-1.5 px-1.5"
                   style={{

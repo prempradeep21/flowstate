@@ -377,6 +377,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
         <button
           type="button"
           data-no-drag
+          data-asset-action
           disabled={downloading}
           aria-label={`Download ${asset.name}`}
           title={`Download ${asset.name}`}
@@ -398,6 +399,7 @@ function CanvasAssetNodeInner({ node }: { node: CanvasAssetNodeType }) {
           <button
             type="button"
             data-no-drag
+            data-asset-action
             aria-label={`Remove ${asset.name} from canvas`}
             onClick={() => {
               recordUndo();

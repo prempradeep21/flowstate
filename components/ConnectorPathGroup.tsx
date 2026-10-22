@@ -26,6 +26,8 @@ export function ConnectorPathGroup({
   onPointerLeave,
   drawIn = false,
   onDrawComplete,
+  packPlugs = false,
+  packPlugMark,
 }: {
   d: string;
   stroke: string;
@@ -43,6 +45,14 @@ export function ConnectorPathGroup({
   onPointerLeave?: () => void;
   drawIn?: boolean;
   onDrawComplete?: () => void;
+  /**
+   * Pack connector ends (Frost): a raised disc with a small mark in the
+   * stroke colour instead of the ring. Callers set it when the active pack
+   * has `connector` tokens.
+   */
+  packPlugs?: boolean;
+  /** Mark colour inside a pack plug disc (defaults to the stroke). */
+  packPlugMark?: string;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
   const { plugRadius, plugRingWidth } = connectorMarkerSizes(1);
@@ -93,7 +103,13 @@ export function ConnectorPathGroup({
         className={drawIn ? "connection-draw-in" : undefined}
         pointerEvents="none"
       />
-      {showSourcePlug && (
+      {packPlugs && showSourcePlug && (
+        <PackPlugDisc anchor={fromAnchor} mark={packPlugMark ?? stroke} />
+      )}
+      {packPlugs && showTargetPlug && (
+        <PackPlugDisc anchor={toAnchor} mark={packPlugMark ?? stroke} />
+      )}
+      {!packPlugs && showSourcePlug && (
         <PlugRing
           anchor={fromAnchor}
           radius={plugRadius}
@@ -101,7 +117,7 @@ export function ConnectorPathGroup({
           stroke={stroke}
         />
       )}
-      {showTargetPlug && (
+      {!packPlugs && showTargetPlug && (
         <PlugRing
           anchor={toAnchor}
           radius={plugRadius}
@@ -132,5 +148,31 @@ function PlugRing({
       strokeWidth={ringWidth}
       pointerEvents="none"
     />
+  );
+}
+
+/**
+ * Pack plug end (Frost "raised" disc): contact shadow + raised fill + a
+ * small mark in the edge colour. Same 10px footprint as the ring.
+ */
+function PackPlugDisc({ anchor, mark }: { anchor: PlugAnchor; mark: string }) {
+  return (
+    <g pointerEvents="none" data-pack-plug-disc>
+      <circle
+        cx={anchor.px}
+        cy={anchor.py + 0.75}
+        r={5.5}
+        fill="rgba(24, 24, 40, 0.16)"
+        className="pack-plug-disc-shadow"
+      />
+      <circle
+        cx={anchor.px}
+        cy={anchor.py}
+        r={5}
+        fill="#ffffff"
+        className="pack-plug-disc-fill"
+      />
+      <circle cx={anchor.px} cy={anchor.py} r={1.5} style={{ fill: mark }} />
+    </g>
   );
 }

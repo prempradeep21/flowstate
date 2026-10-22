@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+
+import { HugContext } from "@/components/artifactStyles/hug";
+
+export { HugContext, useHugs } from "@/components/artifactStyles/hug";
 
 /**
  * Lays an artifact out at (roughly) the size it was designed for on the canvas
@@ -17,6 +21,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
  * `hug` lays the artifact out at its natural width but lets its height follow
  * its content (natural/fit/actual only — tile and fill dictate the height), so
  * a kind whose height depends on what it holds is never clipped by its box.
+ * Its value is the least height the artifact is drawn at (0 = pure content);
+ * null keeps the fixed box. The stage is a flex column, so a frame that
+ * takes `flex-1` fills out to that least height.
  */
 export type StageMode = "natural" | "tile" | "fit" | "fill" | "actual";
 
@@ -49,21 +56,38 @@ export function ScaledStage({
   mode,
   minScale = 0.6,
   maxScale = 2.5,
-  hug = false,
+  hug = null,
   onHugHeight,
+  lockScale = null,
+  offset,
+  onOffsetSettle,
   children,
 }: {
   natural: { w: number; h: number };
   mode: StageMode;
   minScale?: number;
   maxScale?: number;
-  hug?: boolean;
+  hug?: number | null;
   /** Called with the content's own height (design px) whenever it changes. */
   onHugHeight?: (h: number) => void;
+  /**
+   * Holds the zoom while a corner resize is in flight — the canvas never
+   * rescales under a grip, and a stage re-fitting mid-drag would feed back
+   * on the very size it is drawing.
+   */
+  lockScale?: number | null;
+  /** Shift from the centred spot, in design px (scaled with the artifact). */
+  offset?: { x: number; y: number };
+  /**
+   * Out of a gesture the offset is held to the stage — a re-fit after a
+   * resize would otherwise carry the artifact off it — and the held value is
+   * handed back so the next gesture starts from what is drawn.
+   */
+  onOffsetSettle?: (offset: { x: number; y: number }) => void;
   children: ReactNode;
 }) {
   const [ref, box] = useBoxSize<HTMLDivElement>();
-  const hugging = hug && (mode === "natural" || mode === "fit" || mode === "actual");
+  const hugging = hug != null && (mode === "natural" || mode === "fit" || mode === "actual");
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [huggedH, setHuggedH] = useState<number | null>(null);
   const onHugHeightRef = useRef(onHugHeight);
@@ -104,9 +128,37 @@ export function ScaledStage({
     }
   }
 
+  if (layout && lockScale != null && mode !== "tile" && mode !== "fill") layout = { ...layout, scale: lockScale };
+
   const scaledW = layout ? layout.w * layout.scale : 0;
   const scaledH = layout ? layout.h * layout.scale : 0;
   const scrolls = mode === "actual" && box && (scaledW > box.w || scaledH > box.h);
+
+  let left = 0;
+  let top = 0;
+  let settled = offset;
+  if (layout && box) {
+    const place = (room: number, size: number, shift: number) => {
+      const centred = Math.max(0, (room - size) / 2);
+      const at = centred + shift * layout!.scale;
+      // Mid-gesture the anchored corner must not move, so nothing is held then.
+      return lockScale == null && size <= room ? Math.min(Math.max(at, 0), room - size) : at;
+    };
+    left = place(box.w, scaledW, offset?.x ?? 0);
+    top = place(box.h, scaledH, offset?.y ?? 0);
+    if (offset) {
+      settled = {
+        x: (left - Math.max(0, (box.w - scaledW) / 2)) / layout.scale,
+        y: (top - Math.max(0, (box.h - scaledH) / 2)) / layout.scale,
+      };
+    }
+  }
+  const onOffsetSettleRef = useRef(onOffsetSettle);
+  onOffsetSettleRef.current = onOffsetSettle;
+  useEffect(() => {
+    if (!offset || !settled) return;
+    if (Math.abs(settled.x - offset.x) > 0.5 || Math.abs(settled.y - offset.y) > 0.5) onOffsetSettleRef.current?.(settled);
+  }, [offset, settled?.x, settled?.y]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -118,15 +170,16 @@ export function ScaledStage({
           ref={contentRef}
           className="absolute"
           style={{
-            left: Math.max(0, (box.w - scaledW) / 2),
-            top: Math.max(0, (box.h - scaledH) / 2),
+            left,
+            top,
             width: layout.w,
             height: hugging ? undefined : layout.h,
+            ...(hugging ? { minHeight: hug!, display: "flex", flexDirection: "column" as const } : {}),
             transform: layout.scale === 1 ? undefined : `scale(${layout.scale})`,
             transformOrigin: "0 0",
           }}
         >
-          {children}
+          <HugContext.Provider value={hugging}>{children}</HugContext.Provider>
         </div>
       ) : null}
     </div>

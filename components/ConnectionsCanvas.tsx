@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { getHiddenCardIds } from "@/lib/chatThreads";
+import { getHiddenCardIds, isCardInSelectedFamilies } from "@/lib/chatThreads";
 import {
   resolveConnectionRender,
   type RenderableConnection,
@@ -21,13 +21,33 @@ import {
   subscribeViewportPaint,
 } from "@/lib/viewportGesture";
 import { useCanvasStore } from "@/lib/store";
+import {
+  PACK_CONNECTOR_ACTIVE_STROKE_PX,
+  PACK_CONNECTOR_DASH,
+  PACK_CONNECTOR_STROKE_PX,
+  usePackConnector,
+} from "@/hooks/usePackConnector";
+import type { ArtifactStyleConnectorTokens } from "@/lib/design/style/types";
 
 const DRAW_IN_MS = 480;
+/** Pack plug disc: radius (world px) = the vanilla plug's outer radius. */
+const PLUG_DISC_R = 5;
+/** Contact shadow under a pack plug disc (cheap: no blur), light / dark —
+ *  the contact layer of --frost-raised-shadow. */
+const PLUG_DISC_SHADOW = { light: "rgba(24, 24, 40, 0.16)", dark: "rgba(0, 0, 0, 0.5)" };
+/** Mark on a lime (live) disc — fallback for --frost-lime-ink. */
+const PLUG_DISC_ON_LIME = "#1C1C1E";
 
 /** Resolves the plug fill through the theme CSS variable at draw time. */
 function plugFillColor(el: HTMLElement): string {
   const raw = getComputedStyle(el).getPropertyValue("--canvas-plug-fill");
   return raw ? `rgb(${raw.trim()})` : "#ffffff";
+}
+
+/** Pack plug disc fill (Frost "raised"), read through the scoped CSS var. */
+function packPlugFillColor(el: HTMLElement): string {
+  const raw = getComputedStyle(el).getPropertyValue("--frost-raised-top").trim();
+  return raw || "#ffffff";
 }
 
 /**
@@ -58,6 +78,17 @@ export function ConnectionsCanvas({
   const drawLines = layer !== "markers";
   const drawMarkers = layer !== "lines";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Pack connector tokens (Frost): edges draw in the pack's line / emphasis /
+  // active colours instead of thread colours. Null = today's rendering.
+  const packConnector = usePackConnector();
+  const packConnectorRef = useRef<ArtifactStyleConnectorTokens | null>(
+    packConnector,
+  );
+  const redrawRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    packConnectorRef.current = packConnector;
+    redrawRef.current?.();
+  }, [packConnector]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -77,6 +108,8 @@ export function ConnectionsCanvas({
     let markerRingWidth = 0;
     // Draw-in animation state for freshly created connections.
     let drawIn: { connId: string; startedAt: number } | null = null;
+    // Pack edge states: the card under the pointer (emphasis).
+    let hoveredCardId: string | null = null;
 
     const rebuildGeometry = () => {
       const state = useCanvasStore.getState();
@@ -169,7 +202,12 @@ export function ConnectionsCanvas({
       // World-space stroke: scales with the canvas, never restyled on zoom.
       ctx.lineWidth = CONNECTOR_STROKE_PX;
 
-      const plugFill = plugFillColor(container);
+      const pack = packConnectorRef.current;
+      const plugFill = pack ? packPlugFillColor(container) : plugFillColor(container);
+      const onLime = pack
+        ? getComputedStyle(container).getPropertyValue("--frost-lime-ink").trim() ||
+          PLUG_DISC_ON_LIME
+        : PLUG_DISC_ON_LIME;
       // Opaque fill so a ring reads as a solid plug over the card edge it
       // straddles, matching the DOM <Plug>; dashed stubs keep their fade.
       const drawRings = (rings: Path2D, stroke: string, alpha: number) => {
@@ -182,17 +220,101 @@ export function ConnectionsCanvas({
         ctx.stroke(rings);
         ctx.lineWidth = CONNECTOR_STROKE_PX;
       };
+      // Pack plug ends: a raised disc (contact shadow + raised fill) with a
+      // small mark in the edge's colour — no ring stroke.
+      const drawPackDiscs = (
+        g: RenderableConnection,
+        mark: string,
+        live: boolean,
+      ) => {
+        const r = PLUG_DISC_R;
+        const ends: { px: number; py: number }[] = [];
+        if (g.showSourcePlug) ends.push(g.fromAnchor);
+        if (g.showTargetPlug) ends.push(g.toAnchor);
+        for (const a of ends) {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = PLUG_DISC_SHADOW[state.canvasTheme];
+          ctx.beginPath();
+          ctx.arc(a.px, a.py + 0.75, r + 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = live && pack ? pack.active : plugFill;
+          ctx.beginPath();
+          ctx.arc(a.px, a.py, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = live ? onLime : mark;
+          ctx.beginPath();
+          ctx.arc(a.px, a.py, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      };
+      // Edge state per connection: selected families + hovered card →
+      // emphasis; into a thinking / streaming card → active (the live thread).
+      const selectedRoots = state.selectedFamilyRootIds;
+      const connById = pack
+        ? new Map(state.connections.map((c) => [c.id, c]))
+        : null;
+      const edgeState = (connId: string): "line" | "emphasis" | "active" => {
+        const conn = connById?.get(connId);
+        if (!conn) return "line";
+        const to = state.cards[conn.to];
+        if (to && (to.status === "thinking" || to.status === "streaming")) {
+          return "active";
+        }
+        if (hoveredCardId && (conn.from === hoveredCardId || conn.to === hoveredCardId)) {
+          return "emphasis";
+        }
+        if (
+          selectedRoots.length > 0 &&
+          (isCardInSelectedFamilies(state, conn.from, selectedRoots) ||
+            isCardInSelectedFamilies(state, conn.to, selectedRoots))
+        ) {
+          return "emphasis";
+        }
+        return "line";
+      };
       const now = performance.now();
       let animating = false;
+
+      // A selection's edges rise with it: when lines sit behind the cards,
+      // the edges of the selected family draw in the top ("markers") layer
+      // instead, so no card or group well ever covers them.
+      const connByIdAll =
+        layer === "all" ? null : new Map(state.connections.map((c) => [c.id, c]));
+      const isLifted = (connId: string): boolean => {
+        if (!connByIdAll || selectedRoots.length === 0) return false;
+        const conn = connByIdAll.get(connId);
+        if (!conn) return false;
+        return (
+          isCardInSelectedFamilies(state, conn.from, selectedRoots) ||
+          isCardInSelectedFamilies(state, conn.to, selectedRoots)
+        );
+      };
 
       for (const g of geometry) {
         const path = paths.get(g.connId);
         if (!path) continue;
 
-        if (drawLines) {
-          ctx.globalAlpha = g.opacity;
-          ctx.strokeStyle = g.stroke;
-          ctx.setLineDash(g.dashed ? [6, 5] : []);
+        const packState = pack ? edgeState(g.connId) : null;
+        const packStroke = pack && packState ? pack[packState] : null;
+        const lifted = isLifted(g.connId);
+        const strokeThisLine =
+          layer === "all" || (layer === "lines" ? !lifted : lifted);
+
+        if (strokeThisLine) {
+          if (packStroke) {
+            // Pack colours carry their own alpha; only collapsed stubs fade.
+            ctx.globalAlpha = g.dashed ? g.opacity : 1;
+            ctx.strokeStyle = packStroke;
+            ctx.lineWidth =
+              packState === "active"
+                ? PACK_CONNECTOR_ACTIVE_STROKE_PX
+                : PACK_CONNECTOR_STROKE_PX;
+            ctx.setLineDash(g.dashed ? [...PACK_CONNECTOR_DASH] : []);
+          } else {
+            ctx.globalAlpha = g.opacity;
+            ctx.strokeStyle = g.stroke;
+            ctx.setLineDash(g.dashed ? [6, 5] : []);
+          }
 
           if (drawIn?.connId === g.connId) {
             // Dash-offset reveal matching the SVG connection-draw-in keyframes.
@@ -219,13 +341,24 @@ export function ConnectionsCanvas({
           ctx.stroke(path);
           ctx.setLineDash([]);
           ctx.lineDashOffset = 0;
+          ctx.lineWidth = CONNECTOR_STROKE_PX;
         }
 
         // Markers reuse the SVG path builders via Path2D — pixel-identical
         // to the legacy ConnectorPathGroup rendering (cached with geometry).
         if (drawMarkers) {
-          const rings = plugPaths.get(g.connId);
-          if (rings) drawRings(rings, g.stroke, g.dashed ? g.opacity : 1);
+          if (pack && packStroke) {
+            if (g.showSourcePlug || g.showTargetPlug) {
+              drawPackDiscs(
+                g,
+                packState === "line" ? pack.emphasis : packStroke,
+                packState === "active",
+              );
+            }
+          } else {
+            const rings = plugPaths.get(g.connId);
+            if (rings) drawRings(rings, g.stroke, g.dashed ? g.opacity : 1);
+          }
         }
       }
       ctx.globalAlpha = 1;
@@ -241,6 +374,25 @@ export function ConnectionsCanvas({
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(draw);
     };
+    redrawRef.current = schedule;
+
+    // Hovered card → emphasised edges (pack connectors only).
+    const onPointerOver = (e: PointerEvent) => {
+      if (!packConnectorRef.current) return;
+      const el = (e.target as Element | null)?.closest?.("[data-canvas-card]");
+      const id = el?.getAttribute("data-canvas-card") ?? null;
+      if (id !== hoveredCardId) {
+        hoveredCardId = id;
+        schedule();
+      }
+    };
+    const onPointerLeave = () => {
+      if (hoveredCardId === null) return;
+      hoveredCardId = null;
+      schedule();
+    };
+    container.addEventListener("pointerover", onPointerOver);
+    container.addEventListener("pointerleave", onPointerLeave);
 
     // Gesture paints: redraw with the TRANSIENT viewport in the same frame
     // as the card transform — the store-commit path is one rAF behind, which
@@ -271,10 +423,18 @@ export function ConnectionsCanvas({
         state.connectorStyle !== prev.connectorStyle ||
         state.collapsedCardIds !== prev.collapsedCardIds ||
         state.collapsedBranchThreadIds !== prev.collapsedBranchThreadIds ||
-        state.chatsGloballyHidden !== prev.chatsGloballyHidden
+        state.chatsGloballyHidden !== prev.chatsGloballyHidden ||
+        // Node bounds depend on the style's body family (Frost's hugged box).
+        state.canvasArtifactStyle !== prev.canvasArtifactStyle
       ) {
         invalidateGeometry();
         return;
+      }
+      if (
+        state.selectedFamilyRootIds !== prev.selectedFamilyRootIds ||
+        state.canvasTheme !== prev.canvasTheme
+      ) {
+        schedule();
       }
       // While a gesture owns the viewport the paint listener already drew
       // this frame's transform — the commit echo would draw a frame behind.
@@ -304,6 +464,9 @@ export function ConnectionsCanvas({
       unsubStore();
       unsubDrag();
       unsubPaint();
+      container.removeEventListener("pointerover", onPointerOver);
+      container.removeEventListener("pointerleave", onPointerLeave);
+      redrawRef.current = null;
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };

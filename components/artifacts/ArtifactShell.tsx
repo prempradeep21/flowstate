@@ -42,6 +42,7 @@ export function ArtifactShell({
   sourceCardId,
   onArtifactContentAreaSizeChange,
   contentInteractive = true,
+  headless = false,
 }: {
   sessionArtifact: SessionArtifact;
   versionId: string;
@@ -58,6 +59,11 @@ export function ArtifactShell({
   onArtifactContentAreaSizeChange?: (size: ArtifactContentAreaSize) => void;
   /** Canvas: when false, artifact body is inert until the node is selected. */
   contentInteractive?: boolean;
+  /**
+   * Canvas: content only, no header — for a frame that sets its own title
+   * and menu (the Frost style pack's wells).
+   */
+  headless?: boolean;
 }) {
   const [codeTitleOverride, setCodeTitleOverride] = useState<string | null>(null);
   const [isTodoEditing, setIsTodoEditing] = useState(catalogPreview);
@@ -172,7 +178,7 @@ export function ArtifactShell({
   const isCanvasLayout = layout === "canvas";
   const isRepoCanvas = isCanvasLayout && sessionArtifact.kind === "repo";
   const isStickyCanvas = isCanvasLayout && sessionArtifact.kind === "stickynote";
-  const showPanelHeader = !isRepoCanvas && !isStickyCanvas;
+  const showPanelHeader = !isRepoCanvas && !isStickyCanvas && !headless;
   const menuControlsEnabled =
     !catalogPreview && layout !== "sidebar" && layout !== "sidebar-preview";
   const showFontControls =

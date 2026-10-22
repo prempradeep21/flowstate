@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MotionFlowSize } from "@/components/motion/MotionFlowSize";
 import { Icon } from "@/components/ui/Icon";
 
-export type ArtifactNestedMenuView = "root" | "display" | "export";
+export type ArtifactNestedMenuView = "root" | "version" | "export";
 
 const menuItemClass =
   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-canvas-body-sm text-canvas-ink transition-colors hover:bg-canvas-bg disabled:cursor-not-allowed disabled:opacity-40";
@@ -62,9 +62,12 @@ export function ArtifactNestedMenuBackHeader({
 
 export function ArtifactNestedMenuNavItem({
   label,
+  detail,
   onNavigate,
 }: {
   label: string;
+  /** Quiet current value shown before the chevron, e.g. the active version. */
+  detail?: string;
   onNavigate: () => void;
 }) {
   return (
@@ -75,6 +78,7 @@ export function ArtifactNestedMenuNavItem({
       className={menuItemClass}
     >
       <span className="min-w-0 flex-1">{label}</span>
+      {detail ? <span className="shrink-0 text-canvas-muted">{detail}</span> : null}
       <ChevronRightIcon />
     </button>
   );

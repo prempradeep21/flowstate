@@ -12,7 +12,11 @@ const HINTABLE = 'button, a, [role="button"], [role="menuitem"], [role="tab"]';
 interface Hint {
   text: string;
   rect: DOMRect;
+  /** The control sits on the canvas (or a canvas menu): follow its style pack. */
+  onCanvas: boolean;
 }
+
+const CANVAS_SCOPE = "[data-artifact-style], [data-canvas-portal]";
 
 /**
  * Names an icon-only control in a small pill beside it on hover. Any button
@@ -61,7 +65,11 @@ export function HoverHint() {
       targetRef.current = el;
       timerRef.current = window.setTimeout(() => {
         if (targetRef.current !== el || !el.isConnected) return;
-        setHint({ text, rect: el.getBoundingClientRect() });
+        setHint({
+          text,
+          rect: el.getBoundingClientRect(),
+          onCanvas: el.closest(CANVAS_SCOPE) != null,
+        });
       }, SHOW_DELAY_MS);
     };
 
@@ -117,6 +125,7 @@ export function HoverHint() {
     <div
       ref={pillRef}
       role="tooltip"
+      {...(hint.onCanvas ? { "data-canvas-portal": "", "data-canvas-hint": "" } : {})}
       className="pointer-events-none fixed z-[1000] whitespace-nowrap rounded-canvas-sm bg-canvas-ink px-2 py-1 text-canvas-caption font-medium text-canvas-card shadow-card transition-opacity duration-150"
       style={{
         left: pos?.left ?? 0,

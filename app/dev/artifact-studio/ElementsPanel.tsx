@@ -1,7 +1,7 @@
 "use client";
 
 import type { ArtifactElement } from "./artifactElements";
-import type { SpecCheck } from "./textSpec";
+import type { SpecCheck } from "@/components/artifactStyles/textSpec";
 
 function Switch({ on }: { on: boolean }) {
   return (

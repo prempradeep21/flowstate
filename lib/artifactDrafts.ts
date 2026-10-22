@@ -10,6 +10,7 @@ import {
 } from "@/lib/artifactTypes";
 import type { ArtifactDraftEvent } from "@/lib/llm/artifactDraftStream";
 import { resolveEditingArtifactId } from "@/lib/sessionArtifacts";
+import { artifactKindTitle } from "@/lib/artifactWorkingTitle";
 import { useCanvasStore, type CanvasArtifactNode } from "@/lib/store";
 
 /**
@@ -131,7 +132,8 @@ export function applyArtifactDraft(cardId: string, draft: ArtifactDraftEvent): v
 
   const card = useCanvasStore.getState().cards[cardId];
   if (!card) return;
-  const title = draft.title?.trim() || card.question.slice(0, 48) || kind;
+  // Empty until the streamed call carries a title; the skeleton labels itself.
+  const title = draft.title?.trim() ?? "";
 
   const nodeId = resolveDraftNode(cardId, draft.id, kind, title);
   if (!nodeId) return;
@@ -139,7 +141,7 @@ export function applyArtifactDraft(cardId: string, draft: ArtifactDraftEvent): v
     .getState()
     .claimGeneratingArtifactPreview(nodeId, { draftId: draft.id, title: draft.title });
 
-  const payload = draftPayload(draft, title);
+  const payload = draftPayload(draft, title || artifactKindTitle(kind));
   if (payload) useArtifactDraftStore.getState().setDraft(nodeId, payload);
 }
 

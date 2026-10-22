@@ -35,7 +35,7 @@ export function GroupSummaryIcon({ group }: GroupSummaryIconProps) {
         title="Open group summary"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => openGroupArtifact(group.id)}
-        className="pointer-events-auto relative flex h-8 w-8 items-center justify-center rounded-canvas border border-canvas-border bg-canvas-card text-canvas-muted shadow-artifact transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        className="canvas-group-summary-icon pointer-events-auto relative flex h-8 w-8 items-center justify-center rounded-canvas border border-canvas-border bg-canvas-card text-canvas-muted shadow-artifact transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
       >
         <svg
           aria-hidden
@@ -54,7 +54,7 @@ export function GroupSummaryIcon({ group }: GroupSummaryIconProps) {
         {hasNewContent && (
           <span
             aria-hidden
-            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-canvas-ink"
+            className="canvas-group-summary-dot absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-canvas-ink"
           />
         )}
       </button>

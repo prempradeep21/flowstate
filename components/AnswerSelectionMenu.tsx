@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useCanvasPortalAttr, useCanvasPortalClassName } from "@/components/canvasPortal";
 
 const VIEWPORT_EDGE_PAD = 12;
 
@@ -114,6 +115,8 @@ export function AnswerSelectionMenu({
   quickExplainLoading?: boolean;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const packClassName = useCanvasPortalClassName();
+  const portalAttr = useCanvasPortalAttr();
   const anchorCenterX = rect.left + rect.width / 2;
   const top = rect.top - 8;
   const [left, setLeft] = useState(anchorCenterX);
@@ -136,7 +139,9 @@ export function AnswerSelectionMenu({
     <div
       ref={menuRef}
       data-answer-selection-menu
-      className="motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas-wrap-5 border border-canvas-border/60 bg-canvas-ink p-1 shadow-card"
+      {...portalAttr}
+      data-canvas-toolbar=""
+      className={`${packClassName} motion-fade-in pointer-events-auto fixed z-[50000] flex -translate-x-1/2 -translate-y-full items-center gap-0.5 whitespace-nowrap rounded-canvas-wrap-5 border border-canvas-border/60 bg-canvas-ink p-1 shadow-card`}
       style={{ left, top }}
       onPointerDown={(e) => {
         e.preventDefault();

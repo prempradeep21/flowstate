@@ -12,8 +12,8 @@ import type { CollaboratorProfile } from "@/lib/collaborationTypes";
 import {
   ArtifactHeaderNestedMenu,
   artifactHeaderMenuHasActions,
+  type ArtifactHeaderMenuVersions,
 } from "@/components/artifacts/ArtifactHeaderNestedMenu";
-import { useArtifactMenuControls } from "@/components/artifacts/ArtifactMenuControlsContext";
 import type { ArtifactKind, ArtifactPayload } from "@/lib/artifactTypes";
 import type { ArtifactVersion } from "@/lib/sessionArtifacts";
 import type { GoogleDriveFileKind } from "@/lib/google/parseDriveUrl";
@@ -100,37 +100,15 @@ export function ArtifactPanelHeader({
   iconFaviconUrl?: string;
   exportPayload?: ArtifactPayload;
 }) {
-  const [versionOpen, setVersionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const versionRef = useRef<HTMLDivElement>(null);
-  const versionButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const safeVersions = Array.isArray(versions) ? versions : [];
-  const active =
-    safeVersions.find((v) => v.id === activeVersionId) ??
-    safeVersions[safeVersions.length - 1];
   const isCanvas = menuVariant === "canvas";
-  const versionMenuPortal = useCanvasFloatingMenuPosition(
-    versionOpen && isCanvas,
-    versionButtonRef,
-  );
   const actionMenuPortal = useCanvasFloatingMenuPosition(
     menuOpen && isCanvas,
     menuButtonRef,
   );
-
-  useEffect(() => {
-    if (!versionOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (versionRef.current?.contains(target)) return;
-      if (versionMenuPortal.portalRef.current?.contains(target)) return;
-      setVersionOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [versionOpen, versionMenuPortal.portalRef]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -144,11 +122,16 @@ export function ArtifactPanelHeader({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen, actionMenuPortal.portalRef]);
 
-  const menuControls = useArtifactMenuControls();
+  const showVersion =
+    !isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl);
+  // Versions live under ⋯ beside Export; nothing about them sits in the header.
+  const menuVersions: ArtifactHeaderMenuVersions | undefined = showVersion
+    ? { versions: safeVersions, activeVersionId, onVersionChange }
+    : undefined;
   const hasMenuActions = artifactHeaderMenuHasActions({
     exportPayload,
     onRemoveFromCanvas,
-    hasDisplayMenu: menuControls?.hasDisplayMenu,
+    versions: menuVersions,
   });
 
   const editControls = todoEditControls ?? stickyEditControls;
@@ -169,11 +152,6 @@ export function ArtifactPanelHeader({
   const menuDropdownClassName =
     "min-w-[220px] max-h-[min(420px,70vh)] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
   const closeMenu = () => setMenuOpen(false);
-  const versionDropdownClassName =
-    "min-w-[140px] overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card";
-
-  const showVersion =
-    !isVideo && kind !== "website" && !(kind === "google-doc" && websiteUrl);
 
   const showContributors =
     contributorProfiles != null && contributorProfiles.length > 0;
@@ -282,81 +260,12 @@ export function ArtifactPanelHeader({
         </a>
       ) : null}
 
-      {(showContributors || showVersion || hasMenuActions) && (
+      {(showContributors || hasMenuActions) && (
         <div className="flex shrink-0 items-center gap-2">
       {showContributors && (
         <div className={`shrink-0 ${isCanvas ? chromeClass : ""}`}>
           <ContributorAvatarStack profiles={contributorProfiles} size={28} />
         </div>
-      )}
-      {!showVersion ? null : (
-          <div
-            className={`relative shrink-0 ${chromeClass} ${
-              versionOpen ? "opacity-100" : ""
-            }`}
-            ref={versionRef}
-          >
-            <button
-              ref={versionButtonRef}
-              type="button"
-              onClick={() => setVersionOpen((o) => !o)}
-              className={`${ctaClass} border border-canvas-ink/20 text-canvas-ink`}
-            >
-              Version {active?.number ?? 1}
-              <span className="text-canvas-body opacity-70" aria-hidden>
-                ⌵
-              </span>
-            </button>
-            {versionOpen &&
-              (isCanvas ? (
-                <CanvasFloatingMenuPortal
-                  open={versionOpen}
-                  style={versionMenuPortal.style}
-                  portalRef={versionMenuPortal.portalRef}
-                  className={versionDropdownClassName}
-                >
-                  {[...safeVersions].reverse().map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => {
-                        onVersionChange(v.id);
-                        setVersionOpen(false);
-                      }}
-                      className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
-                        v.id === activeVersionId
-                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
-                          : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                      }`}
-                    >
-                      Version {v.number}
-                    </button>
-                  ))}
-                </CanvasFloatingMenuPortal>
-              ) : (
-                <div
-                  className={`absolute right-0 top-full z-50 mt-1 ${versionDropdownClassName}`}
-                >
-                  {[...safeVersions].reverse().map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => {
-                        onVersionChange(v.id);
-                        setVersionOpen(false);
-                      }}
-                      className={`block w-full px-3 py-2 text-left text-canvas-body-sm ${
-                        v.id === activeVersionId
-                          ? "bg-canvas-accentSoft font-medium text-canvas-accent"
-                          : "text-canvas-muted hover:bg-canvas-bg hover:text-canvas-ink"
-                      }`}
-                    >
-                      Version {v.number}
-                    </button>
-                  ))}
-                </div>
-              ))}
-          </div>
       )}
       {hasMenuActions && (
         <div
@@ -394,6 +303,7 @@ export function ArtifactPanelHeader({
                   title={title}
                   artifactId={artifactId}
                   exportPayload={exportPayload}
+                  versions={menuVersions}
                   onRemoveFromCanvas={onRemoveFromCanvas}
                   onClose={closeMenu}
                 />
@@ -407,6 +317,7 @@ export function ArtifactPanelHeader({
                   title={title}
                   artifactId={artifactId}
                   exportPayload={exportPayload}
+                  versions={menuVersions}
                   onRemoveFromCanvas={onRemoveFromCanvas}
                   onClose={closeMenu}
                 />

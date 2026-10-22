@@ -106,6 +106,9 @@ export function CanvasSwitchOverlay({
 
   return (
     <div
+      // Follows the canvas style pack while it is mounted (5.8).
+      data-canvas-portal=""
+      data-canvas-loading=""
       className="pointer-events-none absolute inset-0 z-[60] flex items-center justify-center overflow-hidden bg-canvas-bg/90 backdrop-blur-sm transition-opacity duration-300"
       aria-live="polite"
       aria-busy={visible}

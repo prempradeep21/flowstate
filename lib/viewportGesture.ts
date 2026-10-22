@@ -42,7 +42,9 @@ interface TransientViewport {
   scale: number;
 }
 
-let viewportEl: HTMLElement | null = null;
+/** Every world layer (the main viewport, and the groups layer under the
+ * connector lines) — each one takes the same transform. */
+const viewportEls = new Set<HTMLElement>();
 let transient: TransientViewport | null = null;
 let commitRaf = 0;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -65,8 +67,11 @@ export function subscribeViewportPaint(
 }
 
 /** CanvasViewport registers its element so handlers can paint synchronously. */
-export function registerViewportElement(el: HTMLElement | null): void {
-  viewportEl = el;
+export function registerViewportElement(el: HTMLElement): () => void {
+  viewportEls.add(el);
+  return () => {
+    viewportEls.delete(el);
+  };
 }
 
 /**
@@ -243,9 +248,8 @@ function setGesturingAttr(mode: ViewportGestureMode | null): void {
 
 function paint(): void {
   if (!transient) return;
-  if (viewportEl) {
-    viewportEl.style.transform = `translate(${transient.x}px, ${transient.y}px) scale(${transient.scale})`;
-  }
+  const transform = `translate(${transient.x}px, ${transient.y}px) scale(${transient.scale})`;
+  for (const el of viewportEls) el.style.transform = transform;
   for (const fn of paintListeners) fn(transient);
 }
 

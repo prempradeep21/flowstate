@@ -23,6 +23,19 @@ That makes podcasters two useful things at once:
 
 ---
 
+## The daily pipeline (from 2026-10-20)
+
+Prospecting is now two routines around a morning review. The tables below are the hand-kept list from before it existed.
+
+1. **Prospecting** (`.claude/skills/podcast-outreach-prospecting`, daily, early morning): finds 3 niches' worth of shows, measures them with the YouTube Data API, and researches verified contacts. It lands each show as a lead at stage `new`.
+2. **Morning review** at `/admin/outreach` → *To review*: for each show choose **Own canvas**, **Example canvas** or **Skip**, then hit Submit. Chosen shows move to `queued`.
+3. **Assets** (`.claude/skills/podcast-outreach-assets`): for queued shows, builds and publishes canvases, renders showcase videos, writes the copy and creates Gmail drafts in prem@flowstatetool.com. Shows move to `drafted`.
+4. You send by hand, then set the stage to `sent` / `replied` / `passed`, in the portal or the sheet.
+
+Both routines run as Claude scheduled tasks on this Mac. The record of truth is the Google Sheet *Podcaster outreach — tracking* in prem@flowstatetool.com's Drive (tabs Leads, Excluded, Runs). Claude keeps it up to date through its Google Sheets connector, and Gmail drafts go through Claude's Gmail connector. Flowstate's own Google integration is not involved. The portal is the review UI. Edits to `stage`, `decision` and `notes` in the sheet reach the portal at the start of each routine run; portal decisions reach the sheet at the end of one. Plumbing: `scripts/outreach/cli.ts`, `scripts/outreach/youtube.ts`, `lib/outreach/sheet.ts`, and the sheet-sync reference in the prospecting skill.
+
+---
+
 ## How the phases work
 
 The phase is decided by **the ask**, not by audience size.

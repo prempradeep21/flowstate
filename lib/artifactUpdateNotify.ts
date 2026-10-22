@@ -4,6 +4,7 @@ import {
   type ArtifactKind,
 } from "@/lib/artifactTypes";
 import { findGeneratingPreviewNode } from "@/lib/canvasArtifacts";
+import { artifactKindTitle } from "@/lib/artifactWorkingTitle";
 import { resolveArtifactPreviewStatus } from "@/lib/materializeCardArtifact";
 import {
   hasQaResponseError,
@@ -190,14 +191,16 @@ export function notifyArtifactFailureForCard(cardId: string): void {
       state.canvasArtifactNodes,
       cardId,
     );
+    const failedKind = previewNode?.generatingPreview?.kind ?? card.responseType;
     const title =
       previewNode?.generatingPreview?.title ||
       card.artifactPayload?.title ||
-      card.question.slice(0, 48) ||
-      "Artifact";
+      (coerceArtifactKind(failedKind)
+        ? artifactKindTitle(coerceArtifactKind(failedKind)!)
+        : "Artifact");
     pushArtifactErrorUpdate({
       cardId,
-      kind: previewNode?.generatingPreview?.kind ?? card.responseType,
+      kind: failedKind,
       title,
       detail: "Couldn't complete",
     });

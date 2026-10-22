@@ -28,7 +28,8 @@ export function ReceivePlugs({
             }}
           >
             <span
-              className={`block h-2.5 w-2.5 rounded-full border-2 bg-canvas-card transition-transform ${
+              data-highlighted={highlighted || undefined}
+              className={`canvas-receive-plug block h-2.5 w-2.5 rounded-full border-2 bg-canvas-card transition-transform ${
                 highlighted ? "scale-125" : ""
               }`}
               style={{ borderColor: accentColour }}

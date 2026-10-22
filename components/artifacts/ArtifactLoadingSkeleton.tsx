@@ -181,6 +181,7 @@ export function MediaLoadingCover({
   if (loaded) return null;
   return (
     <div
+      data-media-loading
       className={`pointer-events-none absolute inset-0 bg-canvas-card ${className}`}
       aria-hidden
     >

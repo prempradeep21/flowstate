@@ -4,14 +4,28 @@ import {
   memo,
   PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import { ArtifactPermissionPrompt } from "@/components/artifacts/ArtifactPermissionPrompt";
 import { ArtifactRemoteUpdateGlow } from "@/components/artifacts/ArtifactRemoteUpdateGlow";
 import { ArtifactShell } from "@/components/artifacts/ArtifactShell";
+import { useArtifactStyle } from "@/components/ArtifactStyleScope";
+import {
+  FROST_EDITABLE_KINDS,
+  FROST_MASTHEAD_ZOOM,
+  FROST_MIN_WIDTH,
+  FrostArtifactNode,
+} from "@/components/frost/FrostArtifactNode";
+import {
+  FrostGenerating,
+  frostPlaceholderStyle,
+} from "@/components/frost/FrostGenerating";
 import { GeneratingArtifactContent } from "@/components/artifacts/GeneratingArtifactContent";
+import { generatingArtifactHeadline } from "@/lib/artifactWorkingTitle";
 import { CanvasSharpContent } from "@/components/CanvasSharpContent";
+import { holdBento } from "@/lib/groupBento";
 import {
   cornerResizeSigns,
   NodeCornerResizeHandles,
@@ -22,8 +36,10 @@ import { Plug } from "@/components/plugs/Plug";
 import {
   CANVAS_ARTIFACT_HORIZONTAL_PADDING_PX,
   clampArtifactSize,
+  clampArtifactSizeForKind,
   clampTableArtifactSize,
   getArtifactBounds,
+  getBaseArtifactBounds,
   getArtifactClampOpts,
   getDefaultArtifactSize,
 } from "@/lib/canvasNodeBounds";
@@ -54,6 +70,7 @@ import {
   ARTIFACT_CANVAS_PADDING_CHROME,
   artifactKindUsesCanvasContainerFill,
   artifactKindUsesCanvasPaddingChrome,
+  ARTIFACT_NODE_POINTER_EXEMPT,
 } from "@/lib/artifactCanvasChrome";
 import {
   findRemoteArtifactUpdatingCardId,
@@ -72,8 +89,7 @@ import { useRaisedZIndex } from "@/hooks/useRaisedZIndex";
 
 const DRAG_THRESHOLD_PX = 0;
 
-const TEXT_SELECTABLE =
-  'textarea, button, input, select, a, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], [role="menu"], [role="listbox"], [role="option"], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon';
+const TEXT_SELECTABLE = ARTIFACT_NODE_POINTER_EXEMPT;
 
 interface CanvasArtifactNodeProps {
   node: CanvasArtifactNodeType;
@@ -113,6 +129,12 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const [todoEditing, setTodoEditing] = useState(false);
+  // Frost (a pack with a body family) draws every node through Style D.
+  const frost = useArtifactStyle().pack.bodyFamily === "frost";
+  const [frostHovered, setFrostHovered] = useState(false);
+  const [frostEditing, setFrostEditing] = useState(false);
+  // Edit ends with the selection — unless a todo still has unsaved changes.
+  if (frostEditing && !isSelected && !todoEditing) setFrostEditing(false);
   const [pointerSessionActive, setPointerSessionActive] = useState(false);
 
   const chromeReveal = useArtifactSpawnChromeReveal(node.id);
@@ -151,6 +173,8 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     didMove: boolean;
     recordedUndo: boolean;
   } | null>(null);
+  const releaseBentoRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => releaseBentoRef.current?.(), []);
 
   const preview = node.permissionPreview;
   const generatingPreview = node.generatingPreview;
@@ -170,6 +194,14 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     ? sessionArtifacts[node.artifactId]
     : undefined;
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
+  // Masthead artifacts are drawn blown up under Frost too (FROST_MASTHEAD_ZOOM):
+  // the card lays out at width ÷ zoom and reports its size in those units.
+  const frostZoom =
+    frost && art && (MASTHEAD_ARTIFACT_KINDS.has(art.kind) || node.mastheadScale)
+      ? FROST_MASTHEAD_ZOOM
+      : 1;
+  const frostZoomRef = useRef(frostZoom);
+  frostZoomRef.current = frostZoom;
   // Mounted mid-gesture (culling reveal during pan/zoom): render a cheap
   // stand-in now, hydrate the full artifact a few nodes per frame.
   const provisionalMount = useGestureProvisionalMount(nodeRef);
@@ -244,6 +276,84 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     },
     [node.id],
   );
+  /**
+   * Frost cards always show everything they hold (docs/design-system/
+   * artifacts-frost.md §5): the node's height follows the card's own height,
+   * growing or shrinking, whoever sized it. Width stays the node's own, never
+   * narrower than the kind's Frost minimum (FROST_MIN_WIDTH).
+   */
+  // The least width the Frost card can take without cropping its content
+  // (a table's narrowest layout); corner drags stop there.
+  const frostMinWidthRef = useRef(0);
+  const handleFrostHugHeight = useCallback(
+    (
+      rawH: number,
+      rawMinW: number,
+      rawNatural: number,
+      rawW: number,
+    ) => {
+      // The card measures in its own (unzoomed) units; the node is in world.
+      const z = frostZoomRef.current;
+      const h = rawH * z;
+      const contentMinW = rawMinW * z;
+      const natural = rawNatural * z;
+      const measuredW = rawW * z;
+      frostMinWidthRef.current = contentMinW;
+      const st = useCanvasStore.getState();
+      const current = st.canvasArtifactNodes[node.id];
+      if (!current) return;
+      const artForBounds = current.artifactId
+        ? st.sessionArtifacts[current.artifactId]
+        : undefined;
+      // Width: the node's own (a resize under Frost moves frostSize.w with
+      // it), never under the kind's Frost minimum. Height: the card's own.
+      const base = getBaseArtifactBounds(current, artForBounds);
+      const minW = Math.max(
+        (artForBounds && FROST_MIN_WIDTH[artForBounds.kind]) ?? 0,
+        contentMinW,
+      );
+      // Never narrower than the box the node was given (a table's content
+      // width is measured in vanilla type, which Frost sets larger).
+      const nextW = Math.max(
+        current.frostSize?.w ?? Math.max(base.w, current.size?.w ?? 0),
+        minW,
+      );
+      const nextH = Math.round(h);
+      // Mid-resize from a top grip, the bottom edge stays put: the card's
+      // real height (content may need more than the pointer gives it) sets
+      // where the top edge lands.
+      const rs = resizeStateRef.current;
+      if (rs && cornerResizeSigns(rs.corner).sy === -1) {
+        const targetY = rs.startPosY + rs.startH - nextH;
+        if (Math.abs(targetY - current.position.y) > 0.5) {
+          st.moveCanvasArtifact(node.id, 0, targetY - current.position.y);
+        }
+      }
+      const prev = current.frostSize;
+      const measure = {
+        w: Math.round(measuredW),
+        h: Math.round(natural),
+        minW: contentMinW,
+      };
+      const pm = current.frostMeasure;
+      const sameMeasure =
+        pm &&
+        Math.abs(pm.w - measure.w) < 1 &&
+        Math.abs(pm.h - measure.h) < 1 &&
+        Math.abs(pm.minW - measure.minW) < 1;
+      if (
+        prev &&
+        Math.abs(nextH - prev.h) <= 1 &&
+        nextW === prev.w &&
+        sameMeasure
+      ) {
+        return;
+      }
+      st.setCanvasArtifactFrostSize(node.id, { w: nextW, h: nextH }, measure);
+    },
+    [node.id],
+  );
+
   // Only the cards this node reads — a whole-map subscription re-rendered
   // every mounted artifact on each card write (cards re-measure on every
   // zoom settle), and with idle warm-up most artifacts stay mounted.
@@ -351,28 +461,28 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
       const vpScale = useCanvasStore.getState().viewport.scale;
       const { sx, sy } = cornerResizeSigns(rs.corner);
-      const next =
-        art?.kind === "stickynote"
-          ? clampStickyNoteArtifactSize(
-              rs.startW + (sx * screenDx) / vpScale,
-              rs.startH + (sy * screenDy) / vpScale,
-            )
-          : art?.kind === "table"
-            ? clampTableArtifactSize(
-                rs.startW + (sx * screenDx) / vpScale,
-                rs.startH + (sy * screenDy) / vpScale,
-              )
-            : clampArtifactSize(
-              rs.startW + (sx * screenDx) / vpScale,
-              rs.startH + (sy * screenDy) / vpScale,
-              getArtifactClampOpts(art?.kind),
-            );
+      const clamped = clampArtifactSizeForKind(
+        art?.kind,
+        rs.startW + (sx * screenDx) / vpScale,
+        rs.startH + (sy * screenDy) / vpScale,
+      );
+      // Frost never crops: the width stops where the content would overflow.
+      const next = frost
+        ? { ...clamped, w: Math.max(clamped.w, frostMinWidthRef.current) }
+        : clamped;
       setCanvasArtifactSize(node.id, next, { userSet: true });
       // Keep the corner opposite the grip anchored in place.
       const targetX =
         sx === -1 ? rs.startPosX + (rs.startW - next.w) : rs.startPosX;
+      // Frost never crops: the card is at least as tall as its content, so a
+      // top grip anchors the bottom edge against the height actually drawn
+      // (the card's height report corrects this once it re-measures).
+      const frostH = frost
+        ? useCanvasStore.getState().canvasArtifactNodes[node.id]?.frostSize?.h
+        : undefined;
+      const drawnH = frostH != null ? Math.max(next.h, frostH) : next.h;
       const targetY =
-        sy === -1 ? rs.startPosY + (rs.startH - next.h) : rs.startPosY;
+        sy === -1 ? rs.startPosY + (rs.startH - drawnH) : rs.startPosY;
       moveCanvasArtifact(
         node.id,
         targetX - node.position.x,
@@ -393,6 +503,8 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         // ignore
       }
       resizeStateRef.current = null;
+      releaseBentoRef.current?.();
+      releaseBentoRef.current = null;
       setPointerSessionActive(false);
       return;
     }
@@ -411,6 +523,9 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
     const root = nodeRef.current;
     if (root) root.setPointerCapture(e.pointerId);
     setPointerSessionActive(true);
+    // A chapter grid waits until the grip is let go (lib/groupBento).
+    releaseBentoRef.current?.();
+    releaseBentoRef.current = holdBento();
     resizeStateRef.current = {
       pointerId: e.pointerId,
       corner,
@@ -430,6 +545,36 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   // Gesture-time stand-in: bordered rect + title at exact node bounds (same
   // helpers the culling index uses, so geometry never shifts on hydrate).
   // Selection and permission previews are interaction targets — full DOM.
+  if (provisionalMount && !isSelected && !preview && frost) {
+    const lod = frostPlaceholderStyle(art);
+    return (
+      <div
+        ref={nodeRef}
+        data-canvas-artifact
+        data-canvas-node-id={node.id}
+        data-artifact-lod="placeholder"
+        data-frost-lod
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="absolute z-20 cursor-grab overflow-hidden active:cursor-grabbing"
+        style={{
+          zIndex: raisedZIndex,
+          left: node.position.x,
+          top: node.position.y,
+          width,
+          height: artifactHeight,
+          ...lod.style,
+        }}
+      >
+        <div className="frost-lod-title" style={{ color: lod.color, overflowWrap: "break-word" }}>
+          {art?.title ?? (generatingPreview ? generatingArtifactHeadline(generatingPreview) : "")}
+        </div>
+      </div>
+    );
+  }
+
   if (provisionalMount && !isSelected && !preview) {
     return (
       <div
@@ -451,7 +596,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         }}
       >
         <div className="truncate px-6 pt-4 text-[22px] font-medium text-canvas-ink/70">
-          {art?.title ?? generatingPreview?.title ?? ""}
+          {art?.title ?? (generatingPreview ? generatingArtifactHeadline(generatingPreview) : "")}
         </div>
       </div>
     );
@@ -486,6 +631,15 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         (art?.kind ?? preview?.kind ?? generatingPreview?.kind ?? "custom") as Parameters<typeof artifactCategoryOf>[0],
       )}
       {...(pointerSessionActive ? { "data-canvas-dragging": "" } : {})}
+      {...(frost ? { "data-frost-artifact": "" } : {})}
+      {...(frost && frostEditing ? { "data-frost-editing": "" } : {})}
+      onDoubleClick={
+        frost && art && FROST_EDITABLE_KINDS.has(art.kind) && !canvasReadOnly && !frostEditing
+          ? () => setFrostEditing(true)
+          : undefined
+      }
+      onPointerEnter={frost ? () => setFrostHovered(true) : undefined}
+      onPointerLeave={frost ? () => setFrostHovered(false) : undefined}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -543,6 +697,53 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
         <ArtifactRemoteUpdateGlow accentColour={remoteUpdateGlowColour} />
       ) : null}
 
+      {frost && !isPermissionPreview && (art || generatingPreview) ? (
+        <CanvasSharpContent worldWidth={width} className="relative flex h-full flex-col">
+          {generatingPreview ? (
+            <FrostGenerating
+              nodeId={node.id}
+              kind={generatingPreview.kind}
+              title={generatingPreview.title}
+              sourceCard={generatingSourceCard}
+              size={{ w: width, h: artifactHeight }}
+            />
+          ) : art ? (
+            <div
+              className="flex flex-col"
+              style={
+                frostZoom !== 1
+                  ? { zoom: frostZoom, width: width / frostZoom }
+                  : { display: "contents" }
+              }
+            >
+            <FrostArtifactNode
+              nodeId={node.id}
+              art={art}
+              versionId={node.versionId}
+              size={scaleSize(getBaseArtifactBounds(node, art), 1 / frostZoom)}
+              isSelected={isSelected}
+              hovered={frostHovered && !pointerSessionActive}
+              contentInteractive={contentInteractive}
+              editing={frostEditing}
+              onEditingChange={setFrostEditing}
+              sourceCardId={node.sourceCardId}
+              onVersionChange={(vid) => setCanvasArtifactVersion(node.id, vid)}
+              onRemove={() => removeCanvasArtifact(node.id)}
+              onTodoEditingChange={setTodoEditing}
+              hug
+              sized={Boolean(node.userSetSize || node.layoutSetSize)}
+              minHeight={
+                Math.max(
+                  node.userSetSize ? (node.size?.h ?? 0) : 0,
+                  node.frostRowH ?? 0,
+                ) / frostZoom
+              }
+              onHugHeight={handleFrostHugHeight}
+            />
+            </div>
+          ) : null}
+        </CanvasSharpContent>
+      ) : (
       <CanvasSharpContent
         worldWidth={width}
         className={
@@ -625,6 +826,7 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
           </div>
         ) : null}
       </CanvasSharpContent>
+      )}
 
       {!godView && !isPermissionPreview && !isSelectionMember && (
         <NodeCornerResizeHandles
@@ -637,6 +839,10 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       </MotionCanvasNode>
     </div>
   );
+}
+
+function scaleSize(size: { w: number; h: number }, k: number) {
+  return k === 1 ? size : { w: size.w * k, h: size.h * k };
 }
 
 /**

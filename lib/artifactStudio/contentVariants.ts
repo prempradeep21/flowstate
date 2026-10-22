@@ -1,5 +1,5 @@
 import type { ArtifactPayload, TableRow } from "@/lib/artifactTypes";
-import { getStudioPool, type StudioArtifact } from "@/lib/artifactStudio/pool";
+import { getStudioPool, type StudioArtifact, type StudioArtifactItem } from "@/lib/artifactStudio/pool";
 import { seededRandom } from "@/lib/artifactStudio/selection";
 
 /**
@@ -17,6 +17,8 @@ export const ORIGINAL_AMOUNT = 0.5;
 
 /** Whether the kind has any content that can grow or shrink. */
 export function canVaryContent(item: StudioArtifact): boolean {
+  // Cards are prose under a heading — nothing to count.
+  if (item.card) return false;
   return countOf(item.payload) != null;
 }
 
@@ -120,8 +122,7 @@ function resize<T>(
 /** Same-variant siblings in the pool, other than the artifact itself. */
 function donorsOf(item: StudioArtifact): ArtifactPayload[] {
   return getStudioPool()
-    .filter((a) => a.variant === item.variant && a.uid !== item.uid)
-    .map((a) => a.payload);
+    .flatMap((a) => (a.variant === item.variant && a.uid !== item.uid && !a.card ? [a.payload] : []));
 }
 
 function fitText(text: string, n: number, donorTexts: string[], rand: () => number): string {
@@ -147,7 +148,7 @@ function timestamp(totalSeconds: number): string {
   return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
-function varyPayload(item: StudioArtifact, amount: number, seed: string): ArtifactPayload {
+function varyPayload(item: StudioArtifactItem, amount: number, seed: string): ArtifactPayload {
   const rand = seededRandom(`${item.uid}:${seed}`);
   const payload = item.payload;
   const donors = donorsOf(item);
@@ -397,7 +398,7 @@ function varyPayload(item: StudioArtifact, amount: number, seed: string): Artifa
  * version are both replaced, since renderers read either.
  */
 export function varyContent(item: StudioArtifact, amount: number, seed: string): StudioArtifact {
-  if (Math.abs(amount - ORIGINAL_AMOUNT) < 0.001 || !canVaryContent(item)) return item;
+  if (item.card || Math.abs(amount - ORIGINAL_AMOUNT) < 0.001 || !canVaryContent(item)) return item;
   const payload = varyPayload(item, amount, seed);
   const latestId = item.artifact.latestVersionId;
   return {

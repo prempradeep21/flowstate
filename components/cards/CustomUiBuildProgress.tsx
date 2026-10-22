@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { formatElapsedMs, formatTurnUsageLine } from "@/lib/qaTurnMetrics";
 import type { SdkBuildStage } from "@/lib/cursorSdk/buildProgressTypes";
 import { useCanvasStore } from "@/lib/store";
@@ -16,6 +16,14 @@ function stageIcon(status: SdkBuildStage["status"]): string {
     default:
       return "○";
   }
+}
+
+/** Share of the build that is behind us: done stages, plus half the active one. */
+function buildShare(stages: SdkBuildStage[]): number {
+  if (stages.length === 0) return 0;
+  const done = stages.filter((s) => s.status === "done").length;
+  const active = stages.some((s) => s.status === "active") ? 0.5 : 0;
+  return Math.min(1, (done + active) / stages.length);
 }
 
 function stageClass(status: SdkBuildStage["status"]): string {
@@ -59,12 +67,23 @@ export function CustomUiBuildProgress({
 
   return (
     <div
+      data-build-progress
       className={`flex w-full max-w-sm flex-col gap-3 ${className}`}
       aria-live="polite"
       aria-busy="true"
       aria-label={thinkingLabel ?? "Building custom UI"}
     >
-      <div className="flex items-center gap-1.5">
+      {/* Frost's progress bar (a lime-dot Track); hidden by other packs. */}
+      <div
+        data-frost-track
+        aria-hidden
+        style={{ "--track-share": buildShare(stages) } as CSSProperties}
+      >
+        <span data-frost-track-line />
+        <span data-frost-track-dot />
+        <span data-frost-track-end />
+      </div>
+      <div data-build-progress-dots className="flex items-center gap-1.5">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
@@ -83,10 +102,11 @@ export function CustomUiBuildProgress({
         {stages.map((stage) => (
           <li
             key={stage.id}
+            data-stage-status={stage.status}
             className={`flex flex-col gap-0.5 text-canvas-caption ${stageClass(stage.status)}`}
           >
             <span className="flex items-start gap-2">
-              <span className="mt-px w-3 shrink-0 tabular-nums" aria-hidden>
+              <span data-stage-icon className="mt-px w-3 shrink-0 tabular-nums" aria-hidden>
                 {stageIcon(stage.status)}
               </span>
               <span className={stage.status === "active" ? "font-medium" : ""}>

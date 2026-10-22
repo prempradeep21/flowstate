@@ -133,6 +133,27 @@ export interface ArtifactStyleSurfaceTokens {
   chart?: ArtifactStyleChartPalette;
   /** Timeline / calendar event colors (cycled by index). */
   timeline?: readonly string[];
+  /**
+   * Connector colours for the JS edge renderers (canvas2d can't read scoped
+   * CSS vars). When set, every edge and plug link on the canvas draws in
+   * these instead of its thread colour. Omit to keep thread colours.
+   */
+  connector?: ArtifactStyleConnectorTokens;
+}
+
+/** Edge / plug colours a pack hands the JS renderers (literal CSS colours). */
+export interface ArtifactStyleConnectorTokens {
+  /** Resting edge. */
+  line: string;
+  /** Edge touching a hovered / selected card. */
+  emphasis: string;
+  /** Edge into a card that is thinking or streaming — the live thread. */
+  active: string;
+  /** Plug links (artifact / asset / skill / group plugs), drawn dashed. */
+  plugLink: string;
+  /** New-connection drag preview, and over a valid target. */
+  dragPreview: string;
+  dragValid: string;
 }
 
 export interface ArtifactStylePreset {
@@ -180,6 +201,12 @@ export interface ArtifactStylePreset {
   pressPush: string;
   /** Display typography (mode-independent). Omit to keep renderer defaults. */
   typography?: ArtifactStyleTypography;
+  /**
+   * Structural body family. When set, artifact nodes render through that
+   * family's own frame + bodies (components/frost for "frost") instead of the
+   * vanilla ArtifactShell; the pack's CSS still styles everything else.
+   */
+  bodyFamily?: "frost";
   /** Three swatch hexes for the settings-popover preview chip. */
   previewSwatches?: readonly [string, string, string];
   light: ArtifactStyleSurfaceTokens;

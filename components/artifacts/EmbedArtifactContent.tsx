@@ -111,7 +111,7 @@ function FallbackCard({
   const faviconUrl = fallback?.faviconUrl;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div data-artifact-fallback className="flex flex-col gap-4 p-4">
       {previewImageUrl ? (
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-canvas bg-canvas-bg">
           <PreviewThumbnail

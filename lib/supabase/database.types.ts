@@ -1,3 +1,5 @@
+import type { OutreachProspectFields } from "@/lib/outreach/podcasters";
+
 export type Json =
   | string
   | number
@@ -873,7 +875,7 @@ export interface Database {
           sort_order: number;
           created_at: string;
           updated_at: string;
-        };
+        } & OutreachProspectFields;
         Insert: {
           id?: string;
           host_name: string;
@@ -887,7 +889,7 @@ export interface Database {
           sort_order?: number;
           created_at?: string;
           updated_at?: string;
-        };
+        } & Partial<OutreachProspectFields>;
         Update: Partial<
           Database["public"]["Tables"]["outreach_podcasters"]["Insert"]
         >;

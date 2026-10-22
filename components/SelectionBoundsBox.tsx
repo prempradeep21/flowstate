@@ -9,6 +9,7 @@ import {
 import type { SelectionUnitBounds } from "@/lib/canvasSelection";
 import { subscribeViewportPaint } from "@/lib/viewportGesture";
 import { useCanvasStore } from "@/lib/store";
+import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
 
 /**
  * Screen-space breathing room between the outermost item and the box — enough
@@ -80,6 +81,19 @@ export function SelectionBoundsBox({
   const dragRef = useRef({ dx: 0, dy: 0 });
   /** Resolved once per gesture — the selection cannot change mid-drag. */
   const followingRef = useRef<boolean | null>(null);
+  const unitCount = useCanvasSelectionUnitCount();
+
+  // Mark the canvas while this box stands for a multi-selection, so a pack
+  // stylesheet can hand the members' own outlines over to the box (Frost:
+  // "members get no individual outline"). Vanilla ignores the attribute.
+  useEffect(() => {
+    const host = elRef.current?.closest<HTMLElement>("[data-canvas-container]");
+    if (!host || unitCount < 2) return;
+    host.dataset.multiSelect = "";
+    return () => {
+      delete host.dataset.multiSelect;
+    };
+  }, [unitCount]);
 
   useEffect(() => {
     const el = elRef.current;
@@ -141,7 +155,7 @@ export function SelectionBoundsBox({
     <div
       ref={elRef}
       aria-hidden
-      className="pointer-events-none absolute z-30"
+      className="canvas-selection-bounds pointer-events-none absolute z-30"
       style={{
         left: initial.left,
         top: initial.top,

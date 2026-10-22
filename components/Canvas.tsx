@@ -84,6 +84,8 @@ import { CanvasDrawingLayer } from "@/components/CanvasDrawingLayer";
 import { Card } from "@/components/Card";
 import { Connections } from "@/components/Connections";
 import { ConnectionsCanvas } from "@/components/ConnectionsCanvas";
+import { useArtifactStyle } from "@/components/ArtifactStyleScope";
+import { useGroupBento } from "@/hooks/useGroupBento";
 import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 
 /** Kill-switch: restore the legacy SVG connections renderer for one release. */
@@ -459,6 +461,9 @@ export function Canvas({
   containerRef?: RefObject<HTMLDivElement | null>;
 } = {}) {
   const persistenceReady = usePersistenceReady();
+  // Chapter groups stay packed as their members change size (lib/groupBento).
+  const bodyFamily = useArtifactStyle().pack.bodyFamily ?? null;
+  useGroupBento(bodyFamily === "frost" ? "frost" : null);
   const {
     user,
     authLoading,
@@ -2243,6 +2248,14 @@ export function Canvas({
       {/* Connections render on a screen-space canvas2d layer (one rAF redraw,
           zero React work per frame). NEXT_PUBLIC_SVG_CONNECTIONS=1 restores
           the legacy SVG renderer for one release as a kill-switch. */}
+      {/* Group wells and headings sit on their own world layer UNDER the
+          connector lines, so a group (Frost's opaque well included) never
+          covers an edge; cards stay above the lines on the main layer. */}
+      <CanvasViewport layer="groups">
+        {groupList.map((group) => (
+          <GroupBounds key={group.id} group={group} />
+        ))}
+      </CanvasViewport>
       {!SVG_CONNECTIONS && connectionsBehindCards && (
         <ConnectionsCanvas containerRef={containerRef} layer="lines" />
       )}
@@ -2252,9 +2265,6 @@ export function Canvas({
         <AssetPlugConnections />
         <SkillPlugConnections />
         <GroupPlugConnections />
-        {groupList.map((group) => (
-          <GroupBounds key={group.id} group={group} />
-        ))}
         {SVG_CONNECTIONS && connectionsBehindCards && <Connections />}
         <CanvasNodeLayer
           containerRef={containerRef}
@@ -2303,7 +2313,7 @@ export function Canvas({
         ref={marqueeOverlayRef}
         aria-hidden
         style={{ display: "none" }}
-        className="pointer-events-none fixed z-30 border-2 border-dashed border-canvas-ink/40 bg-canvas-ink/5"
+        className="canvas-marquee pointer-events-none fixed z-30 border-2 border-dashed border-canvas-ink/40 bg-canvas-ink/5"
       />
       {/* Hidden while a marquee drag is in progress — the bar only appears on mouse release. */}
       {!marqueeActive && <SelectionToolbar />}
@@ -2355,7 +2365,7 @@ function GhostTextLabel({ world }: { world: PlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute font-medium leading-tight text-canvas-ink/50"
+      className="canvas-placement-ghost-text pointer-events-none absolute font-medium leading-tight text-canvas-ink/50"
       style={{
         left: world.x,
         top: world.y - CANVAS_TEXT_LABEL_FONT_SIZE / 2,
@@ -2373,7 +2383,7 @@ function GhostImage({ world }: { world: ImagePlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-50 ring-1 ring-dashed ring-canvas-border"
+      className="canvas-placement-ghost pointer-events-none absolute overflow-hidden rounded-canvas opacity-50 ring-1 ring-dashed ring-canvas-border"
       style={{
         left: world.x - w / 2,
         top: world.y - h / 2,
@@ -2397,7 +2407,7 @@ function Ghost3D({ world }: { world: ThreeDPlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
+      className="canvas-placement-ghost pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
       style={{
         left: world.x - w / 2,
         top: world.y - w / 2,
@@ -2419,7 +2429,7 @@ function GhostGif({ world }: { world: GifPlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
+      className="canvas-placement-ghost pointer-events-none absolute overflow-hidden rounded-canvas opacity-60 ring-1 ring-dashed ring-canvas-border"
       style={{
         left: world.x - w / 2,
         top: world.y - h / 2,
@@ -2447,6 +2457,9 @@ function ArtifactCursorGhost({
 }) {
   const payload = createManualArtifactPayload(artifactType);
   const kind = payloadToArtifactKind(payload);
+  // Portaled to <body>: a Frost canvas marks it as a canvas portal so the
+  // pack's tokens (frost-tokens.css) reach it. Other packs stay as they are.
+  const frostPortal = useArtifactStyle().pack.bodyFamily === "frost";
   const label =
     MANUAL_ARTIFACT_MENU_ITEMS.find(
       (entry) =>
@@ -2457,7 +2470,8 @@ function ArtifactCursorGhost({
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-artifact"
+      {...(frostPortal ? { "data-canvas-portal": "" } : {})}
+      className="canvas-placement-ghost pointer-events-none fixed z-[200] rounded-canvas border border-dashed border-canvas-border bg-canvas-card/90 opacity-80 shadow-artifact"
       style={{
         left: screen.x,
         top: screen.y,
@@ -2483,7 +2497,7 @@ function GhostCard({ world }: { world: PlacementState }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-artifact"
+      className="canvas-placement-ghost canvas-placement-ghost-card pointer-events-none absolute rounded-canvas border border-dashed border-canvas-border bg-canvas-card/85 shadow-artifact"
       style={{
         left: pos.x,
         top: pos.y,
@@ -2491,7 +2505,7 @@ function GhostCard({ world }: { world: PlacementState }) {
       }}
     >
       <div className="floating-chrome-padding">
-        <div className="flex items-center gap-0 rounded-canvas border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
+        <div className="canvas-placement-ghost-composer flex items-center gap-0 rounded-canvas border border-dashed border-canvas-border/80 bg-canvas-card/90 px-2 py-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas-bg text-canvas-heading font-light text-canvas-muted">
             +
           </span>

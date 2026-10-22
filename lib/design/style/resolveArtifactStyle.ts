@@ -185,10 +185,19 @@ export function resolveArtifactStyle(
   };
 
   const scope = `[data-artifact-style="${pack.id}"]`;
+  // Canvas menus portaled to <body> (pie, floating / context menus) sit
+  // outside the scope; ArtifactStyleScope mirrors the id onto <html>, and
+  // portal roots tagged [data-canvas-portal] get the same variables.
+  const portal = `html[data-canvas-style="${pack.id}"] [data-canvas-portal]`;
+  const darkPortal = `html[data-theme="dark"][data-canvas-style="${pack.id}"] [data-canvas-portal]`;
   const css =
     cssBlock(scope, lightVars) +
     "\n" +
-    cssBlock(`html[data-theme="dark"] ${scope}`, darkVars);
+    cssBlock(`html[data-theme="dark"] ${scope}`, darkVars) +
+    "\n" +
+    cssBlock(portal, lightVars) +
+    "\n" +
+    cssBlock(darkPortal, darkVars);
 
   return { css, lightVars, darkVars, isDefault: false };
 }

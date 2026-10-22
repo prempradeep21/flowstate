@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ThemeApplier } from "@/components/ThemeApplier";
 import {
   VARIANT_LABELS,
   VARIANT_ORDER,
@@ -16,11 +15,11 @@ import {
   selectOneOfEach,
   selectRandomMix,
 } from "@/lib/artifactStudio/selection";
-import { useCanvasStore } from "@/lib/store";
-import { KindFilter, Segmented } from "./StudioControls";
+import { KindFilter, ModeToggle, Segmented } from "./StudioControls";
 import { AccentPicker } from "./AccentPicker";
 import { StyleFontPickers } from "./FontPicker";
-import { useFrostAccent } from "./styles/styleD/accent";
+import { useFrostAccent } from "@/components/artifactStyles/styleD/accent";
+import { StudioCanvas } from "./StudioCanvas";
 import { StudioFocusView } from "./StudioFocusView";
 import { BentoGrid, CompareStylesGrid, FamilySections } from "./StudioGrids";
 import {
@@ -30,8 +29,9 @@ import {
   getStyleTheme,
   isStyleFamilyId,
   type ChromeState,
+  type StudioMode,
   type StyleFamilyId,
-} from "./styles";
+} from "@/components/artifactStyles";
 
 type StudioView = "one" | "mix1" | "mix2" | "shuffle";
 type OneLayout = "families" | "compare";
@@ -43,12 +43,16 @@ interface StudioUrlState {
   style: StyleFamilyId;
   /** Colour theme of the chosen family, when it has several. */
   theme: string | null;
+  /** Light or dark — every family's themes exist in both. */
+  mode: StudioMode;
   seed: string;
   layout: OneLayout;
   focus: string | null;
   focusStyle: StyleFamilyId | "compare" | null;
   /** Artifact kinds switched off in the global filter — they leave every view. */
   hidden: ArtifactVariant[];
+  /** The sample canvas is open over the studio. */
+  canvas: boolean;
 }
 
 const HIDDEN_KEY = "artifact-studio:hidden-kinds";
@@ -75,12 +79,14 @@ function readUrlState(): StudioUrlState {
     view: view && VIEWS.includes(view) ? view : "one",
     style: isStyleFamilyId(style) ? style : "current",
     theme: p.get("theme"),
+    mode: p.get("mode") === "dark" ? "dark" : "light",
     seed: p.get("seed") || newRandomSeed(),
     layout: p.get("layout") === "compare" ? "compare" : "families",
     focus: p.get("focus"),
     focusStyle: focusStyle === "compare" || isStyleFamilyId(focusStyle) ? focusStyle : null,
     // The URL wins so a shared link reproduces its board; otherwise the last filter you used.
     hidden: parseHidden(p.has("hide") ? p.get("hide") : readStoredHidden()),
+    canvas: p.get("canvas") === "1",
   };
 }
 
@@ -89,11 +95,13 @@ function writeUrlState(s: StudioUrlState) {
   p.set("view", s.view);
   p.set("style", s.style);
   if (s.theme) p.set("theme", s.theme);
+  if (s.mode === "dark") p.set("mode", "dark");
   if (s.view === "shuffle") p.set("seed", s.seed);
   if (s.view === "one" && s.layout === "compare") p.set("layout", "compare");
   if (s.focus) p.set("focus", s.focus);
   if (s.focus && s.focusStyle && s.focusStyle !== s.style) p.set("focusStyle", s.focusStyle);
   if (s.hidden.length) p.set("hide", s.hidden.join(","));
+  if (s.canvas) p.set("canvas", "1");
   window.history.replaceState(null, "", `${window.location.pathname}?${p.toString()}`);
   try {
     window.localStorage.setItem(HIDDEN_KEY, s.hidden.join(","));
@@ -110,24 +118,9 @@ function ShuffleIcon() {
   );
 }
 
-function ThemeIcon({ dark }: { dark: boolean }) {
-  return dark ? (
-    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-      <circle cx="8" cy="8" r="3" />
-      <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" strokeLinecap="round" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-      <path d="M13.5 9.6A5.5 5.5 0 0 1 6.4 2.5a5.5 5.5 0 1 0 7.1 7.1Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export function ArtifactStudioApp() {
   const [state, setState] = useState<StudioUrlState | null>(null);
   const [chromeState, setChromeState] = useState<ChromeState>("rest");
-  const canvasTheme = useCanvasStore((s) => s.canvasTheme);
-  const setCanvasTheme = useCanvasStore((s) => s.setCanvasTheme);
   const barRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setState(readUrlState()), []);
@@ -183,7 +176,8 @@ export function ArtifactStudioApp() {
     state.view === "one" ? oneOfEach : state.view === "mix1" ? mix1 : state.view === "mix2" ? mix2 : shuffle;
   const family = getStyleFamily(state.style);
   const theme = getStyleTheme(family, state.theme);
-  const backdrop = backdropOf(family, theme?.id);
+  const backdrop = backdropOf(family, theme?.id, state.mode);
+  const dark = state.mode === "dark";
   // Compare shows every family at once — a family's own controls don't apply.
   const comparingStyles = state.view === "one" && state.layout === "compare";
   const focusIndex = state.focus ? items.findIndex((i) => i.uid === state.focus) : -1;
@@ -200,8 +194,6 @@ export function ArtifactStudioApp() {
 
   return (
     <main className="min-h-screen bg-canvas-bg text-canvas-ink">
-      <ThemeApplier />
-
       <div
         ref={barRef}
         className="z-[90] border-b sm:sticky sm:top-0 border-canvas-border/70 bg-canvas-bg/85 px-4 py-3 backdrop-blur-md sm:px-8"
@@ -211,6 +203,18 @@ export function ArtifactStudioApp() {
             <p className="text-canvas-micro font-semibold uppercase tracking-wider text-canvas-muted">Flowstate</p>
             <h1 className="font-display text-xl font-medium leading-tight">Artifact Studio</h1>
           </div>
+          <button
+            type="button"
+            onClick={() => update({ canvas: true, focus: null })}
+            title="A blank canvas to ask questions on and watch the turn play out in the current style"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-canvas-accent px-4 py-2 text-canvas-body-sm font-medium text-white shadow-card transition-opacity hover:opacity-90"
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+              <rect x="2" y="2.5" width="12" height="11" rx="2.5" />
+              <path d="M8 5.8v4.4M5.8 8h4.4" strokeLinecap="round" />
+            </svg>
+            New canvas
+          </button>
           <Segmented label="View" value={state.view} onChange={(view) => update({ view, focus: null })} options={viewOptions} />
           <KindFilter
             kinds={kindOptions}
@@ -242,15 +246,7 @@ export function ArtifactStudioApp() {
               <ShuffleIcon /> Randomize
               {state.view === "shuffle" ? <span className="font-normal tabular-nums opacity-70">· {state.seed}</span> : null}
             </button>
-            <button
-              type="button"
-              onClick={() => setCanvasTheme(canvasTheme === "dark" ? "light" : "dark")}
-              aria-label={canvasTheme === "dark" ? "Switch to light" : "Switch to dark"}
-              title={canvasTheme === "dark" ? "Light theme" : "Dark theme"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-ink hover:border-canvas-accent/40"
-            >
-              <ThemeIcon dark={canvasTheme === "dark"} />
-            </button>
+            <ModeToggle mode={state.mode} onChange={(mode) => update({ mode })} />
           </div>
         </div>
       </div>
@@ -303,6 +299,8 @@ export function ArtifactStudioApp() {
           </div>
         </div>
 
+        {/* The board alone takes the canvas's dark tokens, so the Current family and the tile chrome follow the mode while the studio's controls above never do. */}
+        <div className={dark && !comparingStyles ? "theme-scope-dark" : undefined}>
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-32 text-center">
             <p className="font-display text-lg text-[color:var(--studio-label-ink,rgb(var(--canvas-ink)))]">No artifact kinds switched on</p>
@@ -315,20 +313,34 @@ export function ArtifactStudioApp() {
             </p>
           </div>
         ) : comparingStyles ? (
-          <CompareStylesGrid items={items} chromeState={chromeState} themeId={theme?.id ?? null} onOpen={open} />
+          <CompareStylesGrid items={items} chromeState={chromeState} themeId={theme?.id ?? null} mode={state.mode} onOpen={open} />
         ) : state.view === "one" ? (
-          <FamilySections items={items} family={family} themeId={theme?.id ?? null} chromeState={chromeState} onOpen={(uid) => open(uid)} />
+          <FamilySections items={items} family={family} themeId={theme?.id ?? null} mode={state.mode} chromeState={chromeState} onOpen={(uid) => open(uid)} />
         ) : (
           <BentoGrid
             key={`${state.view}:${state.seed}:${hiddenKey}`}
             items={items}
             family={family}
             themeId={theme?.id ?? null}
+            mode={state.mode}
             chromeState={chromeState}
             onOpen={(uid) => open(uid)}
           />
         )}
+        </div>
       </div>
+
+      {state.canvas ? (
+        <StudioCanvas
+          family={family}
+          themeId={theme?.id ?? null}
+          mode={state.mode}
+          onFamilyChange={(style) => update({ style, theme: null })}
+          onThemeChange={(id) => update({ theme: id })}
+          onModeChange={(mode) => update({ mode })}
+          onClose={() => update({ canvas: false })}
+        />
+      ) : null}
 
       {focusIndex >= 0 ? (
         <StudioFocusView
@@ -336,6 +348,8 @@ export function ArtifactStudioApp() {
           index={focusIndex}
           familyId={state.focusStyle ?? state.style}
           themeId={theme?.id ?? null}
+          mode={state.mode}
+          onModeChange={(mode) => update({ mode })}
           onThemeChange={(id) => update({ theme: id })}
           onFamilyChange={(focusStyle) => update({ focusStyle, theme: null })}
           onNavigate={(i) => update({ focus: items[i]!.uid })}

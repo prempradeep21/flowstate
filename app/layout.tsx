@@ -10,6 +10,10 @@ import { denton } from "@/lib/fonts/denton";
 import { satoshi } from "@/lib/fonts/satoshi";
 import "./globals.css";
 import "./styles/artifact-styles.css";
+import "./styles/frost/frost-tokens.css";
+import "./styles/frost/frost-artifacts.css";
+import "./styles/frost/frost-canvas-chrome.css";
+import "./styles/frost/frost-cards-menus.css";
 
 const parkinsans = Parkinsans({
   subsets: ["latin"],

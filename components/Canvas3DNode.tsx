@@ -222,7 +222,7 @@ function Canvas3DNodeInner({ node }: { node: Canvas3DNodeType }) {
         ref={nodeRef}
         data-canvas-3d
         data-canvas-node-id={node.id}
-        {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
+        {...(isSelected ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "", "data-selected": "" } : {})}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

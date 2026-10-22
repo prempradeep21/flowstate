@@ -112,6 +112,15 @@ const SCENES = {
       },
     ]),
   ),
+  // 16:9 Style D showcase wall (scenes/showcase): remote media (gallery,
+  // episode thumb, website preview) is pre-seeked into cache.
+  "showcase-d": {
+    durationMs: 30000,
+    framesDir: path.join(ROOT, "demo-video", "frames-showcase-d"),
+    outFile: path.join(ROOT, "demo-video", "flowstate-showcase-d.mp4"),
+    warmupMs: [0, 7500, 12000, 18500, 29500],
+    settleExtraMs: {},
+  },
   // 3s brand idents (white background, no network content).
   ...Object.fromEntries(
     ["logo-draw", "logo-type", "logo-o", "logo-lockup", "logo-nodes"].map(
@@ -219,36 +228,62 @@ async function main() {
     const page = await context.newPage();
     page.on("pageerror", (e) => console.error("[pageerror]", e.message));
 
-    console.log("Loading scene (first compile can take a minute)...");
-    await page.goto(
-      `${url}/dev/demo-video?scene=${sceneId}&capture=1&w=${FRAME_W}&h=${FRAME_H}`,
-      { waitUntil: "domcontentloaded", timeout: 180_000 },
-    );
-    await page.waitForFunction(() => typeof window.__seek === "function", {
-      timeout: 120_000,
-    });
-    await page.evaluate(() => window.__demoReady);
-    await page.evaluate(() => document.fonts.ready);
+    const loadScene = async () => {
+      await page.goto(
+        `${url}/dev/demo-video?scene=${sceneId}&capture=1&w=${FRAME_W}&h=${FRAME_H}`,
+        { waitUntil: "domcontentloaded", timeout: 180_000 },
+      );
+      await page.waitForFunction(() => typeof window.__seek === "function", {
+        timeout: 120_000,
+      });
+      await page.evaluate(() => window.__demoReady);
+      await page.evaluate(() => document.fonts.ready);
 
-    // Warm-up: pull network content (tiles, iframes, imgs) into cache.
-    for (const tMs of scene.warmupMs) {
-      console.log(`  warm-up seek ${tMs}ms`);
-      await page.evaluate((t) => window.__seek(t), tMs);
-      await waitSettled(page);
-      await page.waitForTimeout(2500);
-    }
-    if (scene.warmupMs.length) {
-      await page.evaluate(() => window.__seek(0));
-      await waitSettled(page);
-    }
+      // Warm-up: pull network content (tiles, iframes, imgs) into cache.
+      for (const tMs of scene.warmupMs) {
+        console.log(`  warm-up seek ${tMs}ms`);
+        await page.evaluate((t) => window.__seek(t), tMs);
+        await waitSettled(page);
+        await page.waitForTimeout(2500);
+      }
+      if (scene.warmupMs.length) {
+        await page.evaluate(() => window.__seek(0));
+        await waitSettled(page);
+      }
+    };
+
+    console.log("Loading scene (first compile can take a minute)...");
+    await loadScene();
     console.log("Scene ready. Capturing frames...");
+
+    // A dev-server full reload (Fast Refresh after an edit elsewhere in the
+    // checkout) navigates the page and destroys the execution context. The
+    // capture is a pure function of the frame index, so reload the scene and
+    // retry the same frame instead of dying.
+    const isReloadError = (e) =>
+      /Execution context was destroyed|Target (page|context|browser) (has been )?closed|Navigation|detached/i.test(
+        String(e?.message ?? e),
+      );
+    const seekWithRecovery = async (tMs) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await page.evaluate((t) => window.__seek(t), tMs);
+          return;
+        } catch (e) {
+          if (!isReloadError(e) || attempt >= 3) throw e;
+          console.warn(`  page reloaded under us at ${tMs}ms — reloading the scene (attempt ${attempt + 1})`);
+          await page.waitForTimeout(1500);
+          await loadScene();
+        }
+      }
+    };
 
     const settleExtra = { ...scene.settleExtraMs };
     const t0 = Date.now();
     let captured = 0;
     for (let f = rangeA; f <= rangeB; f += every) {
       const tMs = (f * 1000) / FPS;
-      await page.evaluate((t) => window.__seek(t), tMs);
+      await seekWithRecovery(tMs);
       // Fixed extra waits fire once, at the first captured frame at/after
       // their trigger frame (works for sparse passes too).
       for (const key of Object.keys(settleExtra)) {
@@ -279,7 +314,17 @@ async function main() {
         }
         writeFileSync(framePath, shot);
       } else {
-        await page.screenshot({ path: framePath, animations: "allow" });
+        try {
+          await page.screenshot({ path: framePath, animations: "allow" });
+        } catch (e) {
+          if (!isReloadError(e)) throw e;
+          console.warn(`  page reloaded during the screenshot of frame ${f} — retrying`);
+          await page.waitForTimeout(1500);
+          await loadScene();
+          await seekWithRecovery(tMs);
+          await waitSettled(page, 8000);
+          await page.screenshot({ path: framePath, animations: "allow" });
+        }
       }
       captured++;
       if (captured % 60 === 0) {

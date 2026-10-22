@@ -1,0 +1,327 @@
+/**
+ * Frost — canvas chrome between and around nodes: connectors, plugs,
+ * groups / chapters, selection (marquee, bounds box, resize handles, focus),
+ * drag / placement ghosts, text labels and other non-artifact nodes.
+ * Tokens: ./frost-tokens.css. Spec: docs/design-system/frost-canvas-readiness-audit.md
+ * (Decisions 2.x, 3.x, 4.2–4.8).
+ *
+ * Edge strokes themselves are drawn in JS (canvas2d / SVG) from the pack's
+ * `connector` tokens (lib/design/style/stylePacks.ts → FROST, read through
+ * hooks/usePackConnector.ts); this file styles the DOM around them.
+ *
+ * Several rules need !important: the vanilla components set colours and
+ * outlines inline (style={{…}}), and Frost restyles them without touching
+ * their JS.
+ */
+
+/* ------------------------------ Local tokens ----------------------------- */
+
+[data-artifact-style="frost"],
+html[data-canvas-style="frost"] [data-canvas-portal] {
+  /* inkA(pct): the Ruler tints Style D uses for every line and mark. */
+  --frost-ink-5: color-mix(in srgb, var(--frost-ink) 5%, transparent);
+  --frost-ink-12: color-mix(in srgb, var(--frost-ink) 12%, transparent);
+  --frost-ink-30: color-mix(in srgb, var(--frost-ink) 30%, transparent);
+  --frost-ink-40: color-mix(in srgb, var(--frost-ink) 40%, transparent);
+  /* A raised disc's hairline edge, so white-on-frost still has a contour. */
+  --frost-disc-edge: 0 0 0 0.5px var(--frost-ink-12);
+  /* Resize handle: 14px raised disc set on the 44px corner arc —
+     44 · (1 − 1/√2) ≈ 13px in from each edge. */
+  --frost-handle-size: 14px;
+  --frost-arc-inset: calc(var(--frost-radius) * 0.2929);
+}
+
+/* -------------------------------- Plugs (2.5) ---------------------------- */
+
+/* Send plugs (cards, artifacts, assets, skills, groups) and receive plugs:
+   a raised disc with an ink glyph; lime on hover, while dragging, and on the
+   receive side the pointer is over (a valid target). */
+[data-artifact-style="frost"] .canvas-plug,
+[data-artifact-style="frost"] .canvas-receive-plug {
+  position: relative;
+  border-width: 0 !important;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+  transition: background-color var(--frost-ease), transform var(--frost-ease);
+}
+[data-artifact-style="frost"] .canvas-plug::after,
+[data-artifact-style="frost"] .canvas-receive-plug::after {
+  content: "";
+  position: absolute;
+  inset: 3.5px;
+  border-radius: 999px;
+  background: var(--frost-ink);
+}
+[data-artifact-style="frost"] .canvas-plug:hover,
+[data-artifact-style="frost"] .canvas-plug:active,
+[data-artifact-style="frost"] .canvas-receive-plug[data-highlighted] {
+  background: var(--frost-lime);
+}
+[data-artifact-style="frost"] .canvas-plug:hover::after,
+[data-artifact-style="frost"] .canvas-plug:active::after,
+[data-artifact-style="frost"] .canvas-receive-plug[data-highlighted]::after {
+  background: var(--frost-lime-ink);
+}
+
+/* Connector ends drawn by the SVG renderers (plug links, drag preview,
+   legacy edges): the same raised disc. canvas2d edges draw it in JS. */
+[data-artifact-style="frost"] .pack-plug-disc-fill {
+  fill: var(--frost-raised-top);
+}
+[data-artifact-style="frost"] .pack-plug-disc-shadow {
+  fill: var(--frost-ink-12);
+}
+
+/* Branch collapse toggle (2.8): a raised pill, ink "+", lime on hover. */
+[data-artifact-style="frost"] .canvas-branch-toggle {
+  border-color: transparent;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+  color: var(--frost-ink);
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+}
+[data-artifact-style="frost"] .canvas-branch-toggle:hover {
+  background: var(--frost-lime);
+  color: var(--frost-lime-ink);
+}
+
+/* ------------------------- Groups / chapters (3.x) ----------------------- */
+
+/* 3.1 The group is a Well — the one surface that sinks: inner shadow from
+   the top-left light, no outline. Concentric with the cards it holds:
+   card radius 44 + the group padding. */
+[data-artifact-style="frost"] .canvas-group-frame {
+  background: var(--frost-well) !important;
+  box-shadow: var(--frost-well-shadow);
+  outline-style: none !important;
+  border-radius: calc(var(--frost-radius) + var(--canvas-group-padding, 48px)) !important;
+}
+/* Dark: #19191C barely parts from the #18181B field, so the dark well
+   sinks one step further and catches a lower-edge rim (light from above). */
+html[data-theme="dark"] [data-artifact-style="frost"] .canvas-group-frame {
+  background: var(--frost-well-deep) !important;
+  box-shadow: var(--frost-well-shadow), inset 0 -1px 0 var(--frost-rim-soft);
+}
+/* 3.2 Active / selected: the same ink outline set off the edge as cards. */
+[data-artifact-style="frost"] [data-group-active] > .canvas-group-frame {
+  outline: var(--frost-select-outline) !important;
+  outline-offset: var(--frost-select-offset) !important;
+}
+/* Transcript chapters: cards above, artifacts below — a hairline in ink. */
+[data-artifact-style="frost"] .canvas-group-divider {
+  background: var(--frost-hair) !important;
+}
+/* 3.3 / 3.4 Heading: primary font, ink, display size, weight 500 — Style D's
+   "title inside the graphic", in the well's top-left. */
+[data-artifact-style="frost"] .canvas-group-heading {
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  color: var(--frost-ink);
+}
+/* Label pill + rename input: raised. The chapter numeral / name reads as
+   plain primary-font ink. */
+[data-artifact-style="frost"] .canvas-group-label-anchor {
+  margin-bottom: 10px;
+}
+[data-artifact-style="frost"] .canvas-group-label,
+[data-artifact-style="frost"] .canvas-group-label-input {
+  border-color: transparent !important;
+  border-radius: 999px;
+  padding: 3px 12px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+  color: var(--frost-ink);
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+}
+[data-artifact-style="frost"] .canvas-group-label-input:focus {
+  box-shadow: var(--frost-raised-shadow), var(--frost-focus-ring);
+}
+/* Active badge: an ink pill with field-coloured type. */
+[data-artifact-style="frost"] .canvas-group-badge {
+  border-radius: 999px;
+  padding: 3px 12px;
+  background: var(--frost-ink);
+  color: var(--frost-field-flat);
+  box-shadow: none;
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* 3.7 Group summary icon + attachment pill: raised; new-summary dot is lime
+   ("next"). */
+[data-artifact-style="frost"] .canvas-group-summary-icon {
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] .canvas-group-summary-icon:hover {
+  background: var(--frost-lime);
+  color: var(--frost-lime-ink);
+}
+[data-artifact-style="frost"] .canvas-group-summary-dot {
+  background: var(--frost-lime);
+  box-shadow: 0 0 0 1.5px var(--frost-ink);
+}
+[data-artifact-style="frost"] .canvas-group-attachment-pill {
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] .canvas-group-attachment-tag {
+  background: var(--frost-ink);
+  color: var(--frost-field-flat);
+}
+
+/* ------------------------------ Selection (4.x) -------------------------- */
+
+/* 4.2 Multi-select bounds: ink 1.5px dashed, concentric with the selected
+   cards at the current zoom (R = 44·scale + the box's 8px padding). */
+[data-artifact-style="frost"] .canvas-selection-bounds {
+  box-shadow: none !important;
+  border: 1.5px dashed var(--frost-ink);
+  border-radius: calc(var(--frost-radius) * var(--vp-scale, 1) + 8px) !important;
+}
+
+/* Members of a multi-selection hand their outline to the bounds box. */
+[data-artifact-style="frost"] [data-canvas-container][data-multi-select] :is([data-canvas-artifact], [data-canvas-asset])[data-selected] .artifact-casing {
+  outline: none;
+}
+[data-artifact-style="frost"] [data-canvas-container][data-multi-select] :is([data-canvas-gif], [data-canvas-3d], [data-canvas-skill])[data-selected] {
+  outline: none;
+}
+[data-artifact-style="frost"] [data-canvas-container][data-multi-select] .canvas-text-label-frame {
+  outline: none;
+}
+
+/* 4.3 Marquee: inkA(5) fill, inkA(30) 1px solid, radius 14. */
+[data-artifact-style="frost"] .canvas-marquee {
+  border: 1px solid var(--frost-ink-30);
+  background: var(--frost-ink-5);
+  border-radius: 14px;
+}
+
+/* 4.4 Resize handles: 14px raised discs; lime while grabbed / hovered. */
+[data-artifact-style="frost"] [data-resize-handle][data-corner] {
+  width: var(--frost-handle-size);
+  height: var(--frost-handle-size);
+  border-width: 0;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge);
+}
+[data-artifact-style="frost"] [data-resize-handle][data-corner]:hover,
+[data-artifact-style="frost"] [data-resize-handle][data-corner]:active {
+  background: var(--frost-lime);
+}
+/* On the 44px corner arc for frost-framed nodes (artifacts, assets): the
+   disc centre sits on the curve, not on the bounding-box corner. */
+[data-artifact-style="frost"] :is([data-canvas-artifact], [data-canvas-asset]) [data-resize-handle][data-corner="nw"] {
+  --tw-translate-x: calc(-50% + var(--frost-arc-inset));
+  --tw-translate-y: calc(-50% + var(--frost-arc-inset));
+}
+[data-artifact-style="frost"] :is([data-canvas-artifact], [data-canvas-asset]) [data-resize-handle][data-corner="ne"] {
+  --tw-translate-x: calc(50% - var(--frost-arc-inset));
+  --tw-translate-y: calc(-50% + var(--frost-arc-inset));
+}
+[data-artifact-style="frost"] :is([data-canvas-artifact], [data-canvas-asset]) [data-resize-handle][data-corner="sw"] {
+  --tw-translate-x: calc(-50% + var(--frost-arc-inset));
+  --tw-translate-y: calc(50% - var(--frost-arc-inset));
+}
+[data-artifact-style="frost"] :is([data-canvas-artifact], [data-canvas-asset]) [data-resize-handle][data-corner="se"] {
+  --tw-translate-x: calc(50% - var(--frost-arc-inset));
+  --tw-translate-y: calc(50% - var(--frost-arc-inset));
+}
+
+/* 4.6 Dragging keeps the lifted fall (the card is in the air). */
+[data-artifact-style="frost"] [data-canvas-artifact][data-canvas-dragging] .artifact-casing {
+  box-shadow: var(--canvas-artifact-inner-highlight, 0 0 #0000), var(--frost-lift-shadow) !important;
+}
+/* Placement ghosts: a well-toned slot where the node will land — sunk,
+   no dashed stroke. The cursor ghost is portaled (data-canvas-portal). */
+[data-artifact-style="frost"] .canvas-placement-ghost,
+html[data-canvas-style="frost"] [data-canvas-portal].canvas-placement-ghost {
+  border-color: transparent !important;
+  background: var(--frost-well) !important;
+  box-shadow: var(--frost-well-shadow), 0 0 0 1.5px var(--frost-ink-12) !important;
+  border-radius: var(--frost-radius) !important;
+  color: var(--frost-ink);
+  font-family: var(--frost-font-primary);
+}
+[data-artifact-style="frost"] .canvas-placement-ghost-card {
+  opacity: 0.9;
+}
+[data-artifact-style="frost"] .canvas-placement-ghost-composer {
+  border-color: transparent !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  border-radius: var(--frost-nest-radius) !important;
+}
+[data-artifact-style="frost"] .canvas-placement-ghost-text {
+  color: var(--frost-ink-40);
+  font-family: var(--frost-font-primary);
+}
+
+/* 4.7 Keyboard focus: lime ring + ink edge — distinct from the selection
+   outline and AA on frost and on lime. Text fields keep their caret. */
+[data-artifact-style="frost"] :is(button, a[href], [role="button"], [role="menuitem"], [role="tab"], [role="checkbox"]):focus-visible,
+html[data-canvas-style="frost"] [data-canvas-portal] :is(button, a[href], [role="button"], [role="menuitem"], [role="tab"], [role="checkbox"]):focus-visible {
+  outline: none !important;
+  box-shadow: var(--frost-focus-ring) !important;
+}
+
+/* 4.8 Other nodes: the same ink outline set 6px off the node. */
+[data-artifact-style="frost"] :is([data-canvas-gif], [data-canvas-3d], [data-canvas-skill])[data-selected] {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  outline: var(--frost-select-outline);
+  outline-offset: var(--frost-select-offset);
+}
+[data-artifact-style="frost"] [data-canvas-skill][data-selected] {
+  border-color: transparent;
+}
+/* Text labels: the accent box becomes the ink outline (radius 14 around the
+   type); hover shows it faint. */
+[data-artifact-style="frost"] .canvas-text-label-frame {
+  box-shadow: none !important;
+  outline: var(--frost-select-outline);
+  outline-offset: var(--frost-select-offset);
+  border-radius: 14px;
+}
+[data-artifact-style="frost"] .canvas-text-label-hover-frame {
+  box-shadow: none !important;
+  outline: 1.5px solid var(--frost-ink-30);
+  outline-offset: var(--frost-select-offset);
+  border-radius: 14px;
+}
+/* Text-label corner grips sit on that outline (6px out), as raised discs. */
+[data-artifact-style="frost"] [data-text-label-corner] {
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: var(--frost-raised-shadow), var(--frost-disc-edge) !important;
+}
+[data-artifact-style="frost"] [data-text-label-corner][data-corner="nw"] {
+  transform: translate(calc(-50% - var(--frost-select-offset)), calc(-50% - var(--frost-select-offset))) !important;
+}
+[data-artifact-style="frost"] [data-text-label-corner][data-corner="ne"] {
+  transform: translate(calc(-50% + var(--frost-select-offset)), calc(-50% - var(--frost-select-offset))) !important;
+}
+[data-artifact-style="frost"] [data-text-label-corner][data-corner="sw"] {
+  transform: translate(calc(-50% - var(--frost-select-offset)), calc(-50% + var(--frost-select-offset))) !important;
+}
+[data-artifact-style="frost"] [data-text-label-corner][data-corner="se"] {
+  transform: translate(calc(-50% + var(--frost-select-offset)), calc(-50% + var(--frost-select-offset))) !important;
+}
+
+/* Reduced motion: plugs and handles change colour, never animate. */
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] .canvas-plug,
+  [data-artifact-style="frost"] .canvas-receive-plug {
+    transition: none;
+  }
+}

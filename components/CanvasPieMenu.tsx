@@ -1,6 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { useCanvasPortalClassName } from "@/components/canvasPortal";
 import { AnimatePresence, m } from "framer-motion";
 import type { ComponentType } from "react";
 import {
@@ -36,6 +37,7 @@ const RING_SIZE_PX = 40;
 export function CanvasPieMenu({ state }: { state: PieMenuState | null }) {
   const mounted = useClientMounted();
   const reducedMotion = useReducedMotion();
+  const packClassName = useCanvasPortalClassName();
 
   if (!mounted) return null;
 
@@ -44,7 +46,9 @@ export function CanvasPieMenu({ state }: { state: PieMenuState | null }) {
       {state && (
         <div
           key="canvas-pie-menu"
-          className="pointer-events-none fixed inset-0 z-[50000]"
+          data-canvas-portal=""
+          data-canvas-pie=""
+          className={`pointer-events-none fixed inset-0 z-[50000] ${packClassName}`}
           aria-hidden
         >
           {/* Center ring with directional notch toward the armed sector */}
@@ -53,6 +57,7 @@ export function CanvasPieMenu({ state }: { state: PieMenuState | null }) {
             animate={reducedMotion ? "reduced" : "animate"}
             exit={reducedMotion ? "reducedExit" : "exit"}
             variants={pieRingVariants}
+            data-pie-ring=""
             className="absolute rounded-full border-4 border-canvas-border bg-canvas-card/40"
             style={{
               left: state.centerX - RING_SIZE_PX / 2,
@@ -100,6 +105,9 @@ export function CanvasPieMenu({ state }: { state: PieMenuState | null }) {
                   variants={piePillVariants}
                 >
                   <div
+                    data-pie-pill=""
+                    data-active={active || undefined}
+                    data-disabled={!sector.enabled || undefined}
                     className={`flex items-center gap-2 whitespace-nowrap rounded-canvas border px-3 py-2 text-canvas-body-sm font-medium shadow-card transition-[transform,background-color,border-color] duration-100 ease-out ${
                       sector.enabled
                         ? active

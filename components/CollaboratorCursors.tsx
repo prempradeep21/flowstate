@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { collaboratorColor } from "@/lib/collaboratorColors";
+import { contrastRatio } from "@/lib/design/contrast";
 import { worldToScreen } from "@/lib/canvasCoordinates";
 import {
   createPresenceBroadcaster,
@@ -15,6 +16,17 @@ import { useReducedMotion } from "@/lib/motion/useReducedMotion";
 import { useCanvasStore } from "@/lib/store";
 
 const CURSOR_TIMEOUT_MS = 3000;
+
+const LABEL_INK = "#1C1C1E";
+const LABEL_WHITE = "#FFFFFF";
+
+/** Label type on a collaborator colour: ink or white, whichever reads better (8.6). */
+function cursorLabelInk(colour: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(colour)) return LABEL_WHITE;
+  return contrastRatio(colour, LABEL_INK) >= contrastRatio(colour, LABEL_WHITE)
+    ? LABEL_INK
+    : LABEL_WHITE;
+}
 
 interface CursorSample {
   worldX: number;
@@ -327,8 +339,11 @@ export function CollaboratorCursors({
               />
             </svg>
             <div
-              className="ml-3 -mt-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-canvas-caption font-medium text-white shadow-sm"
-              style={{ backgroundColor: cursor.color }}
+              className="ml-3 -mt-1 flex items-center gap-1 rounded-full px-2 py-0.5 text-canvas-caption font-medium shadow-sm"
+              style={{
+                backgroundColor: cursor.color,
+                color: cursorLabelInk(cursor.color),
+              }}
             >
               {cursor.avatarUrl && (
                 // eslint-disable-next-line @next/next/no-img-element

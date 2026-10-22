@@ -21,6 +21,10 @@ import {
 } from "@/lib/plugConnector";
 import { connectorColour } from "@/lib/design/tokens";
 import { isConversationCard } from "@/lib/conversationCard";
+import {
+  PACK_CONNECTOR_STROKE_PX,
+  usePackConnector,
+} from "@/hooks/usePackConnector";
 
 
 
@@ -45,6 +49,11 @@ export function Connections() {
   const recentConnectionId = useCanvasStore((s) => s.recentConnectionId);
   const clearRecentConnection = useCanvasStore((s) => s.clearRecentConnection);
   const tuning = RESOLVED_CANVAS_TUNING;
+  // Legacy SVG kill-switch renderer: pack connector colour (resting state
+  // only — edge states live in the canvas2d renderer).
+  const packConnector = usePackConnector();
+  const packLine = packConnector?.line;
+  const strokeWidth = packConnector ? PACK_CONNECTOR_STROKE_PX : CONNECTOR_STROKE_PX;
 
 
 
@@ -110,13 +119,15 @@ export function Connections() {
                   connectorStyle,
                 );
                 const stroke =
-                  connectorColour(threads[from.threadId]?.accentColour);
+                  packLine ?? connectorColour(threads[from.threadId]?.accentColour);
                 return (
                   <g key={conn.id}>
                     <ConnectorPathGroup
                       d={d}
                       stroke={stroke}
-                      strokeWidth={CONNECTOR_STROKE_PX}
+                      strokeWidth={strokeWidth}
+                      packPlugs={packConnector != null}
+                      packPlugMark={packConnector?.emphasis}
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
@@ -157,13 +168,15 @@ export function Connections() {
                   connectorStyle,
                 );
                 const stroke =
-                  connectorColour(threads[from.threadId]?.accentColour);
+                  packLine ?? connectorColour(threads[from.threadId]?.accentColour);
                 return (
                   <g key={conn.id}>
                     <ConnectorPathGroup
                       d={d}
                       stroke={stroke}
-                      strokeWidth={CONNECTOR_STROKE_PX}
+                      strokeWidth={strokeWidth}
+                      packPlugs={packConnector != null}
+                      packPlugMark={packConnector?.emphasis}
                       fromAnchor={fromAnchor}
                       toAnchor={stubEnd}
                       toSide={toSide}
@@ -204,18 +217,20 @@ export function Connections() {
 
           const stroke =
 
-            connectorColour(threads[from.threadId]?.accentColour);
+            packLine ?? connectorColour(threads[from.threadId]?.accentColour);
 
           return (
             <g key={conn.id}>
               <ConnectorPathGroup
                 d={d}
                 stroke={stroke}
-                strokeWidth={CONNECTOR_STROKE_PX}
+                strokeWidth={strokeWidth}
+                      packPlugs={packConnector != null}
+                      packPlugMark={packConnector?.emphasis}
                 fromAnchor={a}
                 toAnchor={b}
                 toSide={toSide}
-                opacity={0.85}
+                opacity={packConnector ? 1 : 0.85}
                 hitWidth={CONNECTOR_HIT_STROKE_PX}
                 showSourcePlug={!isConversationLink}
                 showTargetPlug={!isConversationLink}

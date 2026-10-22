@@ -1,6 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
+import { useCanvasPortalClassName } from "@/components/canvasPortal";
 import {
   useEffect,
   useRef,
@@ -74,12 +75,16 @@ export function CanvasFloatingMenuPortal({
   children: ReactNode;
   className?: string;
 }) {
+  const packClassName = useCanvasPortalClassName();
   if (!open || !style || typeof document === "undefined") return null;
 
   return createPortal(
     <div
       ref={portalRef}
-      className={`fixed ${CANVAS_FLOATING_MENU_Z} ${className}`}
+      // Canvas-attached menu: gets the canvas style pack's vars (8.4).
+      data-canvas-portal=""
+      data-canvas-menu=""
+      className={`fixed ${CANVAS_FLOATING_MENU_Z} ${packClassName} ${className}`}
       style={style}
       onPointerDown={(e) => e.stopPropagation()}
     >

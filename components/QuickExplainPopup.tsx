@@ -2,6 +2,7 @@
 
 import { m } from "framer-motion";
 import { createPortal } from "react-dom";
+import { useCanvasPortalAttr, useCanvasPortalClassName } from "@/components/canvasPortal";
 import type { AnswerExplain } from "@/lib/store";
 import { framerTransition } from "@/lib/motion/transitions";
 import { useReducedMotion } from "@/lib/motion/useReducedMotion";
@@ -94,12 +95,15 @@ export function QuickExplainPopup({
   onClose: () => void;
 }) {
   const reducedMotion = useReducedMotion();
+  const packClassName = useCanvasPortalClassName();
+  const portalAttr = useCanvasPortalAttr();
   const isLoading = explain.status === "loading";
   const isError = explain.status === "error";
 
   const popup = (
     <m.div
       data-quick-explain-popup
+      {...portalAttr}
       role="dialog"
       aria-label={`Quick explain: ${explain.selectedText}`}
       aria-busy={isLoading}
@@ -107,7 +111,7 @@ export function QuickExplainPopup({
       animate={reducedMotion ? "reduced" : "animate"}
       exit={reducedMotion ? "reducedExit" : "exit"}
       variants={quickExplainVariants}
-      className={`${
+      className={`${packClassName} ${
         anchorRect ? "fixed" : "absolute"
       } z-[50001] w-[280px] origin-left overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card/95 shadow-card backdrop-blur-sm`}
       style={

@@ -49,3 +49,22 @@ describe("bento contrast", () => {
     });
   }
 });
+
+describe("frost contrast", () => {
+  for (const [mode, tokens] of modes("frost")) {
+    it(`${mode}: ink and muted clear AA on the frost card`, () => {
+      expectRatio("ink/card", tokens.surfaceInk!, tokens.cardFill, AA);
+      expectRatio("muted/card", tokens.surfaceMuted!, tokens.cardFill, AA);
+    });
+    it(`${mode}: chart ink clears AA on the chart background`, () => {
+      expectRatio("chart ink/bg", tokens.chart!.ink, tokens.chart!.bg, AA);
+      expectRatio("chart muted/bg", tokens.chart!.muted, tokens.chart!.bg, AA);
+    });
+    it(`${mode}: the frost card separates from the canvas`, () => {
+      expectRatio("card/canvas", tokens.cardFill, tokens.canvasBg!, 1.1);
+    });
+  }
+  it("lime ink clears AA on the lime mark", () => {
+    expectRatio("lime ink/lime", "#1C1C1E", "#DDF23F", AA);
+  });
+});

@@ -495,6 +495,7 @@ export function ChatComposer({
       <div
         data-composer={cardId ? true : undefined}
         data-card-id={cardId}
+        data-composer-variant={nested ? "nested" : variant}
         className={`chat-composer-casing group/composer relative flex w-full min-w-0 flex-col border border-canvas-border bg-canvas-card ${
           nested ? "rounded-canvas-nest-11" : "rounded-canvas"
         } ${
@@ -691,6 +692,10 @@ export function ChatComposer({
                 <div
                   ref={menuPortalRef}
                   role="menu"
+                  // Canvas-attached: follows the canvas style pack (8.4).
+                  {...(isCanvas || isLanding
+                    ? { "data-canvas-portal": "", "data-canvas-menu": "" }
+                    : {})}
                   // Portaled, but React still bubbles events to the card —
                   // whose pointerdown starts a drag and swallows the click.
                   onPointerDown={(e) => e.stopPropagation()}

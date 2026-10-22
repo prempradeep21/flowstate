@@ -438,10 +438,7 @@ export function ensureEarlyCanvasPlaceholder(
   }
 
   const card = store.cards[cardId];
-  const resolvedTitle =
-    title?.trim() ||
-    card?.artifactPayload?.title ||
-    card?.question.slice(0, 48) ||
-    kind;
+  // Unnamed until the model names it — the skeleton shows a working label.
+  const resolvedTitle = title?.trim() || card?.artifactPayload?.title || "";
   store.spawnGeneratingArtifactPreview(cardId, kind, resolvedTitle);
 }

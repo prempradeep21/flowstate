@@ -72,6 +72,10 @@ export interface RowTile {
   kind: string;
   /** The size its content wants at zoom 1. */
   natural: { w: number; h: number };
+  /** Drawn at exactly its natural size — the user sized it by hand. */
+  lockZoom?: boolean;
+  /** Narrowest box it may be drawn at (Frost: a table's narrowest layout). */
+  minW?: number;
 }
 
 export interface PackedTile {
@@ -98,6 +102,14 @@ const PICTURE_KINDS: ReadonlySet<string> = new Set(["website", "images", "map"])
  * full-width strip).
  */
 export function tileZoomRange(tile: RowTile): [number, number] {
+  if (tile.lockZoom) return [1, 1];
+  const [min, max] = kindZoomRange(tile);
+  // A minimum width raises the floor; the ceiling never drops under it.
+  const floor = tile.minW ? Math.max(min, tile.minW / tile.natural.w) : min;
+  return [floor, Math.max(max, floor)];
+}
+
+function kindZoomRange(tile: RowTile): [number, number] {
   switch (tile.kind) {
     case "table":
       return [0.8, 1.2];
@@ -546,6 +558,8 @@ export function layoutChapters(
       // runtime auto-measure from flooring the box at its kind default.
       node.layoutSetSize = true;
       if (Math.abs(tile.zoom - 1) > 0.001) node.contentZoom = tile.zoom;
+      const natural = tiles.find((t) => t.id === tile.id)?.natural;
+      if (natural) node.bentoNatural = { w: natural.w, h: natural.h };
       chapterRight = Math.max(chapterRight, chapterX + tile.x + tile.w);
     }
 

@@ -10,7 +10,7 @@ import {
   type ArtifactStyleFamily,
   type FontId,
   type FontSlot,
-} from "./styles";
+} from "@/components/artifactStyles";
 
 function Chevron({ dir }: { dir: "left" | "right" | "down" }) {
   const d = dir === "left" ? "M10 3 5 8l5 5" : dir === "right" ? "M6 3l5 5-5 5" : "M4 6l4 4 4-4";

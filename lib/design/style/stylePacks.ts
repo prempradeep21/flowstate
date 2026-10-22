@@ -283,10 +283,117 @@ const BENTO: ArtifactStylePreset = {
   },
 };
 
+/**
+ * Frost — Artifact Studio's Style D brought to the canvas. White frost cards
+ * lit from one soft light at the top-left: a sheen pooled in the corner, a
+ * bright 1px rim along the top edge, and a three-layer shadow (contact, near,
+ * ambient) that falls down and away. No strokes — the light separates. Ink is
+ * near-black and lime is the one accent, used as a solid mark (today, done,
+ * the active pill), never a gradient. The theme accent is NOT replaced: lime
+ * carries no white-text guarantee, so app chrome keeps the brand accent and
+ * the stylesheet paints lime through its own --frost-* vars. Dark mode turns
+ * the frost into smoked glass with the same light at a fraction of its
+ * strength; the lime stays exactly as it is.
+ *
+ * Frost-only material vars (gradient stops, rim, sheen, lime) live in
+ * app/styles/artifact-styles.css — they're literal CSS, not hex tokens.
+ */
+const FROST: ArtifactStylePreset = {
+  id: "frost",
+  name: "Frost",
+  description:
+    "Style D — white frost cards lit from the top-left, soft falling shadows, lime the one accent.",
+  strokeWidth: "0px",
+  radius: "44px",
+  controlStrokeWidth: "0px",
+  checkboxStrokeWidth: "1.5px",
+  pillRadius: "999px",
+  density: 1,
+  showKindLabel: false,
+  // Frost selects with an ink outline set off the card (stylesheet), not an
+  // accent ring.
+  selectedRing: "none",
+  selectedChin: "none",
+  tilt: "0deg",
+  hoverLift: "0px, -3px",
+  pressPush: "0px, 0px",
+  bodyFamily: "frost",
+  previewSwatches: ["#F7F7F6", "#DDF23F", "#1C1C1E"],
+  light: {
+    cardFill: "#F3F3F1",
+    stroke: "#FFFFFF",
+    ambientShadow:
+      "0 1px 1px rgba(24, 24, 40, 0.04), 0 8px 18px -8px rgba(24, 24, 40, 0.09), 0 34px 60px -30px rgba(24, 24, 40, 0.2)",
+    chinShadow: "none",
+    innerHighlight:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.6)",
+    headerBg: "transparent",
+    headerRule: "none",
+    canvasBg: "#E4E4E2",
+    canvasDot: "#B4B4B0",
+    hardShadow: "none",
+    surfaceInk: "#1C1C1E",
+    surfaceMuted: "#5C5C60",
+    surfaceBorder: "#D9D9D6",
+    canvasConnector: "#9C9C98",
+    chart: {
+      series: ["#1C1C1E", "#C4DB1E", "#8C9386", "#5F665A", "#C8CBC2", "#A3B22E", "#DADCD4"],
+      ink: "#1C1C1E",
+      muted: "#5C5C60",
+      grid: "rgba(28, 28, 30, 0.08)",
+      bg: "#F3F3F1",
+    },
+    timeline: ["#1C1C1E", "#C4DB1E", "#8C9386", "#5F665A"],
+    connector: {
+      line: "rgba(28, 28, 30, 0.22)",
+      emphasis: "rgba(28, 28, 30, 0.56)",
+      active: "#C4DB1E",
+      plugLink: "rgba(28, 28, 30, 0.28)",
+      dragPreview: "rgba(28, 28, 30, 0.4)",
+      dragValid: "#C4DB1E",
+    },
+  },
+  dark: {
+    cardFill: "#26262A",
+    stroke: "#3D3D44",
+    ambientShadow:
+      "0 1px 1px rgba(0, 0, 0, 0.3), 0 8px 18px -8px rgba(0, 0, 0, 0.45), 0 34px 60px -30px rgba(0, 0, 0, 0.6)",
+    chinShadow: "none",
+    innerHighlight:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.13), inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
+    headerBg: "transparent",
+    headerRule: "none",
+    canvasBg: "#18181B",
+    canvasDot: "#3A3A3F",
+    hardShadow: "none",
+    surfaceInk: "#F2F2F0",
+    surfaceMuted: "#A6A6A4",
+    surfaceBorder: "#36363B",
+    canvasConnector: "#6A6A70",
+    chart: {
+      series: ["#F2F2F0", "#DDF23F", "#8C9386", "#B5BCAE", "#5F665A", "#A3B22E", "#4A4A50"],
+      ink: "#F2F2F0",
+      muted: "#A6A6A4",
+      grid: "rgba(242, 242, 240, 0.1)",
+      bg: "#26262A",
+    },
+    timeline: ["#DDF23F", "#F2F2F0", "#8C9386", "#B5BCAE"],
+    connector: {
+      line: "rgba(242, 242, 240, 0.22)",
+      emphasis: "rgba(242, 242, 240, 0.56)",
+      active: "#DDF23F",
+      plugLink: "rgba(242, 242, 240, 0.28)",
+      dragPreview: "rgba(242, 242, 240, 0.4)",
+      dragValid: "#DDF23F",
+    },
+  },
+};
+
 export const ARTIFACT_STYLE_PACKS: readonly ArtifactStylePreset[] = [
   VANILLA,
   NEOBRUTALISM,
   LIQUID_GLASS,
+  FROST,
   BENTO,
 ];
 

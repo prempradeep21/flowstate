@@ -1134,3 +1134,5 @@ html[data-theme="dark"] [data-artifact-style="neobrutalism"] {
   background-color: rgb(var(--canvas-artifact-stage)) !important;
   border-top-color: rgb(var(--canvas-border)) !important;
 }
+
+/* Frost lives in app/styles/frost/ (one file per surface family). */

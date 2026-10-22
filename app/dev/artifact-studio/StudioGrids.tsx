@@ -9,9 +9,11 @@ import {
   STYLE_FAMILIES,
   StyledArtifact,
   backdropOf,
+  hugFloorOf,
   type ArtifactStyleFamily,
   type ChromeState,
-} from "./styles";
+  type StudioMode,
+} from "@/components/artifactStyles";
 import { useDecisions, VERDICT_META } from "./useDecisions";
 
 function useBoardWidth() {
@@ -42,11 +44,11 @@ function ExpandIcon() {
 }
 
 /**
- * Kinds whose height is their content (a mechanism wraps its steps into as many
- * rows as it needs): drawn at their canvas width, as tall as they measure.
+ * Whether (and from what least height) an artifact hugs its content in a
+ * family: drawn at its canvas width, as tall as it measures.
  */
-export function hugsContent(item: StudioArtifact): boolean {
-  return item.variant === "mechanism";
+export function hugsContent(item: StudioArtifact, family: ArtifactStyleFamily): number | null {
+  return hugFloorOf(family, item);
 }
 
 /** Natural size with any measured content height swapped in. */
@@ -56,8 +58,8 @@ function useHuggedNaturals() {
     const h = heights[familyId ? `${familyId}:${item.uid}` : item.uid];
     return h ? { w: item.natural.w, h } : item.natural;
   };
-  const report = (item: StudioArtifact, familyId?: string) =>
-    hugsContent(item)
+  const report = (item: StudioArtifact, family: ArtifactStyleFamily, familyId?: string) =>
+    hugsContent(item, family) != null
       ? (h: number) => {
           const key = familyId ? `${familyId}:${item.uid}` : item.uid;
           setHeights((prev) => (prev[key] === h ? prev : { ...prev, [key]: h }));
@@ -71,6 +73,7 @@ export function StudioTile({
   item,
   family,
   themeId = null,
+  mode = "light",
   chromeState,
   onOpen,
   onHugHeight,
@@ -78,6 +81,7 @@ export function StudioTile({
   item: StudioArtifact;
   family: ArtifactStyleFamily;
   themeId?: string | null;
+  mode?: StudioMode;
   chromeState: ChromeState;
   onOpen: () => void;
   onHugHeight?: (h: number) => void;
@@ -93,7 +97,7 @@ export function StudioTile({
       onMouseLeave={() => setHovered(false)}
     >
       <LazyMount placeholder={<TileSkeleton />}>
-        <ScaledStage natural={item.natural} mode="natural" hug={hugsContent(item)} onHugHeight={onHugHeight}>
+        <ScaledStage natural={item.natural} mode="natural" hug={hugsContent(item, family)} onHugHeight={onHugHeight}>
           <StyledArtifact
             family={family}
             ctx={{
@@ -102,6 +106,7 @@ export function StudioTile({
               surface: "tile",
               chromeState: chromeState === "rest" && hovered ? "hover" : chromeState,
               themeId,
+              mode,
             }}
           />
         </ScaledStage>
@@ -143,12 +148,14 @@ export function BentoGrid({
   items,
   family,
   themeId = null,
+  mode = "light",
   chromeState,
   onOpen,
 }: {
   items: StudioArtifact[];
   family: ArtifactStyleFamily;
   themeId?: string | null;
+  mode?: StudioMode;
   chromeState: ChromeState;
   onOpen: (uid: string) => void;
 }) {
@@ -169,7 +176,7 @@ export function BentoGrid({
     >
       {width > 0
         ? items.map((item) => {
-            const natural = naturalOf(item);
+            const natural = naturalOf(item, family.id);
             const scale = Math.min(STUDIO_ARTIFACT_SCALE, width / natural.w);
             const w = Math.round(natural.w * scale);
             const h = Math.round(natural.h * scale);
@@ -186,9 +193,10 @@ export function BentoGrid({
                     item={item}
                     family={family}
                     themeId={themeId}
+                    mode={mode}
                     chromeState={chromeState}
                     onOpen={() => onOpen(item.uid)}
-                    onHugHeight={report(item)}
+                    onHugHeight={report(item, family, family.id)}
                   />
                 </div>
               </div>
@@ -204,12 +212,14 @@ export function FamilySections({
   items,
   family,
   themeId = null,
+  mode = "light",
   chromeState,
   onOpen,
 }: {
   items: StudioArtifact[];
   family: ArtifactStyleFamily;
   themeId?: string | null;
+  mode?: StudioMode;
   chromeState: ChromeState;
   onOpen: (uid: string) => void;
 }) {
@@ -235,7 +245,7 @@ export function FamilySections({
               {ARTIFACT_CATEGORY_META[section.id].label}
             </h2>
           </div>
-          <BentoGrid items={section.items} family={family} themeId={themeId} chromeState={chromeState} onOpen={onOpen} />
+          <BentoGrid items={section.items} family={family} themeId={themeId} mode={mode} chromeState={chromeState} onOpen={onOpen} />
         </section>
       ))}
     </div>
@@ -250,11 +260,13 @@ export function CompareStylesGrid({
   items,
   chromeState,
   themeId = null,
+  mode = "light",
   onOpen,
 }: {
   items: StudioArtifact[];
   chromeState: ChromeState;
   themeId?: string | null;
+  mode?: StudioMode;
   onOpen: (uid: string, familyId: ArtifactStyleFamily["id"]) => void;
 }) {
   const { naturalOf, report } = useHuggedNaturals();
@@ -280,8 +292,8 @@ export function CompareStylesGrid({
             {STYLE_FAMILIES.map((f) => {
               const natural = naturalOf(item, f.id);
               return (
-                <div key={f.id} className="w-full min-w-0 rounded-canvas p-3" style={{ maxWidth: natural.w * STUDIO_ARTIFACT_SCALE + 24, aspectRatio: String(natural.w / natural.h), background: backdropOf(f, themeId)?.background }}>
-                  <StudioTile item={item} family={f} themeId={themeId} chromeState={chromeState} onOpen={() => onOpen(item.uid, f.id)} onHugHeight={report(item, f.id)} />
+                <div key={f.id} className={`w-full min-w-0 rounded-canvas p-3${mode === "dark" ? " theme-scope-dark" : ""}`} style={{ maxWidth: natural.w * STUDIO_ARTIFACT_SCALE + 24, aspectRatio: String(natural.w / natural.h), background: backdropOf(f, themeId, mode)?.background }}>
+                  <StudioTile item={item} family={f} themeId={themeId} mode={mode} chromeState={chromeState} onOpen={() => onOpen(item.uid, f.id)} onHugHeight={report(item, f, f.id)} />
                 </div>
               );
             })}

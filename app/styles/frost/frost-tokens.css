@@ -1,0 +1,120 @@
+/**
+ * Frost (Artifact Studio Style D) — the shared vocabulary every Frost rule
+ * reads. Spec: docs/design-system/frost-canvas-readiness-audit.md
+ * ("Decisions"). Declared on the canvas scope AND on portaled canvas menus
+ * (ArtifactStyleScope mirrors the pack id onto <html data-canvas-style>).
+ *
+ *   frost   — the card: sheen + pale gradient, rim, three-layer fall
+ *   raised  — anything sitting ON a card or the field (pills, plugs, menus)
+ *   well    — the one thing that sinks (media frames, groups, empty slots)
+ *   ink     — all type and marks; tints via color-mix(ink N%)
+ *   lime    — the one accent: now / next / active / valid / done
+ *   rose    — error only, as a bloom on a card's lower edge
+ */
+
+[data-artifact-style="frost"],
+html[data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-top: #f7f7f6;
+  --frost-bottom: #ededeb;
+  --frost-sheen: rgba(255, 255, 255, 0.85);
+  --frost-rim: rgba(255, 255, 255, 0.95);
+  --frost-rim-soft: rgba(255, 255, 255, 0.6);
+  --frost-raised: #fbfbfa;
+  --frost-raised-top: #ffffff;
+  --frost-raised-rim: rgba(255, 255, 255, 1);
+  --frost-well: #e9e9e7;
+  --frost-well-deep: #dcdcd9;
+  --frost-well-shadow: inset 0 2px 6px rgba(24, 24, 40, 0.1), inset 0 1px 1px rgba(24, 24, 40, 0.06);
+  --frost-field: radial-gradient(130% 90% at 18% 0%, #eeeeec 0%, #e4e4e2 48%, #d9d9d7 100%);
+  --frost-field-flat: #e4e4e2;
+  --frost-ink: #1c1c1e;
+  --frost-ink-surface: #1c1c1e;
+  --frost-on-ink: #ffffff;
+  --frost-hair: rgba(28, 28, 30, 0.08);
+  --frost-lime: #ddf23f;
+  --frost-lime-deep: #c4db1e;
+  --frost-lime-ink: #1c1c1e;
+  --frost-sage: #8c9386;
+  --frost-rose-a: #ffc9cf;
+  --frost-rose-b: #ff9aa6;
+  --frost-rose-mark: #f2457f;
+  --frost-radius: 44px;
+  --frost-nest-radius: 30px;
+  /* Media cards: kicker, title and picture well all start on one line. */
+  --frost-media-inset: 24px;
+  --frost-media-radius: 20px;
+  --frost-pad: 40px;
+  --frost-ease: 220ms ease;
+
+  --frost-shadow: inset 0 1px 0 var(--frost-rim), inset 0 0 0 1px var(--frost-rim-soft),
+    0 1px 1px rgba(24, 24, 40, 0.04), 0 8px 18px -8px rgba(24, 24, 40, 0.09),
+    0 34px 60px -30px rgba(24, 24, 40, 0.2);
+  --frost-shadow-lift: inset 0 1px 0 var(--frost-rim), inset 0 0 0 1px var(--frost-rim-soft),
+    0 2px 2px rgba(24, 24, 40, 0.04), 0 14px 28px -10px rgba(24, 24, 40, 0.13),
+    0 50px 80px -34px rgba(24, 24, 40, 0.28);
+  /* Kept for the phase-0 rules: the fall alone, without the rim. */
+  --frost-lift-shadow: 0 2px 2px rgba(24, 24, 40, 0.04), 0 14px 28px -10px rgba(24, 24, 40, 0.13),
+    0 50px 80px -34px rgba(24, 24, 40, 0.28);
+  --frost-shadow-cheap: inset 0 1px 0 var(--frost-rim), 0 1px 2px rgba(24, 24, 40, 0.08),
+    0 10px 24px -14px rgba(24, 24, 40, 0.2);
+  --frost-raised-bg: linear-gradient(180deg, var(--frost-raised-top) 0%, var(--frost-raised) 100%);
+  --frost-raised-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(24, 24, 40, 0.05),
+    0 6px 16px -6px rgba(24, 24, 40, 0.12);
+  --frost-menu-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(24, 24, 40, 0.05),
+    0 18px 40px -12px rgba(24, 24, 40, 0.22);
+  --frost-fill: radial-gradient(120% 80% at 0% 0%, var(--frost-sheen) 0%, rgba(255, 255, 255, 0) 52%),
+    linear-gradient(180deg, var(--frost-top) 0%, var(--frost-bottom) 100%);
+  --frost-rose-bloom: radial-gradient(90% 100% at 50% 100%, var(--frost-rose-b) 0%, var(--frost-rose-a) 45%, rgba(255, 201, 207, 0) 100%);
+  /* Selection: ink outline set off the card; focus: lime ring + ink edge. */
+  --frost-select-outline: 2.5px solid var(--frost-ink);
+  --frost-select-offset: 0px;
+  --frost-focus-ring: 0 0 0 3px var(--frost-lime), 0 0 0 4.5px var(--frost-ink);
+}
+
+html[data-theme="dark"] [data-artifact-style="frost"],
+html[data-theme="dark"][data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-top: #2b2b2f;
+  --frost-bottom: #202024;
+  --frost-sheen: rgba(255, 255, 255, 0.09);
+  --frost-rim: rgba(255, 255, 255, 0.13);
+  --frost-rim-soft: rgba(255, 255, 255, 0.06);
+  --frost-raised: #34343a;
+  --frost-raised-top: #3d3d44;
+  --frost-raised-rim: rgba(255, 255, 255, 0.14);
+  --frost-well: #19191c;
+  --frost-well-deep: #121214;
+  --frost-well-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(0, 0, 0, 0.35);
+  --frost-field: radial-gradient(130% 90% at 18% 0%, #232326 0%, #18181b 48%, #0f0f11 100%);
+  --frost-field-flat: #18181b;
+  --frost-ink: #f2f2f0;
+  --frost-ink-surface: #0e0e10;
+  --frost-hair: rgba(242, 242, 240, 0.1);
+  --frost-shadow: inset 0 1px 0 var(--frost-rim), inset 0 0 0 1px var(--frost-rim-soft),
+    0 1px 1px rgba(0, 0, 0, 0.3), 0 8px 18px -8px rgba(0, 0, 0, 0.45),
+    0 34px 60px -30px rgba(0, 0, 0, 0.6);
+  --frost-shadow-lift: inset 0 1px 0 var(--frost-rim), inset 0 0 0 1px var(--frost-rim-soft),
+    0 2px 2px rgba(0, 0, 0, 0.3), 0 14px 28px -10px rgba(0, 0, 0, 0.5),
+    0 50px 80px -34px rgba(0, 0, 0, 0.7);
+  --frost-lift-shadow: 0 2px 2px rgba(0, 0, 0, 0.3), 0 14px 28px -10px rgba(0, 0, 0, 0.5),
+    0 50px 80px -34px rgba(0, 0, 0, 0.7);
+  --frost-shadow-cheap: inset 0 1px 0 var(--frost-rim), 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 24px -14px rgba(0, 0, 0, 0.6);
+  --frost-raised-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(0, 0, 0, 0.3),
+    0 6px 16px -6px rgba(0, 0, 0, 0.45);
+  --frost-menu-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(0, 0, 0, 0.3),
+    0 18px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* Reduced motion: nothing rises, nothing sweeps. */
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] {
+    --frost-ease: 0ms linear;
+  }
+}
+
+/* Portaled canvas menus get the Frost pair too (font classes are mirrored
+   onto <html> by ArtifactStyleScope; the scope itself sets these inline). */
+html[data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-font-primary: var(--font-sd), "Helvetica Neue", Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --frost-font-secondary: var(--sf-dm-sans), ui-sans-serif, system-ui, sans-serif;
+}

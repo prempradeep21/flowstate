@@ -587,6 +587,11 @@ export interface ArtifactPermissionPreview {
 
 export interface ArtifactGeneratingPreview {
   kind: import("@/lib/artifactTypes").ArtifactKind;
+  /**
+   * The model's title once it has streamed in (or the edited artifact's own).
+   * Empty until then — never the card's question; the skeleton shows a
+   * per-kind working label instead (lib/artifactWorkingTitle).
+   */
   title: string;
   /**
    * The streamed emit_artifact call filling this skeleton. Its live partial
@@ -604,6 +609,31 @@ export interface CanvasArtifactNode {
   size?: CardSize;
   /** Set when the user manually resizes — auto content sizing only grows from here. */
   userSetSize?: boolean;
+  /**
+   * The box the Frost style draws this node at: its card hugs its content
+   * (docs/design-system/artifacts-frost.md §5). Separate from `size` so
+   * switching styles never rewrites the node's own geometry; read through
+   * getArtifactBounds only while Frost is active.
+   */
+  frostSize?: CardSize;
+  /**
+   * What the Frost card last measured: the width it was laid out at, the
+   * height its content needs at that width (without any row floor), and the
+   * least width it can take without cropping (a table's narrowest layout).
+   * The group bento reads it to size Frost rows.
+   */
+  frostMeasure?: { w: number; h: number; minW: number };
+  /**
+   * The row height the group bento gives this node under Frost: the card is
+   * drawn at least this tall so every tile in its row ends on one line.
+   */
+  frostRowH?: number;
+  /**
+   * The size the group bento packs this node from — its content size at zoom
+   * 1, before the row scaled it. Recorded by the layout so re-packing never
+   * compounds an earlier zoom.
+   */
+  bentoNatural?: CardSize;
   /**
    * Set when a layout engine authored this size deliberately (transcript-import
    * chapter bento). Like userSetSize it opts the node out of auto content
@@ -1024,6 +1054,22 @@ interface CanvasState {
     nodeId: string,
     size: CardSize,
     options?: { userSet?: boolean },
+  ) => void;
+  /** The Frost style's hugged box for a node (see CanvasArtifactNode.frostSize). */
+  setCanvasArtifactFrostSize: (
+    nodeId: string,
+    size: CardSize,
+    measure?: { w: number; h: number; minW: number },
+  ) => void;
+  /** Place artifact nodes at absolute world positions (one write). */
+  moveArtifactsTo: (positions: Record<string, { x: number; y: number }>) => void;
+  /** Slide whole chapter groups sideways (cards, artifacts and divider stay together). */
+  shiftGroupsX: (shifts: Record<string, number>) => void;
+  /** Apply a group bento reflow: node geometry patches plus the group's divider. */
+  applyBentoLayout: (
+    groupId: string,
+    patches: Record<string, Partial<CanvasArtifactNode>>,
+    dividerY: number | undefined,
   ) => void;
   moveSubtree: (rootId: string, dx: number, dy: number) => void;
 
@@ -3933,8 +3979,111 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         canvasArtifactNodes: {
           ...state.canvasArtifactNodes,
-          [nodeId]: { ...node, size, userSetSize },
+          // A resize under Frost moves the Frost box's width with it; its
+          // height is the card's own and follows on the next measure.
+          [nodeId]: {
+            ...node,
+            size,
+            userSetSize,
+            ...(node.frostSize
+              ? { frostSize: { w: size.w, h: node.frostSize.h } }
+              : {}),
+          },
         },
+      };
+    }),
+
+  setCanvasArtifactFrostSize: (nodeId, size, measure) =>
+    set((state) => {
+      const node = state.canvasArtifactNodes[nodeId];
+      if (!node) return state;
+      const prev = node.frostSize;
+      const pm = node.frostMeasure;
+      const sameMeasure =
+        !measure ||
+        (pm &&
+          Math.abs(pm.w - measure.w) < 1 &&
+          Math.abs(pm.h - measure.h) < 1 &&
+          Math.abs(pm.minW - measure.minW) < 1);
+      if (prev && prev.w === size.w && prev.h === size.h && sameMeasure) {
+        return state;
+      }
+      return {
+        canvasArtifactNodes: {
+          ...state.canvasArtifactNodes,
+          [nodeId]: {
+            ...node,
+            frostSize: size,
+            ...(measure && !sameMeasure ? { frostMeasure: measure } : {}),
+          },
+        },
+      };
+    }),
+
+  moveArtifactsTo: (positions) =>
+    set((state) => {
+      const nodes = { ...state.canvasArtifactNodes };
+      let changed = false;
+      for (const [id, position] of Object.entries(positions)) {
+        const node = nodes[id];
+        if (!node) continue;
+        nodes[id] = { ...node, position };
+        changed = true;
+      }
+      return changed ? { canvasArtifactNodes: nodes } : state;
+    }),
+
+  shiftGroupsX: (shifts) =>
+    set((state) => {
+      const cards = { ...state.cards };
+      const nodes = { ...state.canvasArtifactNodes };
+      let changed = false;
+      for (const [groupId, dx] of Object.entries(shifts)) {
+        const group = state.groups[groupId];
+        if (!group || !dx) continue;
+        for (const id of group.cardIds ?? []) {
+          const card = cards[id];
+          if (!card) continue;
+          cards[id] = {
+            ...card,
+            position: { x: card.position.x + dx, y: card.position.y },
+          };
+          changed = true;
+        }
+        for (const item of group.items ?? []) {
+          if (item.kind !== "artifact") continue;
+          const node = nodes[item.id];
+          if (!node) continue;
+          nodes[item.id] = {
+            ...node,
+            position: { x: node.position.x + dx, y: node.position.y },
+          };
+          changed = true;
+        }
+      }
+      return changed ? { cards, canvasArtifactNodes: nodes } : state;
+    }),
+
+  applyBentoLayout: (groupId, patches, dividerY) =>
+    set((state) => {
+      const group = state.groups[groupId];
+      if (!group) return state;
+      const nodes = { ...state.canvasArtifactNodes };
+      let changed = false;
+      for (const [id, patch] of Object.entries(patches)) {
+        const node = nodes[id];
+        if (!node) continue;
+        nodes[id] = { ...node, ...patch };
+        changed = true;
+      }
+      const groupChanged =
+        dividerY !== undefined && group.dividerY !== dividerY;
+      if (!changed && !groupChanged) return state;
+      return {
+        canvasArtifactNodes: changed ? nodes : state.canvasArtifactNodes,
+        ...(groupChanged
+          ? { groups: { ...state.groups, [groupId]: { ...group, dividerY } } }
+          : {}),
       };
     }),
 
@@ -4662,9 +4811,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     const editingArt = targetId ? state.sessionArtifacts[targetId] : undefined;
-    const title =
-      editingArt?.title || card.question.slice(0, 48) || "Table";
-    get().spawnGeneratingArtifactPreview(cardId, "table", title);
+    get().spawnGeneratingArtifactPreview(cardId, "table", editingArt?.title ?? "");
     return null;
   },
 
@@ -4704,9 +4851,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     const editingArt = targetId ? state.sessionArtifacts[targetId] : undefined;
-    const title =
-      editingArt?.title || card.question.slice(0, 48) || "Custom component";
-    get().spawnGeneratingArtifactPreview(cardId, "custom", title);
+    get().spawnGeneratingArtifactPreview(cardId, "custom", editingArt?.title ?? "");
     return null;
   },
 

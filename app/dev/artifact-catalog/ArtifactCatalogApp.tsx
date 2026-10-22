@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@/components/Canvas";
+import { useCanvasStore } from "@/lib/store";
 import { CanvasBottomToolbar } from "@/components/CanvasBottomToolbar";
 import { ArtifactStyleScope } from "@/components/ArtifactStyleScope";
 import { ThemeApplier } from "@/components/ThemeApplier";
@@ -122,6 +123,11 @@ export function ArtifactCatalogApp({
     DEFAULT_ARTIFACT_STYLE_ID,
   );
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Dev page: lets headless checks drive the store (e.g. the canvas theme).
+  useEffect(() => {
+    (window as unknown as { __canvasStore?: typeof useCanvasStore }).__canvasStore = useCanvasStore;
+  }, []);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STYLE_STORAGE_KEY);

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { menuItemClass } from "@/components/MenuIcons";
+import { useCanvasPortalAttr, useCanvasPortalClassName } from "@/components/canvasPortal";
 import { useSelectableModels } from "@/hooks/useSelectableModels";
 import { DEFAULT_MODEL_ID, type ModelInfo } from "@/lib/models";
 import { useCanvasStore } from "@/lib/store";
@@ -30,6 +31,8 @@ export function ComposerModelPicker({
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const setModel = useCanvasStore((s) => s.setModel);
   const models = useSelectableModels();
+  const portalAttr = useCanvasPortalAttr();
+  const packClassName = useCanvasPortalClassName();
 
   const anthropic = models.filter((m) => m.provider === "anthropic");
   const openrouter = restrictToAnthropic
@@ -178,7 +181,10 @@ export function ComposerModelPicker({
             // pointerdown starts a drag and swallows the click.
             onPointerDown={(e) => e.stopPropagation()}
             aria-label="Model"
-            className="fixed z-[9999] w-[300px] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card"
+            // On the canvas: follows the canvas style pack (8.4).
+            {...portalAttr}
+            data-canvas-menu=""
+            className={`${packClassName} fixed z-[9999] w-[300px] overflow-y-auto rounded-canvas border border-canvas-border bg-canvas-card py-1 shadow-card`}
             style={{
               right: pos.right,
               top: pos.top,

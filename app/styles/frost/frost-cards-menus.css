@@ -1,0 +1,826 @@
+/**
+ * Frost — Q&A / conversation cards, composer, streaming + retry states,
+ * landing, canvas field, minimap, collaborator cursors, and canvas menus
+ * (artifact ⋯ menus, pie / floating / context menus, selection toolbar).
+ * Tokens: ./frost-tokens.css. Spec: docs/design-system/frost-canvas-readiness-audit.md.
+ *
+ * Every rule is gated on Frost: `[data-artifact-style="frost"]` (inside the
+ * canvas style scope) or `html[data-canvas-style="frost"] [data-canvas-portal]`
+ * (canvas-attached UI portaled to <body>: menus, minimap, loading overlay).
+ * App chrome never carries either hook, so it stays on brand.
+ */
+
+/* ------------------------------- Tokens -------------------------------- */
+
+[data-artifact-style="frost"],
+html[data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-ink-6: color-mix(in srgb, var(--frost-ink) 6%, transparent);
+  --frost-ink-14: color-mix(in srgb, var(--frost-ink) 14%, transparent);
+  --frost-ink-18: color-mix(in srgb, var(--frost-ink) 18%, transparent);
+  --frost-ink-40: color-mix(in srgb, var(--frost-ink) 40%, transparent);
+  --frost-lime-halo: rgba(221, 242, 63, 0.25);
+  --frost-lime-shadow: rgba(160, 190, 0, 0.55);
+  --frost-lime-button: 0 6px 14px -6px var(--frost-lime-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  /* Rows inside a raised menu: the menu's 22 radius less its 6 inset. */
+  --frost-menu-radius: 22px;
+  --frost-menu-inset: 6px;
+  --frost-menu-row-radius: calc(var(--frost-menu-radius) - var(--frost-menu-inset));
+  /* A tiny tile's fall (minimap, settings chip). */
+  --frost-mini-fall: 0 1px 1px rgba(24, 24, 40, 0.08), 0 6px 10px -5px rgba(24, 24, 40, 0.24);
+  /* An empty card / landing slab: the raised top with a card's full fall. */
+  --frost-slab-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(24, 24, 40, 0.05),
+    0 8px 18px -8px rgba(24, 24, 40, 0.1), 0 34px 60px -30px rgba(24, 24, 40, 0.22);
+}
+html[data-theme="dark"] [data-artifact-style="frost"],
+html[data-theme="dark"][data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-mini-fall: 0 1px 1px rgba(0, 0, 0, 0.35), 0 6px 10px -5px rgba(0, 0, 0, 0.6);
+  --frost-slab-shadow: inset 0 1px 0 var(--frost-raised-rim), 0 1px 1px rgba(0, 0, 0, 0.3),
+    0 8px 18px -8px rgba(0, 0, 0, 0.45), 0 34px 60px -30px rgba(0, 0, 0, 0.6);
+}
+/* The style scope defines Frost's font pair on its subtree; portals carry the
+   font classes themselves (components/canvasPortal.ts), so they resolve the
+   same pair here, with a named fallback for portals that can't. */
+html[data-canvas-style="frost"] [data-canvas-portal] {
+  --frost-font-primary: var(--font-sd, "Inter Tight"), "Helvetica Neue", Helvetica, ui-sans-serif, system-ui, sans-serif;
+  --frost-font-secondary: var(--sf-dm-sans, "DM Sans"), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---------------------------- 8.1 The field ---------------------------- */
+
+/* Screen-fixed radial light under the dot grid. Frost owns the field for the
+   grid style; ambient gradient and photo backgrounds render untouched. */
+[data-artifact-style="frost"] [data-canvas-field] {
+  display: block;
+  background: var(--frost-field);
+}
+[data-artifact-style="frost"] [data-canvas-background-style="grid"] {
+  background-color: transparent !important;
+}
+
+/* ------------------------- Q&A / conversation card --------------------- */
+
+/* The frost card: sheen + gradient, rim, three-layer fall. No stroke. */
+[data-artifact-style="frost"] .chat-casing {
+  isolation: isolate;
+  border-width: 0 !important;
+  border-radius: var(--frost-radius) !important;
+  outline-color: transparent !important;
+  background: var(--frost-fill) !important;
+  box-shadow: var(--frost-shadow) !important;
+  font-family: var(--frost-font-secondary);
+  transition: transform var(--frost-ease), box-shadow var(--frost-ease);
+}
+/* Hover: rises 3px toward the light; the shadow falls further. */
+[data-artifact-style="frost"] .group\/card:hover .chat-casing {
+  transform: translateY(-3px);
+  box-shadow: var(--frost-shadow-lift) !important;
+}
+/* Selected: the ink outline set off the card — the only hard line in Frost. */
+[data-artifact-style="frost"] .chat-casing[data-selected] {
+  outline: var(--frost-select-outline) !important;
+  outline-offset: var(--frost-select-offset) !important;
+  box-shadow: var(--frost-shadow-lift) !important;
+}
+[data-artifact-style="frost"] .chat-casing .canvas-translucent-fill {
+  background-color: transparent;
+  background-image: none;
+}
+/* The thinking bar gives way to the lime dots below. */
+[data-artifact-style="frost"] .chat-casing .thinking-accent-bar {
+  display: none;
+}
+
+/* Question: the title, in the primary font, ink 500, set large. */
+[data-artifact-style="frost"] .chat-casing:not(:has(.conversation-card-surface)) [data-card-question] {
+  padding: 28px 28px 16px 30px !important;
+}
+[data-artifact-style="frost"] .chat-casing .qa-question-text {
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  font-size: 23px;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+  color: var(--frost-ink);
+}
+/* The hairline between question and answer, and the card's header buttons:
+   round, transparent, ink — a soft ink tint on hover / open. */
+[data-artifact-style="frost"] .chat-casing .bg-canvas-border {
+  background-color: var(--frost-hair) !important;
+}
+[data-artifact-style="frost"] .chat-casing:not(:has(.conversation-card-surface)) .bg-canvas-border.h-px {
+  margin-inline: 30px 28px;
+}
+[data-artifact-style="frost"] .chat-casing [data-card-question] button {
+  border-radius: 999px;
+  color: var(--frost-ink);
+  background-color: transparent;
+}
+[data-artifact-style="frost"] .chat-casing [data-card-question] button:hover,
+[data-artifact-style="frost"] .chat-casing [data-card-question] button[aria-expanded="true"] {
+  background-color: var(--frost-ink-6);
+  color: var(--frost-ink);
+}
+
+/* Answer: prose in the canvas font (the font picker still owns reading
+   text — decision 1.7), plain ink, no fade while it streams. */
+[data-artifact-style="frost"] .chat-casing [data-card-answer] {
+  padding: 18px 28px 26px 30px !important;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] .chat-casing .answer-reveal-in {
+  animation: none;
+}
+[data-artifact-style="frost"] .chat-casing .animate-pulse.bg-canvas-ink\/70 {
+  background-color: var(--frost-ink);
+}
+
+/* Conversation card (a transcript beat): the heading on a lime panel inset
+   14 with the nested radius, the summary on the frost below — Style D's
+   ConversationBody. */
+[data-artifact-style="frost"] .conversation-card-surface [data-card-question] {
+  margin: 14px 14px 0;
+  padding: 20px 24px 22px !important;
+  border-radius: var(--frost-nest-radius);
+  background: var(--frost-lime);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 24px -14px var(--frost-lime-shadow);
+}
+[data-artifact-style="frost"] .conversation-card-surface .qa-question-text {
+  font-size: 21px;
+  color: var(--frost-lime-ink);
+}
+[data-artifact-style="frost"] .conversation-card-surface > .h-px {
+  display: none;
+}
+[data-artifact-style="frost"] .conversation-card-surface > [data-selectable-text] {
+  padding: 16px 38px 20px;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+
+/* 5.6 — LOD stand-in while a card mounts mid-gesture: frost tone, the card
+   radius, a contact shadow only (cheap), title in the primary font. */
+[data-artifact-style="frost"] [data-canvas-card][data-card-lod="placeholder"] {
+  border-width: 0 !important;
+  border-radius: var(--frost-radius) !important;
+  background: linear-gradient(180deg, var(--frost-top) 0%, var(--frost-bottom) 100%) !important;
+  box-shadow: var(--frost-shadow-cheap) !important;
+}
+[data-artifact-style="frost"] [data-canvas-card][data-card-lod="placeholder"] > :first-child {
+  display: none;
+}
+[data-artifact-style="frost"] [data-canvas-card][data-card-lod="placeholder"] > :nth-child(2) {
+  padding: 28px 30px 0;
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  color: var(--frost-ink);
+  letter-spacing: -0.015em;
+}
+
+/* ------------------------------ Composer ------------------------------- */
+
+/* A raised panel sitting on the card. */
+[data-artifact-style="frost"] .chat-composer-casing {
+  border-color: transparent !important;
+  border-radius: var(--frost-nest-radius) !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow) !important;
+  font-family: var(--frost-font-secondary);
+}
+[data-artifact-style="frost"] .chat-composer-casing textarea {
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] .chat-composer-casing textarea::placeholder {
+  color: var(--frost-ink-40);
+}
+[data-artifact-style="frost"] .chat-composer-casing .border-canvas-border {
+  border-color: var(--frost-hair) !important;
+}
+/* Quoted selection above an ask: a raised pill with ink type (lime is
+   never a wash — artifacts-frost.md §3). */
+[data-artifact-style="frost"] .chat-composer-casing span.bg-canvas-accent\/15 {
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink);
+}
+/* + attachment: an ink-tinted disc. */
+[data-artifact-style="frost"] .chat-composer-casing button[aria-label="Add attachment"] {
+  background-color: var(--frost-ink-6);
+  color: var(--frost-ink);
+}
+/* Send: an ink disc with a white glyph. A finished Q&A card carries no
+   lime at all; the thinking dots are its only lime, and only while it
+   thinks (artifacts-frost.md §3). */
+[data-artifact-style="frost"] .chat-composer-casing button[aria-label="Send"] {
+  background: var(--frost-ink-surface);
+  color: var(--frost-on-ink);
+  box-shadow: 0 6px 14px -6px rgba(24, 24, 40, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+[data-artifact-style="frost"] .chat-composer-casing button[aria-label="Send"]:disabled {
+  background: var(--frost-ink-6);
+  color: var(--frost-ink-40);
+  box-shadow: none;
+}
+
+/* Follow-up footer: no band and no rule — the composer floats on the frost,
+   inset 14 so its 30 radius stays concentric with the card's 44. */
+[data-artifact-style="frost"] [data-follow-up-footer] {
+  padding: 4px 14px 14px !important;
+  background-color: transparent !important;
+  border-top-width: 0 !important;
+}
+
+/* 7.2 — The empty card IS its composer: a raised slab with a card's fall,
+   no frost card behind it (Style D's makeComposer). */
+[data-artifact-style="frost"] [data-canvas-card] [data-coach-target="ask-composer"] .chat-composer-casing,
+[data-artifact-style="frost"] [data-canvas-landing] .chat-composer-casing {
+  border-radius: var(--frost-nest-radius) !important;
+  box-shadow: var(--frost-slab-shadow) !important;
+}
+[data-artifact-style="frost"] [data-canvas-card] [data-coach-target="ask-composer"] .chat-composer-casing {
+  transition: transform var(--frost-ease), box-shadow var(--frost-ease);
+}
+[data-artifact-style="frost"] .group\/card:hover [data-coach-target="ask-composer"] .chat-composer-casing {
+  transform: translateY(-3px);
+}
+
+/* ---------------------- 5.3 Streaming / thinking ----------------------- */
+
+/* Three lime dots in a raised pill; the status line in plain ink. */
+[data-artifact-style="frost"] [data-qa-pending-dots] {
+  gap: 7px;
+  padding: 11px 15px;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+}
+[data-artifact-style="frost"] .answer-dot {
+  width: 9px;
+  height: 9px;
+  background-color: var(--frost-lime);
+  animation: frost-answer-dot 1.1s ease-in-out infinite;
+}
+@keyframes frost-answer-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+[data-artifact-style="frost"] [data-qa-pending] p {
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+
+/* ------------------- 5.9 Custom UI build progress ---------------------- */
+
+[data-frost-track] {
+  display: none;
+}
+[data-artifact-style="frost"] [data-build-progress] [data-build-progress-dots] {
+  display: none;
+}
+/* A Track: the lime dot where the build is, a thin ink line, a ringed end. */
+[data-artifact-style="frost"] [data-frost-track] {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 22px;
+}
+[data-artifact-style="frost"] [data-frost-track] > span {
+  position: absolute;
+  top: 50%;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+[data-artifact-style="frost"] [data-frost-track-line] {
+  left: 0;
+  right: 18px;
+  height: 1.5px;
+  background: var(--frost-ink-18);
+}
+[data-artifact-style="frost"] [data-frost-track-dot] {
+  left: calc(var(--track-share, 0) * (100% - 38px) + 10px);
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  background: var(--frost-lime);
+  box-shadow: 0 0 0 4px var(--frost-lime-halo), 0 4px 10px -2px var(--frost-lime-shadow);
+  transition: left var(--frost-ease);
+}
+[data-artifact-style="frost"] [data-frost-track-end] {
+  right: 0;
+  width: 18px;
+  height: 18px;
+  box-shadow: inset 0 0 0 1.5px var(--frost-ink-40);
+  background: radial-gradient(circle, var(--frost-ink-40) 0 4.5px, transparent 5px);
+}
+[data-artifact-style="frost"] [data-build-progress] p,
+[data-artifact-style="frost"] [data-build-progress] > div:last-child {
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+/* The stage list: a raised panel. */
+[data-artifact-style="frost"] [data-build-progress] ol {
+  border-width: 0;
+  border-radius: 22px;
+  padding: 14px 16px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+}
+[data-artifact-style="frost"] [data-build-progress] li {
+  color: var(--frost-ink);
+  font-weight: 500;
+}
+[data-artifact-style="frost"] [data-build-progress] li[data-stage-status="pending"] {
+  opacity: 0.45;
+}
+[data-artifact-style="frost"] [data-build-progress] li > span:not(:first-child) {
+  color: var(--frost-ink);
+}
+/* Done stages are ink checks: the Track's dot is the card's one lime. */
+[data-artifact-style="frost"] [data-build-progress] li[data-stage-status="done"] [data-stage-icon] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--frost-ink-surface);
+  color: var(--frost-on-ink);
+  font-size: 9px;
+}
+[data-artifact-style="frost"] [data-build-progress] li[data-stage-status="error"] [data-stage-icon] {
+  color: var(--frost-rose-mark);
+}
+
+/* ---------------------------- 6.2 Q&A retry ---------------------------- */
+
+/* The card takes a rose bloom along its lower edge (the only non-lime hue in
+   Frost, kept for errors); the message stays ink; Retry is a raised pill. */
+[data-artifact-style="frost"] .chat-casing:has([data-qa-retry])::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 48%;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--frost-rose-bloom);
+}
+html[data-theme="dark"] [data-artifact-style="frost"] .chat-casing:has([data-qa-retry])::before {
+  opacity: 0.6;
+}
+[data-artifact-style="frost"] [data-qa-retry] p {
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-qa-retry-action] {
+  padding: 9px 18px;
+  border-width: 0;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink);
+  font-weight: 500;
+  transition: transform var(--frost-ease), box-shadow var(--frost-ease);
+}
+[data-artifact-style="frost"] [data-qa-retry-action]:hover {
+  background: var(--frost-raised-bg);
+  transform: translateY(-1px);
+}
+
+/* ------------------------ 5.7 Remote-update glow ----------------------- */
+
+/* A lime rim breathing along the card's top edge: a 3px lime band just
+   outside the card, faded out down its sides. */
+[data-artifact-style="frost"] .artifact-remote-update-glow {
+  inset: -3px;
+  border-radius: calc(var(--canvas-artifact-radius, var(--frost-radius)) + 3px);
+  background: var(--frost-lime);
+  box-shadow: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, transparent 30%);
+  mask-image: linear-gradient(to bottom, #000 0, transparent 30%);
+  animation: frost-rim-breathe 2.6s ease-in-out infinite;
+}
+@keyframes frost-rim-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------ 7.1 Landing ---------------------------- */
+
+[data-artifact-style="frost"] [data-canvas-landing] h1 {
+  font-family: var(--frost-font-primary);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-canvas-landing] .chat-composer-casing {
+  box-shadow: var(--frost-slab-shadow) !important;
+}
+/* Tips: small frost cards; the glyph sits in a raised disc-square, its
+   radius the card's less the 12 inset. */
+[data-artifact-style="frost"] [data-landing-tip] {
+  border-width: 0;
+  border-radius: 24px;
+  padding: 14px;
+  background: var(--frost-fill);
+  box-shadow: var(--frost-shadow);
+}
+[data-artifact-style="frost"] [data-landing-tip-icon] {
+  border-radius: 10px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink);
+}
+[data-artifact-style="frost"] [data-landing-tip] p {
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+  color: var(--frost-ink);
+}
+
+/* ------------------- 4.5 / 8.4 / 8.5 Canvas menus ---------------------- */
+
+/* Raised material, radius 22, ink type, rows inset 6 (radius 16), ink 6%
+   hover row, lime check. Matches the menu root in the scope (context menu)
+   and portaled roots tagged data-canvas-portal. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu]) {
+  padding: var(--frost-menu-inset) !important;
+  border: 0 !important;
+  border-radius: var(--frost-menu-radius) !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-menu-shadow) !important;
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* A menu panel nested in the root (⋯ menus): the root draws the material. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  > :not([role^="menuitem"], button, .h-px, .border-b) {
+  padding-block: 0 !important;
+  border: 0 !important;
+  border-radius: var(--frost-menu-row-radius) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  :is([role^="menuitem"], .border-b > button) {
+  border-radius: var(--frost-menu-row-radius);
+  color: var(--frost-ink) !important;
+  font-weight: 500;
+  background-color: transparent;
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  :is([role^="menuitem"], .border-b > button):hover:not(:disabled) {
+  background-color: var(--frost-ink-6) !important;
+}
+/* No grey type: muted labels, icons and current values read in ink. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  :is(.text-canvas-muted, .text-canvas-danger, .text-canvas-accent) {
+  color: var(--frost-ink) !important;
+}
+/* Rules: hairlines. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  .bg-canvas-border {
+  background-color: var(--frost-hair) !important;
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  .border-canvas-border {
+  border-color: var(--frost-hair) !important;
+}
+/* The checked row (active version): ink type plus a lime check disc. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  [aria-checked="true"] {
+  position: relative;
+  padding-right: 36px;
+  background-color: transparent !important;
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  [aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 999px;
+  background: var(--frost-lime)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231C1C1E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.5l2.6 2.5L12 5.5'/%3E%3C/svg%3E")
+    center / 12px no-repeat;
+  box-shadow: 0 3px 8px -3px var(--frost-lime-shadow);
+}
+/* Controls in the ⋯ menu (text size, chart type…): ink-tinted pill fields
+   and raised stepper discs. */
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  select {
+  border-width: 0 !important;
+  border-radius: 999px !important;
+  background-color: var(--frost-ink-6) !important;
+  color: var(--frost-ink);
+  font-weight: 500;
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  [role="group"] button {
+  border-width: 0 !important;
+  border-radius: 999px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink);
+}
+:is([data-artifact-style="frost"] [data-canvas-menu], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-menu])
+  p.uppercase {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* Floating toolbars (multi-select align bar, group actions, answer-selection
+   bar): a raised pill bar; buttons are pills; the one primary is lime. */
+:is([data-artifact-style="frost"] [data-canvas-toolbar], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-toolbar]) {
+  padding: 5px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-menu-shadow) !important;
+  font-family: var(--frost-font-secondary);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:is([data-artifact-style="frost"] [data-canvas-toolbar], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-toolbar])
+  button {
+  border-radius: 999px !important;
+  color: var(--frost-ink) !important;
+  font-weight: 500;
+}
+:is([data-artifact-style="frost"] [data-canvas-toolbar], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-toolbar])
+  button:hover:not(:disabled) {
+  background-color: var(--frost-ink-6) !important;
+}
+:is([data-artifact-style="frost"] [data-canvas-toolbar], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-toolbar])
+  :is(button.bg-canvas-accent, button.bg-canvas-accent:hover:not(:disabled)) {
+  background-color: var(--frost-lime) !important;
+  color: var(--frost-lime-ink) !important;
+  box-shadow: var(--frost-lime-button);
+}
+:is([data-artifact-style="frost"] [data-canvas-toolbar], html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-toolbar])
+  :is(.bg-canvas-border, .bg-canvas-card\/20) {
+  background-color: var(--frost-hair) !important;
+}
+[data-artifact-style="frost"] [data-canvas-toolbar-error] {
+  border: 0;
+  border-radius: 999px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+  color: var(--frost-ink);
+  font-weight: 500;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Hold-Z pie menu: a raised centre disc, raised pills; the armed one lime. */
+html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-pie] {
+  font-family: var(--frost-font-secondary);
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-ring] {
+  border-width: 0;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-menu-shadow);
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-ring] .bg-canvas-ink {
+  background-color: var(--frost-ink);
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-pill] {
+  border-width: 0;
+  border-radius: 999px;
+  padding: 9px 16px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-menu-shadow);
+  color: var(--frost-ink);
+  font-weight: 500;
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-pill] .text-canvas-muted {
+  color: var(--frost-ink);
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-pill][data-active] {
+  background: var(--frost-lime);
+  color: var(--frost-lime-ink);
+  box-shadow: var(--frost-lime-button), 0 14px 28px -12px rgba(24, 24, 40, 0.25);
+}
+html[data-canvas-style="frost"] [data-canvas-pie] [data-pie-pill][data-active] .text-canvas-muted {
+  color: var(--frost-lime-ink);
+}
+
+/* Quick explain: a raised panel; no accent colour, no blur. */
+html[data-canvas-style="frost"] [data-canvas-portal][data-quick-explain-popup],
+[data-artifact-style="frost"] [data-quick-explain-popup] {
+  border: 0 !important;
+  border-radius: var(--frost-menu-radius) !important;
+  background: var(--frost-raised-bg) !important;
+  box-shadow: var(--frost-menu-shadow) !important;
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:is(html[data-canvas-style="frost"] [data-canvas-portal][data-quick-explain-popup], [data-artifact-style="frost"] [data-quick-explain-popup])
+  :is(.text-canvas-accent, .text-canvas-muted, .text-canvas-danger) {
+  color: var(--frost-ink) !important;
+}
+:is(html[data-canvas-style="frost"] [data-canvas-portal][data-quick-explain-popup], [data-artifact-style="frost"] [data-quick-explain-popup])
+  .border-canvas-border {
+  border-color: var(--frost-hair) !important;
+}
+:is(html[data-canvas-style="frost"] [data-canvas-portal][data-quick-explain-popup], [data-artifact-style="frost"] [data-quick-explain-popup])
+  .bg-canvas-accent\/15 {
+  border-radius: 999px;
+  background-color: var(--frost-ink-6) !important;
+}
+:is(html[data-canvas-style="frost"] [data-canvas-portal][data-quick-explain-popup], [data-artifact-style="frost"] [data-quick-explain-popup])
+  button {
+  border-radius: 999px;
+}
+
+/* Hover hint on a canvas control: a raised pill with ink type. */
+html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-hint] {
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-menu-shadow);
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+}
+
+/* ------------------------------ 8.3 Minimap ---------------------------- */
+
+/* Raised frame; inside it the field, the nodes as frost tiles, and the
+   viewport as an ink frame. */
+html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-minimap] {
+  padding: 5px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-menu-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-canvas-style="frost"] [data-canvas-minimap] [data-minimap-field] {
+  border-radius: 17px;
+  background: var(--frost-field);
+}
+html[data-canvas-style="frost"] [data-canvas-minimap] [data-minimap-tile] {
+  border-radius: 2px;
+  background: var(--frost-raised-top) !important;
+  box-shadow: 0 0.5px 1px rgba(24, 24, 40, 0.28);
+}
+html[data-theme="dark"][data-canvas-style="frost"] [data-canvas-minimap] [data-minimap-tile] {
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.6);
+}
+html[data-canvas-style="frost"] [data-canvas-minimap] [data-minimap-viewport] {
+  border: 1.5px solid var(--frost-ink);
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+}
+html[data-canvas-style="frost"] [data-canvas-minimap] [data-minimap-zoom] {
+  left: 8px;
+  bottom: 6px;
+  color: var(--frost-ink);
+  font-family: var(--frost-font-secondary);
+  font-weight: 500;
+}
+
+/* ---------------------- 5.8 Canvas loading overlay --------------------- */
+
+html[data-canvas-style="frost"] [data-canvas-portal][data-canvas-loading] {
+  background: var(--frost-field);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font-family: var(--frost-font-secondary);
+}
+html[data-canvas-style="frost"] [data-canvas-loading] [data-canvas-grid] {
+  background-color: transparent !important;
+}
+html[data-canvas-style="frost"] [data-canvas-loading] [data-outline-card] {
+  border-width: 0;
+  border-radius: var(--frost-radius);
+  background: var(--frost-fill);
+  box-shadow: var(--frost-shadow-cheap);
+}
+html[data-canvas-style="frost"] [data-canvas-loading] [data-outline-accent] {
+  display: none;
+}
+html[data-canvas-style="frost"] [data-canvas-loading] [data-loading-pill] {
+  border-width: 0;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-menu-shadow);
+  color: var(--frost-ink);
+  font-weight: 500;
+}
+html[data-canvas-style="frost"] [data-canvas-loading] :is(.bg-canvas-accent, .bg-canvas-accent\/70) {
+  background-color: var(--frost-lime);
+}
+html[data-canvas-style="frost"] [data-canvas-loading] :is(.text-canvas-muted, .text-canvas-accent\/80) {
+  color: var(--frost-ink);
+}
+
+/* --------------------- 8.8 Settings popover chip ----------------------- */
+
+/* The Frost chip in Canvas settings → Styles: a mini frost card with its
+   fall on the field, plus the one lime dot. The chip wrapper carries
+   data-artifact-style="frost" for the tokens; the popover stays on brand. */
+[data-frost-chip] {
+  background: var(--frost-field);
+}
+[data-frost-chip] [data-frost-chip-card] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 62%;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  background: var(--frost-fill);
+  box-shadow: inset 0 1px 0 var(--frost-rim), var(--frost-mini-fall);
+}
+[data-frost-chip] [data-frost-chip-dot] {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--frost-lime);
+  box-shadow: 0 0 0 2px var(--frost-lime-halo);
+}
+[data-frost-chip] [data-frost-chip-line] {
+  height: 3px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--frost-ink-14);
+}
+
+/* --------------------------- Reduced motion ---------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-artifact-style="frost"] .chat-casing,
+  [data-artifact-style="frost"] .group\/card:hover .chat-casing,
+  [data-artifact-style="frost"] .group\/card:hover [data-coach-target="ask-composer"] .chat-composer-casing,
+  [data-artifact-style="frost"] [data-qa-retry-action]:hover {
+    transform: none;
+    transition: none;
+  }
+  [data-artifact-style="frost"] .answer-dot {
+    animation: none;
+    opacity: 1;
+  }
+  [data-artifact-style="frost"] .artifact-remote-update-glow {
+    animation: none;
+    opacity: 0.8;
+  }
+  [data-artifact-style="frost"] [data-frost-track-dot] {
+    transition: none;
+  }
+}
+
+/* ------------------------- Q&A card refinements ------------------------ */
+
+/* No header band: the card's controls float in its top-right corner, and
+   the question starts at the top (Style D has no header row). */
+[data-artifact-style="frost"] .chat-casing:not(:has(.conversation-card-surface)) [data-card-question] > :first-child {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  left: auto;
+  margin: 0;
+}
+[data-artifact-style="frost"] .chat-casing:not(:has(.conversation-card-surface)) [data-card-question] {
+  padding-right: 96px !important;
+}
+/* The artifact a turn produced: a raised pill on the frost. */
+[data-artifact-style="frost"] .chat-casing [data-artifact-preview-pill] {
+  border-color: transparent;
+  border-radius: 22px;
+  background: var(--frost-raised-bg);
+  box-shadow: var(--frost-raised-shadow);
+}
+[data-artifact-style="frost"] .chat-casing [data-artifact-preview-pill] .text-canvas-muted {
+  color: var(--frost-ink);
+}
+/* Model chip in the composer: an ink-tinted pill, no stroke. */
+[data-artifact-style="frost"] .chat-composer-casing button[aria-label="Model"] {
+  border-color: transparent;
+  background-color: var(--frost-ink-6);
+  color: var(--frost-ink);
+  font-weight: 500;
+}

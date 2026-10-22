@@ -81,6 +81,13 @@ export const SCENES: Record<string, SceneSpec> = {
     // The mood board's Wikimedia thumbnails load at frame 0.
     warmupMs: [0, 6000, 12000, 14500],
   },
+  // 16:9 Style D showcase wall (scenes/showcase): remote media (gallery,
+  // episode thumb, website preview) is pre-seeked into cache.
+  "showcase-d": {
+    id: "showcase-d",
+    durationMs: 30000,
+    warmupMs: [0, 7500, 12000, 18500, 29500],
+  },
   // 3s brand idents (scenes/logo) — no network content, no settle hints.
   "logo-draw": { id: "logo-draw", durationMs: 3000 },
   "logo-type": { id: "logo-type", durationMs: 3000 },

@@ -13,12 +13,13 @@ export function PendingAnswerPlaceholder({
 
   return (
     <div
+      data-qa-pending
       className={`flex flex-col items-center justify-center gap-2 ${className}`}
       aria-live="polite"
       aria-busy="true"
       aria-label={label}
     >
-      <div className="flex items-center gap-1.5">
+      <div data-qa-pending-dots className="flex items-center gap-1.5">
         {[0, 1, 2].map((i) => (
           <span
             key={i}

@@ -931,6 +931,8 @@ function CardInner({ card }: CardProps) {
         </div>
       ) : (
       <div
+        data-selected={isSelected || undefined}
+        data-card-status={card.status}
         className={`chat-casing group/inner relative flex flex-col overflow-hidden rounded-canvas border bg-transparent shadow-artifact transition-shadow hover:shadow-artifactHover ${
           isSelected
             ? "border-canvas-accent outline-canvas-accent ring-2 ring-canvas-accent/25"
@@ -1163,7 +1165,7 @@ function BranchCollapseToggle({
         }}
         // Up and out from the plug, clear of the wire — which leaves the plug
         // level, so a toggle beside it sat right on the line.
-        className="pointer-events-auto absolute z-40 flex h-6 w-6 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-body-sm font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
+        className="canvas-branch-toggle pointer-events-auto absolute z-40 flex h-6 w-6 items-center justify-center rounded-full border border-canvas-border bg-canvas-card text-canvas-body-sm font-medium text-canvas-muted shadow-sm transition-colors hover:bg-canvas-bg hover:text-canvas-ink"
         style={{
           bottom: BRANCH_TOGGLE_RISE_PX,
           ...(isLeft

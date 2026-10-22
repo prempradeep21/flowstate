@@ -163,6 +163,8 @@ function CornerHandle({
       tabIndex={-1}
       data-no-drag
       data-resize-handle
+      data-corner={corner}
+      data-text-label-corner
       aria-label={`Resize text (${corner})`}
       onPointerDown={onPointerDown}
       className={`absolute z-40 rounded-[1px] bg-white ${
@@ -567,6 +569,7 @@ function CanvasTextLabelNodeInner({
       ref={rootRef}
       data-canvas-text-label
       data-canvas-node-id={label.id}
+      {...(isSelected ? { "data-selected": "" } : {})}
       {...(contentInteractive ? { [CANVAS_NODE_INTERACTIVE_ATTR]: "" } : {})}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -669,7 +672,7 @@ function CanvasTextLabelNodeInner({
       {showFrame ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0"
+          className="canvas-text-label-frame pointer-events-none absolute inset-0"
           style={{
             boxShadow: `0 0 0 ${CHROME_PX(1)} rgb(var(--canvas-accent))`,
           }}
@@ -677,7 +680,7 @@ function CanvasTextLabelNodeInner({
       ) : (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-75 group-hover/textlabel:opacity-100"
+          className="canvas-text-label-hover-frame pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-75 group-hover/textlabel:opacity-100"
           style={{
             boxShadow: `0 0 0 ${CHROME_PX(1)} rgb(var(--canvas-accent) / 0.6)`,
           }}

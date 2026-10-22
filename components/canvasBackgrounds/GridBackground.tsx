@@ -13,6 +13,7 @@ export function GridBackground({
     <div
       className={`pointer-events-none absolute inset-0 z-0 size-full ${className}`}
       aria-hidden
+      data-canvas-grid=""
       style={{ backgroundColor: CANVAS_BG, ...dotGridPaint(viewport) }}
     />
   );

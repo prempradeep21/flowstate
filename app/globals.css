@@ -979,7 +979,8 @@ html[data-theme="dark"] .timeline-band,
 
 /* --- Flowstate motion language --- */
 
-[data-canvas-viewport].viewport-focusing {
+[data-canvas-viewport].viewport-focusing,
+[data-canvas-container]:has([data-canvas-viewport].viewport-focusing) [data-canvas-viewport-groups] {
   transition: transform var(--motion-duration-slow) var(--motion-ease-heavy);
 }
 
@@ -1126,7 +1127,8 @@ html[data-theme="dark"] .timeline-band,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-canvas-viewport].viewport-focusing {
+  [data-canvas-viewport].viewport-focusing,
+  [data-canvas-container]:has([data-canvas-viewport].viewport-focusing) [data-canvas-viewport-groups] {
     transition: none;
   }
 
@@ -1233,4 +1235,33 @@ html[data-theme="dark"] .leaflet-tooltip.map-pin-tooltip.leaflet-tooltip-left::b
 }
 html[data-theme="dark"] .leaflet-tooltip.map-pin-tooltip.leaflet-tooltip-right::before {
   border-right-color: rgba(33, 31, 28, 0.97);
+}
+
+/*
+ * Group bento reflow (hooks/useGroupBento): for a moment after a chapter grid
+ * re-packs, its tiles and the group frame glide to their new boxes instead of
+ * jumping. Only while the flag is up — a drag or a corner resize must track
+ * the pointer exactly.
+ */
+html[data-bento-tween] .canvas-artifact-node-shell,
+html[data-bento-tween] [data-group-bounds],
+html[data-bento-tween] .canvas-group-divider {
+  transition:
+    left 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-bento-tween] [data-canvas-card] {
+  transition:
+    left 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-bento-tween] [data-canvas-card],
+  html[data-bento-tween] .canvas-artifact-node-shell,
+  html[data-bento-tween] [data-group-bounds],
+  html[data-bento-tween] .canvas-group-divider {
+    transition: none;
+  }
 }

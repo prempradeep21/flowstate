@@ -50,10 +50,11 @@ function OutlineNodeView({ node }: { node: OutlineNode }) {
   if (node.k === "card") {
     return (
       <div
+        data-outline-card=""
         className="absolute flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card"
         style={frame}
       >
-        <div className="h-2 w-full shrink-0 bg-canvas-accent/60" />
+        <div data-outline-accent className="h-2 w-full shrink-0 bg-canvas-accent/60" />
         <div className="px-6 pt-4">
           <OutlineTitle text={node.t} />
         </div>
@@ -69,6 +70,7 @@ function OutlineNodeView({ node }: { node: OutlineNode }) {
   if (node.k === "artifact") {
     return (
       <div
+        data-outline-card=""
         className="absolute flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card"
         style={frame}
       >
@@ -95,7 +97,8 @@ function OutlineNodeView({ node }: { node: OutlineNode }) {
   // Assets, GIFs, 3D and skills: a titled block is enough to place them.
   return (
     <div
-      className="absolute flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card"
+      data-outline-card=""
+        className="absolute flex flex-col overflow-hidden rounded-canvas border border-canvas-border bg-canvas-card"
       style={frame}
     >
       {node.t && (
@@ -119,6 +122,9 @@ export function CanvasLoadingOutline({
 
   return (
     <div
+      // Follows the canvas style pack while it is mounted (5.8).
+      data-canvas-portal=""
+      data-canvas-loading=""
       className="pointer-events-none absolute inset-0 z-[60] overflow-hidden bg-canvas-bg"
       aria-live="polite"
       aria-busy
@@ -139,7 +145,7 @@ export function CanvasLoadingOutline({
       </div>
 
       <div className="absolute inset-x-0 top-4 flex justify-center">
-        <div className="flex items-center gap-2 rounded-full border border-canvas-border bg-canvas-card/95 px-4 py-1.5 text-canvas-body text-canvas-muted shadow-card">
+        <div data-loading-pill className="flex items-center gap-2 rounded-full border border-canvas-border bg-canvas-card/95 px-4 py-1.5 text-canvas-body text-canvas-muted shadow-card">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-canvas-accent" />
           {canvasTitle ? `Opening ${canvasTitle}…` : "Opening canvas…"}
         </div>

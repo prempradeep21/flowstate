@@ -18,7 +18,16 @@ import { useCanvasStore } from "@/lib/store";
  * the old tiling as a fallback while re-rastering (measured: 0 missing tiles,
  * pans and zoom-in at parity).
  */
-export function CanvasViewport({ children }: PropsWithChildren) {
+export function CanvasViewport({
+  children,
+  layer = "main",
+}: PropsWithChildren<{
+  /**
+   * "groups" is the world layer under the connector lines (group wells,
+   * headings); "main" holds everything else. Both take the same transform.
+   */
+  layer?: "main" | "groups";
+}>) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,7 +36,7 @@ export function CanvasViewport({ children }: PropsWithChildren) {
 
     // Wheel/pinch handlers paint this element synchronously in the input
     // event (zero added latency) via lib/viewportGesture.
-    registerViewportElement(el);
+    const unregister = registerViewportElement(el);
 
     const applyTransform = () => {
       const { x, y, scale } = useCanvasStore.getState().viewport;
@@ -63,7 +72,7 @@ export function CanvasViewport({ children }: PropsWithChildren) {
     });
 
     return () => {
-      registerViewportElement(null);
+      unregister();
       unsubscribe();
       unsubSettled();
     };
@@ -72,7 +81,9 @@ export function CanvasViewport({ children }: PropsWithChildren) {
   return (
     <div
       ref={wrapperRef}
-      data-canvas-viewport
+      {...(layer === "main"
+        ? { "data-canvas-viewport": "" }
+        : { "data-canvas-viewport-groups": "" })}
       className="absolute left-0 top-0 origin-top-left"
     >
       {children}

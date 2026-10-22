@@ -221,6 +221,12 @@ export interface CardBoundsInput {
 /** Minimal artifact node fields for bounds (avoids importing the store). */
 export interface ArtifactBoundsNode {
   size?: { w: number; h: number };
+  /**
+   * The box the Frost style draws this node at (its card hugs its content),
+   * kept apart from `size` so switching styles never rewrites the node's own
+   * geometry. Read only while Frost is the active body family.
+   */
+  frostSize?: { w: number; h: number };
   /** A size the user dragged to — it always wins over content sizing. */
   userSetSize?: boolean;
   /**
@@ -367,10 +373,35 @@ export function getDefaultArtifactSize(
   }
 }
 
+/**
+ * The structural style family the canvas is drawn in ("frost" or none), set
+ * by ArtifactStyleScope. Bounds are read everywhere — culling, connectors,
+ * plugs, selection — so the active family has to be visible to all of them
+ * without threading the style pack through every caller.
+ */
+let activeBoundsFamily: "frost" | null = null;
+
+export function setArtifactBoundsFamily(family: "frost" | null): void {
+  activeBoundsFamily = family;
+}
+
+export function getArtifactBoundsFamily(): "frost" | null {
+  return activeBoundsFamily;
+}
+
+/** The node's own box, whatever style is drawing it (ignores frostSize). */
+export function getBaseArtifactBounds(
+  node: ArtifactBoundsNode,
+  artifact?: SessionArtifact | null,
+): { w: number; h: number } {
+  return getArtifactBounds({ ...node, frostSize: undefined }, artifact);
+}
+
 export function getArtifactBounds(
   node: ArtifactBoundsNode,
   artifact?: SessionArtifact | null,
 ): { w: number; h: number } {
+  if (activeBoundsFamily === "frost" && node.frostSize) return node.frostSize;
   const latest = artifact?.versions.find(
     (v) => v.id === artifact.latestVersionId,
   );
@@ -486,6 +517,20 @@ export function getArtifactClampOpts(
     default:
       return undefined;
   }
+}
+
+/**
+ * The corner-resize clamp for a kind: sticky notes keep their own range,
+ * tables and everything else the generic bounds with per-kind ceilings.
+ */
+export function clampArtifactSizeForKind(
+  kind: ArtifactKind | undefined,
+  w: number,
+  h: number,
+): { w: number; h: number } {
+  if (kind === "stickynote") return clampStickyNoteArtifactSize(w, h);
+  if (kind === "table") return clampTableArtifactSize(w, h);
+  return clampArtifactSize(w, h, getArtifactClampOpts(kind));
 }
 
 /** Largest node box a kind may be stretched to, mirroring the runtime clamps. */

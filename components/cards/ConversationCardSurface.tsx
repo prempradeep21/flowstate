@@ -33,7 +33,7 @@ export function ConversationCardSurface({
     // Height comes from the layout constant so the rendered card and the box the
     // chapter engine reserves for it cannot drift apart.
     <QaTranslucentSurface
-      className="group/body flex min-w-0 flex-col overflow-hidden"
+      className="conversation-card-surface group/body flex min-w-0 flex-col overflow-hidden"
       style={{ height: CONVERSATION_CARD_LAYOUT_H }}
     >
       <QaQuestionSection style={{ padding: "17.5px 22.5px 12.5px" }}>

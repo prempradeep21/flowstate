@@ -4,6 +4,7 @@ import {
   type ArtifactKind,
 } from "@/lib/artifactTypes";
 import { sortArtifactsByPriority } from "@/lib/artifactSpawnPriority";
+import { artifactKindTitle } from "@/lib/artifactWorkingTitle";
 import {
   resolveArtifactPreviewStatus,
   type ArtifactPreviewStatus,
@@ -166,7 +167,7 @@ export function collectCardArtifactPreviewItems(
       push({
         key: `gen:${node.id}`,
         kind: gp.kind,
-        title: gp.title,
+        title: gp.title || artifactKindTitle(gp.kind),
         versionNumber: previewVersionForCard(card, ctx, previewStatus),
         artifactId: "",
         nodeId: node.id,

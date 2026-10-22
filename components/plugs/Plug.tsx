@@ -38,7 +38,7 @@ export function Plug({
         // `block`: inline, the button sat on the wrapper's text baseline a
         // few px below centre — off the edge point the connector ring and
         // line resolve to. 10px / 2px ring = PLUG_DIAMETER_PX / PLUG_RING_PX.
-        className={`pointer-events-auto block h-2.5 w-2.5 rounded-full border-2 bg-canvas-card shadow-sm transition-opacity ${
+        className={`canvas-plug pointer-events-auto block h-2.5 w-2.5 rounded-full border-2 bg-canvas-card shadow-sm transition-opacity ${
           visible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         style={{ borderColor: accentColour }}

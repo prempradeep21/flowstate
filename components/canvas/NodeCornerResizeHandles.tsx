@@ -61,6 +61,7 @@ export function NodeCornerResizeHandles({
           type="button"
           data-no-drag
           data-resize-handle
+          data-corner={corner}
           aria-label={`${ariaLabel} (${corner})`}
           onPointerDown={(e) => onCornerPointerDown(corner, e)}
           className={`absolute h-3 w-3 rounded-canvas-xs border border-canvas-ink/35 bg-canvas-card shadow-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas-ink/30 ${zClass} ${visibilityClass} ${CORNER_POSITION_CLASS[corner]}`}

@@ -105,6 +105,7 @@ describe("resolveArtifactStyle", () => {
       "vanilla",
       "neobrutalism",
       "liquid-glass",
+      "frost",
       "bento",
     ]);
   });

@@ -87,3 +87,10 @@ export const ARTIFACT_CANVAS_CASING_SELECTED = `artifact-casing ${CASING_TRANSIT
 
 export const ARTIFACT_CANVAS_CHROME_POINTER =
   "pointer-events-none group-hover/artifact:pointer-events-auto group-data-[chrome-hover]/artifact:pointer-events-auto group-data-[chrome-reveal]/artifact:pointer-events-auto";
+
+/**
+ * Targets inside an artifact node that keep their own pointer: pressing them
+ * neither selects nor drags the node (text, controls, grips, scrollers, maps).
+ */
+export const ARTIFACT_NODE_POINTER_EXEMPT =
+  'textarea, button, input, select, a, [contenteditable="true"], [data-selectable-text], [data-no-drag], [data-plug], [data-resize-handle], [data-canvas-scroll], [data-table-col-resize], [role="menu"], [role="listbox"], [role="option"], .leaflet-container, .leaflet-control-container, .leaflet-popup, .leaflet-tooltip, .leaflet-marker-icon';
