@@ -179,7 +179,7 @@ function snapshotFromSection(
   });
 }
 
-function defineCanvas(
+export function defineCanvas(
   id: string,
   title: string,
   transcript: string,
