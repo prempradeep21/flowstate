@@ -3,12 +3,15 @@
 ## Plan
 
 1. **Consolidate, on the user's own plan.** The user pastes the prompt below into the long Claude or ChatGPT chat. Their own subscription pays for this step, and that is fully within both vendors' terms, because the model runs inside their own app. Out comes one Markdown file in the *Flowstate Continue v1* format.
-2. **Upload.** The user drops the `.md` file (or any transcript or free-form Markdown) into Flowstate. Today that is the admin playground: `/admin/ideas/conversation-to-flowstate-transfer/playground` → **Import .md**.
-3. **Map.** One LLM call (`POST /api/admin/conversation-import`) turns the file into a `ConversationImportSpec`, a small JSON shape (`lib/conversationImport/spec.ts`). That call is metered on Flowstate credits until a connected ChatGPT plan is possible (see `feasibility-subscription-billing.md`). The spec is validated and clamped in code, so a bad model reply cannot produce a broken canvas.
+2. **Upload.** The user drops the `.md` file (or any transcript or free-form Markdown) into Flowstate. There are three ways in:
+   - **Home → Import a chat** (signed-in users): opens the import as a **new canvas**.
+   - **Canvas → Add → Import a chat** (every user, guests included, within their allowance): adds the import to the **open canvas** in its own section, to the right of everything already there. It gets fresh ids, so it never overlaps or collides with existing work, even when the same file is imported twice. The view then frames the new section, and Undo removes it.
+   - **Admin playground** `/admin/ideas/conversation-to-flowstate-transfer/playground` → **Import .md**, unchanged and still admin-only.
+3. **Map.** One LLM call (`POST /api/conversation-import` for users, `/api/admin/conversation-import` for the playground; both run `lib/conversationImport/runImport.server.ts`) turns the file into a `ConversationImportSpec`, a small JSON shape (`lib/conversationImport/spec.ts`). The call is streamed and capped at 150 s, safely under Vercel's 180 s limit. If a long file runs out of time, the chapters that arrived are still built, and the user is told the end may be missing. That call is metered on Flowstate credits (guests: their allowance) until a connected ChatGPT plan is possible (see `feasibility-subscription-billing.md`). The spec is validated and clamped in code, so a bad model reply cannot produce a broken canvas.
 4. **Build.** `buildConversationImportCanvasSection(spec)` uses the same helpers as the hand-built transcript canvases (`convCard`, `spawnPayload`, `layoutChapters`). The result gets the same chapter layout, justified artifact rows and conversation cards.
 5. **Keep researching.** Every card is a real conversation card with a thread gist, so asking a follow-up on any card works the same as on a canvas the user built.
 
-Later steps, not built yet: move the import out of admin into the main app (an "Import conversation" item on the new-canvas menu); add a deterministic parser for files that carry the `flowstate-continue v1` marker, so a well-formed export costs no credits; add a remote MCP connector so users can send the file from claude.ai directly.
+Later steps, not built yet: add a deterministic parser for files that carry the `flowstate-continue v1` marker, so a well-formed export costs no credits; add a remote MCP connector so users can send the file from claude.ai directly.
 
 ## How the format maps onto the canvas
 

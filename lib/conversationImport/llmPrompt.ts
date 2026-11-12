@@ -29,6 +29,8 @@ Rules:
 - Quotes must be verbatim and at most 35 words.
 - Keep summaries specific (2–5 sentences for chapters, 1–3 for follow-ups).
 - Put every artifact under the chapter it belongs to.
+- Stay compact so a long chat still fits: at most 10 chapters, 6 artifacts per chapter, 12 rows per table. Prefer the most decision-relevant material over completeness.
+- Fill fields in schema order (title, summary, chapters in discussion order, then openThreads, decisions, sources).
 - Call the ${IMPORT_TOOL_NAME} tool exactly once.`;
 
 const sideSchema = {

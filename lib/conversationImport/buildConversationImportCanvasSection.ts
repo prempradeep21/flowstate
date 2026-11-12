@@ -40,9 +40,17 @@ import type {
  * masthead. Nothing here positions anything — layoutChapters does.
  */
 
-const ID = "ci";
-const MAIN_THREAD = `${ID}-thread-main`;
 const GIST_MAX = 320;
+
+export interface ConversationImportBuildOptions {
+  /**
+   * Prefix for every node, thread and group id. Two imports into one canvas
+   * must not collide, so in-canvas imports pass a fresh prefix each time.
+   */
+  idPrefix?: string;
+  /** World point of the import's top-left (masthead / first chapter). */
+  origin?: { x: number; y: number };
+}
 
 function clip(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
@@ -115,7 +123,10 @@ function todoPayload(
 
 export function buildConversationImportCanvasSection(
   spec: ConversationImportSpec,
+  options: ConversationImportBuildOptions = {},
 ): TranscriptImportCanvasSection {
+  const ID = options.idPrefix ?? "ci";
+  const MAIN_THREAD = `${ID}-thread-main`;
   const cards: Record<string, Card> = {};
   const cardOrder: string[] = [];
   const connections: Connection[] = [];
@@ -179,7 +190,7 @@ export function buildConversationImportCanvasSection(
       const nodeId = `${ID}-art-${ci + 1}-${ai + 1}`;
       if (art.kind === "link") {
         spawnWebsite(
-          `${ci + 1}-${ai + 1}`,
+          `${ID}-${ci + 1}-${ai + 1}`,
           art.url,
           art.title,
           headId,
@@ -243,6 +254,7 @@ export function buildConversationImportCanvasSection(
     canvasArtifactOrder,
     sessionArtifacts,
     idPrefix: ID,
+    origin: options.origin,
   });
 
   return {

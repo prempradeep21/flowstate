@@ -133,3 +133,17 @@ describe("buildConversationImportCanvasSection", () => {
     expect(keys.size).toBe(positions.length);
   });
 });
+
+describe("a reply cut off mid-stream", () => {
+  it("still yields the chapters that fully arrived", async () => {
+    const { parsePartialJson } = await import("@/lib/llm/partialJson");
+    const full = JSON.stringify(RAW);
+    // Cut inside the second chapter's table, as a time-budget abort would.
+    const cut = full.slice(0, full.indexOf("Pinecone") + 4);
+    const spec = normalizeConversationImportSpec(parsePartialJson(cut))!;
+    expect(spec.chapters[0]!.title).toBe("Do we need a dedicated vector DB?");
+    expect(spec.chapters[0]!.artifacts.length).toBeGreaterThan(0);
+    expect(spec.chapters).toHaveLength(2);
+    expect(spec.openThreads).toEqual([]);
+  });
+});
