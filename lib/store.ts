@@ -46,7 +46,6 @@ import {
 } from "@/lib/canvasLayout";
 import { DEFAULT_BODY_FONT_ID } from "@/lib/canvasFonts/registry";
 import { computeGroupBounds } from "@/lib/groupBounds";
-import { planGroupGrid, type GroupBox } from "@/lib/arrangeGroupsGrid";
 import type { CustomUiSourceData } from "@/lib/customUiSource";
 import { THREAD_ACCENT_PALETTE } from "@/lib/design/tokens";
 import type { ModelId } from "@/lib/models";
@@ -1009,8 +1008,6 @@ interface CanvasState {
   toggleGroupInSelection: (groupId: string) => void;
   /** Replace the multi-group selection (Cmd+A selects every group). */
   setSelectedGroupIds: (groupIds: string[]) => void;
-  /** Reflow groups into a grid of `rows` rows, in reading order (one undo step). */
-  arrangeGroupsInGrid: (groupIds: string[], rows: number) => void;
 
   setSelectedFamilyRootIds: (rootThreadIds: string[]) => void;
   /** Replace the unified selection (marquee result). */
@@ -3728,23 +3725,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ...unifiedSelectionPatch({ familyRootIds: [], items: [] }),
       };
     }),
-
-  arrangeGroupsInGrid: (groupIds, rows) => {
-    const state = get();
-    if (state.canvasReadOnly) return;
-    const boxes: GroupBox[] = [];
-    for (const id of groupIds) {
-      const group = state.groups[id];
-      const b = group ? computeGroupBounds(state, group) : null;
-      if (b) boxes.push({ id, ...b });
-    }
-    const moves = planGroupGrid(boxes, rows).filter(
-      (m) => Math.abs(m.dx) > 0.5 || Math.abs(m.dy) > 0.5,
-    );
-    if (moves.length === 0) return;
-    state.recordUndo();
-    for (const m of moves) get().moveGroupBy(m.id, m.dx, m.dy);
-  },
 
   setSelectedGroupIds: (groupIds) =>
     set((state) => {

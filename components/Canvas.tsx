@@ -87,6 +87,7 @@ import { ConnectionsCanvas } from "@/components/ConnectionsCanvas";
 import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { useGroupBento } from "@/hooks/useGroupBento";
 import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
+import { computeGroupBounds } from "@/lib/groupBounds";
 
 /** Kill-switch: restore the legacy SVG connections renderer for one release. */
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
@@ -2032,6 +2033,49 @@ export function Canvas({
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
+    // A sweep started on the open canvas picks whole chapters: every group
+    // the rectangle touches. A sweep started inside a chapter still picks
+    // the items in it.
+    const rect = {
+      x1: Math.min(w1.x, w2.x),
+      y1: Math.min(w1.y, w2.y),
+      x2: Math.max(w1.x, w2.x),
+      y2: Math.max(w1.y, w2.y),
+    };
+    const start = computeWorldFromClient(ms.startX, ms.startY);
+    const groupBoxes = Object.values(state.groups).flatMap((g) => {
+      const b = computeGroupBounds(state, g);
+      return b ? [{ id: g.id, ...b }] : [];
+    });
+    const startedInGroup =
+      !!start &&
+      groupBoxes.some(
+        (b) =>
+          start.x >= b.x && start.x <= b.x + b.w &&
+          start.y >= b.y && start.y <= b.y + b.h,
+      );
+    if (!startedInGroup) {
+      const touched = groupBoxes
+        .filter(
+          (b) =>
+            b.x < rect.x2 && b.x + b.w > rect.x1 &&
+            b.y < rect.y2 && b.y + b.h > rect.y1,
+        )
+        .map((b) => b.id);
+      if (touched.length > 0) {
+        const groupKey = "groups::" + touched.join("|");
+        if (groupKey === lastMarqueeSelectionRef.current) return;
+        lastMarqueeSelectionRef.current = groupKey;
+        state.setCanvasSelection({ familyRootIds: [], items: [] });
+        state.setSelectedGroupIds(touched);
+        return;
+      }
+      // The sweep pulled back off every chapter: drop the chapters it picked.
+      if (lastMarqueeSelectionRef.current.startsWith("groups::")) {
+        state.setSelectedGroupIds([]);
+      }
+    }
+
     const next = ms.baseSelection
       ? mergeCanvasSelections(ms.baseSelection, rectSelection)
       : rectSelection;

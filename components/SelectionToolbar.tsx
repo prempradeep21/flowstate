@@ -9,7 +9,6 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   FileText,
-  LayoutGrid,
   Presentation,
   Sparkles,
   Ungroup,
@@ -179,9 +178,6 @@ export function SelectionToolbar() {
   );
   const canvasSelection = useCanvasStore((s) => s.canvasSelection);
   const activeGroupId = useCanvasStore((s) => s.activeGroupId);
-  const selectedGroupIds = useCanvasStore((s) => s.selectedGroupIds);
-  const arrangeGroupsInGrid = useCanvasStore((s) => s.arrangeGroupsInGrid);
-  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const groups = useCanvasStore((s) => s.groups);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const createGroupFromSelection = useCanvasStore(
@@ -205,11 +201,8 @@ export function SelectionToolbar() {
   const canGroup = groupableUnits >= 2;
   const showAlignBar = unitCount >= 2;
   const showGroupPanel = Boolean(activeGroup) && !hasSelection;
-  const multiGroupCount = hasSelection ? 0 : selectedGroupIds.length;
 
-  if ((!showAlignBar && !showGroupPanel && multiGroupCount < 2) || !anchor) {
-    return null;
-  }
+  if ((!showAlignBar && !showGroupPanel) || !anchor) return null;
 
   const handleGroup = () => {
     setError(null);
@@ -226,39 +219,6 @@ export function SelectionToolbar() {
     setSummarizing(false);
     if (!result.ok) setError(result.error);
   };
-
-  if (multiGroupCount >= 2) {
-    return (
-      <>
-        {worldBounds && <SelectionBoundsBox bounds={worldBounds} />}
-        <AnchoredWrapper
-          anchor={anchor}
-          className="pointer-events-auto absolute z-40"
-        >
-          <div
-            data-canvas-toolbar
-            data-multi-group-toolbar
-            className="flex items-center gap-0.5 rounded-canvas-wrap-5 border border-canvas-border/90 bg-canvas-card/95 p-1 backdrop-blur-sm"
-          >
-            <span className="whitespace-nowrap px-2 text-canvas-compact font-medium text-canvas-muted">
-              {multiGroupCount} chapters
-            </span>
-            {!canvasReadOnly && (
-              <>
-                <div className="mx-1 h-5 w-px bg-canvas-border" />
-                <GroupActionButton
-                  icon={LayoutGrid}
-                  label="Arrange in 3 rows"
-                  accent
-                  onClick={() => arrangeGroupsInGrid(selectedGroupIds, 3)}
-                />
-              </>
-            )}
-          </div>
-        </AnchoredWrapper>
-      </>
-    );
-  }
 
   if (showAlignBar) {
     return (
