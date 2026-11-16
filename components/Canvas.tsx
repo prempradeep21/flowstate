@@ -132,7 +132,7 @@ import {
   pickCanvasLandingInput,
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
-import { GroupBounds } from "@/components/GroupBounds";
+import { GroupBounds, GroupSelectionDragArea } from "@/components/GroupBounds";
 import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
@@ -2339,6 +2339,9 @@ export function Canvas({
           landingCardId={showLanding ? landingCardId : null}
           autoEditLabelId={autoEditLabelId}
         />
+        {groupList.map((group) => (
+          <GroupSelectionDragArea key={`drag-${group.id}`} group={group} />
+        ))}
         {!chatsGloballyHidden &&
           groupList.map((group) =>
             group.summaryMarkdown ? (

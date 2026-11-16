@@ -30,6 +30,83 @@ const DIVIDER_STROKE_PX = 1.5;
 /** Concentric with the nodes it frames: their lg corner + the frame padding. */
 const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
 
+// Label drag moves the whole group; refs resolve at drag start so members
+// added after mount are included. The commit always goes through
+// moveGroupBy. When this group is part of a multi-group selection, the drag
+// carries every selected group; otherwise just this one.
+function useGroupDrag(group: BranchGroup, onDrop?: (didMove: boolean) => void) {
+  const moveGroupBy = useCanvasStore((s) => s.moveGroupBy);
+  const draggedGroupIds = (): string[] => {
+    const st = useCanvasStore.getState();
+    return st.selectedGroupIds.includes(group.id)
+      ? st.selectedGroupIds.filter((id) => st.groups[id])
+      : [group.id];
+  };
+  return useCanvasNodeDrag({
+    kind: "group",
+    nodeId: group.id,
+    resolveRefs: () => {
+      const st = useCanvasStore.getState();
+      return draggedGroupIds().flatMap((id) =>
+        groupGestureRefs(st, st.groups[id] ?? group),
+      );
+    },
+    commitMove: (_id, dx, dy) => {
+      for (const id of draggedGroupIds()) moveGroupBy(id, dx, dy);
+    },
+    onDrop,
+  });
+}
+
+/**
+ * While a chapter is selected, its whole frame is a drag handle: this layer
+ * sits above the chapter's cards, so a press anywhere inside moves the
+ * selected chapters together instead of picking up one card or starting a
+ * new selection box. A click without a drag deselects, handing the cards
+ * back.
+ */
+function GroupSelectionDragAreaInner({ group }: GroupBoundsProps) {
+  const bounds = useGroupBounds(group);
+  const selected = useCanvasStore(
+    (s) => s.activeGroupId === group.id || s.selectedGroupIds.includes(group.id),
+  );
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
+  const nodeDrag = useGroupDrag(group, (didMove) => {
+    if (!didMove) useCanvasStore.getState().clearSelection();
+  });
+  if (!bounds || !selected || canvasReadOnly) return null;
+  return (
+    <div
+      className="pointer-events-auto absolute cursor-grab active:cursor-grabbing"
+      data-group-drag-area={group.id}
+      style={{
+        left: bounds.x,
+        top: bounds.y,
+        width: bounds.w,
+        height: bounds.h,
+        borderRadius: CORNER_RADIUS,
+        // Above every card, raised ones included.
+        zIndex: 1_000_000,
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        e.preventDefault();
+        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+          useCanvasStore.getState().toggleGroupInSelection(group.id);
+          return;
+        }
+        nodeDrag.start(e, { moveSelection: false });
+      }}
+      onPointerMove={(e) => nodeDrag.move(e)}
+      onPointerUp={(e) => nodeDrag.end(e)}
+      onPointerCancel={(e) => nodeDrag.end(e)}
+    />
+  );
+}
+
+export const GroupSelectionDragArea = memo(GroupSelectionDragAreaInner);
+
 /**
  * Figma-section-style group container: translucent fill behind the members,
  * name label above the top-left corner, accent border + size badge when
@@ -48,7 +125,6 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
   const setActiveGroupId = useCanvasStore((s) => s.setActiveGroupId);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const renameGroup = useCanvasStore((s) => s.renameGroup);
-  const moveGroupBy = useCanvasStore((s) => s.moveGroupBy);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
 
   const [editing, setEditing] = useState(false);
@@ -59,30 +135,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
     if (editing) inputRef.current?.select();
   }, [editing]);
 
-  // Label drag moves the whole group; refs resolve at drag start so members
-  // added after mount are included. The commit always goes through
-  // moveGroupBy.
-  // When this group is part of a multi-group selection, the drag carries
-  // every selected group; otherwise just this one.
-  const draggedGroupIds = (): string[] => {
-    const st = useCanvasStore.getState();
-    return st.selectedGroupIds.includes(group.id)
-      ? st.selectedGroupIds.filter((id) => st.groups[id])
-      : [group.id];
-  };
-  const nodeDrag = useCanvasNodeDrag({
-    kind: "group",
-    nodeId: group.id,
-    resolveRefs: () => {
-      const st = useCanvasStore.getState();
-      return draggedGroupIds().flatMap((id) =>
-        groupGestureRefs(st, st.groups[id] ?? group),
-      );
-    },
-    commitMove: (_id, dx, dy) => {
-      for (const id of draggedGroupIds()) moveGroupBy(id, dx, dy);
-    },
-  });
+  const nodeDrag = useGroupDrag(group);
 
   if (!bounds) return null;
 
