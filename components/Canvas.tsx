@@ -2033,9 +2033,8 @@ export function Canvas({
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
-    // A box that fully covers one or more chapters picks those chapters
-    // (Figma sections). A chapter the box only clips is left alone, and a box
-    // that covers no whole chapter picks items as before.
+    // A box picks every chapter it touches, partly or fully. A box drawn
+    // wholly inside one chapter picks the items in it instead.
     const rect = {
       x1: Math.min(w1.x, w2.x),
       y1: Math.min(w1.y, w2.y),
@@ -2046,13 +2045,20 @@ export function Canvas({
       const b = computeGroupBounds(state, g);
       return b ? [{ id: g.id, ...b }] : [];
     });
-    const covered = groupBoxes
-      .filter(
-        (b) =>
-          b.x >= rect.x1 && b.x + b.w <= rect.x2 &&
-          b.y >= rect.y1 && b.y + b.h <= rect.y2,
-      )
-      .map((b) => b.id);
+    const insideOne = groupBoxes.some(
+      (b) =>
+        rect.x1 >= b.x && rect.x2 <= b.x + b.w &&
+        rect.y1 >= b.y && rect.y2 <= b.y + b.h,
+    );
+    const covered = insideOne
+      ? []
+      : groupBoxes
+          .filter(
+            (b) =>
+              b.x < rect.x2 && b.x + b.w > rect.x1 &&
+              b.y < rect.y2 && b.y + b.h > rect.y1,
+          )
+          .map((b) => b.id);
     if (covered.length > 0) {
       const groupKey = "groups::" + covered.join("|");
       if (groupKey === lastMarqueeSelectionRef.current) return;
