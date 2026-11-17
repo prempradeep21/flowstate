@@ -177,7 +177,11 @@ export function SelectionToolbar() {
     (s) => s.selectedFamilyRootIds,
   );
   const canvasSelection = useCanvasStore((s) => s.canvasSelection);
-  const activeGroupId = useCanvasStore((s) => s.activeGroupId);
+  // The group panel acts on one chapter; with several picked it would act
+  // on whichever was picked last, so it stays hidden.
+  const activeGroupId = useCanvasStore((s) =>
+    s.selectedGroupIds.length > 1 ? null : s.activeGroupId,
+  );
   const groups = useCanvasStore((s) => s.groups);
   const selectedModel = useCanvasStore((s) => s.selectedModel);
   const createGroupFromSelection = useCanvasStore(
