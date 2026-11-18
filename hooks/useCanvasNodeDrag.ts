@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import {
   beginNodeDrag,
   cancelNodeDrag,
@@ -47,6 +47,10 @@ export function subtreeGestureRefs(rootCardId: string): GestureNodeRef[] {
 }
 
 interface DragState {
+  /** Element holding pointer capture, so release works from any listener. */
+  captureEl: HTMLElement | null;
+  /** Removes the window listeners that keep this drag alive. */
+  detach: () => void;
   pointerId: number;
   startX: number;
   startY: number;
@@ -89,20 +93,114 @@ export interface CanvasNodeDragOptions {
  * The caller's pointerdown decides selection semantics first, then calls
  * `start(e, { moveSelection, targetId })`.
  */
+/** The fields a drag reads, from a React or a native pointer event. */
+type DragPointer = Pick<PointerEvent, "pointerId" | "clientX" | "clientY"> & {
+  buttons?: number;
+  isTrusted?: boolean;
+  nativeEvent?: { isTrusted?: boolean };
+};
+
+/**
+ * A real pointer reporting no buttons down: the release happened somewhere we
+ * never heard about (element unmounted, capture lost). Synthetic events from
+ * scripts and tests often leave `buttons` at 0, so only trust real input.
+ */
+function isReleasedPointer(e: DragPointer): boolean {
+  const trusted = e.nativeEvent?.isTrusted ?? e.isTrusted ?? false;
+  return trusted && e.buttons === 0;
+}
+
 export function useCanvasNodeDrag(options: CanvasNodeDragOptions) {
   const dragStateRef = useRef<DragState | null>(null);
+  // Window listeners outlive the render that attached them; read the latest
+  // options through a ref.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  /**
+   * Close the drag exactly once, whichever path gets here first: the
+   * element's pointerup, the window's, a released-button move, blur, Escape
+   * or unmount. `commit` false reverts instead of committing.
+   */
+  const finish = (ds: DragState, commit: boolean) => {
+    if (dragStateRef.current !== ds) return;
+    dragStateRef.current = null;
+    ds.detach();
+    try {
+      ds.captureEl?.releasePointerCapture(ds.pointerId);
+    } catch {
+      // ignore
+    }
+    if (!ds.didMove) {
+      if (commit) optionsRef.current.onDrop?.(false);
+      return;
+    }
+    if (!commit) {
+      cancelNodeDrag();
+      return;
+    }
+    const st = useCanvasStore.getState();
+    endNodeDrag((dx, dy) => {
+      if (ds.moveSelection) {
+        st.moveSelectedCanvasItems(dx, dy);
+      } else {
+        optionsRef.current.commitMove(ds.targetId, dx, dy);
+      }
+    });
+    optionsRef.current.onDrop?.(true);
+  };
 
   const start = (
     e: ReactPointerEvent<HTMLElement>,
     opts: { moveSelection: boolean; copyOnDrag?: boolean },
   ) => {
+    // A press can only begin while no drag of ours is open; one left over
+    // from a lost release is closed (committed) first.
+    if (dragStateRef.current) finish(dragStateRef.current, true);
+
+    const captureEl = e.currentTarget as HTMLElement;
     try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      captureEl.setPointerCapture(e.pointerId);
     } catch {
       // Synthetic/foreign pointer ids can't be captured — drag still works
       // via bubbling move/up events.
     }
+
+    // Window listeners keep the drag alive and closable even if the element
+    // that started it unmounts mid-press (a chapter's drag area disappears
+    // the moment its selection clears). Element handlers still run first;
+    // a repeat of the same event is a zero-delta no-op.
+    const onWindowMove = (ev: PointerEvent) => move(ev);
+    const onWindowUp = (ev: PointerEvent) => end(ev);
+    const onWindowCancel = (ev: PointerEvent) => {
+      const cur = dragStateRef.current;
+      if (cur && cur.pointerId === ev.pointerId) finish(cur, true);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") cancel();
+    };
+    // Switching windows mid-drag keeps the move made so far; a press that
+    // never moved just closes, rather than counting as a click.
+    const onBlur = () => {
+      const cur = dragStateRef.current;
+      if (cur) finish(cur, cur.didMove);
+    };
+    window.addEventListener("pointermove", onWindowMove);
+    window.addEventListener("pointerup", onWindowUp);
+    window.addEventListener("pointercancel", onWindowCancel);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
+    const detach = () => {
+      window.removeEventListener("pointermove", onWindowMove);
+      window.removeEventListener("pointerup", onWindowUp);
+      window.removeEventListener("pointercancel", onWindowCancel);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onBlur);
+    };
+
     dragStateRef.current = {
+      captureEl,
+      detach,
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
@@ -111,37 +209,46 @@ export function useCanvasNodeDrag(options: CanvasNodeDragOptions) {
       didMove: false,
       recordedUndo: false,
       copyOnDrag: opts.copyOnDrag ?? false,
-      targetId: options.nodeId,
+      targetId: optionsRef.current.nodeId,
       moveSelection: opts.moveSelection,
     };
   };
 
-  const move = (e: ReactPointerEvent<HTMLElement>) => {
+  const move = (e: DragPointer) => {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
+    // The button came up where we couldn't see it: this is the drop, not a
+    // hover that should keep dragging.
+    if (isReleasedPointer(e)) {
+      finish(ds, true);
+      return;
+    }
+    const o = optionsRef.current;
 
     const screenDx = e.clientX - ds.lastX;
     const screenDy = e.clientY - ds.lastY;
+    if (screenDx === 0 && screenDy === 0 && ds.didMove) return;
     if (!ds.didMove) {
-      const threshold = options.thresholdPx ?? 0;
+      const threshold = o.thresholdPx ?? 0;
       const dist = Math.hypot(e.clientX - ds.startX, e.clientY - ds.startY);
       if (dist < threshold) return;
+      if (dist === 0) return;
 
       // Threshold crossed — set up the gesture once.
       if (!ds.recordedUndo) {
-        (options.recordUndo ?? useCanvasStore.getState().recordUndo)();
+        (o.recordUndo ?? useCanvasStore.getState().recordUndo)();
         ds.recordedUndo = true;
       }
-      if (ds.copyOnDrag && options.makeCopy) {
-        const copyId = options.makeCopy(options.nodeId);
+      if (ds.copyOnDrag && o.makeCopy) {
+        const copyId = o.makeCopy(o.nodeId);
         if (copyId) ds.targetId = copyId;
       }
-      options.onDragStart?.(ds.targetId);
+      o.onDragStart?.(ds.targetId);
       beginNodeDrag(
         ds.moveSelection
           ? selectionGestureRefs()
-          : (options.resolveRefs?.(ds.targetId) ?? [
-              { kind: options.kind, id: ds.targetId },
+          : (o.resolveRefs?.(ds.targetId) ?? [
+              { kind: o.kind, id: ds.targetId },
             ]),
       );
       ds.didMove = true;
@@ -153,35 +260,27 @@ export function useCanvasNodeDrag(options: CanvasNodeDragOptions) {
     queueNodeDragDelta(screenDx / vpScale, screenDy / vpScale);
   };
 
-  const end = (e: ReactPointerEvent<HTMLElement>) => {
+  const end = (e: DragPointer) => {
     const ds = dragStateRef.current;
     if (!ds || ds.pointerId !== e.pointerId) return;
-    dragStateRef.current = null;
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-
-    if (ds.didMove) {
-      const st = useCanvasStore.getState();
-      endNodeDrag((dx, dy) => {
-        if (ds.moveSelection) {
-          st.moveSelectedCanvasItems(dx, dy);
-        } else {
-          options.commitMove(ds.targetId, dx, dy);
-        }
-      });
-    }
-    options.onDrop?.(ds.didMove);
+    finish(ds, true);
   };
 
   /** Escape / unmount — revert without committing. */
   const cancel = () => {
-    if (!dragStateRef.current) return;
-    dragStateRef.current = null;
-    cancelNodeDrag();
+    const ds = dragStateRef.current;
+    if (ds) finish(ds, false);
   };
+
+  // Unmounting mid-drag reverts: the component that owned it is gone.
+  useEffect(
+    () => () => {
+      const ds = dragStateRef.current;
+      if (ds) finish(ds, false);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return { start, move, end, cancel, dragStateRef };
 }

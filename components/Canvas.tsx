@@ -145,6 +145,7 @@ import { CanvasPieMenu } from "@/components/CanvasPieMenu";
 import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 import { isConversationCard } from "@/lib/conversationCard";
+import { installCanvasFlightRecorder } from "@/lib/canvasFlightRecorder";
 
 const MARQUEE_MIN_DRAG_PX = 6;
 
@@ -465,6 +466,8 @@ export function Canvas({
   // Chapter groups stay packed as their members change size (lib/groupBento).
   const bodyFamily = useArtifactStyle().pack.bodyFamily ?? null;
   useGroupBento(bodyFamily === "frost" ? "frost" : null);
+  // Canvas trace: off unless ?trace=1 / localStorage flag (lib/canvasFlightRecorder).
+  useEffect(() => installCanvasFlightRecorder(), []);
   const {
     user,
     authLoading,

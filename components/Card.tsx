@@ -10,6 +10,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { useShallow } from "zustand/react/shallow";
+import {
+  cardHasBottomChild,
+  cardIsConnectionTarget,
+  selectCardArtifactNodes,
+} from "@/lib/canvasDerivedIndex";
 import { AnswerSelectionMenu } from "@/components/AnswerSelectionMenu";
 import { CardAnswerBody } from "@/components/cards/CardAnswerBody";
 import { CardQuestionText } from "@/components/cards/CardQuestionText";
@@ -104,6 +110,11 @@ import {
   resolveQaStatusLabel,
   shouldShowQaAnswerText,
 } from "@/lib/qaStreamDisplay";
+import {
+  cancelCardMeasure,
+  queueCardSize,
+  scheduleCardMeasure,
+} from "@/lib/cardMeasureBatch";
 
 interface CardProps {
   card: CardType;
@@ -153,18 +164,18 @@ function CardInner({ card }: CardProps) {
   const updateAnswerExplain = useCanvasStore((s) => s.updateAnswerExplain);
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
-  const plugDrag = useCanvasStore((s) => s.plugDrag);
   const moveSubtree = useCanvasStore((s) => s.moveSubtree);
-  const canvasArtifactNodes = useCanvasStore((s) => s.canvasArtifactNodes);
+  // Only this card's own artifact nodes — the Q&A status helpers never look
+  // at anyone else's. Subscribing to the whole map re-rendered every card on
+  // any artifact move, resize or bento re-pack.
+  const canvasArtifactNodes = useCanvasStore(
+    useShallow((s) => selectCardArtifactNodes(s.canvasArtifactNodes, card.id)),
+  );
   const isSelected = useCanvasStore((s) =>
     isCardInSelectedFamilies(s, card.id, s.selectedFamilyRootIds),
   );
   const hasChildren = useCanvasStore((s) =>
-    s.connections.some(
-      (c) =>
-        c.from === card.id &&
-        (c.fromSide === "bottom" || c.fromSide == null),
-    ),
+    cardHasBottomChild(s.connections, card.id),
   );
   // No zoom LOD: cards render the same content at the same type size at every
   // zoom and just shrink geometrically, like every other artifact — borders
@@ -181,7 +192,7 @@ function CardInner({ card }: CardProps) {
   const isBranchRoot = useCanvasStore(
     (s) =>
       card.parentCardId === null &&
-      s.connections.some((c) => c.to === card.id),
+      cardIsConnectionTarget(s.connections, card.id),
   );
   const isLanding = useCanvasStore((s) => {
     if (
@@ -205,18 +216,23 @@ function CardInner({ card }: CardProps) {
   const isConversation = isConversationCard(card);
   const plugAccent = connectorColour(accent, CANVAS_ACCENT);
   const showBranchPlugs = card.status === "done";
-  const receivePlugsActive =
-    (plugDrag?.kind === "artifact" ||
-      plugDrag?.kind === "asset" ||
-      plugDrag?.kind === "skill") &&
-    plugDrag.receiveTargetCardId === card.id;
-  const receiveHighlightSide =
-    receivePlugsActive &&
-    (plugDrag.kind === "artifact" ||
-      plugDrag.kind === "asset" ||
-      plugDrag.kind === "skill")
-      ? plugDrag.hoveredReceiveSide
+  // Narrow plug-drag reads: the drag object changes every pointer frame, so
+  // subscribing to it re-rendered every mounted card on every move. These
+  // only change for the card under the drag.
+  const receivePlugsActive = useCanvasStore((s) => {
+    const d = s.plugDrag;
+    return (
+      (d?.kind === "artifact" || d?.kind === "asset" || d?.kind === "skill") &&
+      d.receiveTargetCardId === card.id
+    );
+  });
+  const receiveHighlightSide = useCanvasStore((s) => {
+    const d = s.plugDrag;
+    return (d?.kind === "artifact" || d?.kind === "asset" || d?.kind === "skill") &&
+      d.receiveTargetCardId === card.id
+      ? d.hoveredReceiveSide
       : null;
+  });
 
   const originPinned = useCanvasStore((s) =>
     isOriginCardPinned(
@@ -579,15 +595,17 @@ function CardInner({ card }: CardProps) {
 
       if (prev && prev.w === next.w && prev.h === next.h) return;
       lastSizeRef.current = next;
-      setCardSize(card.id, next);
+      // Batched with every other card measuring in the same burst.
+      queueCardSize(card.id, next);
     };
     update();
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(update);
-    });
+    const ro = new ResizeObserver(() => scheduleCardMeasure(update));
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [card.id, setCardSize, layoutKey, cardWidth, tuning.fallbackCardHeight]);
+    return () => {
+      ro.disconnect();
+      cancelCardMeasure(update);
+    };
+  }, [card.id, layoutKey, cardWidth, tuning.fallbackCardHeight]);
 
   // Follow-up composer removal shrinks the card; remeasure and re-snap chain.
   useLayoutEffect(() => {

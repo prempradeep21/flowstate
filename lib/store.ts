@@ -561,6 +561,11 @@ export interface BranchGroup {
    * Absent draws nothing.
    */
   dividerY?: number;
+  /**
+   * Set once the user moves this chapter by hand. Automatic chapter spacing
+   * (lib/groupBento planSpineShifts) then leaves it where they put it.
+   */
+  userPlaced?: boolean;
   summaryMarkdown: string | null;
   summaryGeneratedAt?: number;
   summaryContentFingerprint?: string;
@@ -1047,6 +1052,11 @@ interface CanvasState {
   renameGroup: (groupId: string, label: string) => void;
   /** Move every member of a group (families + nodes) by a world-space delta. */
   moveGroupBy: (groupId: string, dx: number, dy: number) => void;
+  /**
+   * Move several groups by one delta in a single store write, and mark them
+   * user-placed. A multi-chapter drop used to make one write per chapter.
+   */
+  moveGroupsBy: (groupIds: readonly string[], dx: number, dy: number) => void;
 
   recordUndo: () => void;
   undo: () => void;
@@ -1061,6 +1071,8 @@ interface CanvasState {
 
   updateCard: (id: string, patch: Partial<Card>) => void;
   setCardSize: (id: string, size: CardSize) => void;
+  /** Batched setCardSize: one write for many measured sizes, applied in order. */
+  setCardSizes: (entries: ReadonlyArray<readonly [string, CardSize]>) => void;
   setCanvasArtifactSize: (
     nodeId: string,
     size: CardSize,
@@ -1622,6 +1634,38 @@ function applyTuningLayoutRepair(
   return repairVerticalChainsOnly(cards, connections, cardOrder, tuning);
 }
 
+/**
+ * The cards map after a measured size lands (null when nothing changes).
+ * Shared by setCardSize and the batched setCardSizes; `cards` is the map so
+ * far, so a batch applies each entry on top of the previous ones.
+ */
+function cardsAfterMeasuredSize(
+  state: CanvasState,
+  cards: Record<string, Card>,
+  id: string,
+  size: CardSize,
+): Record<string, Card> | null {
+  const existing = cards[id];
+  if (!existing) return null;
+  const normalized = { w: TUNING.cardWidth, h: size.h };
+  const prev = existing.size;
+
+  // Never shrink cards while a response is loading — height is grow-only until done.
+  if (isCardPending(existing.status) && prev?.h != null && normalized.h < prev.h) {
+    return null;
+  }
+  if (prev && prev.w === normalized.w && prev.h === normalized.h) return null;
+
+  const cardsWithSize = { ...cards, [id]: { ...existing, size: normalized } };
+  return relayoutCardsAfterSizeChange(
+    { ...state, cards },
+    cardsWithSize,
+    id,
+    prev,
+    normalized,
+  );
+}
+
 function relayoutCardsAfterSizeChange(
   state: CanvasState,
   cardsWithSize: Record<string, Card>,
@@ -1757,23 +1801,6 @@ interface SelectionMoveSlice {
   canvasTextLabels: Record<string, CanvasTextLabel>;
 }
 
-function moveNodeRecord<T extends { position: { x: number; y: number } }>(
-  records: Record<string, T>,
-  id: string,
-  dx: number,
-  dy: number,
-): Record<string, T> {
-  const node = records[id];
-  if (!node) return records;
-  return {
-    ...records,
-    [id]: {
-      ...node,
-      position: { x: node.position.x + dx, y: node.position.y + dy },
-    },
-  };
-}
-
 /** Group fields touched when node deletion prunes group membership. */
 interface GroupPruneSlice {
   groups: Record<string, BranchGroup>;
@@ -1823,6 +1850,25 @@ function pruneGroupItemsForRemovedNodes(
   };
 }
 
+/**
+ * Move one node, copying `current` only while it is still the store's own
+ * record (`original`); later moves in the same call write into that copy.
+ */
+function moveNodeCopyOnce<T extends { position: { x: number; y: number } }>(
+  current: Record<string, T>,
+  original: Record<string, T>,
+  d: { id: string; dx: number; dy: number },
+): Record<string, T> {
+  const node = current[d.id];
+  if (!node) return current;
+  const next = current === original ? { ...original } : current;
+  next[d.id] = {
+    ...node,
+    position: { x: node.position.x + d.dx, y: node.position.y + d.dy },
+  };
+  return next;
+}
+
 /** Apply per-unit deltas: families move all their cards, nodes move directly. */
 function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
   state: S,
@@ -1857,23 +1903,25 @@ function applySelectionUnitDeltas<S extends SelectionMoveSlice>(
         }
         break;
       }
+      // Copy each record once per call, not once per moved node: a
+      // multi-chapter drop moves dozens of nodes.
       case "artifact":
-        artifacts = moveNodeRecord(artifacts, d.id, d.dx, d.dy);
+        artifacts = moveNodeCopyOnce(artifacts, state.canvasArtifactNodes, d);
         break;
       case "asset":
-        assets = moveNodeRecord(assets, d.id, d.dx, d.dy);
+        assets = moveNodeCopyOnce(assets, state.canvasAssetNodes, d);
         break;
       case "gif":
-        gifs = moveNodeRecord(gifs, d.id, d.dx, d.dy);
+        gifs = moveNodeCopyOnce(gifs, state.canvasGifNodes, d);
         break;
       case "3d":
-        threeD = moveNodeRecord(threeD, d.id, d.dx, d.dy);
+        threeD = moveNodeCopyOnce(threeD, state.canvas3DNodes, d);
         break;
       case "skill":
-        skills = moveNodeRecord(skills, d.id, d.dx, d.dy);
+        skills = moveNodeCopyOnce(skills, state.canvasSkillNodes, d);
         break;
       case "label":
-        labels = moveNodeRecord(labels, d.id, d.dx, d.dy);
+        labels = moveNodeCopyOnce(labels, state.canvasTextLabels, d);
         break;
     }
   }
@@ -3753,32 +3801,33 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       };
     }),
 
-  moveGroupBy: (groupId, dx, dy) =>
+  moveGroupBy: (groupId, dx, dy) => get().moveGroupsBy([groupId], dx, dy),
+
+  moveGroupsBy: (groupIds, dx, dy) =>
     set((state) => {
       if (dx === 0 && dy === 0) return state;
-      const group = state.groups[groupId];
-      if (!group) return state;
-      const deltas: SelectionUnitDelta[] = [
-        ...group.familyRootThreadIds.map((id) => ({
-          kind: "family" as const,
-          id,
-          dx,
-          dy,
-        })),
-        ...(group.items ?? []).map((item) => ({
-          kind: item.kind,
-          id: item.id,
-          dx,
-          dy,
-        })),
-      ];
-      const cardIds = group.cardIds ?? [];
-      if (deltas.length === 0 && cardIds.length === 0) return state;
+      const groups = groupIds
+        .map((id) => state.groups[id])
+        .filter((g): g is BranchGroup => !!g);
+      if (groups.length === 0) return state;
+      const deltas: SelectionUnitDelta[] = [];
+      const cardIds = new Set<string>();
+      for (const group of groups) {
+        for (const id of group.familyRootThreadIds) {
+          deltas.push({ kind: "family", id, dx, dy });
+        }
+        for (const item of group.items ?? []) {
+          deltas.push({ kind: item.kind, id: item.id, dx, dy });
+        }
+        for (const id of group.cardIds ?? []) cardIds.add(id);
+      }
       const patch = applySelectionUnitDeltas(state, deltas);
       // Individually named cards move alongside the unit deltas, so a chapter
       // group still drags as one rigid piece.
-      if (cardIds.length > 0) {
-        const cards = { ...(patch.cards ?? state.cards) };
+      if (cardIds.size > 0) {
+        const cards = patch.cards === state.cards || !patch.cards
+          ? { ...state.cards }
+          : patch.cards;
         for (const id of cardIds) {
           const card = cards[id];
           if (!card) continue;
@@ -3789,7 +3838,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
         patch.cards = cards;
       }
-      return { ...patch, collaborationHasEdits: true };
+      // The divider line moves with its chapter, and the chapter is now the
+      // user's to place: the automatic spine no longer slides it back.
+      const nextGroups = { ...state.groups };
+      for (const group of groups) {
+        nextGroups[group.id] = {
+          ...group,
+          userPlaced: true,
+          ...(group.dividerY !== undefined
+            ? { dividerY: group.dividerY + dy }
+            : {}),
+        };
+      }
+      return { ...patch, groups: nextGroups, collaborationHasEdits: true };
     }),
 
   recordUndo: () =>
@@ -3979,39 +4040,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
    */
   setCardSize: (id, size) =>
     set((state) => {
-      const existing = state.cards[id];
-      if (!existing) return state;
-      const tuning = TUNING;
-      const normalized = { w: tuning.cardWidth, h: size.h };
-      const prev = existing.size;
+      const cards = cardsAfterMeasuredSize(state, state.cards, id, size);
+      return cards ? { cards } : state;
+    }),
 
-      // Never shrink cards while a response is loading — height is grow-only until done.
-      if (
-        isCardPending(existing.status) &&
-        prev?.h != null &&
-        normalized.h < prev.h
-      ) {
-        return state;
+  setCardSizes: (entries) =>
+    set((state) => {
+      // Same result as one setCardSize per entry, in order, but one write:
+      // every subscriber's selector runs once instead of once per card.
+      let cards = state.cards;
+      for (const [id, size] of entries) {
+        cards = cardsAfterMeasuredSize(state, cards, id, size) ?? cards;
       }
-
-      if (prev && prev.w === normalized.w && prev.h === normalized.h) {
-        return state;
-      }
-
-      const cardsWithSize = {
-        ...state.cards,
-        [id]: { ...existing, size: normalized },
-      };
-
-      return {
-        cards: relayoutCardsAfterSizeChange(
-          state,
-          cardsWithSize,
-          id,
-          prev,
-          normalized,
-        ),
-      };
+      return cards === state.cards ? state : { cards };
     }),
 
   setCanvasArtifactSize: (nodeId, size, options) =>
@@ -6437,7 +6478,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       const viewport = applyViewport
         ? { ...snapshotNorm.viewport }
         : { ...state.viewport };
-      flushViewportSettledScale(viewport.scale);
+      // Only when the viewport itself is replaced. A remote snapshot keeps
+      // ours, and forcing the settle cancelled a zoom's pending settle
+      // mid-gesture: zoom felt jumpy whenever a collaborator saved.
+      if (applyViewport) flushViewportSettledScale(viewport.scale);
       const sessionArtifacts = JSON.parse(
         JSON.stringify(snapshotNorm.sessionArtifacts),
       ) as Record<string, SessionArtifact>;

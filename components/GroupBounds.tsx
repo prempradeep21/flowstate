@@ -31,11 +31,15 @@ const DIVIDER_STROKE_PX = 1.5;
 const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
 
 // Label drag moves the whole group; refs resolve at drag start so members
-// added after mount are included. The commit always goes through
-// moveGroupBy. When this group is part of a multi-group selection, the drag
-// carries every selected group; otherwise just this one.
+// added after mount are included. When this group is part of a multi-group
+// selection, the drag carries every selected group; otherwise just this one.
+// The chapters are fixed when the drag starts and the drop commits exactly
+// those: re-reading the selection on drop meant a selection change mid-drag
+// (a click elsewhere, the drag area unmounting) moved fewer chapters than
+// the pointer had carried, and the rest snapped back.
 function useGroupDrag(group: BranchGroup, onDrop?: (didMove: boolean) => void) {
-  const moveGroupBy = useCanvasStore((s) => s.moveGroupBy);
+  const moveGroupsBy = useCanvasStore((s) => s.moveGroupsBy);
+  const carriedIdsRef = useRef<string[] | null>(null);
   const draggedGroupIds = (): string[] => {
     const st = useCanvasStore.getState();
     return st.selectedGroupIds.includes(group.id)
@@ -47,14 +51,21 @@ function useGroupDrag(group: BranchGroup, onDrop?: (didMove: boolean) => void) {
     nodeId: group.id,
     resolveRefs: () => {
       const st = useCanvasStore.getState();
-      return draggedGroupIds().flatMap((id) =>
-        groupGestureRefs(st, st.groups[id] ?? group),
-      );
+      const ids = draggedGroupIds();
+      carriedIdsRef.current = ids;
+      return ids.flatMap((id) => groupGestureRefs(st, st.groups[id] ?? group));
     },
+    // One store write for the whole selection: per-chapter writes each
+    // re-ran bento, culling, persistence and every subscriber.
     commitMove: (_id, dx, dy) => {
-      for (const id of draggedGroupIds()) moveGroupBy(id, dx, dy);
+      const ids = carriedIdsRef.current ?? draggedGroupIds();
+      carriedIdsRef.current = null;
+      moveGroupsBy(ids, dx, dy);
     },
-    onDrop,
+    onDrop: (didMove) => {
+      carriedIdsRef.current = null;
+      onDrop?.(didMove);
+    },
   });
 }
 

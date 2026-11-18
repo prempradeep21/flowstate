@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { CANVAS_HOTKEYS_OFF_ATTR } from "@/lib/canvasHotkeys";
 import { useCanvasStore } from "@/lib/store";
+import { withWriteSource } from "@/lib/canvasWriteSource";
 
 function isEditableWithContent(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -29,7 +30,7 @@ export function useUndoKeyboard() {
       if (useCanvasStore.getState().undoPast.length === 0) return;
 
       e.preventDefault();
-      undo();
+      withWriteSource("undo", () => undo());
     };
 
     window.addEventListener("keydown", onKeyDown, true);

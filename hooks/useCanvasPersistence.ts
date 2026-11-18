@@ -77,6 +77,10 @@ import {
 } from "@/lib/publishedCanvasSession";
 import { useCanvasStore } from "@/lib/store";
 import type { PersistenceStatus, SaveStatus } from "@/lib/authTypes";
+import { getCanvasSyncBase, setCanvasSyncBase } from "@/lib/canvasSyncBase";
+import { isDerivedLayoutWrite } from "@/lib/derivedLayoutWrite";
+import { traceSync } from "@/lib/canvasFlightRecorder";
+import { withWriteSource } from "@/lib/canvasWriteSource";
 
 const SAVE_DEBOUNCE_MS = 800;
 /** Persist viewport after pan/zoom settles so switch-time flush is lighter. */
@@ -152,6 +156,13 @@ export function useCanvasPersistence({
     null,
   );
   const saveInFlightRef = useRef<Promise<void> | null>(null);
+  /**
+   * Bumps on every change that needs saving. A save clears the dirty flags
+   * only if no change arrived while it was in flight; it used to clear them
+   * unconditionally, so a drop made mid-save was never saved and the next
+   * remote snapshot reverted it.
+   */
+  const editGenerationRef = useRef(0);
   /** Pause viewport-only auto-save after DB statement timeout (large payload). */
   const viewportSaveBlockedUntilRef = useRef(0);
   const localReadOnlyRef = useRef(false);
@@ -266,6 +277,7 @@ export function useCanvasPersistence({
       if (isEphemeralFixtureSessionActive()) return;
 
       const payloadBytes = JSON.stringify(snapshotSource).length;
+      const generationAtStart = editGenerationRef.current;
 
       setSaveStatus("saving");
       try {
@@ -289,7 +301,17 @@ export function useCanvasPersistence({
           if (!remote) throw err;
 
           const localSnapshot = buildCanvasSnapshot(snapshotSource);
-          const merged = mergeCanvasSnapshots(remote.state, localSnapshot);
+          traceSync("save-conflict", {
+            hadBase: !!getCanvasSyncBase(targetCanvasId),
+            remoteUpdatedAt: remote.updatedAt,
+          });
+          // Three-way against the last state we and the server agreed on:
+          // only items this client changed since then override the server.
+          const merged = mergeCanvasSnapshots(
+            remote.state,
+            localSnapshot,
+            getCanvasSyncBase(targetCanvasId),
+          );
           sourceToSave = {
             ...snapshotSource,
             ...merged,
@@ -324,7 +346,19 @@ export function useCanvasPersistence({
           canvasUpdatedAtRef.current = remote.updatedAt;
 
           if (canvasIdRef.current === targetCanvasId) {
-            hydrateFromSnapshot(merged, { applyViewport: false });
+            // Keep selection, active chapter and undo: clearing them mid-drag
+            // unmounted the chapter drag area and stranded the gesture. Mark
+            // it remote so the hydrate itself isn't taken for an edit.
+            if (isRemoteUpdateRef) isRemoteUpdateRef.current = true;
+            withWriteSource("conflict-merge", () =>
+              hydrateFromSnapshot(merged, {
+                applyViewport: false,
+                preserveEphemeral: true,
+              }),
+            );
+            requestAnimationFrame(() => {
+              if (isRemoteUpdateRef) isRemoteUpdateRef.current = false;
+            });
           }
 
           result = await withSaveRetry(() =>
@@ -336,10 +370,19 @@ export function useCanvasPersistence({
         }
 
         canvasUpdatedAtRef.current = result.updatedAt;
+        // What we just wrote is now the state the server holds.
+        setCanvasSyncBase(targetCanvasId, sourceToSave);
 
         if (canvasIdRef.current === targetCanvasId) {
-          isDirtyRef.current = false;
-          contentEditDirtyRef.current = false;
+          if (editGenerationRef.current === generationAtStart) {
+            isDirtyRef.current = false;
+            contentEditDirtyRef.current = false;
+          }
+          traceSync("saved", {
+            updatedAt: result.updatedAt,
+            editedDuringSave: editGenerationRef.current !== generationAtStart,
+            bytes: payloadBytes,
+          });
           setSaveStatus("saved");
           clearCanvasLocalBackup(targetCanvasId);
           window.dispatchEvent(
@@ -594,15 +637,20 @@ export function useCanvasPersistence({
         clearCanvasLocalBackup(row.id);
       }
 
-      hydrateFromSnapshot(state, {
-        applyViewport: true,
-      });
+      withWriteSource("load", () =>
+        hydrateFromSnapshot(state, {
+          applyViewport: true,
+        }),
+      );
       if (hasMeaningfulSavedViewport(state.viewport)) {
         markViewportRestoredFromSnapshot();
       }
       canvasIdRef.current = row.id;
       setActiveCanvasId(row.id);
       canvasUpdatedAtRef.current = updatedAt;
+      // The row as loaded is what the server holds (a newer local backup is
+      // not, so it gets no base until its first save).
+      if (state === row.state) setCanvasSyncBase(row.id, row.state);
       if (!isStaleLoad(generation)) {
         initialHydrationCompleteRef.current = true;
       }
@@ -1285,12 +1333,21 @@ export function useCanvasPersistence({
       if (
         isHydratingRef.current ||
         isSwitchingRef.current ||
-        isRemoteUpdateRef?.current ||
-        !canvasIdRef.current ||
-        !initialHydrationCompleteRef.current
+        isRemoteUpdateRef?.current
       ) {
+        // A loaded snapshot is the new baseline, not an edit. Leaving the
+        // old baseline made the next write of any kind look like every
+        // entity changed and re-saved the whole canvas back to the sender.
+        prevSlice = pickCanvasPersistSlice(useCanvasStore.getState());
         return;
       }
+      if (!canvasIdRef.current || !initialHydrationCompleteRef.current) {
+        return;
+      }
+      // Bento / spine re-derive layout; they ride along with the next real
+      // save instead of starting one (lib/derivedLayoutWrite). The baseline
+      // stays put so that save still includes them.
+      if (isDerivedLayoutWrite()) return;
 
       const nextState = useCanvasStore.getState();
       const nextSlice = pickCanvasPersistSlice(nextState);
@@ -1323,6 +1380,7 @@ export function useCanvasPersistence({
 
       if (!persist) return;
 
+      editGenerationRef.current += 1;
       isDirtyRef.current = true;
       if (contentEdit) {
         contentEditDirtyRef.current = true;

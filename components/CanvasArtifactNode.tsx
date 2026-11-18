@@ -75,6 +75,7 @@ import {
 import {
   findRemoteArtifactUpdatingCardId,
 } from "@/lib/artifactRemoteUpdate";
+import { cardAskInFlightVersion } from "@/lib/cardAskRegistry";
 import { clearSpawnMetaIfDragging } from "@/lib/canvasDrag";
 import { useCanvasNodeDrag } from "@/hooks/useCanvasNodeDrag";
 import { useCanvasSelectionUnitCount } from "@/hooks/useCanvasSelectionUnitCount";
@@ -97,8 +98,9 @@ interface CanvasArtifactNodeProps {
 
 function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
   const raisedZIndex = useRaisedZIndex(node.id);
-  const sessionArtifacts = useCanvasStore((s) => s.sessionArtifacts);
-  const threads = useCanvasStore((s) => s.threads);
+  // Per-id reads only. Subscribing to the whole sessionArtifacts / threads
+  // maps re-rendered every mounted artifact (kept-alive ones included) on any
+  // change to any artifact or thread, e.g. while another answer streams.
   // Crossing-only subscription: re-renders when the god-view boolean flips,
   // not on every settled-scale change (the post-zoom "settle storm").
   const godView = useCanvasStore((s) => isGodViewMode(s.viewportSettledScale));
@@ -178,21 +180,51 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
 
   const preview = node.permissionPreview;
   const generatingPreview = node.generatingPreview;
+  // This scan walks every card, and zustand reruns it on every store write —
+  // one per pan/zoom frame. Reuse the last answer while none of its inputs
+  // changed, so a pan costs a handful of reference checks per artifact.
+  const remoteUpdateMemoRef = useRef<{
+    inputs: readonly unknown[];
+    result: string | null;
+  } | null>(null);
   const remoteUpdatingCardId = useCanvasStore((s) => {
     if (!node.artifactId || preview || generatingPreview) return null;
-    return findRemoteArtifactUpdatingCardId(node.artifactId, node.sourceCardId, {
-      cards: s.cards,
-      cardOrder: s.cardOrder,
-      sessionArtifacts: s.sessionArtifacts,
-      connections: s.connections,
-      canvasArtifactNodes: s.canvasArtifactNodes,
-      artifactPlugConnections: s.artifactPlugConnections,
-      plugComposerAttachments: s.plugComposerAttachments,
-    });
+    const inputs = [
+      node.artifactId,
+      node.sourceCardId,
+      s.cards,
+      s.cardOrder,
+      s.sessionArtifacts,
+      s.connections,
+      s.canvasArtifactNodes,
+      s.artifactPlugConnections,
+      s.plugComposerAttachments,
+      // The scan also reads the in-memory ask registry, not just the store.
+      cardAskInFlightVersion(),
+    ] as const;
+    const memo = remoteUpdateMemoRef.current;
+    if (memo && memo.inputs.every((v, i) => v === inputs[i])) {
+      return memo.result;
+    }
+    const result = findRemoteArtifactUpdatingCardId(
+      node.artifactId,
+      node.sourceCardId,
+      {
+        cards: s.cards,
+        cardOrder: s.cardOrder,
+        sessionArtifacts: s.sessionArtifacts,
+        connections: s.connections,
+        canvasArtifactNodes: s.canvasArtifactNodes,
+        artifactPlugConnections: s.artifactPlugConnections,
+        plugComposerAttachments: s.plugComposerAttachments,
+      },
+    );
+    remoteUpdateMemoRef.current = { inputs, result };
+    return result;
   });
-  const art = node.artifactId
-    ? sessionArtifacts[node.artifactId]
-    : undefined;
+  const art = useCanvasStore((s) =>
+    node.artifactId ? s.sessionArtifacts[node.artifactId] : undefined,
+  );
   const { w: width, h: artifactHeight } = getArtifactBounds(node, art);
   // Masthead artifacts are drawn blown up under Frost too (FROST_MASTHEAD_ZOOM):
   // the card lays out at width ÷ zoom and reports its size in those units.
@@ -369,16 +401,18 @@ function CanvasArtifactNodeInner({ node }: CanvasArtifactNodeProps) {
       ? s.cards[remoteUpdatingCardId]?.threadId
       : undefined,
   );
-  const plugAccent = connectorColour(
+  const sourceAccentColour = useCanvasStore((s) =>
     sourceThreadId !== undefined
-      ? threads[sourceThreadId]?.accentColour
+      ? s.threads[sourceThreadId]?.accentColour
       : undefined,
-    CANVAS_ACCENT,
   );
-  const remoteUpdateAccent =
-    (remoteUpdatingThreadId !== undefined
-      ? threads[remoteUpdatingThreadId]?.accentColour
-      : undefined) ?? plugAccent;
+  const remoteAccentColour = useCanvasStore((s) =>
+    remoteUpdatingThreadId !== undefined
+      ? s.threads[remoteUpdatingThreadId]?.accentColour
+      : undefined,
+  );
+  const plugAccent = connectorColour(sourceAccentColour, CANVAS_ACCENT);
+  const remoteUpdateAccent = remoteAccentColour ?? plugAccent;
   // Breathing update glow follows the artifact's category colour, not the
   // source thread accent, so it reads as "this artifact is rebuilding".
   const remoteUpdateGlowColour = art

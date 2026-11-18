@@ -144,6 +144,27 @@ function computeAlwaysVisible(
     else labels.add(item.id);
   }
 
+  // Members of selected chapters render too, so the whole chapter follows a
+  // drag. Off-screen members used to stay unmounted: frames moved, their
+  // contents stayed behind and popped in on drop.
+  const groupIds = new Set(state.selectedGroupIds);
+  if (state.activeGroupId) groupIds.add(state.activeGroupId);
+  for (const groupId of groupIds) {
+    const group = state.groups[groupId];
+    if (!group) continue;
+    for (const id of group.cardIds ?? []) cards.add(id);
+    for (const rootId of group.familyRootThreadIds) {
+      for (const id of getFamilyCardIds(state, rootId)) cards.add(id);
+    }
+    for (const item of group.items ?? []) {
+      if (item.kind === "artifact") artifacts.add(item.id);
+      else if (item.kind === "asset") assets.add(item.id);
+      else if (item.kind === "gif") gifs.add(item.id);
+      else if (item.kind === "3d") threeD.add(item.id);
+      else if (item.kind === "label") labels.add(item.id);
+    }
+  }
+
   for (const id of Object.keys(state.composerDraftsByCardId)) {
     const draft = state.composerDraftsByCardId[id]?.trim();
     if (draft) cards.add(id);
@@ -184,7 +205,9 @@ function overlayChanged(state: StoreState, prev: StoreState): boolean {
     state.selectedCanvas3DId !== prev.selectedCanvas3DId ||
     state.selectedCanvasSkillId !== prev.selectedCanvasSkillId ||
     state.selectedCanvasTextLabelId !== prev.selectedCanvasTextLabelId ||
-    state.composerDraftsByCardId !== prev.composerDraftsByCardId
+    state.composerDraftsByCardId !== prev.composerDraftsByCardId ||
+    state.selectedGroupIds !== prev.selectedGroupIds ||
+    state.activeGroupId !== prev.activeGroupId
   );
 }
 
