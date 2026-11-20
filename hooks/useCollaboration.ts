@@ -46,7 +46,8 @@ import {
 } from "@/lib/remotePresenceStore";
 import { buildCanvasSnapshot, parseCanvasSnapshot } from "@/lib/canvasSnapshot";
 import {
-  areCanvasPersistSlicesEqual,
+  areCanvasContentSlicesEqual,
+
   pickCanvasPersistSlice,
   pickCanvasPersistSliceFromSnapshot,
 } from "@/lib/canvasPersistDirty";
@@ -58,8 +59,11 @@ import {
   wasBatchSentLocally,
 } from "@/lib/collabOpsChannel";
 import { hasActiveLocalEdits } from "@/lib/localEditGuard";
+import { isOlderTimestamp, setCanvasSyncBase } from "@/lib/canvasSyncBase";
 import { createClient } from "@/lib/supabase/client";
 import { useCanvasStore } from "@/lib/store";
+import { traceSync } from "@/lib/canvasFlightRecorder";
+import { withWriteSource } from "@/lib/canvasWriteSource";
 
 interface UseCollaborationOptions {
   user: User | null;
@@ -119,23 +123,37 @@ export function useCollaboration({
     const updatedAt = pendingRemoteUpdatedAtRef.current;
     pendingRemoteUpdatedAtRef.current = null;
 
+    // A snapshot queued during a drag can be older than our own save that
+    // followed it. Applying it reverted the drop (and moved updatedAt
+    // backwards, so the next save conflicted).
+    if (isOlderTimestamp(updatedAt, canvasUpdatedAtRef?.current)) {
+      traceSync("remote-dropped-stale-queued", { updatedAt });
+      return;
+    }
+
     const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
     const incomingSlice = pickCanvasPersistSliceFromSnapshot(pending);
-    if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
+    if (areCanvasContentSlicesEqual(currentSlice, incomingSlice)) {
       if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      if (activeCanvasId) setCanvasSyncBase(activeCanvasId, pending);
       return;
     }
 
     isRemoteUpdateRef.current = true;
-    hydrateFromSnapshot(pending, {
-      applyViewport: false,
-      preserveEphemeral: true,
-    });
+    traceSync("remote-applied-queued", { updatedAt });
+    withWriteSource("remote-snapshot", () =>
+      hydrateFromSnapshot(pending, {
+        applyViewport: false,
+        preserveEphemeral: true,
+      }),
+    );
+    if (activeCanvasId) setCanvasSyncBase(activeCanvasId, pending);
     if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
     requestAnimationFrame(() => {
       isRemoteUpdateRef.current = false;
     });
   }, [
+    activeCanvasId,
     canvasUpdatedAtRef,
     hydrateFromSnapshot,
     isDirtyRef,
@@ -155,39 +173,63 @@ export function useCollaboration({
       ) {
         return;
       }
-
-      const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
-      const incomingSlice = pickCanvasPersistSliceFromSnapshot(parsed);
-      if (areCanvasPersistSlicesEqual(currentSlice, incomingSlice)) {
-        if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+      // Out-of-order delivery, or the echo of a save older than the one we
+      // already hold: never step back to it.
+      if (isOlderTimestamp(updatedAt, canvasUpdatedAtRef?.current)) {
+        traceSync("remote-dropped-stale", { updatedAt });
         return;
       }
 
-      if (isDirtyRef?.current || hasActiveLocalEdits()) {
+      const currentSlice = pickCanvasPersistSlice(useCanvasStore.getState());
+      const incomingSlice = pickCanvasPersistSliceFromSnapshot(parsed);
+      if (areCanvasContentSlicesEqual(currentSlice, incomingSlice)) {
+        traceSync("remote-equal", { updatedAt });
+        if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
+        if (activeCanvasId) setCanvasSyncBase(activeCanvasId, parsed);
+        return;
+      }
+
+      const queue = () => {
+        // Keep only the newest snapshot waiting.
+        if (
+          pendingRemoteSnapshotRef.current &&
+          isOlderTimestamp(updatedAt, pendingRemoteUpdatedAtRef.current)
+        ) {
+          return;
+        }
         pendingRemoteSnapshotRef.current = parsed;
         pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        traceSync("remote-queued", { updatedAt });
+      };
+
+      if (isDirtyRef?.current || hasActiveLocalEdits()) {
+        queue();
         return;
       }
 
       if (useCanvasStore.getState().activeCanvasStrokeId) {
-        pendingRemoteSnapshotRef.current = parsed;
-        pendingRemoteUpdatedAtRef.current = updatedAt ?? null;
+        queue();
         return;
       }
 
       pendingRemoteSnapshotRef.current = null;
       pendingRemoteUpdatedAtRef.current = null;
       isRemoteUpdateRef.current = true;
-      hydrateFromSnapshot(parsed, {
-        applyViewport: false,
-        preserveEphemeral: true,
-      });
+      traceSync("remote-applied", { updatedAt });
+      withWriteSource("remote-snapshot", () =>
+        hydrateFromSnapshot(parsed, {
+          applyViewport: false,
+          preserveEphemeral: true,
+        }),
+      );
+      if (activeCanvasId) setCanvasSyncBase(activeCanvasId, parsed);
       if (updatedAt && canvasUpdatedAtRef) canvasUpdatedAtRef.current = updatedAt;
       requestAnimationFrame(() => {
         isRemoteUpdateRef.current = false;
       });
     },
     [
+      activeCanvasId,
       canvasUpdatedAtRef,
       hydrateFromSnapshot,
       isDirtyRef,
@@ -462,10 +504,13 @@ export function useCollaboration({
               viewport: state.viewport,
             } as typeof baseSource;
             isRemoteUpdateRef.current = true;
-            hydrateFromSnapshot(buildCanvasSnapshot(source), {
-              applyViewport: false,
-              preserveEphemeral: true,
-            });
+            traceSync("remote-ops-applied", { ops: batch.ops.length });
+            withWriteSource("remote-snapshot", () =>
+              hydrateFromSnapshot(buildCanvasSnapshot(source), {
+                applyViewport: false,
+                preserveEphemeral: true,
+              }),
+            );
             requestAnimationFrame(() => {
               isRemoteUpdateRef.current = false;
             });

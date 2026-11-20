@@ -62,35 +62,68 @@ function rectDistance(world: { x: number; y: number }, rect: WorldRect): number 
   return Math.hypot(world.x - cx, world.y - cy);
 }
 
+export interface MeasuredComposer {
+  cardId: string;
+  rect: WorldRect;
+}
+
+/**
+ * Measure every mounted composer once, in world coordinates. World rects do
+ * not change when the viewport pans or zooms, so a plug drag can measure at
+ * drag start and reuse the result instead of forcing layout on every move.
+ */
+export function measureComposerTargets(
+  container: HTMLElement,
+  viewport: Viewport,
+): MeasuredComposer[] {
+  const containerRect = container.getBoundingClientRect();
+  const composers = container.querySelectorAll<HTMLElement>(
+    "[data-composer][data-card-id]",
+  );
+  const out: MeasuredComposer[] = [];
+  for (const el of composers) {
+    const cardId = el.dataset.cardId;
+    if (!cardId) continue;
+    out.push({
+      cardId,
+      rect: worldRectFromClientRect(
+        el.getBoundingClientRect(),
+        containerRect,
+        viewport,
+      ),
+    });
+  }
+  return out;
+}
+
+/** Nearest composer to a world point among already-measured targets. */
+export function nearestComposerTarget(
+  world: { x: number; y: number },
+  targets: readonly MeasuredComposer[],
+  thresholdPx = COMPOSER_PROXIMITY_PX,
+): ComposerTarget | null {
+  let best: ComposerTarget | null = null;
+  for (const t of targets) {
+    const distance = rectDistance(world, t.rect);
+    if (distance > thresholdPx) continue;
+    if (!best || distance < best.distance) {
+      best = { cardId: t.cardId, rect: t.rect, distance };
+    }
+  }
+  return best;
+}
+
 export function findNearestComposerTarget(
   world: { x: number; y: number },
   container: HTMLElement,
   viewport: Viewport,
   thresholdPx = COMPOSER_PROXIMITY_PX,
 ): ComposerTarget | null {
-  const containerRect = container.getBoundingClientRect();
-  const composers = container.querySelectorAll<HTMLElement>(
-    "[data-composer][data-card-id]",
+  return nearestComposerTarget(
+    world,
+    measureComposerTargets(container, viewport),
+    thresholdPx,
   );
-
-  let best: ComposerTarget | null = null;
-
-  for (const el of composers) {
-    const cardId = el.dataset.cardId;
-    if (!cardId) continue;
-    const rect = worldRectFromClientRect(
-      el.getBoundingClientRect(),
-      containerRect,
-      viewport,
-    );
-    const distance = rectDistance(world, rect);
-    if (distance > thresholdPx) continue;
-    if (!best || distance < best.distance) {
-      best = { cardId, rect, distance };
-    }
-  }
-
-  return best;
 }
 
 export function receivePlugWorldPosition(

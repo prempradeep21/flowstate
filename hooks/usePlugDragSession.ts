@@ -7,6 +7,9 @@ import {
   COMPOSER_PROXIMITY_PX,
   findNearestComposerTarget,
   hitReceivePlug,
+  measureComposerTargets,
+  nearestComposerTarget,
+  type MeasuredComposer,
   PLUG_DRAG_THRESHOLD_PX,
   screenToWorld,
 } from "@/lib/plugGeometry";
@@ -15,7 +18,14 @@ import {
   branchTargetAnchorY,
   getConnectionCardBounds,
 } from "@/lib/canvasMeasure";
-import { useCanvasStore, type PlugSide } from "@/lib/store";
+import {
+  useCanvasStore,
+  type PlugSide,
+  type Viewport,
+} from "@/lib/store";
+
+/** How long measured composer boxes are reused during one plug drag. */
+const COMPOSER_CACHE_MS = 250;
 
 /**
  * Where a card dropped off a plug drag goes so its receive plug — the side
@@ -59,7 +69,10 @@ function settleDroppedCard(cardId: string, pointerY: number) {
 export function usePlugDragSession(
   containerRef: React.RefObject<HTMLDivElement | null>,
 ) {
-  const plugDrag = useCanvasStore((s) => s.plugDrag);
+  // Only whether a drag is active: the drag object itself changes on every
+  // pointer frame, and depending on it would tear down and re-add the window
+  // listeners each frame.
+  const plugActive = useCanvasStore((s) => s.plugDrag != null);
   const updatePlugDrag = useCanvasStore((s) => s.updatePlugDrag);
   const endPlugDrag = useCanvasStore((s) => s.endPlugDrag);
   const createBranch = useCanvasStore((s) => s.createBranch);
@@ -103,31 +116,56 @@ export function usePlugDragSession(
   const startRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    if (!plugDrag) {
+    if (!plugActive) {
       startRef.current = null;
       return;
     }
 
-    const onPointerMove = (e: PointerEvent) => {
+    // Composer boxes in world space, measured once per drag and refreshed at
+    // most every COMPOSER_CACHE_MS (cards can grow or mount mid-drag). The old
+    // path ran querySelectorAll + getBoundingClientRect on every composer for
+    // every pointermove, forcing layout between React commits.
+    let composerCache: { targets: MeasuredComposer[]; at: number } | null =
+      null;
+    const composerTargets = (
+      container: HTMLElement,
+      viewport: Viewport,
+    ): MeasuredComposer[] => {
+      const now = performance.now();
+      if (!composerCache || now - composerCache.at > COMPOSER_CACHE_MS) {
+        composerCache = {
+          targets: measureComposerTargets(container, viewport),
+          at: now,
+        };
+      }
+      return composerCache.targets;
+    };
+
+    // Coalesce pointermove to one store write per animation frame.
+    let pending: { clientX: number; clientY: number } | null = null;
+    let raf = 0;
+
+    const applyMove = () => {
+      raf = 0;
+      const move = pending;
+      pending = null;
+      if (!move) return;
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const viewport = useCanvasStore.getState().viewport;
-      const world = screenToWorld(e.clientX, e.clientY, rect, viewport);
+      const world = screenToWorld(move.clientX, move.clientY, rect, viewport);
 
       if (!startRef.current) {
-        startRef.current = { x: e.clientX, y: e.clientY };
+        startRef.current = { x: move.clientX, y: move.clientY };
       }
       const dist = Math.hypot(
-        e.clientX - startRef.current.x,
-        e.clientY - startRef.current.y,
+        move.clientX - startRef.current.x,
+        move.clientY - startRef.current.y,
       );
-      const didDrag =
-        dist >= PLUG_DRAG_THRESHOLD_PX ||
-        (useCanvasStore.getState().plugDrag?.didDrag ?? false);
-
       const drag = useCanvasStore.getState().plugDrag;
       if (!drag) return;
+      const didDrag = dist >= PLUG_DRAG_THRESHOLD_PX || drag.didDrag;
 
       if (
         drag.kind === "artifact" ||
@@ -135,10 +173,9 @@ export function usePlugDragSession(
         drag.kind === "skill" ||
         drag.kind === "group"
       ) {
-        const nearest = findNearestComposerTarget(
+        const nearest = nearestComposerTarget(
           world,
-          container,
-          viewport,
+          composerTargets(container, viewport),
           COMPOSER_PROXIMITY_PX,
         );
         const hit = nearest ? hitReceivePlug(world, nearest) : null;
@@ -153,7 +190,19 @@ export function usePlugDragSession(
       }
     };
 
+    const onPointerMove = (e: PointerEvent) => {
+      if (!startRef.current) {
+        startRef.current = { x: e.clientX, y: e.clientY };
+      }
+      pending = { clientX: e.clientX, clientY: e.clientY };
+      if (!raf) raf = requestAnimationFrame(applyMove);
+    };
+
     const onPointerUp = (e: PointerEvent) => {
+      // Flush a move still waiting for its frame so didDrag is current: a
+      // flick shorter than one frame must still count as a drag, not a click.
+      if (raf) cancelAnimationFrame(raf);
+      applyMove();
       const container = containerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
@@ -340,12 +389,13 @@ export function usePlugDragSession(
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [
-    plugDrag,
+    plugActive,
     containerRef,
     updatePlugDrag,
     endPlugDrag,

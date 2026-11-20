@@ -87,6 +87,8 @@ import { ConnectionsCanvas } from "@/components/ConnectionsCanvas";
 import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { useGroupBento } from "@/hooks/useGroupBento";
 import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
+import { computeGroupBounds } from "@/lib/groupBounds";
+import { pickMarqueeChapters } from "@/lib/marqueeChapters";
 
 /** Kill-switch: restore the legacy SVG connections renderer for one release. */
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
@@ -131,7 +133,7 @@ import {
   pickCanvasLandingInput,
   shouldShowCanvasLanding,
 } from "@/lib/canvasLandingState";
-import { GroupBounds } from "@/components/GroupBounds";
+import { GroupBounds, GroupSelectionDragArea } from "@/components/GroupBounds";
 import { GroupSummaryIcon } from "@/components/GroupSummaryIcon";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import { SendIconPreview } from "@/components/SendIconButton";
@@ -144,6 +146,7 @@ import { CanvasPieMenu } from "@/components/CanvasPieMenu";
 import { useCanvasPieMenu } from "@/hooks/useCanvasPieMenu";
 import { CollaboratorCursors } from "@/components/CollaboratorCursors";
 import { isConversationCard } from "@/lib/conversationCard";
+import { installCanvasFlightRecorder } from "@/lib/canvasFlightRecorder";
 
 const MARQUEE_MIN_DRAG_PX = 6;
 
@@ -464,6 +467,8 @@ export function Canvas({
   // Chapter groups stay packed as their members change size (lib/groupBento).
   const bodyFamily = useArtifactStyle().pack.bodyFamily ?? null;
   useGroupBento(bodyFamily === "frost" ? "frost" : null);
+  // Canvas trace: off unless ?trace=1 / localStorage flag (lib/canvasFlightRecorder).
+  useEffect(() => installCanvasFlightRecorder(), []);
   const {
     user,
     authLoading,
@@ -870,6 +875,30 @@ export function Canvas({
       useCanvasStore.setState({ activeCanvasPlacement: mode });
     }
   }, [placement, artifactPlacement, textPlacement, imagePlacement, gifPlacement, threeDPlacement]);
+
+  // Cmd/Ctrl+A selects every chapter (group) on a canvas that has them, so a
+  // whole chapter grid can be dragged as one. Text fields keep their own
+  // select-all.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "a") return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+          return;
+        }
+      }
+      const st = useCanvasStore.getState();
+      const groupIds = Object.keys(st.groups);
+      if (groupIds.length < 2) return;
+      e.preventDefault();
+      st.setSelectedGroupIds(groupIds);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -2008,6 +2037,37 @@ export function Canvas({
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
+    // Chapters vs items: see lib/marqueeChapters. In short, sweeping across
+    // chapters picks them; boxing items that only clips one chapter's frame
+    // picks the items.
+    const rect = {
+      x1: Math.min(w1.x, w2.x),
+      y1: Math.min(w1.y, w2.y),
+      x2: Math.max(w1.x, w2.x),
+      y2: Math.max(w1.y, w2.y),
+    };
+    const groupBoxes = Object.values(state.groups).flatMap((g) => {
+      const b = computeGroupBounds(state, g);
+      return b ? [{ id: g.id, ...b }] : [];
+    });
+    const covered = pickMarqueeChapters(
+      groupBoxes,
+      rect,
+      rectSelection.familyRootIds.length > 0 || rectSelection.items.length > 0,
+    );
+    if (covered.length > 0) {
+      const groupKey = "groups::" + covered.join("|");
+      if (groupKey === lastMarqueeSelectionRef.current) return;
+      lastMarqueeSelectionRef.current = groupKey;
+      state.setCanvasSelection({ familyRootIds: [], items: [] });
+      state.setSelectedGroupIds(covered);
+      return;
+    }
+    // The box pulled back off every chapter: drop the chapters it picked.
+    if (lastMarqueeSelectionRef.current.startsWith("groups::")) {
+      state.setSelectedGroupIds([]);
+    }
+
     const next = ms.baseSelection
       ? mergeCanvasSelections(ms.baseSelection, rectSelection)
       : rectSelection;
@@ -2271,6 +2331,9 @@ export function Canvas({
           landingCardId={showLanding ? landingCardId : null}
           autoEditLabelId={autoEditLabelId}
         />
+        {groupList.map((group) => (
+          <GroupSelectionDragArea key={`drag-${group.id}`} group={group} />
+        ))}
         {!chatsGloballyHidden &&
           groupList.map((group) =>
             group.summaryMarkdown ? (

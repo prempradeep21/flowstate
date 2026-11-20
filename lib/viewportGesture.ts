@@ -22,6 +22,7 @@
 import { markUserViewportInteraction } from "@/lib/canvasViewportGuard";
 import { cancelViewportTween } from "@/lib/motion/animateViewport";
 import { useCanvasStore } from "@/lib/store";
+import { setGesturing } from "@/lib/gesture/gesturingAttr";
 
 /** Mirrors the store's zoom clamp (lib/store.ts MIN_SCALE/MAX_SCALE). */
 export const VIEWPORT_MIN_SCALE = 0.1;
@@ -234,16 +235,9 @@ type ViewportGestureMode = "pan" | "zoom";
 let gestureMode: ViewportGestureMode = "pan";
 
 function setGesturingAttr(mode: ViewportGestureMode | null): void {
-  const container = document.querySelector<HTMLElement>(
-    "[data-canvas-container]",
-  );
-  if (!container) return;
-  if (mode) container.setAttribute("data-gesturing", mode);
-  // Never clear here if a node drag holds the attr — the drag gestureLayer
-  // manages its own lifecycle; we only remove what we set while no drag is
-  // active. Node drags and viewport gestures don't overlap in practice
-  // (a drag captures the pointer), so a plain remove is safe.
-  else container.removeAttribute("data-gesturing");
+  // Shared with node drags: each side holds its own mode (gesturingAttr), so
+  // ending a zoom never strips a live drag's suppression, or the reverse.
+  setGesturing("viewport", mode);
 }
 
 function paint(): void {

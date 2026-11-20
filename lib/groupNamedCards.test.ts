@@ -69,6 +69,32 @@ describe("groups with individually named cards", () => {
     expect(findGroupForCard(state, "c3")).toBeNull();
   });
 
+  it("moves several chapters in one store write and marks them placed", () => {
+    seedStore();
+    const GROUP_B: BranchGroup = {
+      id: "g-b",
+      label: "Chapter 2",
+      familyRootThreadIds: [],
+      cardIds: ["c3"],
+      items: [],
+      dividerY: 120,
+      summaryMarkdown: null,
+    };
+    useCanvasStore.setState({ groups: { "g-a": GROUP_A, "g-b": GROUP_B } });
+    let writes = 0;
+    const unsub = useCanvasStore.subscribe(() => writes++);
+    useCanvasStore.getState().moveGroupsBy(["g-a", "g-b"], 10, 20);
+    unsub();
+    expect(writes).toBe(1);
+    const { cards, groups } = useCanvasStore.getState();
+    expect(cards.c1!.position).toEqual({ x: 10, y: 20 });
+    expect(cards.c3!.position).toEqual({ x: 5010, y: 20 });
+    expect(groups["g-a"]!.userPlaced).toBe(true);
+    expect(groups["g-b"]!.userPlaced).toBe(true);
+    // The divider line rides along with its chapter.
+    expect(groups["g-b"]!.dividerY).toBe(140);
+  });
+
   it("drags every named card as one unit", () => {
     seedStore();
     useCanvasStore.getState().moveGroupBy("g-a", 100, 50);

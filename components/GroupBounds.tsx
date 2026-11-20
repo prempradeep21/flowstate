@@ -30,6 +30,94 @@ const DIVIDER_STROKE_PX = 1.5;
 /** Concentric with the nodes it frames: their lg corner + the frame padding. */
 const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)`;
 
+// Label drag moves the whole group; refs resolve at drag start so members
+// added after mount are included. When this group is part of a multi-group
+// selection, the drag carries every selected group; otherwise just this one.
+// The chapters are fixed when the drag starts and the drop commits exactly
+// those: re-reading the selection on drop meant a selection change mid-drag
+// (a click elsewhere, the drag area unmounting) moved fewer chapters than
+// the pointer had carried, and the rest snapped back.
+function useGroupDrag(group: BranchGroup, onDrop?: (didMove: boolean) => void) {
+  const moveGroupsBy = useCanvasStore((s) => s.moveGroupsBy);
+  const carriedIdsRef = useRef<string[] | null>(null);
+  const draggedGroupIds = (): string[] => {
+    const st = useCanvasStore.getState();
+    return st.selectedGroupIds.includes(group.id)
+      ? st.selectedGroupIds.filter((id) => st.groups[id])
+      : [group.id];
+  };
+  return useCanvasNodeDrag({
+    kind: "group",
+    nodeId: group.id,
+    resolveRefs: () => {
+      const st = useCanvasStore.getState();
+      const ids = draggedGroupIds();
+      carriedIdsRef.current = ids;
+      return ids.flatMap((id) => groupGestureRefs(st, st.groups[id] ?? group));
+    },
+    // One store write for the whole selection: per-chapter writes each
+    // re-ran bento, culling, persistence and every subscriber.
+    commitMove: (_id, dx, dy) => {
+      const ids = carriedIdsRef.current ?? draggedGroupIds();
+      carriedIdsRef.current = null;
+      moveGroupsBy(ids, dx, dy);
+    },
+    onDrop: (didMove) => {
+      carriedIdsRef.current = null;
+      onDrop?.(didMove);
+    },
+  });
+}
+
+/**
+ * While a chapter is selected, its whole frame is a drag handle: this layer
+ * sits above the chapter's cards, so a press anywhere inside moves the
+ * selected chapters together instead of picking up one card or starting a
+ * new selection box. A click without a drag deselects, handing the cards
+ * back.
+ */
+function GroupSelectionDragAreaInner({ group }: GroupBoundsProps) {
+  const bounds = useGroupBounds(group);
+  const selected = useCanvasStore(
+    (s) => s.activeGroupId === group.id || s.selectedGroupIds.includes(group.id),
+  );
+  const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
+  const nodeDrag = useGroupDrag(group, (didMove) => {
+    if (!didMove) useCanvasStore.getState().clearSelection();
+  });
+  if (!bounds || !selected || canvasReadOnly) return null;
+  return (
+    <div
+      className="pointer-events-auto absolute cursor-grab active:cursor-grabbing"
+      data-group-drag-area={group.id}
+      style={{
+        left: bounds.x,
+        top: bounds.y,
+        width: bounds.w,
+        height: bounds.h,
+        borderRadius: CORNER_RADIUS,
+        // Above every card, raised ones included.
+        zIndex: 1_000_000,
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        e.preventDefault();
+        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+          useCanvasStore.getState().toggleGroupInSelection(group.id);
+          return;
+        }
+        nodeDrag.start(e, { moveSelection: false });
+      }}
+      onPointerMove={(e) => nodeDrag.move(e)}
+      onPointerUp={(e) => nodeDrag.end(e)}
+      onPointerCancel={(e) => nodeDrag.end(e)}
+    />
+  );
+}
+
+export const GroupSelectionDragArea = memo(GroupSelectionDragAreaInner);
+
 /**
  * Figma-section-style group container: translucent fill behind the members,
  * name label above the top-left corner, accent border + size badge when
@@ -41,12 +129,13 @@ const CORNER_RADIUS = `calc(var(--canvas-radius-lg) + ${GROUP_BOUNDS_PADDING}px)
  */
 function GroupBoundsInner({ group }: GroupBoundsProps) {
   const bounds = useGroupBounds(group);
-  const isActive = useCanvasStore((s) => s.activeGroupId === group.id);
+  const isActive = useCanvasStore(
+    (s) => s.activeGroupId === group.id || s.selectedGroupIds.includes(group.id),
+  );
   const canvasReadOnly = useCanvasStore((s) => s.canvasReadOnly);
   const setActiveGroupId = useCanvasStore((s) => s.setActiveGroupId);
   const clearSelection = useCanvasStore((s) => s.clearSelection);
   const renameGroup = useCanvasStore((s) => s.renameGroup);
-  const moveGroupBy = useCanvasStore((s) => s.moveGroupBy);
   const startPlugDrag = useCanvasStore((s) => s.startPlugDrag);
 
   const [editing, setEditing] = useState(false);
@@ -57,16 +146,7 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
     if (editing) inputRef.current?.select();
   }, [editing]);
 
-  // Label drag moves the whole group; refs resolve at drag start so members
-  // added after mount are included. The commit always goes through
-  // moveGroupBy.
-  const nodeDrag = useCanvasNodeDrag({
-    kind: "group",
-    nodeId: group.id,
-    resolveRefs: () =>
-      groupGestureRefs(useCanvasStore.getState(), group),
-    commitMove: (_id, dx, dy) => moveGroupBy(group.id, dx, dy),
-  });
+  const nodeDrag = useGroupDrag(group);
 
   if (!bounds) return null;
 
@@ -74,6 +154,17 @@ function GroupBoundsInner({ group }: GroupBoundsProps) {
     if (e.button !== 0 || editing) return;
     e.stopPropagation();
     e.preventDefault();
+    const st = useCanvasStore.getState();
+    // Shift/Cmd/Ctrl-click adds or removes this chapter from the selection.
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      st.toggleGroupInSelection(group.id);
+      return;
+    }
+    // Grabbing one of several selected chapters drags them all.
+    if (st.selectedGroupIds.length > 1 && st.selectedGroupIds.includes(group.id)) {
+      if (!canvasReadOnly) nodeDrag.start(e, { moveSelection: false });
+      return;
+    }
     // Activating the group clears any node selection (section semantics).
     clearSelection();
     setActiveGroupId(group.id);

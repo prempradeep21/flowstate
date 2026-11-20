@@ -15,6 +15,7 @@ import {
 import { MASTHEAD_ARTIFACT_KINDS } from "@/lib/transcriptArtifacts";
 import { CHAPTER_GAP_X } from "@/lib/transcriptImport/chapterLayout";
 import { useCanvasStore } from "@/lib/store";
+import { runDerivedLayoutWrite } from "@/lib/derivedLayoutWrite";
 
 /** How long the grid's move/resize transition runs (matches globals.css). */
 const BENTO_TWEEN_MS = 460;
@@ -75,9 +76,11 @@ export function useGroupBento(family: BentoFamily) {
           startBentoTween();
           tweening = true;
         }
-        useCanvasStore
-          .getState()
-          .applyBentoLayout(group.id, plan.patches, plan.dividerY);
+        runDerivedLayoutWrite(() =>
+          useCanvasStore
+            .getState()
+            .applyBentoLayout(group.id, plan.patches, plan.dividerY),
+        );
       }
       // The masthead column restacks, then the chapters keep one gap apart,
       // whatever widths the packs gave.
@@ -93,7 +96,7 @@ export function useGroupBento(family: BentoFamily) {
       if (Object.keys(stack).length > 0) {
         if (!tweening) startBentoTween();
         tweening = true;
-        mid.moveArtifactsTo(stack);
+        runDerivedLayoutWrite(() => mid.moveArtifactsTo(stack));
       }
       const after = useCanvasStore.getState();
       const shifts = planSpineShifts({
@@ -106,7 +109,7 @@ export function useGroupBento(family: BentoFamily) {
       });
       if (Object.keys(shifts).length > 0) {
         if (!tweening) startBentoTween();
-        after.shiftGroupsX(shifts);
+        runDerivedLayoutWrite(() => after.shiftGroupsX(shifts));
       }
     };
 

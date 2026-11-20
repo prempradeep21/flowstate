@@ -353,13 +353,31 @@ export function planSpineShifts(input: SpineInput): Record<string, number> {
         prevRight = Math.max(prevRight ?? -Infinity, node.position.x + w);
       }
     }
+    // A chapter the user placed by hand never moves, and the chapter after it
+    // is only pushed clear of it, never pulled up against it. A chapter with
+    // no vertical overlap with the one before it starts a new row and keeps
+    // its own x. Without these, every drop snapped chapters back onto a
+    // single horizontal spine: x reverted, y kept.
+    let prev: { top: number; bottom: number; userPlaced: boolean } | null =
+      null;
     for (const { group } of list) {
       const extent = groupExtent(group, input);
       if (!extent) continue;
+      if (prev && (extent.top >= prev.bottom || extent.bottom <= prev.top)) {
+        prevRight = null;
+      }
       let dx = 0;
-      if (prevRight !== null) dx = prevRight + input.gap - extent.left;
+      if (!group.userPlaced && prevRight !== null) {
+        dx = prevRight + input.gap - extent.left;
+        if (prev?.userPlaced && dx < 0) dx = 0;
+      }
       if (Math.abs(dx) > 0.5) shifts[group.id] = Math.round(dx);
       prevRight = extent.right + (Math.abs(dx) > 0.5 ? Math.round(dx) : 0);
+      prev = {
+        top: extent.top,
+        bottom: extent.bottom,
+        userPlaced: !!group.userPlaced,
+      };
     }
   }
   return shifts;

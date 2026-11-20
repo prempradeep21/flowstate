@@ -309,99 +309,142 @@ function mergeOrder(remote: string[], local: string[]): string[] {
   return merged;
 }
 
-/** Union merge for collaborative saves — local edits win on id collisions. */
+/** JSON with sorted keys, so two copies of one value compare equal. */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        )
+      : v,
+  );
+}
+
+function byId<T extends { id: string }>(items: readonly T[]): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const item of items) out[item.id] = item;
+  return out;
+}
+
+/**
+ * Per id: this client's version if it changed the item since `base` (an add,
+ * edit or delete), otherwise the server's version (which may be a delete).
+ */
+export function mergeRecordThreeWay<T>(
+  remote: Record<string, T>,
+  local: Record<string, T>,
+  base: Record<string, T>,
+): Record<string, T> {
+  const out: Record<string, T> = {};
+  const ids = new Set([
+    ...Object.keys(remote),
+    ...Object.keys(local),
+    ...Object.keys(base),
+  ]);
+  for (const id of ids) {
+    const l = local[id];
+    const b = base[id];
+    const localChanged =
+      l !== b &&
+      (l === undefined ||
+        b === undefined ||
+        stableStringify(l) !== stableStringify(b));
+    const pick = localChanged ? l : remote[id];
+    if (pick !== undefined) out[id] = pick;
+  }
+  return out;
+}
+
+/**
+ * Merge for a collaborative save that lost the optimistic lock.
+ *
+ * With `base` — the last state this client and the server agreed on (its own
+ * last successful save, or the last remote snapshot it loaded) — the merge is
+ * three-way: an item keeps this client's version only if this client changed
+ * it since `base` (including adding or deleting it); anything it left alone
+ * takes the server's version, so a remote move or delete is not undone by a
+ * stale copy. Without `base` it falls back to the old union, where local wins
+ * every collision.
+ */
 export function mergeCanvasSnapshots(
   remote: CanvasSnapshot,
   local: CanvasSnapshot,
+  base?: Partial<CanvasSnapshot> | null,
 ): CanvasSnapshot {
-  const cards = mergeRecordPreferLocal(remote.cards, local.cards);
+  const rec = <T,>(
+    r: Record<string, T>,
+    l: Record<string, T>,
+    b: Record<string, T> | undefined,
+  ): Record<string, T> =>
+    base ? mergeRecordThreeWay(r, l, b ?? {}) : mergeRecordPreferLocal(r, l);
+  const cards = rec(remote.cards, local.cards, base?.cards);
   const cardOrder = mergeOrder(remote.cardOrder, local.cardOrder).filter(
     (id) => id in cards,
   );
 
   const connectionIds = new Set(remote.connections.map((c) => c.id));
-  const connections = [
-    ...remote.connections,
-    ...local.connections.filter((c) => !connectionIds.has(c.id)),
-  ];
+  const connections = base
+    ? Object.values(
+        mergeRecordThreeWay(
+          byId(remote.connections),
+          byId(local.connections),
+          byId(base.connections ?? []),
+        ),
+      )
+    : [
+        ...remote.connections,
+        ...local.connections.filter((c) => !connectionIds.has(c.id)),
+      ];
 
-  return {
+  const merged: CanvasSnapshot = {
     ...remote,
     viewport: local.viewport,
     cards,
     cardOrder,
     connections,
-    threads: mergeRecordPreferLocal(remote.threads, local.threads),
+    threads: rec(remote.threads, local.threads, base?.threads),
     threadOrder: mergeOrder(remote.threadOrder, local.threadOrder),
     threadGists: mergeThreadGists(
       remote.threadGists ?? {},
       local.threadGists ?? {},
     ),
-    groups: mergeRecordPreferLocal(remote.groups, local.groups),
-    sessionArtifacts: mergeRecordPreferLocal(
-      remote.sessionArtifacts,
-      local.sessionArtifacts,
-    ),
-    canvasAssets: mergeRecordPreferLocal(
-      remote.canvasAssets ?? {},
-      local.canvasAssets ?? {},
-    ),
-    canvasArtifactNodes: mergeRecordPreferLocal(
-      remote.canvasArtifactNodes ?? {},
-      local.canvasArtifactNodes ?? {},
-    ),
+    groups: rec(remote.groups, local.groups, base?.groups),
+    sessionArtifacts: rec(remote.sessionArtifacts, local.sessionArtifacts, base?.sessionArtifacts),
+    canvasAssets: rec(remote.canvasAssets ?? {}, local.canvasAssets ?? {}, base?.canvasAssets),
+    canvasArtifactNodes: rec(remote.canvasArtifactNodes ?? {}, local.canvasArtifactNodes ?? {}, base?.canvasArtifactNodes),
     canvasArtifactOrder: mergeOrder(
       remote.canvasArtifactOrder ?? [],
       local.canvasArtifactOrder ?? [],
     ),
-    canvasAssetNodes: mergeRecordPreferLocal(
-      remote.canvasAssetNodes ?? {},
-      local.canvasAssetNodes ?? {},
-    ),
+    canvasAssetNodes: rec(remote.canvasAssetNodes ?? {}, local.canvasAssetNodes ?? {}, base?.canvasAssetNodes),
     canvasAssetOrder: mergeOrder(
       remote.canvasAssetOrder ?? [],
       local.canvasAssetOrder ?? [],
     ),
-    canvasSkills: mergeRecordPreferLocal(
-      remote.canvasSkills ?? {},
-      local.canvasSkills ?? {},
-    ),
-    canvasSkillNodes: mergeRecordPreferLocal(
-      remote.canvasSkillNodes ?? {},
-      local.canvasSkillNodes ?? {},
-    ),
+    canvasSkills: rec(remote.canvasSkills ?? {}, local.canvasSkills ?? {}, base?.canvasSkills),
+    canvasSkillNodes: rec(remote.canvasSkillNodes ?? {}, local.canvasSkillNodes ?? {}, base?.canvasSkillNodes),
     canvasSkillOrder: mergeOrder(
       remote.canvasSkillOrder ?? [],
       local.canvasSkillOrder ?? [],
     ),
-    canvasTextLabels: mergeRecordPreferLocal(
-      remote.canvasTextLabels ?? {},
-      local.canvasTextLabels ?? {},
-    ),
+    canvasTextLabels: rec(remote.canvasTextLabels ?? {}, local.canvasTextLabels ?? {}, base?.canvasTextLabels),
     canvasTextLabelOrder: mergeOrder(
       remote.canvasTextLabelOrder ?? [],
       local.canvasTextLabelOrder ?? [],
     ),
-    canvasStrokes: mergeRecordPreferLocal(
-      remote.canvasStrokes ?? {},
-      local.canvasStrokes ?? {},
-    ),
+    canvasStrokes: rec(remote.canvasStrokes ?? {}, local.canvasStrokes ?? {}, base?.canvasStrokes),
     canvasStrokeOrder: mergeOrder(
       remote.canvasStrokeOrder ?? [],
       local.canvasStrokeOrder ?? [],
     ),
-    canvasGifNodes: mergeRecordPreferLocal(
-      remote.canvasGifNodes ?? {},
-      local.canvasGifNodes ?? {},
-    ),
+    canvasGifNodes: rec(remote.canvasGifNodes ?? {}, local.canvasGifNodes ?? {}, base?.canvasGifNodes),
     canvasGifOrder: mergeOrder(
       remote.canvasGifOrder ?? [],
       local.canvasGifOrder ?? [],
     ),
-    canvas3DNodes: mergeRecordPreferLocal(
-      remote.canvas3DNodes ?? {},
-      local.canvas3DNodes ?? {},
-    ),
+    canvas3DNodes: rec(remote.canvas3DNodes ?? {}, local.canvas3DNodes ?? {}, base?.canvas3DNodes),
     canvas3DOrder: mergeOrder(
       remote.canvas3DOrder ?? [],
       local.canvas3DOrder ?? [],
@@ -425,6 +468,21 @@ export function mergeCanvasSnapshots(
     selectedModel: local.selectedModel,
     viewMode: local.viewMode,
   };
+  if (base) {
+    // A three-way merge can drop items (a delete on either side), so orders
+    // must not name ids their record no longer holds.
+    const keep = (order: string[] | undefined, record: object | undefined) =>
+      (order ?? []).filter((id) => record != null && id in record);
+    merged.threadOrder = keep(merged.threadOrder, merged.threads);
+    merged.canvasArtifactOrder = keep(merged.canvasArtifactOrder, merged.canvasArtifactNodes);
+    merged.canvasAssetOrder = keep(merged.canvasAssetOrder, merged.canvasAssetNodes);
+    merged.canvasSkillOrder = keep(merged.canvasSkillOrder, merged.canvasSkillNodes);
+    merged.canvasTextLabelOrder = keep(merged.canvasTextLabelOrder, merged.canvasTextLabels);
+    merged.canvasStrokeOrder = keep(merged.canvasStrokeOrder, merged.canvasStrokes);
+    merged.canvasGifOrder = keep(merged.canvasGifOrder, merged.canvasGifNodes);
+    merged.canvas3DOrder = keep(merged.canvas3DOrder, merged.canvas3DNodes);
+  }
+  return merged;
 }
 
 export function buildEmptyCanvasSnapshot(

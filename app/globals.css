@@ -1095,7 +1095,14 @@ html[data-theme="dark"] .timeline-band,
 [data-canvas-container][data-gesturing] [data-canvas-gif],
 [data-canvas-container][data-gesturing] [data-canvas-3d],
 [data-canvas-container][data-gesturing] [data-canvas-skill],
-[data-canvas-container][data-gesturing] [data-canvas-text-label] {
+[data-canvas-container][data-gesturing] [data-canvas-text-label],
+/* Chapter frames, dividers and the selection drag area too: the bento tween
+   animates their left/top, so without this a frame kept gliding under the
+   drag transform while its members snapped, and frames and contents parted. */
+[data-canvas-container][data-gesturing] [data-group-bounds],
+[data-canvas-container][data-gesturing] .canvas-group-divider,
+[data-canvas-container][data-gesturing] .canvas-artifact-node-shell,
+[data-canvas-container][data-gesturing] [data-group-drag-area] {
   transition: none !important;
 }
 

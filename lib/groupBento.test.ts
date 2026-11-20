@@ -138,6 +138,44 @@ describe("planSpineShifts / planMastheadStack", () => {
     expect(shifts).toEqual({ "x-chapter-2": 160, "x-chapter-3": 620 });
   });
 
+  const spine = (groups: BranchGroup[], cards: Record<string, Card>) =>
+    planSpineShifts({
+      groups: Object.fromEntries(groups.map((g) => [g.id, g])),
+      cards,
+      nodes: {},
+      sessionArtifacts: {},
+      mastheadKinds: new Set(["episode"]),
+      gap: 260,
+    });
+
+  it("never slides a chapter the user placed by hand", () => {
+    const cards = { a: card("a", 0, 0, 900), b: card("b", 3000, 70, 400) };
+    const shifts = spine(
+      [groupAt(1, "a"), { ...groupAt(2, "b"), userPlaced: true }],
+      cards,
+    );
+    expect(shifts).toEqual({});
+  });
+
+  it("pushes the chapter after a placed one clear of it, but never pulls it in", () => {
+    // Placed chapter 2 was dragged right: chapter 3 stays where it is.
+    const far = { a: card("a", 0, 0, 900), b: card("b", 3000, 0, 400), c: card("c", 4000, 0, 400) };
+    expect(spine([groupAt(1, "a"), { ...groupAt(2, "b"), userPlaced: true }, groupAt(3, "c")], far)).toEqual({});
+    // Placed chapter 2 was dragged onto chapter 3: chapter 3 is pushed clear.
+    const near = { a: card("a", 0, 0, 900), b: card("b", 1200, 0, 400), c: card("c", 1500, 0, 400) };
+    expect(spine([groupAt(1, "a"), { ...groupAt(2, "b"), userPlaced: true }, groupAt(3, "c")], near)).toEqual({
+      "x-chapter-3": 360,
+    });
+  });
+
+  it("lets a chapter on its own row keep its x", () => {
+    // Chapter 2 sits wholly below chapter 1: a new row, not a gap to close.
+    const cards = { a: card("a", 0, 0, 900, 300), b: card("b", 100, 600, 400), c: card("c", 700, 600, 400) };
+    expect(spine([groupAt(1, "a"), groupAt(2, "b"), groupAt(3, "c")], cards)).toEqual({
+      "x-chapter-3": 60,
+    });
+  });
+
   it("restacks the masthead column under a card that grew", () => {
     const nodes = {
       ep: node("ep", { position: { x: -2000, y: 0 }, size: { w: 1400, h: 900 }, layoutSetSize: true }),

@@ -4,6 +4,13 @@ const entries = new Map<string, CardAskEntry>();
 /** Active generation token per card — suppresses stale ask completion. */
 const inFlight = new Map<string, number>();
 let nextAskToken = 1;
+/** Bumps whenever the in-flight set changes, so memoized readers can tell. */
+let inFlightVersion = 0;
+
+/** Changes whenever any card's in-flight state changes. */
+export function cardAskInFlightVersion(): number {
+  return inFlightVersion;
+}
 
 export function registerCardAsk(
   cardId: string,
@@ -19,11 +26,15 @@ export function registerCardAsk(
 export function beginCardAsk(cardId: string): number {
   const token = nextAskToken++;
   inFlight.set(cardId, token);
+  inFlightVersion++;
   return token;
 }
 
 export function endCardAsk(cardId: string, token: number): void {
-  if (inFlight.get(cardId) === token) inFlight.delete(cardId);
+  if (inFlight.get(cardId) === token) {
+    inFlight.delete(cardId);
+    inFlightVersion++;
+  }
 }
 
 export function isCardAskInFlight(cardId: string): boolean {
@@ -33,7 +44,7 @@ export function isCardAskInFlight(cardId: string): boolean {
 export function cancelCardAsk(cardId: string): void {
   entries.get(cardId)?.cancel();
   entries.delete(cardId);
-  inFlight.delete(cardId);
+  if (inFlight.delete(cardId)) inFlightVersion++;
 }
 
 export function cancelCardAsks(cardIds: Iterable<string>): void {

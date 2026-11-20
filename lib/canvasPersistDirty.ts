@@ -281,6 +281,21 @@ export function classifyCanvasPersistChangeFast(
   };
 }
 
+/**
+ * Like areCanvasPersistSlicesEqual but ignores the viewport. Each client has
+ * its own viewport, so comparing it made every collaborator's snapshot look
+ * new and reload the whole canvas.
+ */
+export function areCanvasContentSlicesEqual(
+  prev: CanvasPersistSlice,
+  next: CanvasPersistSlice,
+): boolean {
+  return (
+    JSON.stringify({ ...pickCanvasPersistSlice(prev), viewport: null }) ===
+    JSON.stringify({ ...pickCanvasPersistSlice(next), viewport: null })
+  );
+}
+
 /** True when persisted canvas content is unchanged (ignores object identity). */
 export function areCanvasPersistSlicesEqual(
   prev: CanvasPersistSlice,

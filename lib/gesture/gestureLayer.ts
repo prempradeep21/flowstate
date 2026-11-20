@@ -19,6 +19,8 @@ import {
   incrementLocalEditGuard,
 } from "@/lib/localEditGuard";
 import { applyWillChange, clearWillChange } from "@/lib/motion/performance";
+import { setGesturing } from "@/lib/gesture/gesturingAttr";
+import { withWriteSource } from "@/lib/canvasWriteSource";
 
 export type CanvasNodeKind =
   | "card"
@@ -88,12 +90,9 @@ function nodeElement(ref: GestureNodeRef): HTMLElement | null {
 // suppression matches any [data-gesturing] value, while zoom-only effects
 // (shadow flattening) key on "zoom" from lib/viewportGesture and never
 // apply here (a dragged card without its shadow would look detached).
+// The attribute is shared with viewport gestures; see gesturingAttr.
 function setGesturingAttr(on: boolean): void {
-  const container = document.querySelector<HTMLElement>(
-    "[data-canvas-container]",
-  );
-  if (on) container?.setAttribute("data-gesturing", "drag");
-  else container?.removeAttribute("data-gesturing");
+  setGesturing("node-drag", on ? "drag" : null);
 }
 
 function notify(frame: NodeDragFrame | null): void {
@@ -228,7 +227,7 @@ export function endNodeDrag(
   drag.pendingDx = 0;
   drag.pendingDy = 0;
   if (commit && (drag.totalDx !== 0 || drag.totalDy !== 0)) {
-    commit(drag.totalDx, drag.totalDy);
+    withWriteSource("drag", () => commit(drag.totalDx, drag.totalDy));
   }
   teardown(drag);
 }
