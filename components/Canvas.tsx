@@ -88,6 +88,7 @@ import { useArtifactStyle } from "@/components/ArtifactStyleScope";
 import { useGroupBento } from "@/hooks/useGroupBento";
 import { setMarqueeSelecting } from "@/lib/gesture/gestureLayer";
 import { computeGroupBounds } from "@/lib/groupBounds";
+import { pickMarqueeChapters } from "@/lib/marqueeChapters";
 
 /** Kill-switch: restore the legacy SVG connections renderer for one release. */
 const SVG_CONNECTIONS = process.env.NEXT_PUBLIC_SVG_CONNECTIONS === "1";
@@ -2036,8 +2037,9 @@ export function Canvas({
       x2: Math.max(w1.x, w2.x),
       y2: Math.max(w1.y, w2.y),
     });
-    // A box picks every chapter it touches, partly or fully. A box drawn
-    // wholly inside one chapter picks the items in it instead.
+    // Chapters vs items: see lib/marqueeChapters. In short, sweeping across
+    // chapters picks them; boxing items that only clips one chapter's frame
+    // picks the items.
     const rect = {
       x1: Math.min(w1.x, w2.x),
       y1: Math.min(w1.y, w2.y),
@@ -2048,20 +2050,11 @@ export function Canvas({
       const b = computeGroupBounds(state, g);
       return b ? [{ id: g.id, ...b }] : [];
     });
-    const insideOne = groupBoxes.some(
-      (b) =>
-        rect.x1 >= b.x && rect.x2 <= b.x + b.w &&
-        rect.y1 >= b.y && rect.y2 <= b.y + b.h,
+    const covered = pickMarqueeChapters(
+      groupBoxes,
+      rect,
+      rectSelection.familyRootIds.length > 0 || rectSelection.items.length > 0,
     );
-    const covered = insideOne
-      ? []
-      : groupBoxes
-          .filter(
-            (b) =>
-              b.x < rect.x2 && b.x + b.w > rect.x1 &&
-              b.y < rect.y2 && b.y + b.h > rect.y1,
-          )
-          .map((b) => b.id);
     if (covered.length > 0) {
       const groupKey = "groups::" + covered.join("|");
       if (groupKey === lastMarqueeSelectionRef.current) return;

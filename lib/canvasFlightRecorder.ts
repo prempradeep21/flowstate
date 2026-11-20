@@ -1,4 +1,6 @@
+import { getSelectionUnits } from "@/lib/canvasSelection";
 import { currentWriteSource } from "@/lib/canvasWriteSource";
+import { computeGroupBounds } from "@/lib/groupBounds";
 import { useCanvasStore } from "@/lib/store";
 
 /**
@@ -15,6 +17,10 @@ import { useCanvasStore } from "@/lib/store";
  * - once a second: item counts, how many are mounted, selection sizes,
  *   store and viewport write rates, zoom.
  * A small overlay shows the totals; "Save" downloads the trace as JSON.
+ *
+ * `__flowstateTrace.selection()` works with the trace off: it lists what is
+ * selected right now and how far each piece reaches ("why is the whole
+ * board selected?").
  */
 
 const MAX_EVENTS = 6000;
@@ -339,6 +345,36 @@ export function saveTrace(): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+type Box = { x: number; y: number; w: number; h: number };
+const roundBox = (b: Box | null) =>
+  b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) } : null;
+
+/** What is selected now, piece by piece, with each piece's world bounds. */
+export function explainSelection() {
+  const s = useCanvasStore.getState();
+  const chapter = (id: string) => {
+    const g = s.groups[id];
+    if (!g) return { id, missing: true };
+    return {
+      id,
+      label: g.label,
+      cards: g.cardIds?.length ?? 0,
+      familyRoots: g.familyRootThreadIds.length,
+      items: g.items?.length ?? 0,
+      bounds: roundBox(computeGroupBounds(s, g)),
+    };
+  };
+  return {
+    activeChapter: s.activeGroupId ? chapter(s.activeGroupId) : null,
+    selectedChapters: s.selectedGroupIds.map(chapter),
+    units: getSelectionUnits(s, {
+      familyRootIds: s.selectedFamilyRootIds,
+      items: s.canvasSelection,
+    }).map((u) => ({ kind: u.kind, id: u.id, bounds: roundBox(u.bounds) })),
+    viewport: s.viewport,
+  };
+}
+
 /**
  * Expose `window.__flowstateTrace` and start if asked to by `?trace=1` or the
  * localStorage flag. Safe to call more than once.
@@ -350,6 +386,7 @@ export function installCanvasFlightRecorder(): void {
     stop: stopTrace,
     dump: dumpTrace,
     save: saveTrace,
+    selection: explainSelection,
   };
   let wanted = false;
   try {
